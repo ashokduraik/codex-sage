@@ -1,0 +1,19 @@
+{
+  "name": "codex-sage",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Root scripts for setup, install, and run of backend and frontend",
+  "scripts": {
+    "setup": "bash scripts/setup.sh",
+    "install": "bash scripts/install.sh",
+    "dev": "bash scripts/dev.sh",
+    "build": "bash scripts/build.sh",
+    "start": "bash scripts/start.sh",
+    "test": "bash scripts/test.sh",
+    "lint": "bash scripts/lint.sh",
+    "clean": "bash scripts/clean.sh"
+  },
+  "engines": {
+    "node": ">=26"
+  }
+}
