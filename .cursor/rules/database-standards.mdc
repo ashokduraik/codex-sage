@@ -1,0 +1,31 @@
+---
+description: Database standards (query optimization + security)
+globs: backend/**,docs/data-model.md,docs/schema/**
+alwaysApply: false
+---
+
+# Database standards
+
+Complements `data-model.mdc` (schema source of truth). These are the performance + security
+rules. All DB access goes through a repository / data-access layer in `backend/` — no ad-hoc
+queries scattered around.
+
+## Query optimization
+- **Index** frequently queried / foreign-key / filter columns.
+- **Avoid N+1 queries** — batch, join, or preload instead of per-row queries in loops.
+- Implement **pagination** for any list endpoint/query (keyset preferred at scale).
+- Use **connection pooling**.
+- **Store all dates/times in UTC**; convert at the presentation edge only.
+
+## Security
+- **Sanitize/validate all inputs** before they reach a query.
+- **Parameterized queries only** — never string-concatenate SQL (prevents injection).
+- Enforce **access controls** (RBAC + tenant/project scope) at the data boundary.
+- Plan for **regular security audits** of queries and access paths.
+
+## Soft delete
+
+User-facing deletes set row **`status = 'D'`** (default `'A'`) — see `row-status.mdc` and
+`soft-delete.mdc`. List queries must filter `status = 'A'`; hard `DELETE` requires an ADR.
+
+Do not invent a specific datastore engine — choose via ADR or ask (`no-assumptions.mdc`).

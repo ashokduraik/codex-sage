@@ -1,0 +1,29 @@
+---
+description: Project overview and the core architectural boundary (always read first)
+alwaysApply: true
+---
+
+# codex-sage — what it is
+
+Multi-tenant SaaS enterprise software intelligence platform: connect or upload project source
+and documentation → build project knowledge → grounded chat answers with inspectable evidence.
+Uncertainty becomes clarification or abstention, not a hallucination.
+
+Requirements: `backend/requirments.md`, `frontend/requirments.md`. Docs/ADRs in `docs/`.
+
+# The boundary you must respect
+
+```
+React (frontend/) → Node.js API + workers (backend/) → datastore
+```
+
+- **Frontend talks only to the backend.**
+- **HTTP handlers never block on heavy work.** Ingest, analysis, indexing, retrieval, and similar
+  long-running work runs in **Node background jobs/workers**. Handlers do auth, CRUD, enqueue,
+  and streaming of ready results.
+- **No Python** in this repo.
+- Do **not** invent datastore, HTTP framework, or LLM provider choices — ask or write an ADR.
+
+# Before any non-trivial change
+
+Read root `AGENTS.md` and the relevant requirements doc.

@@ -1,0 +1,24 @@
+---
+description: Documentation & ADR conventions (keep docs in sync, record decisions)
+globs: docs/**,**/README.md,**/AGENTS.md,**/PLAN.md,**/TODO.md,**/requirments.md
+alwaysApply: false
+---
+
+# Documentation & ADRs
+
+Docs are part of the deliverable; keep them truthful and in sync with the code.
+
+## Conventions
+- Product requirements today live in `backend/requirments.md` and `frontend/requirments.md`;
+  treat them as source-of-truth context for scope, not throwaway notes.
+- Cross-cutting architecture notes and ADRs live under `docs/` (create `docs/adr/` when the
+  first decision is recorded).
+- When a data model doc exists (`docs/data-model.md`, `docs/schema/`), update it in the **same
+  change** as any migration.
+- Prefer updating an existing doc over creating a new file; never let docs claim something the
+  code doesn't do.
+- **One decision = one ADR** in `docs/adr/` (Status · Context · Decision · Consequences ·
+  Alternatives · Escape hatch). ADRs are immutable once Accepted — supersede with a new one
+  rather than rewriting.
+- Write any **new architectural decision** (datastore, framework, queue, LLM provider, etc.)
+  as an ADR before/with the code that implements it — or ask the user first (`no-assumptions.mdc`).

@@ -1,0 +1,24 @@
+---
+description: Grounding & trust — cite sources, show evidence, never hallucinate
+globs: backend/**
+alwaysApply: false
+---
+
+# Grounding & trust (QA + knowledge)
+
+Trust is a product feature. Answers and derived knowledge must never fabricate content.
+
+## Rules
+- **Ground every answer** in retrieved project source/documentation and attach **evidence /
+  source references** the UI can inspect. No ungrounded answers.
+- If retrieved context does **not** support an answer, **abstain** or ask for clarification —
+  never hallucinate to fill the gap.
+- Every **derived knowledge** artifact carries **confidence (or equivalent) + source citations**
+  where the requirements call for evidence — never produce derived claims without them.
+- When code and documentation disagree, preserve enough evidence for the response to explain
+  the discrepancy.
+- Re-processing after source updates should be **incremental** where feasible: update affected
+  knowledge; do not silently invent replacements for missing evidence.
+
+See `backend/requirments.md` (grounded answers, evidence traceability) and `web-frontend.mdc`
+for rendering citations in the UI.

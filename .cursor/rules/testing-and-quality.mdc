@@ -1,0 +1,20 @@
+---
+description: Testing, structure, and quality conventions across the repo
+alwaysApply: true
+---
+
+# Testing & quality
+
+- **Testing frameworks + ≥ 80% coverage:** see `testing-standards.mdc` and `test-coverage.mdc`.
+  Colocate tests; cross-app E2E goes in a Playwright suite when present.
+- Test the **public surface** of a module, not its internals.
+- **Small, single-purpose files** with descriptive names over large grab-bag files.
+- **No deep cross-module imports** — modules expose a public surface (`index.ts`).
+- **Document every function** with JSDoc (purpose, params, returns). Other comments explain
+  **why / intent**, not a line-by-line narration of what the code does.
+- A change is **done** only when tests pass, lint/typecheck is clean (when wired), and the
+  relevant docs/ADRs are updated.
+- **Never commit secrets.** Document env vars in `.env.example`.
+- Record any new architectural decision as an ADR in `docs/adr/`.
+
+See root `AGENTS.md` and `docs/` when present.

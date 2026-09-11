@@ -1,0 +1,19 @@
+---
+description: Environment-specific behavior (development vs production)
+alwaysApply: true
+---
+
+# Environment-specific standards
+
+Behavior must adapt to the environment via configuration (never hardcode env assumptions).
+
+## Development
+- Detailed console/structured logging; **debug level** enabled.
+- Debug mode / verbose diagnostics acceptable.
+
+## Production
+- **Minimize console output**; use leveled, structured logs (info+ by default).
+- Implement proper **error tracking / reporting** (capture errors with context for triage).
+- Never log secrets, tokens, or full request bodies containing sensitive data.
+
+> Drive this from central config (validated env), not from scattered checks.

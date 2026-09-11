@@ -1,0 +1,13 @@
+---
+description: Keep Git commit messages short and explanatory
+alwaysApply: true
+---
+
+# Commit messages
+
+- Use one simple sentence that explains the changes.
+- Keep the entire message at 150 characters or fewer.
+- Do not add a body unless the user explicitly requests one.
+- Prefer plain language over unnecessary detail or jargon.
+
+Example: `Add grounded chat evidence citations to answer payload`

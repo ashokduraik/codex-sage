@@ -1,0 +1,65 @@
+---
+description: Responsive UI standards — mobile, tablet, and desktop layouts for frontend
+globs: frontend/**/*.{tsx,ts,css}
+alwaysApply: false
+---
+
+# Responsive UI — mobile, tablet, desktop
+
+All UI must be usable at every breakpoint. Design **mobile-first**: start with the smallest
+viewport and progressively enhance for tablet (≥ 768 px) and desktop (≥ 1280 px).
+
+## Breakpoints
+
+Use these named breakpoints consistently:
+
+| Name    | Min width | Example prefix |
+|---------|-----------|----------------|
+| mobile  | 0 px      | (base)         |
+| tablet  | 768 px    | `md:`          |
+| desktop | 1280 px   | `xl:`          |
+
+## Layout rules
+
+- **Fluid by default.** Use relative units (`%`, `rem`, `ch`) and max-widths — never fixed
+  pixel widths on containers.
+- **Flex / Grid, not absolute positioning** for layout; let content reflow naturally.
+- **Touch targets ≥ 44 × 44 px** (buttons, links, interactive elements).
+- **No horizontal overflow** on the page.
+- Stack single-column on mobile → multi-column on tablet and wider.
+
+```tsx
+// ❌ BAD: fixed-width sidebar, breaks on mobile
+<div className="flex">
+  <aside className="w-64">…</aside>
+  <main>…</main>
+</div>
+
+// ✅ GOOD: hidden on mobile, visible sidebar on tablet+
+<div className="flex flex-col md:flex-row">
+  <aside className="hidden md:block md:w-64 shrink-0">…</aside>
+  <main className="flex-1 min-w-0 p-4">…</main>
+</div>
+```
+
+## Typography & spacing
+
+- Base font size ≥ 16 px for body copy.
+- Prefer spacing tokens from the design system; avoid hardcoded `px` values for layout spacing.
+
+## Navigation
+
+- Collapse top-nav into a hamburger / bottom-bar on mobile.
+- Modals and drawers must be full-screen or near-full-screen on mobile.
+
+## Images & media
+
+- Always set explicit `width` + `height` on `<img>` to prevent layout shift.
+- Never let images overflow their container.
+
+## Testing checklist (required before marking done)
+
+- [ ] Renders without horizontal scroll at 375 px, 768 px, and 1280 px viewports.
+- [ ] Touch targets meet the 44 × 44 px minimum.
+- [ ] At least one mobile-width assertion in tests when UI is covered.
+- [ ] No hardcoded pixel widths on layout containers.

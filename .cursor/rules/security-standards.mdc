@@ -1,0 +1,26 @@
+---
+description: Security standards — secrets, tokens, RBAC, tenant isolation, audit
+alwaysApply: true
+---
+
+# Security standards
+
+This product is a **multi-tenant SaaS** platform handling private source code, documentation,
+and credentials. Security is not optional.
+
+## Secrets & tokens
+- **Never commit secrets.** Document variables in `.env.example`; real `.env` is git/cursor-ignored.
+- Repo and integration tokens are **encrypted at rest**; decrypt only in memory when needed
+  (e.g. a sync worker).
+- Prefer **least-privilege, read-only** tokens for connected repositories where applicable.
+- **Never log** secrets, tokens, passwords, or full sensitive request bodies.
+
+## Access control
+- Enforce **RBAC** and **tenant isolation** at the API and data boundaries; scope queries by
+  organization/project as required.
+- **Audit-log** sensitive and administrative actions (actor, action, target, timestamp).
+- **Parameterized queries only**; sanitize/validate all inputs (see `database-standards.mdc`).
+
+## Deployment posture
+- Do not invent hosting or vendor constraints. If a security-sensitive capability needs a
+  commercial or third-party service, **ask** or write an ADR before adding it.

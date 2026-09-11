@@ -1,0 +1,29 @@
+---
+description: Never assume — ask the user clarifying questions as many times as needed
+alwaysApply: true
+---
+
+# No assumptions — ask the user
+
+When anything is unclear, **do not guess or invent requirements, names, shapes, or behavior.**
+Ask the user. There is **no limit** on how many times you may ask — asking again is always
+better than building the wrong thing.
+
+## Rules
+
+- If a requirement, API shape, data model, scope, or acceptance criterion is ambiguous, **stop
+  and ask** before writing code.
+- Prefer the structured question tool (multiple-choice) so the user can answer quickly; ask in
+  batches when several things are unclear.
+- Re-ask whenever new ambiguity appears mid-task — repeatedly if necessary.
+- It is fine to ask for: missing values, intended behavior on edge cases, naming, file/module
+  placement, trade-off preferences, and confirmation before destructive or scope-changing actions.
+- Only proceed on a default when the user has explicitly said "use your judgement / recommended",
+  and even then, **state the assumption** you made.
+
+## Anti-pattern
+
+> "I'll assume the endpoint returns `{ data: [...] }` and move on." ❌
+
+> "The response shape isn't defined in the requirements. Should it be `{ data: [...] }` or a
+> bare array? (asking before I implement)" ✅

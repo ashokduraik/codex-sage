@@ -1,0 +1,38 @@
+---
+description: Install latest stable npm deps; ask before pinning older on conflict
+alwaysApply: true
+---
+
+# Dependency versions — latest stable, confirm before downgrade
+
+When adding or upgrading dependencies, **default to the latest stable release**. Do not
+guess compatibility, pin conservatively, or pick an older version without explicit user
+confirmation (see `no-assumptions.mdc`).
+
+## Scope
+
+| Ecosystem | Manifest | Lockfile | Install command |
+|-----------|----------|----------|-----------------|
+| npm (JS/TS) | `package.json` (root and/or `frontend/`, `backend/`) | `package-lock.json` | `npm install <pkg>@latest` |
+
+## Default workflow
+
+1. **Look up** the current latest stable version (registry / `npm view`).
+2. **Install latest stable** — do not pin to an older major/minor/patch unless the user asked.
+3. **Record** the resolved version in the manifest and lockfile; run `npm install` as needed.
+4. **Verify** with typecheck, lint, and relevant tests after the upgrade.
+
+## When latest is incompatible
+
+If install, resolve, build, typecheck, or tests fail due to a **peer dependency** or
+**transitive conflict**:
+
+1. **Stop** — do not silently pick an older version or change unrelated pins.
+2. **Report** the conflict clearly: package name, attempted latest version, error message,
+   and which existing dependency(ies) block it.
+3. **Ask the user** which path to take (prefer structured questions):
+   - Try a specific older version (user picks or approves your suggestion).
+   - Upgrade the blocking dependency first (if a newer compatible release exists).
+   - Defer the change.
+4. **Proceed with an older pin only after explicit user confirmation** — document why in the
+   PR/commit message (one line).

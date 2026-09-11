@@ -1,0 +1,28 @@
+---
+description: All code must reach 80% test coverage (line and branch)
+alwaysApply: true
+---
+
+# 80% code coverage — required
+
+Every change ships with tests that bring the affected code to **≥ 80% coverage — both line and
+branch.** No code is "done" until the threshold is met and CI is green (once CI exists).
+
+## Rules
+
+- Write tests **with** the code (same change/PR), not later. Cover every branch, error path, and
+  edge case — not just the happy path.
+- **CI enforces the threshold** when wired. Do not lower the threshold to make a build pass.
+- Coverage tooling applies to **TypeScript** in `frontend/` and `backend/`.
+- Test the module's **public surface** and its behavior, not implementation details.
+- If a line is genuinely impossible to cover, justify it with an explicit, reviewed ignore
+  annotation — used **rarely** and only with a one-line reason. Do not blanket-ignore files.
+- 80% is a floor, not the goal: prefer meaningful assertions over tests written only to touch lines.
+
+## Definition of Done (coverage part)
+
+- [ ] New/changed code has tests; coverage stays at or above 80% (line + branch).
+- [ ] Coverage report shows ≥ 80% for the touched packages; CI gate passes when present.
+- [ ] Any `ignore`/`no cover` is justified inline and reviewed.
+
+See `testing-standards.mdc` and root `AGENTS.md`.

@@ -1,0 +1,37 @@
+---
+description: Conventions for the Node non-blocking API and workers
+globs: backend/**
+alwaysApply: false
+---
+
+# backend/ — Node API + workers
+
+**Golden rule: HTTP handlers never block on heavy work.** If a handler would ingest, parse,
+embed, build knowledge, or run heavy retrieval — **enqueue a Node background job/worker**
+instead of doing that work inline.
+
+- **Module-per-domain:** each module = `routes + service + repository + tests`, public surface
+  only, no cross-imports of another module's internals.
+- Cross-cutting concerns (db client, queue enqueue, config, logging, errors) live in a shared
+  platform/shared layer inside `backend/`.
+- **Do not invent API request/response shapes.** Align with requirements or ask the user
+  (`no-assumptions.mdc`). When a shared OpenAPI/contracts approach is introduced, follow it
+  and update these rules.
+- **Security:** encrypt tokens at rest, enforce RBAC + tenant isolation, audit-log sensitive
+  actions.
+- Small files, descriptive names, colocated `*.test.ts`. No secrets in code.
+
+```ts
+// ❌ BAD: blocking heavy work in a request handler
+app.post('/projects/:id/sources', async (req, res) => {
+  await ingestAndIndex(req.body); // minutes of work
+  res.send('done');
+});
+
+// ✅ GOOD: enqueue and return immediately
+app.post('/projects/:id/sources', async (req, res) => {
+  const source = await sources.attach(req.body); // fast CRUD
+  await queue.enqueue('ingest', { sourceId: source.id });
+  res.status(202).json({ sourceId: source.id, status: 'processing' });
+});
+```

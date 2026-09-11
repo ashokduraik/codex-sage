@@ -1,0 +1,34 @@
+---
+description: Soft-delete policy for domain entities — never hard-delete user-facing resources
+alwaysApply: true
+---
+
+# Soft delete
+
+User-facing **delete** and **detach** operations on domain entities (organizations, projects,
+repos, users' resources, etc.) must be **soft deletes** — set row `status = 'D'`, never hard
+`DELETE` rows unless an ADR documents purge/retention. See `row-status.mdc` for the column
+convention.
+
+## Rules
+
+- **List and detail queries** exclude soft-deleted rows by default (`status = 'A'`).
+- **Background jobs, sync, and retrieval** must ignore soft-deleted resources so detached
+  projects/repos do not keep processing or appearing in answers.
+- **Related data** (chunks, knowledge, audit history) stays until an explicit purge operation;
+  soft delete only hides the parent entity from the product UI.
+- **Hard purge** (permanent removal) requires a separate admin path and its own ADR.
+
+## Examples
+
+```ts
+// ❌ BAD: hard delete on user detach
+await db`DELETE FROM repos WHERE id = ${repoId}`;
+
+// ✅ GOOD: soft delete tombstone
+await db`
+  UPDATE repos SET status = 'D' WHERE id = ${repoId} AND status = 'A'
+`;
+```
+
+See also `row-status.mdc`, `database-standards.mdc`, and `data-model.mdc`.

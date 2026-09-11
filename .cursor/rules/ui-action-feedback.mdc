@@ -1,0 +1,87 @@
+---
+description: Loading state, disabled state, and error feedback for every action button that triggers an API call
+globs: frontend/**/*.{tsx,ts}
+alwaysApply: false
+---
+
+# Action-button feedback — loading, disabled, and error states
+
+Every button (or interactive control) that fires an API call **must** follow this pattern:
+
+1. **Show a loader** inside the button while the request is in-flight.
+2. **Disable the button** (and any related form controls) until the API responds.
+3. **Display a meaningful error message** inline — never silently swallow errors.
+
+---
+
+## Loading + disabled
+
+Use React Query's `isPending` (mutations) or `isFetching` (queries) to drive both the visual
+indicator and the `disabled` prop atomically — they always stay in sync.
+
+```tsx
+// ❌ BAD: no feedback while the request runs
+<button onClick={() => createProject(data)}>Create</button>
+
+// ✅ GOOD: loader inside the button, disabled until resolved
+const { mutate, isPending } = useCreateProject();
+
+<button
+  onClick={() => mutate(data)}
+  disabled={isPending}
+  aria-busy={isPending}
+>
+  {isPending ? <Spinner size="sm" /> : t('projects.create.submit')}
+</button>
+```
+
+- The button label **swaps** for a `<Spinner>` (or an inline spinner alongside a label) —
+  never just grey out without a visual indicator.
+- Set `aria-busy={isPending}` so screen readers announce the in-progress state.
+- Disable **all** controls in the same form/section, not only the submit button, to prevent
+  partial edits mid-flight.
+
+---
+
+## Error display
+
+Catch the error returned by React Query and render it next to the action that caused it.
+Never show a raw `Error` object or a generic "Something went wrong" without actionable detail.
+
+```tsx
+// ❌ BAD: generic / silent error
+{isError && <p>Something went wrong.</p>}
+
+// ✅ GOOD: meaningful, localised message from the API error body
+const { mutate, isPending, isError, error } = useCreateProject();
+const apiMessage =
+  error && typeof error === 'object' && 'message' in error
+    ? String((error as { message: string }).message)
+    : t('errors.unexpected');
+
+{isError && (
+  <p role="alert" className="text-destructive text-sm mt-1">
+    {apiMessage}
+  </p>
+)}
+```
+
+### Rules for error messages
+
+- Source the text from the API's `error.message` field (the `{ error: { code, message } }`
+  shape the Node API always returns) — do not fabricate messages in the frontend.
+- Fall back to a localised generic string (`t('errors.unexpected')`) only when the API does
+  not return a parseable error body (network failure, 5xx with no body, etc.).
+- Place the error **adjacent to the button** that triggered it, not in a distant toast only.
+  Toasts may be added _in addition_, but not as the _only_ feedback path.
+- Clear the error automatically when the user retries or edits the form fields.
+- Use `role="alert"` on the error element so assistive technology announces it immediately.
+
+---
+
+## Testing checklist (required)
+
+- [ ] Test that the button is **disabled** and shows a spinner/loader while `isPending`.
+- [ ] Test that the button is **re-enabled** after a successful response.
+- [ ] Test that an **error message** is rendered (with `role="alert"`) when the mutation fails.
+- [ ] Test the **fallback message** when the error body is unparseable.

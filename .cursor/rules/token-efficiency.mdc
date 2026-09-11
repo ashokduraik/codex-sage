@@ -1,0 +1,34 @@
+---
+description: Keep AI responses token-lean — no padding, no repetition, no unsolicited narration.
+alwaysApply: true
+---
+
+# Token efficiency — always apply
+
+## Core rules
+
+- **No preamble.** Never restate the user's request before answering it.
+- **No filler.** Cut phrases like "Certainly!", "Great question!", "Of course!", "I'll help you with that."
+- **No post-amble.** Do not summarise what you just did at the end of a response.
+- **No step-by-step narration of trivial actions.** Just do the action; explain only when the *why* is non-obvious.
+- **No redundant tool-call commentary.** Don't write "Let me read the file:" and then immediately read it — just read it.
+- **Bullets > prose** for lists of facts or options.
+- **Short answers for short questions.** Match response length to task complexity.
+
+## File & code context
+
+- Read only the files you actually need for the task. Do not speculatively read large unrelated files.
+- Prefer targeted `Grep`/`SemanticSearch` over reading whole files when looking for one symbol.
+- When citing code, use the `startLine:endLine:filepath` reference format — don't paste full file contents unless asked.
+
+## Tool use
+
+- Batch independent tool calls in one message; never make a second call for something you could have done in the first.
+- Don't re-read a file you already read in the same turn unless the content changed.
+
+## Anti-patterns (never do)
+
+❌ "I'll now proceed to implement the feature as you requested…"  
+❌ Restating the plan after already stating it.  
+❌ Summarising every file you read.  
+❌ Explaining what a tool does before calling it.

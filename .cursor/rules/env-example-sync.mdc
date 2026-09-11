@@ -1,0 +1,29 @@
+---
+description: Keep .env in sync when .env.example changes
+globs: "**/.env.example"
+alwaysApply: true
+---
+
+# .env.example ↔ .env sync
+
+When you **add, rename, or change the default** of any variable in a `.env.example` file,
+update the matching **`.env`** in the **same directory** in the same change.
+
+## Layout
+
+| `.env.example` | Mirror to |
+|---|---|
+| `.env.example` (repo root) | `.env` (repo root) |
+| `backend/.env.example` | `backend/.env` |
+| `frontend/.env.example` | `frontend/.env` |
+
+When a variable is shared across apps, update **both** the component `.env.example` and the
+root `.env.example` (if used), then mirror each to its `.env`.
+
+## Rules
+
+- **Add missing keys** to `.env` with the same placeholder/default as `.env.example`.
+- **Do not overwrite** existing secret values in `.env` — only add the key or update documented
+  non-secret defaults when intentionally changing the default.
+- **Never commit** `.env` files.
+- **Do not read or print** `.env` contents in chat or logs.

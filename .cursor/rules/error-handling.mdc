@@ -1,0 +1,41 @@
+---
+description: Error handling — REST, SSE, process handlers, and UI feedback
+globs: backend/**,frontend/**
+alwaysApply: false
+---
+
+# Error handling (backend + frontend)
+
+Complements `backend-api-standards.mdc` and `ui-action-feedback.mdc`.
+
+## REST JSON errors
+
+- Always return `{ error: { code: string, message: string, details?: unknown } }`.
+- Use a global route error handler for the chosen Node HTTP framework. Log with request
+  context (req id / method / path). Unexpected 500s use a **stable client message**
+  (`Internal server error`); put real detail in logs only.
+- Never send a second response when headers are already sent.
+
+## SSE / streaming
+
+- After stream headers are sent, HTTP status cannot carry failure — emit a terminal chunk
+  (`error`, or successful `done` / abstain-equivalent).
+- Empty `catch` that only ends the stream without user feedback is **forbidden**.
+- Await async cleanup on abort/disconnect.
+- Do not invent stream chunk shapes — align with requirements or ask before defining them.
+
+## Process safety nets (Node)
+
+Every long-running Node entrypoint **must** register:
+
+- `process.on('unhandledRejection')` — log, **keep alive**
+- `process.on('uncaughtException')` — log, **exit(1)**
+
+These are safety nets, not a substitute for correct stream/request handling.
+
+## Frontend
+
+- Pre-stream HTTP failures → typed API error + localized/user-facing message (`role="alert"`).
+- Mid-stream `error` chunk or truncated stream (no terminal event) → treat as failure; never
+  silently succeed.
+- Do not show opaque transport strings (`fetch failed`, `terminated`) to users.

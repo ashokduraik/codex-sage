@@ -1,0 +1,21 @@
+---
+description: Database schema source-of-truth and migration rules
+globs: backend/**,docs/data-model.md,docs/schema/**
+alwaysApply: false
+---
+
+# Data & migrations
+
+- **One concern, one place:** schema changes happen **only via versioned migrations under
+  `backend/`** (exact folder once scaffolded). Never change production schema ad-hoc.
+- When `docs/data-model.md` and/or `docs/schema/<table>.md` exist, update them in the **same
+  change** as any migration.
+- **Do not invent a datastore** (engine, vector store, broker). Requirements do not prescribe
+  one — ask or write an ADR before adding any data system.
+- Derived knowledge that requires trust must keep **confidence (or equivalent) + source
+  citation / evidence** fields — see `grounding-and-trust.mdc`.
+- Prefer explicit columns over giant JSON blobs except for genuinely flexible artifacts.
+- **Every table** has row `status` default `'A'` (`A` = Active, `D` = Deleted) — see
+  `row-status.mdc`. Domain lifecycle uses a differently named column (e.g. `lifecycle_status`).
+- **Soft delete** domain entities via `status = 'D'` (see `soft-delete.mdc`); never hard-delete
+  user-facing resources without an ADR.

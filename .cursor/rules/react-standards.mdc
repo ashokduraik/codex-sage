@@ -1,0 +1,33 @@
+---
+description: React + TypeScript standards (components, state, i18n, testing)
+globs: frontend/**
+alwaysApply: false
+---
+
+# React + TypeScript standards (frontend/)
+
+Complements `web-frontend.mdc` (feature structure + boundary). These are the quality rules.
+
+## Components
+- **Functional components only** (hooks); no class components.
+- Type props with **interfaces**; components named in **PascalCase**.
+- Extract **custom hooks** for complex/reusable logic; keep components presentational.
+- Implement **error boundaries**; prefer composition over deep prop trees.
+
+## State & data
+- **React Query** for all server state / data fetching; no manual fetch-in-effect for server data.
+- Implement **optimistic updates** where it improves UX.
+- **No prop drilling beyond 2 levels** — use context or composition instead.
+
+## Localization (required)
+- **No hardcoded user-facing strings** in components. All labels go through the i18n layer
+  (e.g. `t('projects.create.title')`); support multiple languages + locale formatting (dates,
+  numbers) — and store/compare timestamps in UTC.
+
+## Testing
+- **≥ 80% test coverage** (Vitest); descriptive test names; cover loading/error/empty states.
+
+```tsx
+// ❌ const title = 'Create project';
+// ✅ const title = t('projects.create.title');
+```

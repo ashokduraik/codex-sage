@@ -1,0 +1,41 @@
+# Files Cursor should NOT index or feed to the model.
+# Keep this lean so the agent sees source + docs but not noise/secrets.
+
+# Secrets — never send to the model
+.env
+.env.*
+!.env.example
+
+# Dependencies
+node_modules/
+**/node_modules/
+.venv/
+**/.venv/
+
+# Build outputs
+dist/
+build/
+**/dist/
+**/build/
+coverage/
+**/coverage/
+htmlcov/
+
+# Caches
+.vite/
+.turbo/
+__pycache__/
+**/__pycache__/
+.pytest_cache/
+
+# Lockfiles (large, low signal for the agent)
+package-lock.json
+
+# Test/build artifacts
+playwright-report/
+test-results/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.log

@@ -1,0 +1,18 @@
+---
+description: Testing frameworks and conventions (unit + E2E)
+alwaysApply: true
+---
+
+# Testing standards
+
+The 80%-coverage gate lives in `test-coverage.mdc`; this rule fixes the **frameworks and
+conventions**.
+
+- **JS/TS unit tests:** **Vitest** (Jest-compatible API), colocated as `*.test.ts(x)` under
+  `frontend/` and `backend/`.
+- **End-to-end tests:** **Playwright** when the E2E suite exists (cross-app flows).
+- **Maintain ≥ 80% code coverage** (line + branch) across unit tests — see `test-coverage.mdc`.
+- **Descriptive test names** that state the behavior, e.g.
+  `it('returns 400 when email is missing')`, not `it('works')`.
+- Test the **public surface / behavior**, not implementation details.
+- Cover the unhappy paths: errors, edge cases, empty/loading states.

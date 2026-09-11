@@ -1,0 +1,32 @@
+---
+description: Global coding standards — production/enterprise-grade, long-term maintainable code
+alwaysApply: true
+---
+
+# Global coding standards
+
+Objective: code must be **production-grade, enterprise-grade, and easy to maintain for years**.
+
+## Language & structure
+- **TypeScript for all new JS/TS code** (no plain `.js` for application code).
+- Follow **clean code** principles; small, single-purpose units.
+- A file must **not exceed 1000 lines** — split before it does.
+- **Prefer `async/await`** over callbacks/`.then` chains.
+- Write **comprehensive error handling** (no empty catches; fail loud or handle deliberately).
+
+## Naming
+- Meaningful, intention-revealing names for variables and functions.
+- **Max 60 characters** for any variable or function name.
+
+## Comments & docs
+- Every function has **JSDoc**: purpose, params, returns, throws.
+  Write them so an AI agent can understand intent without reading the body.
+- Comments explain **why / intent**, not a line-by-line narration of what the code does.
+
+## Formatting (target; enforced by Prettier/ESLint once wired)
+- **2-space** indentation; **no trailing whitespace**; **semicolons required**.
+- **Single quotes** for strings in JS/TS; **max line length 100**.
+
+## External references
+- Follow the **Google TypeScript Style Guide**; format with **Prettier**; obey the project
+  **ESLint** config when present.

@@ -1,0 +1,42 @@
+---
+description: Row visibility status column — every table has status A (Active) or D (Deleted)
+alwaysApply: true
+---
+
+# Row status column
+
+Every table **must** have a `status` column for row visibility:
+
+| Value | Meaning   | When set                          |
+|-------|-----------|-----------------------------------|
+| `A`   | Active    | Default on `INSERT`               |
+| `D`   | Deleted   | User-facing delete / detach (soft delete) |
+
+## Rules
+
+- **Schema:** `status` is required, not null, default `'A'`, only `'A'` or `'D'`.
+- **New tables:** include `status` in the migration that creates the table.
+- **List and detail queries** filter active rows: `WHERE status = 'A'` (never return `D` by default).
+- **Soft delete:** `UPDATE … SET status = 'D' WHERE … AND status = 'A'` — never hard `DELETE`
+  user-facing resources unless an ADR documents purge/retention (see `soft-delete.mdc`).
+- **Partial indexes** on hot list paths should include `WHERE status = 'A'` when the datastore
+  supports them.
+- **Domain-specific state** (project lifecycle, job queue state, connection health) uses a
+  **different column name** — never overload row `status` (e.g. `lifecycle_status`,
+  `job_status`, `connection_status`).
+
+## Examples
+
+```ts
+// ❌ BAD: filter by deleted_at (legacy)
+WHERE deleted_at IS NULL
+
+// ✅ GOOD: filter active rows
+WHERE status = 'A'
+
+// ✅ GOOD: soft delete
+UPDATE projects SET status = 'D'
+WHERE id = ${projectId} AND status = 'A'
+```
+
+See also `soft-delete.mdc`, `data-model.mdc`, and `database-standards.mdc`.

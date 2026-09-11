@@ -1,0 +1,86 @@
+---
+description: Function design — meaningful names, own the response, Promises, extract only when reused
+alwaysApply: true
+---
+
+# Function & variable design
+
+## Meaningful names
+
+- Function and variable names must always be **intention-revealing** — say what they do or hold.
+- Avoid abbreviations, single-letter names (except loop indices), and vague names (`data`,
+  `temp`, `helper`, `handle`, `doStuff`).
+- Prefer verbs for functions (`loadProjectById`) and nouns for values (`projectId`).
+
+```ts
+// ❌ BAD
+const d = await get(id);
+function h(r, s) { /* ... */ }
+
+ // ✅ GOOD
+const project = await loadProjectById(projectId);
+async function listActiveProjects(organizationId: string) { /* ... */ }
+```
+
+## Own the response — never hand off `res`
+
+A function that receives the HTTP response (`res` / `Reply`) **must not pass it** to another
+function. The caller that owns the request/response cycle is the only place that writes the
+response (`res.status(…).json(…)`, `reply.send(…)`, etc.).
+
+Helpers return data or throw; they never call `res.*`.
+
+```ts
+// ❌ BAD — control of `res` transferred to a helper
+async function sendProject(res, projectId) {
+  const project = await loadProjectById(projectId);
+  res.json(project);
+}
+
+app.get('/projects/:id', async (req, res) => {
+  await sendProject(res, req.params.id);
+});
+
+// ✅ GOOD — handler owns `res`; helper returns data
+app.get('/projects/:id', async (req, res) => {
+  const project = await loadProjectById(req.params.id);
+  res.json(project);
+});
+```
+
+## Always use Promises
+
+- Prefer **`async`/`await`** (Promise-based) for all asynchronous work.
+- Do not introduce callback-style APIs for new code.
+- If a library is callback-only, wrap it once at the boundary with `util.promisify` or a thin
+  Promise adapter, then `await` everywhere else.
+
+```ts
+// ❌ BAD
+fs.readFile(path, (err, data) => { /* ... */ });
+
+// ✅ GOOD
+const data = await fs.promises.readFile(path);
+```
+
+## Extract functions only when reused
+
+- Do **not** create a function for one or two lines used in a single place.
+- Inline small, one-off logic at the call site.
+- Extract a named function only when the same logic is (or clearly will be) used in
+  **two or more** places, or when the body is complex enough that a name materially aids
+  understanding (multi-branch / multi-step domain logic — not a one-liner wrapper).
+
+```ts
+// ❌ BAD — one-liner helper used once
+function toStatusCode(ok: boolean) {
+  return ok ? 200 : 400;
+}
+res.status(toStatusCode(valid)).json(body);
+
+// ✅ GOOD — inline at the single call site
+res.status(valid ? 200 : 400).json(body);
+
+// ✅ GOOD — shared logic used in multiple handlers
+function mapProjectToDto(project: Project): ProjectDto { /* ... */ }
+```
