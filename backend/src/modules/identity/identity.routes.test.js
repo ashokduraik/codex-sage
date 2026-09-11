@@ -8,6 +8,7 @@ import { TEST_APP_CONFIG } from '../../test/appConfig.js';
 import { AUDIT_MODELS, listAuditEvents } from '../audit/index.js';
 import { AUTH_MODELS } from '../auth/index.js';
 import { hashPassword } from '../auth/passwordHasher.js';
+import { IDEMPOTENCY_MODELS, IdempotencyRecord } from '../../platform/idempotency/index.js';
 import {
   DEFAULT_ADMIN_EMAIL,
   DEFAULT_ADMIN_PASSWORD,
@@ -22,7 +23,7 @@ import {
 import { containsForbiddenSecretKey } from './identity.mappers.js';
 
 const harness = createMongoHarness({
-  models: [...IDENTITY_MODELS, ...AUTH_MODELS, ...AUDIT_MODELS],
+  models: [...IDENTITY_MODELS, ...AUTH_MODELS, ...AUDIT_MODELS, ...IDEMPOTENCY_MODELS],
   uri: TEST_APP_CONFIG.mongo.uri,
 });
 
@@ -124,7 +125,10 @@ describe('identity.routes', () => {
     const create = await app.inject({
       method: 'POST',
       url: `${API_BASE_PATH}/users`,
-      headers: { authorization: `Bearer ${accessToken}` },
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+        'idempotency-key': 'create-user-lifecycle-1',
+      },
       payload: {
         email: 'ada@acme.example',
         displayName: 'Ada Lovelace',
@@ -357,7 +361,10 @@ describe('identity.routes', () => {
     const res = await app.inject({
       method: 'POST',
       url: `${API_BASE_PATH}/users`,
-      headers: { authorization: `Bearer ${accessToken}` },
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+        'idempotency-key': 'create-user-foreign-role-1',
+      },
       payload: {
         email: 'x@example.com',
         displayName: 'X',
@@ -365,6 +372,157 @@ describe('identity.routes', () => {
       },
     });
     expect(res.statusCode).toBe(404);
+  });
+
+  it('requires Idempotency-Key on POST /users', async () => {
+    await runBootstrapSeed(createMockLog());
+    app = await readyApp();
+    const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
+    const org = await (
+      await import('./organization.repository.js')
+    ).findOrganizationBySlug('default');
+    const memberRole = await findBuiltInRole(org._id, 'member');
+    const missing = await app.inject({
+      method: 'POST',
+      url: `${API_BASE_PATH}/users`,
+      headers: { authorization: `Bearer ${accessToken}` },
+      payload: {
+        email: 'needs-key@example.com',
+        displayName: 'Needs Key',
+        roleIds: [String(memberRole._id)],
+      },
+    });
+    expect(missing.statusCode).toBe(400);
+    expect(missing.json().error.code).toBe('IDEMPOTENCY_KEY_REQUIRED');
+  });
+
+  it('replays POST /users for the same Idempotency-Key and body', async () => {
+    await runBootstrapSeed(createMockLog());
+    app = await readyApp();
+    const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
+    const org = await (
+      await import('./organization.repository.js')
+    ).findOrganizationBySlug('default');
+    const memberRole = await findBuiltInRole(org._id, 'member');
+    const payload = {
+      email: 'idempotent@example.com',
+      displayName: 'Idempotent',
+      roleIds: [String(memberRole._id)],
+    };
+    const headers = {
+      authorization: `Bearer ${accessToken}`,
+      'idempotency-key': 'create-user-replay-1',
+    };
+
+    const first = await app.inject({
+      method: 'POST',
+      url: `${API_BASE_PATH}/users`,
+      headers,
+      payload,
+    });
+    expect(first.statusCode).toBe(201);
+    const firstBody = first.json();
+
+    const second = await app.inject({
+      method: 'POST',
+      url: `${API_BASE_PATH}/users`,
+      headers,
+      payload,
+    });
+    expect(second.statusCode).toBe(201);
+    expect(second.json()).toEqual(firstBody);
+
+    const listed = await app.inject({
+      method: 'GET',
+      url: `${API_BASE_PATH}/users?q=idempotent@example.com`,
+      headers: { authorization: `Bearer ${accessToken}` },
+    });
+    expect(listed.statusCode).toBe(200);
+    expect(listed.json().items).toHaveLength(1);
+  });
+
+  it('rejects Idempotency-Key reuse with a different body', async () => {
+    await runBootstrapSeed(createMockLog());
+    app = await readyApp();
+    const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
+    const org = await (
+      await import('./organization.repository.js')
+    ).findOrganizationBySlug('default');
+    const memberRole = await findBuiltInRole(org._id, 'member');
+    const headers = {
+      authorization: `Bearer ${accessToken}`,
+      'idempotency-key': 'create-user-reuse-1',
+    };
+
+    const first = await app.inject({
+      method: 'POST',
+      url: `${API_BASE_PATH}/users`,
+      headers,
+      payload: {
+        email: 'reuse-a@example.com',
+        displayName: 'Reuse A',
+        roleIds: [String(memberRole._id)],
+      },
+    });
+    expect(first.statusCode).toBe(201);
+
+    const second = await app.inject({
+      method: 'POST',
+      url: `${API_BASE_PATH}/users`,
+      headers,
+      payload: {
+        email: 'reuse-b@example.com',
+        displayName: 'Reuse B',
+        roleIds: [String(memberRole._id)],
+      },
+    });
+    expect(second.statusCode).toBe(409);
+    expect(second.json().error.code).toBe('IDEMPOTENCY_KEY_REUSE');
+  });
+
+  it('concurrent POST /users with the same key create one user', async () => {
+    await runBootstrapSeed(createMockLog());
+    app = await readyApp();
+    const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
+    const org = await (
+      await import('./organization.repository.js')
+    ).findOrganizationBySlug('default');
+    const memberRole = await findBuiltInRole(org._id, 'member');
+    const payload = {
+      email: 'concurrent@example.com',
+      displayName: 'Concurrent',
+      roleIds: [String(memberRole._id)],
+    };
+    const headers = {
+      authorization: `Bearer ${accessToken}`,
+      'idempotency-key': 'create-user-concurrent-1',
+    };
+
+    const [a, b] = await Promise.all([
+      app.inject({
+        method: 'POST',
+        url: `${API_BASE_PATH}/users`,
+        headers,
+        payload,
+      }),
+      app.inject({
+        method: 'POST',
+        url: `${API_BASE_PATH}/users`,
+        headers,
+        payload,
+      }),
+    ]);
+
+    expect([a.statusCode, b.statusCode].sort()).toEqual([201, 201]);
+    expect(a.json().id).toBe(b.json().id);
+
+    const listed = await app.inject({
+      method: 'GET',
+      url: `${API_BASE_PATH}/users?q=concurrent@example.com`,
+      headers: { authorization: `Bearer ${accessToken}` },
+    });
+    expect(listed.json().items).toHaveLength(1);
+    expect(await IdempotencyRecord.countDocuments({})).toBe(1);
   });
 
   it('reset-password response and logs contain no secret', async () => {

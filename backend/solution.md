@@ -135,7 +135,7 @@ storage for materialized source/CodeGraph indexes, Git optional.
 **Packages (indicative):**
 
 ```text
-fastify @fastify/jwt @fastify/multipart @fastify/rate-limit zod
+fastify @fastify/jwt @fastify/multipart zod
 mongoose argon2 jose pino ai @ai-sdk/openai
 @langchain/langgraph @langchain/core
 @colbymchenry/codegraph adm-zip ignore unified remark-parse
@@ -1143,33 +1143,29 @@ Hard purge of GridFS objects is a separate admin path; document in ADR when enab
 
 ## 13. Rate limit / idempotency
 
-### 13.1 Rate limiting (`@fastify/rate-limit`)
+### 13.1 Rate limiting (not in the API process)
 
-Per-route budgets (keyed by `userId` when authed, else IP). Defaults tunable via env:
+The API is expected to run under **PM2 cluster mode on multiple hosts**. In-process rate-limit
+counters cannot be correct across workers and machines. **The Node API does not enforce
+per-route rate limits** (`@fastify/rate-limit` is not used). Requirements §91, if needed in
+an environment, are satisfied at the **load balancer / edge**, not inside Fastify.
 
-| Route class | MVP default (per user / min) |
-|-------------|------------------------------|
-| Auth (login / reset) | **10** / min (IP stricter) |
-| Source upload | **6** / min |
-| Chat message (SSE start) | **20** / min |
-| Search / knowledge browse | **60** / min |
-| Repo sync trigger | **10** / min |
-| Admin mutate | **30** / min |
-
-Return `429` with structured `{ error: { code: 'RATE_LIMITED', message, details: { retryAfterSec } } }`. Limits must not block normal enterprise use — raise via org config later.
+Catalog code `RATE_LIMITED` may still appear when an upstream returns `429`; the app does not
+emit it from an in-app limiter.
 
 ### 13.2 Idempotency
 
-Clients send `Idempotency-Key` header on mutating/async starts:
+Clients send `Idempotency-Key` header on mutating/async starts that opt in
+(`config.requireIdempotencyKey: true`). Missing header → `400 IDEMPOTENCY_KEY_REQUIRED`.
 
 | Operation | Behavior |
 |-----------|----------|
-| Upload / create sourceVersion | Same key + user + project → return existing `202` body; no second writer |
+| Upload / create sourceVersion | Same key + user + route → return existing `202` body; no second writer |
 | Job retry / reingest / repo sync | Same key → existing active job |
 | Chat message create | Same key → existing message + reconnect SSE / load status (no duplicate user rows) |
 | Admin creates (user, project) | Same key → existing resource |
 
-Store `IdempotencyRecord { key, orgId, userId, route, responseStatus, responseBodyHash, resourceId, expiresAt }` (TTL ~24h). Concurrent duplicates: first wins; second waits or gets the stored response.
+Store `IdempotencyRecord { key, orgId, userId, route, requestHash, recordState, responseStatus, responseBody, resourceId, expiresAt }` in **MongoDB** (TTL ~24h) so keys are shared across PM2 workers and API hosts. Concurrent duplicates: first wins; second waits or gets the stored response. Same key with a different body → `409 IDEMPOTENCY_KEY_REUSE`.
 
 ---
 

@@ -25,7 +25,6 @@ export async function passwordRoutes(app) {
     {
       config: {
         routeAccess: 'authenticated',
-        rateLimitClass: 'auth',
         allowWhenMustChangePassword: true,
       },
     },

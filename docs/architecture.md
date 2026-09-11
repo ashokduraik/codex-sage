@@ -52,6 +52,13 @@ Three participants. Concurrency in this slice is **async I/O inside each Node pr
 plus a **dedicated worker process** for heavy ingest/index work. There is no separate
 CodeGraph daemon and no Node `worker_threads` yet.
 
+**Deploy topology (API):** multiple hosts, each running the API under **PM2 cluster mode**
+(several Node workers per host). All workers share the same MongoDB replica set. Cross-request
+coordination that must be fleet-wide (notably **idempotency keys**) is stored in Mongo — not
+in process memory. **In-app rate limiting is not used** (per-process counters would be wrong
+across workers/hosts; Redis is out of scope — ADR 0004). Optional request limits belong at the
+load balancer / edge if operators need them.
+
 ```text
 ┌─────────────────────────────────────────────────────────────────┐
 │  Browser (React)                                                │
@@ -60,9 +67,10 @@ CodeGraph daemon and no Node `worker_threads` yet.
 └────────────────────────────┬────────────────────────────────────┘
                              │ HTTPS  /api/v1
                              │ JSON (CRUD)  ·  SSE (chat)
+                             │ (optional LB / edge rate limits)
                              ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  API process — Fastify (`backend/src/index.js`)                 │
+│  API hosts × N — each: PM2 cluster → Fastify (`backend/src/index.js`) │
 │                                                                 │
 │  Fast path: JWT, RBAC, CRUD, enqueue a job, open an SSE stream  │
 │  Chat: run the LangGraph workflow in this same process          │
@@ -77,7 +85,8 @@ CodeGraph daemon and no Node `worker_threads` yet.
 │ MongoDB 8+    │  │ Project      │   │ Ollama          │
 │ + GridFS      │  │ workspace    │   │ (model server)  │
 │ + jobs queue  │  │ + .codegraph │   └─────────────────┘
-└───────▲───────┘  └──────▲───────┘
+│ + idempotency │  └──────▲───────┘
+└───────▲───────┘         │
         │ claim           │ write tree + index
         │                 │
 ┌───────┴─────────────────┴───────────────────────────────────────┐
@@ -400,8 +409,8 @@ SSE events the UI handles: `status`, `delta` (token text), `clarification`, `evi
 
 | Concern | Where |
 |---------|--------|
-| Rate limit | `@fastify/rate-limit` per route class; `429` |
-| Idempotency | `Idempotency-Key` on upload, retry, sync, chat create, admin creates |
+| Rate limit | Not in the Node API (PM2 multi-host). Optional at LB/edge only |
+| Idempotency | `Idempotency-Key` + Mongo `idempotencyRecords` (shared across PM2 workers/hosts) |
 | Audit | append-only `AuditEvent`; curated `<domain>.<verb>` action catalog; best-effort writer (ADR 0016); no secrets, no raw source, no full chat |
 | Notifications | in-app only in this slice (knowledge/sync/attention) |
 | Usage | recorded `UsageEvent` / rollups only |

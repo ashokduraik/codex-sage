@@ -8,6 +8,10 @@ import {
   getCatalogEntry,
   isKnownErrorCode,
 } from './errorCatalog.js';
+import {
+  isIdempotencyReplayError,
+  releaseIdempotencyClaimOnError,
+} from './idempotency/idempotencyErrorHooks.js';
 
 /**
  * Intentional API error. Prefer {@link ApiError.fromCode} so status/class stay catalog-aligned.
@@ -165,7 +169,25 @@ export function registerErrorHandler(app) {
     },
   );
 
-  app.setErrorHandler((error, request, reply) => {
+  app.setErrorHandler(async (error, request, reply) => {
+    if (isIdempotencyReplayError(error)) {
+      if (!canSendJsonError(reply)) {
+        request.log.error(
+          { reqId: request.id },
+          'idempotency replay after headers sent — skipping body',
+        );
+        return;
+      }
+      const replay = /** @type {{ responseStatus: number, responseBody: unknown }} */ (error);
+      return reply.status(replay.responseStatus).send(replay.responseBody);
+    }
+
+    try {
+      await releaseIdempotencyClaimOnError(request);
+    } catch (releaseErr) {
+      request.log.warn({ err: releaseErr }, 'failed to release idempotency claim');
+    }
+
     const reference = request.id;
     const mapped = buildErrorEnvelope(error, reference);
 

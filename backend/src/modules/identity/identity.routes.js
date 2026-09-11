@@ -83,7 +83,12 @@ function serviceContext(request) {
 export async function identityRoutes(app) {
   app.post(
     '/users',
-    { config: { requiredPermissions: ['users.manage'] } },
+    {
+      config: {
+        requiredPermissions: ['users.manage'],
+        requireIdempotencyKey: true,
+      },
+    },
     async (request, reply) => {
       const parsed = createUserBodySchema.safeParse(request.body ?? {});
       if (!parsed.success) {
@@ -221,7 +226,6 @@ export async function identityRoutes(app) {
     '/users/:userId/reset-password',
     {
       config: {
-        rateLimitClass: 'auth',
         requiredPermissions: ['users.manage'],
       },
     },

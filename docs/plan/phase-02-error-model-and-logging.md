@@ -87,7 +87,8 @@ phase adds its own codes here and nothing else defines codes. A code that reache
 handler but is missing from the catalog is served as `INTERNAL_ERROR` and logged at `error` level
 as a defect. A `message` never contains a value, path, host, or anything derived from a secret
 (§148). Seeded now: `VALIDATION_ERROR`, `NOT_FOUND`, `UNAUTHENTICATED`, `FORBIDDEN`, `CONFLICT`,
-`RATE_LIMITED`, `IDEMPOTENCY_CONFLICT`, `INTERNAL_ERROR`, `SERVICE_UNAVAILABLE`,
+`RATE_LIMITED` (catalog only; API does not enforce in-app limits), `IDEMPOTENCY_KEY_REQUIRED`,
+`IDEMPOTENCY_KEY_REUSE`, `IDEMPOTENCY_IN_FLIGHT`, `INTERNAL_ERROR`, `SERVICE_UNAVAILABLE`,
 `MONGO_UNAVAILABLE`, `TENANT_SCOPE_MISSING`, `INVALID_CURSOR`, `KNOWLEDGE_UNAVAILABLE`,
 `CONTEXT_ACCOUNTING_UNAVAILABLE` — the last two are named verbatim in solution §1.2 and §5.8, so
 registering them now stops later phases spelling them differently.

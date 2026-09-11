@@ -55,10 +55,8 @@ invalidate.
 
 ### Out of scope (owner phase)
 
-- Rate limiting on the auth route class (solution §13.1 proposes 10/min per user, stricter per
-  IP) — **Phase 12**. Leave the hook: register every auth route with
-  `config: { rateLimitClass: 'auth' }` so Phase 12 attaches limits by class rather than
-  editing each route.
+- In-app rate limiting — **out of scope** (Phase 12 / solution §13.1). Optional limits at LB/edge
+  only; do not declare `rateLimitClass` on auth routes.
 - Audit events for login success, login failure, logout and refresh-reuse detection —
   **Phase 10**. Leave the hook: the auth service returns a typed outcome
   (`authenticated` | `invalid_credentials` | `not_permitted` | `reuse_detected`) that Phase 10
@@ -207,7 +205,7 @@ rehash occurs), `lastLoginAt`.
 ## 6. API contract — PROPOSED (needs approval before implementation)
 
 All four routes are unauthenticated at the transport level except `/me`, and all belong to the
-`auth` rate-limit class (Phase 12).
+Public auth routes declare `routeAccess: 'public'` (no in-app rate-limit class).
 
 ### `POST /api/v1/auth/login`
 
@@ -238,7 +236,7 @@ The refresh token is **not** in this body (**D14**). It is set as `Set-Cookie`:
 is set alongside it; the client echoes it as `X-CSRF-Token` on refresh and logout.
 
 Errors: `400 VALIDATION_ERROR` (zod, missing or malformed field);
-`401 INVALID_CREDENTIALS` (every rejected case, §4.5); `429 RATE_LIMITED` (Phase 12).
+`401 INVALID_CREDENTIALS` (every rejected case, §4.5).
 
 ### `POST /api/v1/auth/refresh`
 
@@ -249,8 +247,7 @@ Errors: `400 VALIDATION_ERROR` (zod, missing or malformed field);
 ```
 
 Response `200`: same shape as login. Errors: `401 SESSION_EXPIRED` (unknown, expired, revoked
-or already-rotated token — uniform, and reuse additionally revokes the family);
-`429 RATE_LIMITED`.
+or already-rotated token — uniform, and reuse additionally revokes the family).
 
 ### `POST /api/v1/auth/logout`
 
@@ -386,7 +383,7 @@ Locked values from the Phase 07 implementation review:
 - [ ] All five rejected login cases return an identical response.
 - [ ] `401` distinguishes `SESSION_EXPIRED` from `UNAUTHENTICATED` for the UI, without leaking
       account state.
-- [ ] Every auth route declares `config: { rateLimitClass: 'auth' }` for Phase 12.
+- [ ] Every public auth route declares `config: { routeAccess: 'public' }` (or authenticated as needed).
 - [ ] The auth service returns typed outcomes at the single call site Phase 10 will audit.
 - [ ] Log redaction covers password, token, hash and `authorization` / `cookie` headers, with a
       test proving it.
@@ -419,7 +416,7 @@ Locked values from the Phase 07 implementation review:
 4. **Residual access after logout.** `authenticate` checks `sid` session is still active.
 5. **Concurrent refresh.** Strict reuse detection — no grace window (ADR 0012).
 6. **Disabled user message.** Uniform `INVALID_CREDENTIALS` (including disabled).
-7. **Account lockout.** Deferred to Phase 12 rate limits; no per-account lockout in Phase 07.
+7. **Account lockout.** Not in Phase 07; in-app rate limiting is out of scope (Phase 12).
 8. **Session listing.** Deferred; not in this phase.
 9. **Bootstrap admin password.** Named constant `DEFAULT_ADMIN_PASSWORD = 'abc123'`; hashed at
    seed; `userStatus: 'active'`. Change via Phase 08.

@@ -56,8 +56,8 @@ endpoints are the only supported path from one seeded administrator to a working
   project access at user-create time; that field is **not** invented here (§12, question 1).
 - Organization create / update endpoints from solution §8.4 — no phase owns them yet (§12).
 - `Idempotency-Key` handling on admin creates — **Phase 12**, which retro-fits the middleware
-  onto `POST /users` and `POST /roles`.
-- Rate limiting of the admin-mutate class — **Phase 12**.
+  onto `POST /users` (and later create routes).
+- In-app rate limiting of admin mutates — **out of scope** (Phase 12 / solution §13.1).
 - Retention, usage and audit admin routes — **Phases 59, 60** and **Phase 10**.
 - Any database-query permission as a live feature (README §5): those catalog entries do not
   exist and must not be creatable on a custom role.

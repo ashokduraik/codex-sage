@@ -255,6 +255,66 @@ describe('registerErrorHandler (integration via buildApp)', () => {
     );
   });
 
+  it('skips idempotency replay when headers were already sent', async () => {
+    app = buildApp(TEST_APP_CONFIG);
+    await app.ready();
+    const errorLog = vi.fn();
+    const request = {
+      id: 'REQ-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      method: 'POST',
+      url: '/users',
+      log: { error: errorLog, warn: vi.fn() },
+    };
+    const reply = {
+      sent: true,
+      raw: { headersSent: true, writableEnded: false },
+      status: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    };
+    const { IdempotencyReplay } = await import('./idempotency/idempotencyReplay.js');
+    const replay = new IdempotencyReplay(201, { id: 'u1' });
+    await app.errorHandler(replay, request, reply);
+    expect(reply.send).not.toHaveBeenCalled();
+    expect(errorLog).toHaveBeenCalledWith(
+      expect.objectContaining({ reqId: 'REQ-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' }),
+      expect.stringContaining('idempotency replay after headers sent'),
+    );
+  });
+
+  it('warns when releasing an idempotency claim fails', async () => {
+    app = buildApp(TEST_APP_CONFIG);
+    await app.ready();
+    const { setIdempotencyErrorHooks } = await import(
+      './idempotency/idempotencyErrorHooks.js'
+    );
+    setIdempotencyErrorHooks({
+      isReplayError: () => false,
+      releaseOwnedClaim: async () => {
+        throw new Error('release failed');
+      },
+    });
+    const warnLog = vi.fn();
+    const request = {
+      id: 'REQ-cccccccccccccccccccccccccccccccc',
+      method: 'POST',
+      url: '/users',
+      log: { error: vi.fn(), warn: warnLog },
+      idempotency: { isOwner: true, recordId: 'r1' },
+      principal: { orgId: 'o1', userId: 'u1' },
+    };
+    const reply = {
+      sent: false,
+      raw: { headersSent: false, writableEnded: false },
+      status: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    };
+    await app.errorHandler(ApiError.fromCode('VALIDATION_ERROR'), request, reply);
+    expect(warnLog).toHaveBeenCalledWith(
+      expect.objectContaining({ err: expect.any(Error) }),
+      'failed to release idempotency claim',
+    );
+  });
+
   it('populates request context correlation id during a handler', async () => {
     app = buildApp(TEST_APP_CONFIG);
     let seen;

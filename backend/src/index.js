@@ -6,6 +6,7 @@ import { assertRolePermissionsInCatalog } from './modules/authorization/index.js
 import { IDENTITY_MODELS, runBootstrapSeed } from './modules/identity/index.js';
 import { loadConfig } from './platform/config.js';
 import { syncSchemaIndexes } from './platform/data/index.js';
+import { IDEMPOTENCY_MODELS } from './platform/idempotency/index.js';
 import { connectMongo, disconnectMongo } from './platform/mongo.js';
 import { registerProcessHandlers } from './platform/processHandlers.js';
 import {
@@ -56,7 +57,12 @@ async function start() {
 
   if (!config.env.isProduction) {
     try {
-      await syncSchemaIndexes([...IDENTITY_MODELS, ...AUTH_MODELS, ...AUDIT_MODELS]);
+      await syncSchemaIndexes([
+        ...IDENTITY_MODELS,
+        ...AUTH_MODELS,
+        ...AUDIT_MODELS,
+        ...IDEMPOTENCY_MODELS,
+      ]);
     } catch (err) {
       shutdownLog.error(
         { errName: err instanceof Error ? err.name : 'Error' },

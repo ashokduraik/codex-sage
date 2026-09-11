@@ -55,9 +55,8 @@ a password reset that actually protects the account.
 
 - **Public forgot / email delivery.** **Decided (D15):** there is no public forgot endpoint and
   no email/SMS channel. The administrator communicates the new password out of band.
-- Rate limiting on the reset routes (solution §13.1 puts login and password change in one class at
-  10/min) — **Phase 12**. Leave the hook: every route here declares
-  `config: { rateLimitClass: 'auth' }`.
+- In-app rate limiting — **out of scope** (Phase 12 / solution §13.1). Do not declare
+  `rateLimitClass` on password routes.
 - Audit events for password change, admin-initiated reset and reset redemption — **Phase 10**.
   Leave the hook: the password service returns typed outcomes at a single call site, as Phase
   07 does for login.
@@ -152,7 +151,7 @@ Admin set sets `mustChangePassword: true`. Self-service change clears it. Login 
 ### `POST /api/v1/auth/password/change`
 
 - **Auth:** access token. **Permission:** none beyond authentication.
-- `config: { rateLimitClass: 'auth', allowWhenMustChangePassword: true }`
+- `config: { routeAccess: 'authenticated', allowWhenMustChangePassword: true }`
 
 ```json
 { "currentPassword": "<user supplied>", "newPassword": "<user supplied>" }
@@ -167,7 +166,7 @@ Response `200`:
 Errors: `400 VALIDATION_ERROR`; `401 UNAUTHENTICATED`; `403 INVALID_CURRENT_PASSWORD`;
 `422 PASSWORD_POLICY_VIOLATION` with
 `details: { violations: ['TOO_SHORT' | 'SAME_AS_CURRENT'] }`;
-`429 RATE_LIMITED` (Phase 12).
+(Phase 12 idempotency is separate; in-app rate limiting is out of scope).
 
 ### `POST /api/v1/auth/password/forgot` and `POST /api/v1/auth/password/reset`
 
@@ -195,7 +194,7 @@ Response `200`:
 ```
 
 Errors: `401 UNAUTHENTICATED`; `403 FORBIDDEN`; `404 NOT_FOUND`;
-`409 CANNOT_MODIFY_SELF`; `422 PASSWORD_POLICY_VIOLATION`; `429 RATE_LIMITED`.
+`409 CANNOT_MODIFY_SELF`; `422 PASSWORD_POLICY_VIOLATION`.
 
 ## 7. Configuration & environment variables
 

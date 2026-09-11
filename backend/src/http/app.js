@@ -28,6 +28,7 @@ import {
   createAuthorizePreHandler,
   installRouteDeclarationCollector,
 } from '../modules/authorization/index.js';
+import { registerIdempotency } from '../platform/idempotency/index.js';
 import { registerRoutes } from './routes.js';
 import { healthRoutes } from '../modules/health/health.routes.js';
 
@@ -90,6 +91,7 @@ export function buildApp(config = loadConfig()) {
         'Content-Type',
         CORRELATION_ID_HEADER,
         'X-CSRF-Token',
+        'Idempotency-Key',
       ],
       exposedHeaders: [CORRELATION_ID_HEADER],
     });
@@ -125,6 +127,7 @@ export function buildApp(config = loadConfig()) {
   });
 
   registerErrorHandler(app);
+  registerIdempotency(app);
   // Unversioned infra aliases (same handlers as under API_BASE_PATH).
   void app.register(healthRoutes);
   void app.register(registerRoutes, { prefix: API_BASE_PATH });

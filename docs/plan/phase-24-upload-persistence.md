@@ -2,7 +2,7 @@
 
 - **Layer:** BE
 - **Depends on:** Phase 20 (Job enqueue), Phase 23 (validation + exclusion engine), Phase 12
-  (rate limit `upload`, `Idempotency-Key`), Phase 17 (project), Phase 10 (audit writer)
+  (`Idempotency-Key`), Phase 17 (project), Phase 10 (audit writer)
 - **Unblocks:** Phase 25 (worker S0–S2), Phase 33 (frontend upload slice)
 - **Size:** 1–2 days
 - **Requirements covered:** `backend/requirments.md` §10–§13, §92; `backend/solution.md`
@@ -47,7 +47,7 @@ cannot come after 25 (the worker would have nothing to claim).
 - GridFS bucket for accepted source/doc bytes only.
 - `SourceVersion` and `SourceFile` models (indexes declared on schemas).
 - Enqueue `ingest` job `pending`, audit `source.upload`.
-- `202` with ids; `Idempotency-Key` required; rate class `upload`.
+- `202` with ids; `Idempotency-Key` required.
 - Mark `excludedFromGraph` for >1 MiB accepted files.
 - Project lifecycle: if the project was `awaiting_source`, move it to the ingest-in-progress
   state Phase 17 already defined (do not invent a new enum value).
@@ -68,7 +68,7 @@ cannot come after 25 (the worker would have nothing to claim).
 
 ```text
 JWT → project ACL (sources.upload)
-rate class upload
+rate class: none (in-app rate limiting out of scope)
 Idempotency-Key required
 inspect zip (Phase 23) → fail 400 without writes if slip / integrity / empty
 open transaction:
@@ -182,7 +182,7 @@ Skipped paths are **not** `sourceFiles` rows (bytes never stored). Their count l
 - **Errors:** `400 SOURCE_ZIP_SLIP`, `400 SOURCE_ZIP_INTEGRITY`,
   `400 SOURCE_VERSION_EMPTY_AFTER_EXCLUSIONS`, `400 VALIDATION_ERROR`,
   `401`, `403`, `404` (project), `409 IDEMPOTENCY_KEY_REUSE`,
-  `409 IDEMPOTENCY_IN_FLIGHT`, `429 RATE_LIMITED`.
+  `409 IDEMPOTENCY_IN_FLIGHT`.
 
 No file bytes, no zip listing in the success body. Processing status is the job (Phase 20).
 

@@ -88,7 +88,7 @@ phase. Anything not listed here and not in the source documents above is an open
 
 **Not present at all:** MongoDB/Mongoose, GridFS, any domain model, auth, RBAC, audit, jobs,
 worker process, ingest, CodeGraph, LLM client, LangGraph, SSE, notifications, usage, retention,
-rate limiting, idempotency, API versioning (`/api/v1`).
+idempotency, API versioning (`/api/v1`).
 
 ### Frontend — `frontend/` (complete UI on mock data)
 
@@ -247,7 +247,7 @@ measurement/decision · `DOC` documentation.
 | 09 | [RBAC engine & route authorization](./phase-09-rbac-engine.md) | BE | 07 | be §6, §89, §90; sol §8.2 |
 | 10 | [Audit logging](./phase-10-audit-logging.md) | BE | 09 | be §86, §87, §150; sol §9 |
 | 11 | [Admin identity APIs: users, roles, memberships](./phase-11-admin-identity-apis.md) | BE | 09, 10 | be §5, §6, §135, §136; sol §8.4 |
-| 12 | [Rate limiting & idempotency](./phase-12-rate-limit-idempotency.md) | BE | 03, 09 | be §91, §92; sol §13 |
+| 12 | [Idempotency (no in-app rate limiting)](./phase-12-rate-limit-idempotency.md) | BE | 03, 09 | be §92; sol §13 |
 
 ### Part C — Frontend platform, auth and admin slices
 

@@ -7,8 +7,8 @@
 ## Context
 
 The backend needs a Node HTTP framework for JSON CRUD, SSE chat, and plugin-based
-cross-cutting concerns (JWT, cookies, rate limit, multipart). The API surface must be
-versioned without inventing per-environment route prefixes.
+cross-cutting concerns (JWT, cookies, multipart). The API surface must be versioned
+without inventing per-environment route prefixes.
 
 ## Decision
 
@@ -24,8 +24,8 @@ versioned without inventing per-environment route prefixes.
 
 - Plugins and route modules follow Fastify registration patterns.
 - Clients and the frontend target `/api/v1` until a future version ADR introduces `/api/v2`.
-- Rate-limit library choice (`@fastify/rate-limit`) may attach later; numeric policy is
-  Phase 12 constants, not this ADR.
+- Idempotency (`Idempotency-Key` + Mongo records) is a separate platform concern (Phase 12);
+  in-app rate limiting is out of scope for the API process.
 
 ## Alternatives considered
 

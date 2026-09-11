@@ -44,8 +44,8 @@ parity, CodeGraph at ~2M LOC), not the process topology.
 - LLM provider, CodeGraph feasibility, tokenizer parity — **Phase 05**.
 - Auth implementation — **Phase 07** (this phase records the *intent*; 07 may add a
   follow-up ADR for rotation/reuse if needed).
-- Rate-limit numeric values as product policy — **Phase 12** constants; this ADR only
-  records `@fastify/rate-limit` as the library.
+- Rate-limit policy — **out of app scope** (Phase 12 / solution §13.1); this ADR set does not
+  record `@fastify/rate-limit`.
 - Deployment, containers, cloud vendor — README D11, out of the plan.
 
 ## 4. Design

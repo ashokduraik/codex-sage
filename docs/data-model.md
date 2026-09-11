@@ -92,6 +92,16 @@ Tenant-scoped refresh-token rows (Phase 07 / ADR 0012). Fields: `userId`, `famil
 `email_changed`), plus base fields. Indexes: unique `{ refreshTokenHash: 1 }`;
 `{ orgId: 1, userId: 1, status: 1 }`; `{ familyId: 1 }`; `{ expiresAt: 1 }`.
 
+### `idempotencyRecords`
+
+Tenant-scoped platform rows for `Idempotency-Key` replay across PM2 workers and API hosts
+(Phase 12). Fields: `userId`, `route` (method + path template), `key`, `requestHash`,
+`recordState` (`processing` \| `completed`), `responseStatus`, `responseBody` (capped),
+`resourceId`, `expiresAt`, plus base fields. Unique partial index on
+`{ orgId: 1, userId: 1, route: 1, key: 1 }` where `status: 'A'`. TTL index on `{ expiresAt: 1 }`
+(hard expiry of non–user-facing rows). Soft-delete (`status: 'D'`) releases an in-flight claim
+when the owner request fails.
+
 ## Bootstrap seed
 
 On API startup the process ensures the default organization, four built-in roles, admin

@@ -56,6 +56,13 @@ describe('ERROR_CATALOG', () => {
     expect(ERROR_CATALOG.PASSWORD_CHANGE_REQUIRED.httpStatus).toBe(403);
     expect(ERROR_CATALOG.CANNOT_MODIFY_SELF.httpStatus).toBe(409);
   });
+  it('registers idempotency codes used by Phase 12', () => {
+    expect(ERROR_CATALOG.IDEMPOTENCY_KEY_REQUIRED.httpStatus).toBe(400);
+    expect(ERROR_CATALOG.IDEMPOTENCY_KEY_REUSE.httpStatus).toBe(409);
+    expect(ERROR_CATALOG.IDEMPOTENCY_IN_FLIGHT.httpStatus).toBe(409);
+    expect(ERROR_CATALOG.IDEMPOTENCY_IN_FLIGHT.retryability).toBe('temporary');
+    expect(ERROR_CATALOG.IDEMPOTENCY_CONFLICT).toBeUndefined();
+  });
 });
 
 describe('getCatalogEntry / isKnownErrorCode', () => {

@@ -135,11 +135,23 @@ export const ERROR_CATALOG = Object.freeze({
     message: 'Too many requests. Try again later.',
     allowDetails: true,
   }),
-  IDEMPOTENCY_CONFLICT: Object.freeze({
+  IDEMPOTENCY_KEY_REQUIRED: Object.freeze({
+    class: 'user',
+    httpStatus: 400,
+    retryability: 'user_action_required',
+    message: 'Idempotency-Key header is required for this operation.',
+  }),
+  IDEMPOTENCY_KEY_REUSE: Object.freeze({
     class: 'user',
     httpStatus: 409,
     retryability: 'user_action_required',
-    message: 'Idempotency key conflict.',
+    message: 'Idempotency-Key was reused with a different request body.',
+  }),
+  IDEMPOTENCY_IN_FLIGHT: Object.freeze({
+    class: 'user',
+    httpStatus: 409,
+    retryability: 'temporary',
+    message: 'A request with this Idempotency-Key is still in progress.',
   }),
   INTERNAL_ERROR: Object.freeze({
     class: 'system',

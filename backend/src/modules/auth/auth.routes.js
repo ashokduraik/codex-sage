@@ -121,7 +121,7 @@ export async function authRoutes(app) {
   app.post(
     '/auth/login',
     {
-      config: { routeAccess: 'public', rateLimitClass: 'auth' },
+      config: { routeAccess: 'public' },
     },
     async (request, reply) => {
       const parsed = loginBodySchema.safeParse(request.body ?? {});
@@ -150,7 +150,7 @@ export async function authRoutes(app) {
   app.post(
     '/auth/refresh',
     {
-      config: { routeAccess: 'public', rateLimitClass: 'auth' },
+      config: { routeAccess: 'public' },
       onRequest: app.csrfProtection,
     },
     async (request, reply) => {
@@ -174,7 +174,7 @@ export async function authRoutes(app) {
   app.post(
     '/auth/logout',
     {
-      config: { routeAccess: 'public', rateLimitClass: 'auth' },
+      config: { routeAccess: 'public' },
       onRequest: app.csrfProtection,
     },
     async (request, reply) => {
@@ -189,7 +189,6 @@ export async function authRoutes(app) {
     {
       config: {
         routeAccess: 'authenticated',
-        rateLimitClass: 'auth',
         allowWhenMustChangePassword: true,
       },
     },
