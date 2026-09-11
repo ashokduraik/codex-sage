@@ -58,6 +58,7 @@ roleSchema.index(
     partialFilterExpression: { isBuiltIn: true, status: ROW_STATUS_ACTIVE },
   },
 );
+roleSchema.index({ orgId: 1, status: 1, createdAt: -1, _id: -1 });
 
 export const Role =
   mongoose.models.Role ?? mongoose.model('Role', roleSchema, 'roles');

@@ -63,7 +63,10 @@ Tenant-scoped. Fields: `email`, `displayName`, `passwordHash` (`select: false`),
 `passwordUpdatedAt`, `mustChangePassword` (boolean, default `false`; set on admin-set
 password, cleared on self-service change), `userStatus` (`active` \| `invited` \|
 `disabled`), `lastLoginAt`, plus base fields. Unique partial index on
-`{ orgId: 1, email: 1 }` where `status: 'A'`. No `passwordHistory` in this slice
+`{ orgId: 1, email: 1 }` where `status: 'A'`. List/keyset indexes:
+`{ orgId: 1, status: 1, createdAt: -1, _id: -1 }`, `{ orgId: 1, displayName: 1 }`,
+plus `{ orgId: 1, status: 1, _id: -1 }` and `{ orgId: 1, userStatus: 1, _id: -1 }`.
+Email is mutable after create (admin `PATCH`); no `passwordHistory` in this slice
 (`PASSWORD_HISTORY_LENGTH = 0`).
 
 ### `roles`
@@ -72,6 +75,8 @@ Tenant-scoped. Built-in roles use `isBuiltIn: true` and `builtInKey` (`org_admin
 `project_admin`, `member`, `viewer`) with empty `permissions` (resolved from code — see
 [`permissions.md`](./permissions.md)). Custom roles store `permissions`. Unique partial
 indexes on `{ orgId: 1, name: 1 }` and `{ orgId: 1, builtInKey: 1 }` (built-ins only).
+Keyset list index: `{ orgId: 1, status: 1, createdAt: -1, _id: -1 }`. Built-in roles may
+change `description` only; name, permissions, and soft-delete are immutable.
 
 ### `memberships`
 
@@ -83,9 +88,9 @@ index on `{ orgId: 1, userId: 1 }` where `status: 'A'`.
 Tenant-scoped refresh-token rows (Phase 07 / ADR 0012). Fields: `userId`, `familyId`,
 `refreshTokenHash` (SHA-256 of the opaque token — never the raw value), `issuedAt`,
 `expiresAt`, optional `rotatedAt` / `replacedBySessionId`, optional `revokedAt` /
-`revokedReason` (`logout` \| `reuse_detected` \| `password_changed` \| `user_disabled`),
-plus base fields. Indexes: unique `{ refreshTokenHash: 1 }`; `{ orgId: 1, userId: 1, status: 1 }`;
-`{ familyId: 1 }`; `{ expiresAt: 1 }`.
+`revokedReason` (`logout` \| `reuse_detected` \| `password_changed` \| `user_disabled` \|
+`email_changed`), plus base fields. Indexes: unique `{ refreshTokenHash: 1 }`;
+`{ orgId: 1, userId: 1, status: 1 }`; `{ familyId: 1 }`; `{ expiresAt: 1 }`.
 
 ## Bootstrap seed
 

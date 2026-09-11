@@ -146,7 +146,7 @@ export async function rotateSession(currentSession, nextRefreshTokenHash) {
 /**
  * Revokes a single session (logout).
  * @param {import('mongoose').Types.ObjectId | string} sessionId Session id.
- * @param {'logout' | 'reuse_detected' | 'password_changed' | 'user_disabled'} reason Revocation reason.
+ * @param {'logout' | 'reuse_detected' | 'password_changed' | 'user_disabled' | 'email_changed'} reason Revocation reason.
  * @returns {Promise<import('mongoose').UpdateResult>}
  */
 export async function revokeSession(sessionId, reason) {
@@ -165,7 +165,7 @@ export async function revokeSession(sessionId, reason) {
 /**
  * Revokes every session in a refresh-token family (reuse detection).
  * @param {string} familyId Family id shared by rotations of one login.
- * @param {'reuse_detected' | 'logout' | 'password_changed' | 'user_disabled'} reason Reason.
+ * @param {'reuse_detected' | 'logout' | 'password_changed' | 'user_disabled' | 'email_changed'} reason Reason.
  * @returns {Promise<import('mongoose').UpdateResult>}
  */
 export async function revokeSessionFamily(familyId, reason) {
@@ -185,7 +185,7 @@ export async function revokeSessionFamily(familyId, reason) {
  * Revokes all active sessions for a user (password change / disable).
  * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
  * @param {import('mongoose').Types.ObjectId | string} userId User id.
- * @param {'password_changed' | 'user_disabled' | 'logout'} reason Reason.
+ * @param {'password_changed' | 'user_disabled' | 'logout' | 'email_changed'} reason Reason.
  * @param {{ session?: import('mongoose').ClientSession }} [options] Optional Mongo session.
  * @returns {Promise<import('mongoose').UpdateResult>}
  */

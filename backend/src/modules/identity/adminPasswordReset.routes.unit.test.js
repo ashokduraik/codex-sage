@@ -5,34 +5,62 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('../auth/password.service.js', () => ({
   adminSetPassword: vi.fn(),
+  getPasswordResetStatus: vi.fn(() => ({ state: 'none', completedAt: null })),
+}));
+
+vi.mock('../audit/index.js', () => ({
+  buildAuditContextFromRequest: vi.fn(() => ({
+    correlationId: 'corr-1',
+    ip: undefined,
+    userAgent: undefined,
+  })),
+  recordAuditEvent: vi.fn(async () => {}),
 }));
 
 import { adminSetPassword } from '../auth/password.service.js';
 import { adminPasswordResetRoutes } from './adminPasswordReset.routes.js';
 
 /**
- * @returns {{ post: Function, getHandler: Function, getConfig: Function }}
+ * @returns {{
+ *   post: Function,
+ *   get: Function,
+ *   patch: Function,
+ *   put: Function,
+ *   delete: Function,
+ *   getResetHandler: Function,
+ *   getResetConfig: Function,
+ * }}
  */
 function createFakeApp() {
-  /** @type {((request: object) => Promise<unknown>) | null} */
-  let handler = null;
+  /** @type {((request: object, reply?: object) => Promise<unknown>) | null} */
+  let resetHandler = null;
   /** @type {object | null} */
-  let config = null;
+  let resetConfig = null;
+
+  /**
+   * @param {string} method
+   * @returns {(path: string, opts: object, routeHandler: Function) => void}
+   */
+  function register(method) {
+    return (path, opts, routeHandler) => {
+      if (method === 'post' && path === '/users/:userId/reset-password') {
+        resetConfig = opts.config;
+        resetHandler = routeHandler;
+      }
+    };
+  }
+
   return {
-    /**
-     * @param {string} _path
-     * @param {object} opts
-     * @param {(request: object) => Promise<unknown>} routeHandler
-     */
-    post(_path, opts, routeHandler) {
-      config = opts.config;
-      handler = routeHandler;
+    post: register('post'),
+    get: register('get'),
+    patch: register('patch'),
+    put: register('put'),
+    delete: register('delete'),
+    getResetHandler() {
+      return resetHandler;
     },
-    getHandler() {
-      return handler;
-    },
-    getConfig() {
-      return config;
+    getResetConfig() {
+      return resetConfig;
     },
   };
 }
@@ -41,7 +69,7 @@ describe('adminPasswordReset.routes edge outcomes', () => {
   it('declares users.manage for the global authorize hook', async () => {
     const app = createFakeApp();
     await adminPasswordResetRoutes(/** @type {any} */ (app));
-    expect(app.getConfig()).toEqual(
+    expect(app.getResetConfig()).toEqual(
       expect.objectContaining({
         requiredPermissions: ['users.manage'],
       }),
@@ -52,13 +80,14 @@ describe('adminPasswordReset.routes edge outcomes', () => {
     adminSetPassword.mockResolvedValue({ outcome: 'password_changed' });
     const app = createFakeApp();
     await adminPasswordResetRoutes(/** @type {any} */ (app));
-    const handler = app.getHandler();
+    const handler = app.getResetHandler();
     await expect(
       handler({
         principal: { orgId: 'o1', userId: 'u1' },
-        params: { userId: 'u2' },
+        params: { userId: 'aaaaaaaaaaaaaaaaaaaaaaaa' },
         body: { newPassword: 'abcdef' },
         log: {},
+        id: 'corr-1',
       }),
     ).rejects.toMatchObject({ code: 'INTERNAL_ERROR' });
   });
@@ -66,13 +95,14 @@ describe('adminPasswordReset.routes edge outcomes', () => {
   it('rejects empty userId with VALIDATION_ERROR', async () => {
     const app = createFakeApp();
     await adminPasswordResetRoutes(/** @type {any} */ (app));
-    const handler = app.getHandler();
+    const handler = app.getResetHandler();
     await expect(
       handler({
         principal: { orgId: 'o1', userId: 'u1' },
         params: { userId: '' },
         body: { newPassword: 'abcdef' },
         log: {},
+        id: 'corr-1',
       }),
     ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
   });

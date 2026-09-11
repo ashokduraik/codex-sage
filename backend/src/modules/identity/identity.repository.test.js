@@ -122,14 +122,14 @@ describe('identity models and repositories', () => {
     const { roles } = await ensureBuiltInRoles(org._id);
     await expect(
       updateRole(org._id, roles[0]._id, { name: 'Renamed' }),
-    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    ).rejects.toMatchObject({ code: 'BUILT_IN_ROLE_IMMUTABLE' });
   });
 
   it('rejects a soft delete of a built-in role', async () => {
     const org = await createOrganization({ name: 'Acme', slug: 'acme-softdel' });
     const { roles } = await ensureBuiltInRoles(org._id);
     await expect(softDeleteRole(org._id, roles[0]._id)).rejects.toMatchObject({
-      code: 'FORBIDDEN',
+      code: 'BUILT_IN_ROLE_IMMUTABLE',
     });
   });
 
@@ -183,10 +183,10 @@ describe('identity models and repositories', () => {
     });
     await softDeleteUser(org._id, drop._id);
     const listed = await listUsers(org._id);
-    expect(listed.map((u) => String(u._id))).toEqual([String(keep._id)]);
+    expect(listed.items.map((u) => String(u._id))).toEqual([String(keep._id)]);
   });
 
-  it('returns a keyset page ordered by _id descending', async () => {
+  it('returns a keyset page ordered by createdAt/_id descending', async () => {
     const org = await createOrganization({ name: 'Acme', slug: 'acme-keyset' });
     const first = await createUser(org._id, {
       email: 'k1@example.com',
@@ -197,10 +197,11 @@ describe('identity models and repositories', () => {
       displayName: 'K2',
     });
     const page = await listUsers(org._id, { limit: 10 });
-    expect(page.map((u) => String(u._id))).toEqual([
+    expect(page.items.map((u) => String(u._id))).toEqual([
       String(second._id),
       String(first._id),
     ]);
+    expect(page.pageInfo.hasMore).toBe(false);
   });
 
   it('finds a membership only within its own organization', async () => {

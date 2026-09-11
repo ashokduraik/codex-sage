@@ -10,8 +10,19 @@
  * @type {Readonly<Record<string, AuditResourceType>>}
  */
 export const AUDIT_ACTION_RESOURCE_TYPES = Object.freeze({
+  'user.create': 'user',
+  'user.update': 'user',
+  'user.email_changed': 'user',
+  'user.activate': 'user',
+  'user.deactivate': 'user',
+  'user.remove': 'user',
+  'user.roles_changed': 'user',
   'user.password_changed': 'user',
   'user.password_set_by_admin': 'user',
+  'role.create': 'role',
+  'role.update': 'role',
+  'role.remove': 'role',
+  'membership.update': 'membership',
   'authz.denied': 'route',
 });
 

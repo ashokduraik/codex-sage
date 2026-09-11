@@ -85,6 +85,43 @@ export const ERROR_CATALOG = Object.freeze({
     retryability: 'user_action_required',
     message: 'You cannot perform this action on your own account.',
   }),
+  LAST_ADMIN_REQUIRED: Object.freeze({
+    class: 'user',
+    httpStatus: 409,
+    retryability: 'user_action_required',
+    message: 'The organization must keep at least one active administrator.',
+  }),
+  IDENTITY_DUPLICATE_EMAIL: Object.freeze({
+    class: 'user',
+    httpStatus: 409,
+    retryability: 'user_action_required',
+    message: 'A user with this email already exists in the organization.',
+  }),
+  IDENTITY_DUPLICATE_ROLE_NAME: Object.freeze({
+    class: 'user',
+    httpStatus: 409,
+    retryability: 'user_action_required',
+    message: 'A role with this name already exists in the organization.',
+  }),
+  BUILT_IN_ROLE_IMMUTABLE: Object.freeze({
+    class: 'user',
+    httpStatus: 409,
+    retryability: 'user_action_required',
+    message: 'Built-in roles cannot be renamed, re-permissioned, or removed.',
+  }),
+  ROLE_IN_USE: Object.freeze({
+    class: 'user',
+    httpStatus: 409,
+    retryability: 'user_action_required',
+    message: 'The role is assigned to one or more active memberships.',
+  }),
+  UNKNOWN_PERMISSION: Object.freeze({
+    class: 'user',
+    httpStatus: 400,
+    retryability: 'user_action_required',
+    message: 'One or more permission keys are not in the catalog.',
+    allowDetails: true,
+  }),
   CONFLICT: Object.freeze({
     class: 'user',
     httpStatus: 409,

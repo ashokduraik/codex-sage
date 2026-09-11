@@ -27,24 +27,36 @@ export {
   createUser,
   listUsers,
   softDeleteUser,
+  updateUser,
   setPasswordHashIfMissing,
   updateUserPasswordHash,
   applyPasswordUpdate,
   touchLastLoginAt,
+  IDENTITY_LIST_PAGE_SIZE_DEFAULT,
+  IDENTITY_LIST_PAGE_SIZE_MAX,
+  clampIdentityListLimit,
 } from './user.repository.js';
+export { identityRoutes } from './identity.routes.js';
 export { adminPasswordResetRoutes } from './adminPasswordReset.routes.js';
 export {
   findBuiltInRole,
+  findRoleById,
+  findRolesByIds,
   listRoles,
+  listRolesPage,
+  createRole,
   ensureBuiltInRoles,
   softDeleteRole,
   updateRole,
+  isDuplicateKeyError,
 } from './role.repository.js';
 export {
   findMembership,
   createMembership,
   listMemberships,
   softDeleteMembership,
+  replaceMembershipRoleIds,
+  isRoleReferencedByActiveMembership,
 } from './membership.repository.js';
 export { runBootstrapSeed } from './bootstrapSeed.js';
 

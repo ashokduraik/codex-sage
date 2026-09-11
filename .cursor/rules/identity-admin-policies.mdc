@@ -1,0 +1,31 @@
+---
+description: Admin identity API policies — route permissions, mutable email, built-in roles
+alwaysApply: true
+---
+
+# Identity admin policies
+
+Decided with Phase 11. Do not re-open these without an explicit product change.
+
+## Route permission = access
+
+- Every identity/admin route declares `requiredPermissions` on the route config.
+- A caller may use the route **iff** they hold those permission(s).
+- Do **not** invent weaker alternate read permissions (e.g. `org.view` for `GET /users`
+  or `GET /roles`). Project-member pickers that need a broader list get their own
+  permissioned endpoint in a later phase.
+
+## Email is mutable after create
+
+- Admins may change a user's `email` via `PATCH /users/:userId`.
+- Enforce org-scoped uniqueness (`409 IDENTITY_DUPLICATE_EMAIL` on duplicate key).
+- On change: write audit `user.email_changed` (old/new email in context; never secrets)
+  and revoke all sessions for that user with reason `email_changed`.
+
+## Built-in roles — description only
+
+- Built-in roles (`org_admin`, `project_admin`, `member`, `viewer`) may have
+  **description** updated via `PATCH /roles/:roleId`.
+- Changing `name` or `permissions`, or soft-deleting a built-in role, fails with
+  `409 BUILT_IN_ROLE_IMMUTABLE`.
+- Built-in permission sets stay code-resolved; do not materialize them into Mongo for edits.

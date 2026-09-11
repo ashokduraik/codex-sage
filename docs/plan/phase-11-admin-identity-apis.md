@@ -125,7 +125,8 @@ invariant with its own test, not a UI convention.
 |---|---|
 | Last administrator | A request that would leave the organization with zero active users holding `users.manage` fails with `409 LAST_ADMIN_REQUIRED` (applies to deactivate, remove, and role change) |
 | Self-deactivation / self-removal | An actor may not deactivate or remove their own account: `409 CANNOT_MODIFY_SELF` |
-| Built-in roles | `isBuiltIn` roles may have `description` changed; whether permissions may be edited follows the Phase 06 §12 decision, and is enforced here as `409 BUILT_IN_ROLE_IMMUTABLE` until that answer exists |
+| Built-in roles | `isBuiltIn` roles may have `description` changed; `name`, `permissions`, and
+  soft-delete fail with `409 BUILT_IN_ROLE_IMMUTABLE` |
 | Role in use | Soft-deleting a role referenced by an active membership fails with `409 ROLE_IN_USE`; no cascade |
 | Unknown permission | A role carrying a permission absent from the Phase 09 catalog is rejected with `400 UNKNOWN_PERMISSION` — this is what keeps out-of-scope database-query permissions (README §5) unreachable |
 | Email reuse | The partial unique index raises a driver duplicate-key error, converted to `409 IDENTITY_DUPLICATE_EMAIL`; never a read-then-write check |
@@ -147,7 +148,8 @@ the new password out of band. The API must not claim an email was sent.
 ### 4.6 Audit
 
 Every mutating route writes exactly one event through `recordAuditEvent` from the Phase 10
-surface, inside the business transaction, using the catalog values Phase 10 already seeded:
+surface (best-effort per ADR 0016 — outside the business transaction), using the catalog
+values Phase 10 already seeded and the Phase 11 extensions:
 `user.create`, `user.activate`, `user.deactivate`, `user.remove`,
 `user.password_set_by_admin`, `user.roles_changed`, `role.create`, `role.update`,
 `membership.update`. Denied requests are recorded best-effort with `result: 'denied'` by the
@@ -206,9 +208,8 @@ Response `200`: `{ "items": [ <user as above> ], "pageInfo": { "nextCursor": "�
 
 ### `GET /users/:userId` · `PATCH /users/:userId` — `users.manage`
 
-`PATCH` accepts `displayName` and `roleIds`. Changing `email` is **proposed as not allowed**
-(it is the sign-in identifier and an audit key) — confirm in §12, question 5. Response is the
-same user object.
+`PATCH` accepts `displayName`, `email`, and `roleIds`. Email is mutable (§12); on change,
+audit `user.email_changed` and revoke sessions. Response is the same user object.
 
 ### `POST /users/:userId/activate` · `POST /users/:userId/deactivate` — `users.manage`
 
@@ -342,19 +343,21 @@ Response `200` with the updated user. Errors: `409 LAST_ADMIN_REQUIRED`, `404 NO
 
 ## 12. Risks & open questions
 
-Ask the user; do not assume (`.cursor/rules/no-assumptions.mdc`).
+Ask the user; do not assume (`.cursor/rules/no-assumptions.mdc`). Answers locked below;
+policies also live in `.cursor/rules/identity-admin-policies.mdc`.
 
 1. **Project access at user-create time.** **Deferred to Phase 18 / 19.** `POST /users` does
    not accept a project-access array. Phase 15 does not invent membership columns. Phase 19
    assigns project access from the project side.
 2. **Reset-token delivery.** **Decided (D15).** The administrator supplies `newPassword` in
    the body and communicates it out of band. No token, no email claim.
-3. **Who may read the user list?** Proposed as `users.manage`. Should a non-administrator with
-   `org.view` be able to see colleagues (for project-member pickers in Phase 19)?
-4. **`lastActivity` for the admin table.** **Proposed for this slice:** render `lastLoginAt`
-   as last activity. A dedicated activity timestamp is not added here.
-5. **Is email mutable?** Proposed as immutable after create. If administrators must be able to
-   correct a typo, the endpoint needs re-verification and audit rules for identifier changes.
-6. **Organization create/update endpoints.** Solution §8.4 lists them, but no phase owns them
-   and decision D6 makes organization creation an operator action (Phase 06 seed). Confirm they
-   stay out of the plan, or assign them a phase.
+3. **Who may read the user list?** **`users.manage` only.** Route permission equals access;
+   no weaker `org.view` alias. Same for `GET /roles` → `roles.manage` only.
+4. **`lastActivity` for the admin table.** **Decided:** expose `lastLoginAt`. A dedicated
+   activity timestamp is not added here.
+5. **Is email mutable?** **Yes.** `PATCH /users/:userId` may change `email`; uniqueness,
+   `user.email_changed` audit, and session revoke (`email_changed`) are required.
+6. **Organization create/update endpoints.** **Out of this phase and the overall plan for
+   now** — organization creation remains an operator / bootstrap seed action (D6 / Phase 06).
+7. **Built-in role edits.** **Description only.** Name, permissions, and soft-delete of
+   built-ins → `409 BUILT_IN_ROLE_IMMUTABLE`.

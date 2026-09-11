@@ -10,6 +10,7 @@ export const SESSION_REVOKED_REASONS = Object.freeze([
   'reuse_detected',
   'password_changed',
   'user_disabled',
+  'email_changed',
 ]);
 
 const sessionSchema = createBaseSchema({

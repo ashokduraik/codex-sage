@@ -28,12 +28,15 @@ export function includeDeleted(query) {
  * Soft-deletes matching active rows (never hard-deletes).
  * @param {import('mongoose').Model} model Target model.
  * @param {object} filter Match filter (caller supplies tenant keys).
- * @param {{ updatedBy?: import('mongoose').Types.ObjectId | null }} [options] Actor stamp.
+ * @param {{
+ *   updatedBy?: import('mongoose').Types.ObjectId | null,
+ *   session?: import('mongoose').ClientSession,
+ * }} [options] Actor stamp and optional Mongo session.
  * @returns {Promise<import('mongoose').UpdateResult>}
  */
 export async function softDelete(model, filter, options = {}) {
   const updatedBy = options.updatedBy === undefined ? null : options.updatedBy;
-  return model.updateOne(
+  const query = model.updateOne(
     { ...filter, status: ROW_STATUS_ACTIVE },
     {
       $set: {
@@ -43,6 +46,10 @@ export async function softDelete(model, filter, options = {}) {
       },
     },
   );
+  if (options.session) {
+    query.session(options.session);
+  }
+  return query.exec();
 }
 
 /**

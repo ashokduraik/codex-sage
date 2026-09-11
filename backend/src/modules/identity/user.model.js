@@ -51,6 +51,8 @@ userSchema.index(
   { orgId: 1, email: 1 },
   { unique: true, partialFilterExpression: { status: ROW_STATUS_ACTIVE } },
 );
+userSchema.index({ orgId: 1, status: 1, createdAt: -1, _id: -1 });
+userSchema.index({ orgId: 1, displayName: 1 });
 userSchema.index({ orgId: 1, status: 1, _id: -1 });
 userSchema.index({ orgId: 1, userStatus: 1, _id: -1 });
 

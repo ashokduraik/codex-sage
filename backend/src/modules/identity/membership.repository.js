@@ -1,6 +1,7 @@
 /**
  * Membership repository — tenant-scoped.
  */
+import mongoose from 'mongoose';
 import { assertOrgId, softDelete } from '../../platform/data/index.js';
 import { Membership } from './membership.model.js';
 
@@ -52,18 +53,76 @@ export async function createMembership(orgId, input, options = {}) {
 /**
  * Lists active memberships in an organization.
  * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
+ * @param {{ session?: import('mongoose').ClientSession }} [options] Optional session.
  * @returns {Promise<import('mongoose').Document[]>}
  */
-export async function listMemberships(orgId) {
+export async function listMemberships(orgId, options = {}) {
   assertOrgId(orgId);
-  return Membership.find({ orgId }).sort({ _id: -1 }).exec();
+  const query = Membership.find({ orgId }).sort({ _id: -1 });
+  if (options.session) {
+    query.session(options.session);
+  }
+  return query.exec();
+}
+
+/**
+ * Replaces the role set on an active membership atomically.
+ * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
+ * @param {import('mongoose').Types.ObjectId | string} userId Member user id.
+ * @param {Array<import('mongoose').Types.ObjectId | string>} roleIds Next role ids.
+ * @param {{
+ *   updatedBy?: import('mongoose').Types.ObjectId | string | null,
+ *   session?: import('mongoose').ClientSession,
+ * }} [options] Actor and session.
+ * @returns {Promise<import('mongoose').Document | null>}
+ */
+export async function replaceMembershipRoleIds(orgId, userId, roleIds, options = {}) {
+  assertOrgId(orgId);
+  const query = Membership.findOneAndUpdate(
+    { orgId, userId },
+    {
+      $set: {
+        roleIds,
+        updatedBy: options.updatedBy ?? null,
+        updatedAt: new Date(),
+      },
+    },
+    { returnDocument: 'after' },
+  );
+  if (options.session) {
+    query.session(options.session);
+  }
+  return query.exec();
+}
+
+/**
+ * Returns whether any active membership references the role.
+ * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
+ * @param {import('mongoose').Types.ObjectId | string} roleId Role id.
+ * @param {{ session?: import('mongoose').ClientSession }} [options] Optional session.
+ * @returns {Promise<boolean>}
+ */
+export async function isRoleReferencedByActiveMembership(orgId, roleId, options = {}) {
+  assertOrgId(orgId);
+  if (!mongoose.isValidObjectId(roleId)) {
+    return false;
+  }
+  const query = Membership.findOne({ orgId, roleIds: roleId }).select({ _id: 1 });
+  if (options.session) {
+    query.session(options.session);
+  }
+  const found = await query.exec();
+  return Boolean(found);
 }
 
 /**
  * Soft-deletes an active membership.
  * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
  * @param {import('mongoose').Types.ObjectId | string} userId Member user id.
- * @param {{ updatedBy?: import('mongoose').Types.ObjectId | null }} [options] Actor stamp.
+ * @param {{
+ *   updatedBy?: import('mongoose').Types.ObjectId | null,
+ *   session?: import('mongoose').ClientSession,
+ * }} [options] Actor stamp and session.
  * @returns {Promise<import('mongoose').UpdateResult>}
  */
 export async function softDeleteMembership(orgId, userId, options = {}) {
@@ -71,6 +130,6 @@ export async function softDeleteMembership(orgId, userId, options = {}) {
   return softDelete(
     Membership,
     { orgId, userId },
-    { updatedBy: options.updatedBy ?? null },
+    { updatedBy: options.updatedBy ?? null, session: options.session },
   );
 }
