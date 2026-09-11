@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi, beforeEach } from 'vitest';
-import { API_BASE_PATH, buildApp } from './app.js';
+import { API_BASE_PATH, buildApp, CORRELATION_ID_HEADER } from './app.js';
 import { TEST_APP_CONFIG } from '../test/appConfig.js';
 import { MONGO_UNAVAILABLE_CODE } from '../platform/mongo.js';
 vi.mock('../platform/mongo.js', async (importOriginal) => {
@@ -28,6 +28,7 @@ describe('buildApp', () => {
         expect(body.status).toBe('ok');
         expect(typeof body.uptimeSeconds).toBe('number');
         expect(typeof body.version).toBe('string');
+        expect(res.headers[CORRELATION_ID_HEADER.toLowerCase()]).toMatch(/^REQ-[0-9a-f]{32}$/);
     });
     it('serves unversioned GET /health as an infra alias', async () => {
         app = buildApp(TEST_APP_CONFIG);

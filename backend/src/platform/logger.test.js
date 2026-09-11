@@ -1,6 +1,16 @@
 import { describe, it, expect, vi } from 'vitest';
-import { buildLoggerOptions, registerRequestLogging, toPinoLevel } from './logger.js';
+import pino from 'pino';
+import {
+  buildLoggerOptions,
+  registerRequestLogging,
+  serializeError,
+  serializeRequest,
+  shouldIncludeStack,
+  toPinoLevel,
+  LOG_REDACT_PATHS,
+} from './logger.js';
 import { TEST_APP_CONFIG } from '../test/appConfig.js';
+import { ApiError } from './errors.js';
 /**
  * Minimal config fixture for testing logger options only.
  * @param overrides - Nested partial overrides for env/logging groups.
@@ -91,24 +101,144 @@ describe('buildLoggerOptions', () => {
     });
 });
 describe('registerRequestLogging', () => {
-    it('registers onRequest and onResponse hooks that log at debug', () => {
-        const debug = vi.fn();
-        const app = {
-            addHook: vi.fn(),
-        };
-        registerRequestLogging(app);
-        expect(app.addHook).toHaveBeenCalledTimes(2);
-        expect(app.addHook).toHaveBeenCalledWith('onRequest', expect.any(Function));
-        expect(app.addHook).toHaveBeenCalledWith('onResponse', expect.any(Function));
-        const hookCalls = vi.mocked(app.addHook).mock.calls;
-        const onRequest = hookCalls[0][1];
-        const onResponse = hookCalls[1][1];
-        const done = vi.fn();
-        onRequest({ log: { debug }, method: 'GET' }, {}, done);
-        expect(debug).toHaveBeenCalledWith(expect.objectContaining({ req: expect.objectContaining({ method: 'GET' }) }), 'incoming request');
-        debug.mockClear();
-        onResponse({ log: { debug } }, { statusCode: 200, elapsedTime: 12.5 }, done);
-        expect(debug).toHaveBeenCalledWith({ res: { statusCode: 200, elapsedTime: 12.5 }, responseTime: 12.5 }, 'request completed');
-        expect(done).toHaveBeenCalledTimes(2);
+  it('registers onRequest and onResponse hooks that log at debug', () => {
+    const debug = vi.fn();
+    const app = {
+      addHook: vi.fn(),
+    };
+    registerRequestLogging(app);
+    expect(app.addHook).toHaveBeenCalledTimes(2);
+    expect(app.addHook).toHaveBeenCalledWith('onRequest', expect.any(Function));
+    expect(app.addHook).toHaveBeenCalledWith('onResponse', expect.any(Function));
+    const hookCalls = vi.mocked(app.addHook).mock.calls;
+    const onRequest = hookCalls[0][1];
+    const onResponse = hookCalls[1][1];
+    const done = vi.fn();
+    onRequest({ log: { debug }, method: 'GET' }, {}, done);
+    expect(debug).toHaveBeenCalledWith(
+      expect.objectContaining({ req: expect.objectContaining({ method: 'GET' }) }),
+      'incoming request',
+    );
+    debug.mockClear();
+    onResponse({ log: { debug } }, { statusCode: 200, elapsedTime: 12.5 }, done);
+    expect(debug).toHaveBeenCalledWith(
+      { res: { statusCode: 200, elapsedTime: 12.5 }, responseTime: 12.5 },
+      'request completed',
+    );
+    expect(done).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('serializeRequest', () => {
+  it('omits query string, authorization header and cookies', () => {
+    const serialized = serializeRequest({
+      method: 'GET',
+      id: 'REQ-abc',
+      url: '/search?q=secret',
+      routeOptions: { url: '/search' },
+      headers: { authorization: 'Bearer tok', cookie: 'a=1' },
+      ip: '127.0.0.1',
     });
+    expect(serialized).toEqual({
+      method: 'GET',
+      path: '/search',
+      reqId: 'REQ-abc',
+      remoteAddress: '127.0.0.1',
+    });
+    expect(JSON.stringify(serialized)).not.toMatch(/secret|Bearer|cookie/i);
+  });
+
+  it('returns an empty object for non-objects and falls back to routerPath', () => {
+    expect(serializeRequest(null)).toEqual({});
+    expect(serializeRequest('x')).toEqual({});
+    expect(
+      serializeRequest({
+        method: 'POST',
+        id: 'REQ-1',
+        routerPath: '/items',
+        socket: { remoteAddress: '::1' },
+      }),
+    ).toMatchObject({ path: '/items', remoteAddress: '::1' });
+  });
+});
+
+describe('serializeError', () => {
+  it('drops details unless the catalog allows them', () => {
+    const denied = serializeError(
+      ApiError.fromCode('NOT_FOUND', { details: { path: '/x' } }),
+    );
+    expect(denied.details).toBeUndefined();
+    const allowed = serializeError(
+      ApiError.fromCode('VALIDATION_ERROR', { details: { field: 'email' } }),
+    );
+    expect(allowed.details).toEqual({ field: 'email' });
+  });
+
+  it('omits stack when includeStack is false', () => {
+    const err = new Error('x');
+    const out = serializeError(err, { includeStack: false });
+    expect(out.stack).toBeUndefined();
+  });
+
+  it('stringifies non-object errors', () => {
+    expect(serializeError('boom')).toEqual({ message: 'boom' });
+  });
+});
+
+describe('shouldIncludeStack', () => {
+  it('includes stacks in non-production and only at error in production', () => {
+    expect(
+      shouldIncludeStack({
+        env: { isProduction: false },
+        logging: { level: 'info' },
+      }),
+    ).toBe(true);
+    expect(
+      shouldIncludeStack(
+        { env: { isProduction: true }, logging: { level: 'info' } },
+        'info',
+      ),
+    ).toBe(false);
+    expect(
+      shouldIncludeStack(
+        { env: { isProduction: true }, logging: { level: 'info' } },
+        'error',
+      ),
+    ).toBe(true);
+    expect(
+      shouldIncludeStack({
+        env: { isProduction: true },
+        logging: { level: 'debug' },
+      }),
+    ).toBe(true);
+  });
+});
+
+describe('pino redact', () => {
+  it('redacts password, token and connectionString fields', () => {
+    const opts = buildLoggerOptions(cfg({ env: { appRunningPlatform: 'container' } }));
+    expect(opts.redact.paths).toEqual(LOG_REDACT_PATHS);
+    const lines = [];
+    const logger = pino(
+      {
+        level: 'info',
+        redact: opts.redact,
+        serializers: opts.serializers,
+      },
+      {
+        write(chunk) {
+          lines.push(chunk);
+        },
+      },
+    );
+    logger.info({
+      password: 'secret',
+      token: 'tok',
+      connectionString: 'mongodb://user:pass@host/db',
+    });
+    const joined = lines.join('');
+    expect(joined).toContain('[redacted]');
+    expect(joined).not.toContain('secret');
+    expect(joined).not.toContain('mongodb://user:pass');
+  });
 });

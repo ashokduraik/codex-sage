@@ -3,6 +3,7 @@
  * The only module that talks to Mongoose's connection API.
  */
 import mongoose from 'mongoose';
+import { MONGO_UNAVAILABLE_CODE } from './errorCatalog.js';
 /** Connection pool upper bound. */
 export const MONGODB_MAX_POOL_SIZE = 20;
 /** Connection pool lower bound. */
@@ -11,8 +12,8 @@ export const MONGODB_MIN_POOL_SIZE = 0;
 export const MONGODB_SERVER_SELECTION_TIMEOUT_MS = 10_000;
 /** Socket inactivity timeout. */
 export const MONGODB_SOCKET_TIMEOUT_MS = 45_000;
-/** Stable code returned to readiness when ping fails (never driver text). */
-export const MONGO_UNAVAILABLE_CODE = 'MONGO_UNAVAILABLE';
+/** Re-export catalog code so readiness consumers keep a stable import path. */
+export { MONGO_UNAVAILABLE_CODE };
 const defaultLog = {
     info: (obj, msg) => console.info(JSON.stringify({ level: 'info', msg, ...obj })),
     warn: (obj, msg) => console.warn(JSON.stringify({ level: 'warn', msg, ...obj })),

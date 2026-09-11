@@ -10,11 +10,19 @@ Complements `backend-api-standards.mdc` and `ui-action-feedback.mdc`.
 
 ## REST JSON errors
 
-- Always return `{ error: { code: string, message: string, details?: unknown } }`.
+- Always return the structured envelope (see ADR 0010):
+
+```js
+// { error: { code, class, retryability, message, reference, details? } }
+```
+
 - Use a global route error handler for the chosen Node HTTP framework. Log with request
   context (req id / method / path). Unexpected 500s use a **stable client message**
   (`Internal server error`); put real detail in logs only.
+- Error codes live only in `backend/src/platform/errorCatalog.js`. Prefer `ApiError.fromCode`.
 - Never send a second response when headers are already sent.
+- Every response (including successes) carries `X-Correlation-Id` equal to `request.id` /
+  `error.reference`.
 
 ## SSE / streaming
 

@@ -24,14 +24,20 @@ Complements `node-api.mdc` (boundary + module structure). These are the quality 
 - Return a **consistent error response shape** for every error:
 
 ```js
-// { error: { code, message, details? } }
+// { error: { code, class, retryability, message, reference, details? } }
 return res.status(400).json({
-  error: { code: 'VALIDATION_ERROR', message: 'email is required' },
+  error: {
+    code: 'VALIDATION_ERROR',
+    class: 'user',
+    retryability: 'user_action_required',
+    message: 'email is required',
+    reference: request.id,
+  },
 });
 ```
 
-- Use a **global error handler**. Log with request id / method / URL; send
-  `{ error: { code, message } }` to the client. See `error-handling.mdc`.
+- Use a **global error handler**. Log with request id / method / URL; send the catalog-driven
+  envelope to the client. See `error-handling.mdc` and ADR 0010.
 - **Log every error with context** (request id, route, user id where available).
 - Use **appropriate HTTP status codes** (400/401/403/404/409/422/500…).
 - **Validate every request** (params, query, body) at the edge before business logic.

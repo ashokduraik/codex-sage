@@ -392,3 +392,17 @@ SSE events the UI handles: `status`, `delta` (token text), `clarification`, `evi
 | Notifications | in-app only in this slice (knowledge/sync/attention) |
 | Usage | recorded `UsageEvent` / rollups only |
 | Retention | scheduled worker; default keep last 3 ready source versions (see solution §12.3) |
+
+### Errors and correlation
+
+- **Catalog:** [`backend/src/platform/errorCatalog.js`](../backend/src/platform/errorCatalog.js) is the
+  only place an error code may be defined. Each code maps to `class`, HTTP status,
+  `retryability`, and a stable English default message (see [ADR 0010](./adr/0010-structured-error-envelope.md)).
+- **Envelope:** `{ error: { code, class, retryability, message, reference, details? } }`.
+- **Correlation:** Fastify `request.id` is `REQ-` + 32 hex; echoed as `X-Correlation-Id` on
+  every response and as `error.reference`. Inbound client ids are ignored. Services read the
+  id via `AsyncLocalStorage` (`requestContext.js`) without threading it through every call.
+- **Retry:** only `temporary` codes are auto-retryable (`retryPolicy.js`); permanent /
+  `user_action_required` never increment an auto-retry counter.
+- **SSE:** after headers are sent, handlers emit a terminal `error` event built by
+  `streamErrors.js` (same five fields); the global handler does not write stream frames.
