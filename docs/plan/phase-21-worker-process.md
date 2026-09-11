@@ -35,7 +35,7 @@ first writer is written rather than be retrofitted around it.
 
 ### In scope
 
-- Replace the idling interval in `backend/src/worker/index.ts` with the polling runtime.
+- Replace the idling interval in `backend/src/worker/index.js` with the polling runtime.
 - Atomic claim: `findOneAndUpdate` moving `jobStatus: 'pending'` to `'running'`.
 - Heartbeat timer refreshing `heartbeatAt` / `leaseExpiresAt` while a job runs.
 - Lease sweeper that requeues or fails `running` jobs whose lease expired.
@@ -60,7 +60,7 @@ first writer is written rather than be retrofitted around it.
 
 ### 4.1 Runtime shape
 
-`src/worker/index.ts` keeps the Phase 01 boot sequence (process handlers, config, Mongo, shutdown
+`src/worker/index.js` keeps the Phase 01 boot sequence (process handlers, config, Mongo, shutdown
 hooks) and replaces the idle interval with `startWorkerRuntime()`, which owns three timers: poll
 (`WORKER_POLL_INTERVAL_MS`), heartbeat (`WORKER_HEARTBEAT_INTERVAL_MS`) and sweep
 (`WORKER_SWEEP_INTERVAL_MS`). Claimed jobs run as async tasks in an in-memory map keyed by job
@@ -83,7 +83,7 @@ registerJobHandler({
 })
 ```
 
-`context` carries `job`, `checkpoint`, a child logger, `recordEvent()`, `saveCheckpoint()`,
+`context` carries `job`, `stageCheckpoint`, a child logger, `recordEvent()`, `saveCheckpoint()`,
 `isCancelRequested()` and an `AbortSignal` that fires on shutdown or lease loss. A handler returns
 `{ result: 'completed' | 'completed_with_warnings', summary }` or throws a classified error. The
 claim filter only matches registered types, so a worker build that does not know a type leaves
@@ -139,8 +139,8 @@ leaseExpiresAt: { $lt: now } }` and per job:
 | `attempt >= maxAttempts` | `jobStatus: 'failed'`, `failureClass: 'temporary'`, code `WORKER_LEASE_EXPIRED` |
 
 Either branch releases the project lock held by that job id and writes a `JobEvent`. The job keeps
-`currentStage` and `checkpoint`, so the next claim resumes instead of restarting (solution §4.6
-worker-crash row), and the failed job is never removed (backend §36).
+`currentStage` and `stageCheckpoint`, so the next claim resumes instead of restarting (solution
+§4.6 worker-crash row), and the failed job is never removed (backend §36).
 
 ### 4.6 Failure classes, backoff and scheduled ticks
 
@@ -162,10 +162,10 @@ claim, and a helper a handler can call on completion to enqueue its own next occ
 
 ### 4.7 Resume, cancellation, shutdown, logging
 
-A handler receives `currentStage` and `checkpoint` and must skip stages already recorded complete
-(solution §4.6 hard rule 4: a resumed stage must not duplicate document sections or start a
-second graph writer). The runtime never interprets checkpoint contents; it only persists what the
-handler saves. `isCancelRequested()` reads the flag Phase 22 sets; this phase provides the
+A handler receives `currentStage` and `stageCheckpoint` and must skip stages already recorded
+complete (solution §4.6 hard rule 4: a resumed stage must not duplicate document sections or
+start a second graph writer). The runtime never interprets checkpoint contents; it only
+persists what the handler saves via `saveCheckpoint({ lastCompletedStage, cursor?, updatedAt })`. `isCancelRequested()` reads the flag Phase 22 sets; this phase provides the
 plumbing and the `cancelled` terminal transition only.
 
 Graceful shutdown registers a Phase 01 hook that stops the poll timer, waits up to
@@ -180,10 +180,17 @@ attempt, stage, correlationId }`. Claim, stage transitions, requeue, failure and
 
 ## 5. Data model changes
 
-`Job` and `JobEvent` belong to Phase 20. This phase requires these on `Job` and adds them
-additively if Phase 20 did not define them (see §12.1): `workerId`, `attempt`, `maxAttempts`,
-`heartbeatAt`, `leaseExpiresAt`, `scheduledAt`, `failureClass`, `currentStage`, `checkpoint`,
-`cancelRequestedAt`.
+`Job` and `JobEvent` — including worker fields (`workerId`, `attempt`, `maxAttempts`,
+`heartbeatAt`, `leaseExpiresAt`, `scheduledAt`, `failureClass`, `currentStage`,
+`stageCheckpoint`, `progressCounters`, `cancelRequestedAt`, `correlationId`) — belong to
+**Phase 20**. This phase does not add those fields. It only adds `projectJobLocks` and the
+claim/sweep indexes on `jobs` if Phase 20 did not already create those indexes.
+
+Canonical checkpoint shape (owned by Phase 20, consumed here):
+
+```text
+stageCheckpoint: { lastCompletedStage: string, cursor?: unknown, updatedAt: Date }
+```
 
 New collection `projectJobLocks`: `organizationId`, `projectId`, `jobId`, `workerId`,
 `lockScope` (`'project_writer'`), `acquiredAt`, `expiresAt` (UTC), and the mandatory
@@ -214,7 +221,10 @@ Claimed job as the handler sees it (subset, PROPOSED):
   "scheduledAt": "2026-09-11T10:42:00.000Z",
   "leaseExpiresAt": "2026-09-11T10:43:07.000Z",
   "currentStage": "materialize_docs",
-  "checkpoint": { "completedStages": ["validate_upload", "store_files", "exclude_apply"] },
+  "stageCheckpoint": {
+    "lastCompletedStage": "exclude_apply",
+    "updatedAt": "2026-09-11T10:41:50.000Z"
+  },
   "correlationId": "req_01J9ZK4T2M"
 }
 ```
@@ -238,41 +248,45 @@ Event codes this phase owns: `job.claimed`, `job.project_busy_requeued`,
 
 ## 7. Configuration & environment variables
 
-New `worker` group in `src/platform/config.ts`; no `process.env` read outside that file. Add each
-key to `backend/.env.example` **and** mirror it into `backend/.env` (env-example-sync rule).
+**None.** No new `.env` keys. Worker timings, concurrency, lease, and backoff are named
+constants in the worker module (`.cursor/rules/env-config.mdc`). `process.env` is still read
+only in `src/platform/config.js`.
 
-| Variable | Example | Purpose |
-|---|---|---|
-| `WORKER_POLL_INTERVAL_MS` | `2000` | Delay between claim attempts when idle |
-| `WORKER_MAX_CONCURRENT_JOBS` | `2` | In-flight jobs per worker process |
-| `WORKER_HEARTBEAT_INTERVAL_MS` | `10000` | Lease refresh cadence |
-| `WORKER_LEASE_TTL_MS` | `60000` | Lease lifetime; must exceed the heartbeat interval |
-| `WORKER_SWEEP_INTERVAL_MS` | `30000` | Expired-lease scan cadence |
-| `WORKER_MAX_ATTEMPTS` | `5` | Default attempt ceiling when a handler sets none |
-| `WORKER_RETRY_BACKOFF_BASE_MS` | `5000` | First temporary-failure delay |
-| `WORKER_RETRY_BACKOFF_MAX_MS` | `300000` | Backoff ceiling |
-| `WORKER_PROJECT_BUSY_RETRY_MS` | `15000` | Requeue delay when the project lock is held |
-| `WORKER_DRAIN_TIMEOUT_MS` | `30000` | Shutdown wait before releasing in-flight leases |
+### Constants (not env)
 
-Validation must reject `WORKER_LEASE_TTL_MS <= WORKER_HEARTBEAT_INTERVAL_MS`: that combination
-silently steals leases from healthy workers.
+| Constant | Value | Where | Purpose |
+|---|---|---|---|
+| `WORKER_POLL_INTERVAL_MS` | `2000` | `worker/worker.constants.ts` | Delay between claim attempts when idle |
+| `WORKER_MAX_CONCURRENT_JOBS` | `2` | `worker/worker.constants.ts` | In-flight jobs per worker process |
+| `WORKER_HEARTBEAT_INTERVAL_MS` | `10000` | `worker/worker.constants.ts` | Lease refresh cadence |
+| `WORKER_LEASE_TTL_MS` | `60000` | `worker/worker.constants.ts` | Lease lifetime; must exceed the heartbeat interval |
+| `WORKER_SWEEP_INTERVAL_MS` | `30000` | `worker/worker.constants.ts` | Expired-lease scan cadence |
+| `WORKER_MAX_ATTEMPTS` | `5` | `worker/worker.constants.ts` | Default attempt ceiling when a handler sets none |
+| `WORKER_RETRY_BACKOFF_BASE_MS` | `5000` | `worker/worker.constants.ts` | First temporary-failure delay |
+| `WORKER_RETRY_BACKOFF_MAX_MS` | `300000` | `worker/worker.constants.ts` | Backoff ceiling |
+| `WORKER_PROJECT_BUSY_RETRY_MS` | `15000` | `worker/worker.constants.ts` | Requeue delay when the project lock is held |
+| `WORKER_DRAIN_TIMEOUT_MS` | `30000` | `worker/worker.constants.ts` | Shutdown wait before releasing in-flight leases |
+
+Startup must fail if `WORKER_LEASE_TTL_MS <= WORKER_HEARTBEAT_INTERVAL_MS`: that combination
+silently steals leases from healthy workers. Assert this in a unit test on the constants
+module, not via env validation.
 
 ## 8. Files to create or change
 
-| Path (source + colocated `*.test.ts`) | Purpose |
+| Path (source + colocated `*.test.js`) | Purpose |
 |---|---|
-| `backend/src/worker/index.ts` | **Replace** the Phase 01 idle interval with `startWorkerRuntime()` |
-| `backend/src/worker/workerRuntime.ts` | **New:** timers, in-flight map, claim/run/finish orchestration |
-| `backend/src/worker/jobClaim.ts` | **New:** atomic claim plus requeue and finish transitions |
-| `backend/src/worker/jobHeartbeat.ts` | **New:** conditional lease and lock refresh |
-| `backend/src/worker/leaseSweeper.ts` | **New:** expired-lease requeue or fail |
-| `backend/src/worker/handlerRegistry.ts` | **New:** register and look up handlers by job type |
-| `backend/src/worker/retryPolicy.ts` | **New:** failure classes, backoff, attempt ceiling |
-| `backend/src/worker/projectJobLock.ts` | **New:** lock model, acquire / refresh / release |
-| `backend/src/worker/workerLogger.ts` | **New:** per-job child logger with the fixed field set |
-| `backend/src/platform/config.ts` | Add and validate the `worker` config group |
+| `backend/src/worker/index.js` | **Replace** the Phase 01 idle interval with `startWorkerRuntime()` |
+| `backend/src/worker/workerRuntime.js` | **New:** timers, in-flight map, claim/run/finish orchestration |
+| `backend/src/worker/jobClaim.js` | **New:** atomic claim plus requeue and finish transitions |
+| `backend/src/worker/jobHeartbeat.js` | **New:** conditional lease and lock refresh |
+| `backend/src/worker/leaseSweeper.js` | **New:** expired-lease requeue or fail |
+| `backend/src/worker/handlerRegistry.js` | **New:** register and look up handlers by job type |
+| `backend/src/worker/retryPolicy.js` | **New:** failure classes, backoff, attempt ceiling |
+| `backend/src/worker/projectJobLock.js` | **New:** lock model, acquire / refresh / release |
+| `backend/src/worker/workerLogger.js` | **New:** per-job child logger with the fixed field set |
+| `backend/src/worker/worker.constants.js` | **New:** recommended worker timings and concurrency |
+| `backend/src/worker/worker.constants.test.js` | **New:** lease TTL exceeds heartbeat |
 | `backend/src/migrations/…-project-job-lock.ts` | **New:** lock collection plus claim and sweep indexes (numbering from Phase 03) |
-| `backend/.env.example`, `backend/.env` | Document and mirror the ten worker variables |
 
 ## 9. Tests (≥ 80% line and branch)
 
@@ -320,10 +334,10 @@ silently steals leases from healthy workers.
 - [ ] Temporary failures back off and retry; permanent and `user_action_required` failures stop
       immediately and remain inspectable.
 - [ ] A job with a future `scheduledAt` is claimed only when due.
-- [ ] No `process.env` read outside `src/platform/config.ts`; all ten variables documented and
-      mirrored.
+- [ ] No `process.env` read outside `src/platform/config.js`. Worker timings are constants, not
+      env vars.
 - [ ] No source bytes, credentials or tokens appear in worker logs.
-- [ ] `npm run typecheck`, `npm run lint`, `npm test` pass; coverage ≥ 80% line and branch on
+- [ ] `npm run lint`, `npm test` pass; coverage ≥ 80% line and branch on
       every touched file.
 
 ## 11. Documentation & ADR updates
@@ -338,9 +352,8 @@ silently steals leases from healthy workers.
 
 ## 12. Risks & open questions
 
-1. **Phase 20 field overlap.** Does `Job` already carry `workerId`, `attempt`, `heartbeatAt`,
-   `leaseExpiresAt`, `scheduledAt`, `failureClass` and `checkpoint`? If yes, this phase only adds
-   indexes; if no, confirm the names in §6 first.
+1. **Phase 20 field overlap.** **Decided.** Phase 20 owns the Job schema including
+   `stageCheckpoint`. This phase only adds `projectJobLocks` and claim/sweep indexes.
 2. **Lease TTL versus CodeGraph duration.** A ~2M-LOC index run (solution §4.4) can outlast any
    reasonable lease. Confirm the intent: heartbeat from a timer that keeps running during long
    CodeGraph calls (proposed), or a per-job TTL override supplied by the handler?

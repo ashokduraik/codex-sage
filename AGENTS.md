@@ -28,8 +28,8 @@ Additional docs and ADRs live under [`docs/`](./docs/).
 
 - **Small, single-purpose files** with descriptive names.
 - **No deep cross-module imports.** Modules expose a public surface; internals stay private.
-- **TypeScript** for all new JS code (frontend and backend).
-- **Tests colocated:** `*.test.ts` / `*.test.tsx` next to code; cross-app E2E via Playwright
+- **JavaScript** for all application code (frontend and backend); JSX for React.
+- **Tests colocated:** `*.test.js` / `*.test.jsx` next to code; cross-app E2E via Playwright
   when that suite exists.
 - **Comments explain *why*, not *what*.** No narration comments.
 
@@ -39,7 +39,9 @@ Additional docs and ADRs live under [`docs/`](./docs/).
   abstain / clarify — never hallucinate.
 - Soft-delete user-facing resources (`status = 'D'`); every table has row `status` `A`|`D`
   (see `.cursor/rules/soft-delete.mdc` and `row-status.mdc`).
-- **Secrets never get committed.** Document variables in `.env.example`.
+- **Secrets never get committed.** Document variables in `.env.example`. Env vars are
+  only for values that must differ per environment; tunables are named constants
+  (see `.cursor/rules/env-config.mdc`).
 
 ## Before you finish a change
 

@@ -1,37 +1,37 @@
 import eslint from '@eslint/js';
 import globals from 'globals';
-import tseslint from 'typescript-eslint';
 
 /** ESLint flat config for the standalone Node backend package. */
-export default tseslint.config(
+export default [
   { ignores: ['dist/**', 'coverage/**', 'node_modules/**'] },
   eslint.configs.recommended,
-  ...tseslint.configs.recommended,
   {
-    files: ['**/*.ts'],
+    files: ['**/*.js'],
     languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
       globals: globals.node,
     },
     rules: {
-      '@typescript-eslint/no-unused-vars': [
+      'no-unused-vars': [
         'error',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
       ],
-      // Application config must be loaded only via platform/config.ts.
+      // Application config must be loaded only via platform/config.js.
       'no-restricted-properties': [
         'error',
         {
           object: 'process',
           property: 'env',
-          message: 'Read environment variables only in src/platform/config.ts',
+          message: 'Read environment variables only in src/platform/config.js',
         },
       ],
     },
   },
   {
-    files: ['src/platform/config.ts', 'src/**/*.test.ts'],
+    files: ['src/platform/config.js', 'src/**/*.test.js'],
     rules: {
       'no-restricted-properties': 'off',
     },
   },
-);
+];

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build backend (tsup) and frontend (vite build). Sequential; fail fast.
+# Build backend (no-op for plain JavaScript) and frontend (vite build). Sequential; fail fast.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

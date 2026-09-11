@@ -17,9 +17,11 @@ from the current-user endpoint through React Query, and clears everything when t
 `ProtectedRoute` gates on that real state, a mid-session expiry returns the user to sign-in
 without flashing protected content, and `authReturnTo` brings them back to where they were.
 
-Self-registration is gone. `RegisterPage.tsx`, its test, its route and its i18n keys are
+Self-registration is gone. `RegisterPage.jsx`, its test, its route and its i18n keys are
 deleted, and the sign-in screen explains that accounts are created by an administrator.
-Password reset stays: `ForgotPasswordPage` and `ResetPasswordPage` call the real endpoints.
+Public password-reset pages are gone (**D15**): `ForgotPasswordPage` and `ResetPasswordPage`
+are deleted; the sign-in screen tells the user to contact an administrator. Signed-in
+password change uses `POST /api/v1/auth/password/change`.
 
 You can see it working by signing in with a seeded account, reloading the page (still signed
 in), letting the session expire (returned to sign-in, then back to the original page after
@@ -40,7 +42,7 @@ endpoint supports.
 
 ### In scope
 
-- Rewrite `features/auth/AuthContext.tsx` onto the real endpoints: login, current user, refresh
+- Rewrite `features/auth/AuthContext.jsx` onto the real endpoints: login, current user, refresh
   (delegated to Phase 13's coordinator), logout.
 - Token storage strategy, recorded as a decision with its trade-offs (§4.2).
 - React Query hooks under `features/auth/api/` for every auth call.
@@ -48,18 +50,19 @@ endpoint supports.
   the session is resolved.
 - Session-expiry handling: the API client clears the session, the context stops treating the
   user as signed in, the router returns to `/login?returnTo=…`.
-- `LoginPage`, `ForgotPasswordPage`, `ResetPasswordPage` on the real endpoints with inline
-  loader, disabled controls, `aria-busy`, and `role="alert"` errors from `error.message`.
-- Delete `RegisterPage.tsx`, `RegisterPage.test.tsx`, the `/register` route, the register-only
-  i18n keys, and the mock Google sign-in path (`loginWithGoogle`, `GoogleIcon.tsx`).
+- `LoginPage` on the real endpoints with inline loader, disabled controls, `aria-busy`, and
+  `role="alert"` errors from `error.message`. A "contact your administrator" line replaces
+  the forgot-password link.
+- Signed-in password change against `POST /api/v1/auth/password/change` (Phase 08).
+- Delete `RegisterPage.jsx`, `ForgotPasswordPage.jsx`, `ResetPasswordPage.jsx` and their tests,
+  the `/register`, `/forgot-password` and `/reset-password` routes, the register-only i18n
+  keys, and the mock Google sign-in path (`loginWithGoogle`, `GoogleIcon.jsx`).
 - Remove all mock auth state and update the shared test helpers.
 
 ### Out of scope (owner phase)
 
 - Admin-initiated password reset and the admin user list — **Phase 15**.
 - Any admin/audit screen — **Phases 15, 16**.
-- Password change for the signed-in user (frontend §7A) — not covered by an approved endpoint;
-  raised in section 12 rather than invented.
 - Deleting `shared/mock-data/` itself — D7: it goes when nothing imports it (a later phase).
 - SSO, OAuth or any provider the backend does not support (frontend §7A is explicit).
 
@@ -78,8 +81,7 @@ isLoadingAuth    : boolean              the current-user query has not settled
 authChecked      : boolean              the first resolution has happened
 login(email, password)                  mutation
 logout(shouldRedirect?)                 mutation, then hard cache reset
-requestPasswordReset(email)             mutation
-completePasswordReset(token, password)  mutation
+changePassword(current, next)           mutation
 ```
 
 `isLoadingAuth` and `authChecked` become real values instead of the current constants
@@ -91,23 +93,14 @@ and the caller's permissions — the permission list is what Phase 15 uses to de
 controls to render. Whether it arrives on the user object or on a separate endpoint is open
 (section 12).
 
-### 4.2 Token storage — decision required
+### 4.2 Token storage — **D14**
 
-| Option | Pros | Cons |
-|---|---|---|
-| **A. In-memory access token + httpOnly refresh cookie** | Access token is unreachable from XSS; refresh survives reload without touching storage; matches `solution.md` §8.3 wording | Needs CORS credentials settled; a reload always costs one refresh round-trip before the app renders |
-| **B. Access + refresh token in `localStorage`** | Simplest; survives reload with no extra call | Both tokens readable by any script on the origin; a single XSS is a full account takeover |
-| **C. Access token in memory, refresh token in `localStorage`** | Slightly narrower blast radius than B | Still stores the long-lived credential in script-readable storage |
+**Decided:** in-memory access token + httpOnly refresh cookie, `credentials: 'include'`, CSRF
+header on refresh/logout. Boot: call refresh once → on success store the access token and run
+the current-user query → on failure render signed-out. `authChecked` flips only after that
+sequence settles.
 
-**Proposed: option A.** It is the only option where the long-lived credential is not readable
-by JavaScript, and `solution.md` §8.3 already names "httpOnly cookie or rotating store". Under
-A, boot does: call the refresh endpoint once → on success store the access token in memory and
-run the current-user query → on failure render the signed-out state. `authChecked` flips only
-after that sequence settles. **This is Phase 07's decision to confirm; do not implement until it
-is.** If Phase 07 leaves it open, stop and ask (section 12, item 1).
-
-Whatever is chosen, the mock `localStorage` key `codex-sage-auth` and the exported
-`AUTH_STORAGE_KEY` are removed — no user object is ever persisted client-side.
+The mock `localStorage` key `codex-sage-auth` and the exported `AUTH_STORAGE_KEY` are removed.
 
 ### 4.3 Session expiry
 
@@ -127,30 +120,21 @@ already strips token-bearing query parameters and rejects protocol-relative path
 as-is; only its call sites change. `ProtectedRoute` renders the fallback spinner while
 `isLoadingAuth || !authChecked`, so protected children never mount on an unresolved session.
 
-### 4.4 The three auth screens
+### 4.4 Auth screens
 
-Each screen keeps its layout and moves its submit path onto a mutation hook:
-
-- **`LoginPage`** — `useLogin()`. Errors render in the existing `role="alert"` block, sourced
-  from `ApiError.message` with `t('errors.unexpected')` as the fallback, plus the correlation ID
-  when present (§90). The Google button, the `or` divider and the "Don't have an account?
-  Create one" footer are removed; the footer becomes a localized line stating that accounts are
-  created by an administrator and pointing at the password-reset link.
-- **`ForgotPasswordPage`** — `useRequestPasswordReset()`. Keeps the current
-  enumeration-safe behaviour: the success panel shows regardless of outcome. A transport
-  failure still needs feedback, so a network/`5xx` failure shows the inline error instead of a
-  false success; a `404`-style "no such user" answer must not be distinguishable.
-- **`ResetPasswordPage`** — `useCompletePasswordReset()`. Keeps the missing-token branch and
-  the local mismatch check, and surfaces backend failures (expired token, already used, weak
-  password) from `error.message`.
+- **`LoginPage`** — `useLogin()`. Errors render in the existing `role="alert"` block. The
+  Google button, the `or` divider, the register footer and the forgot-password link are
+  removed. The footer states that accounts are created by an administrator and that a forgotten
+  password is recovered by contacting one (**D15**).
+- **Forgot / reset pages** — deleted. `/forgot-password` and `/reset-password` render not-found.
 
 All three already set `disabled` and `aria-busy` on their submit buttons and disable their
 inputs while in flight; that behaviour is preserved and re-asserted in tests.
 
 ### 4.5 Removals (decision D6 and D7)
 
-Deleted files: `RegisterPage.tsx`, `RegisterPage.test.tsx`, `GoogleIcon.tsx`. Deleted route:
-`/register` in `app/routes.tsx`. Deleted exports from `features/auth/index.ts`: `RegisterPage`,
+Deleted files: `RegisterPage.jsx`, `RegisterPage.test.jsx`, `GoogleIcon.jsx`. Deleted route:
+`/register` in `app/routes.jsx`. Deleted exports from `features/auth/index.ts`: `RegisterPage`,
 `GoogleIcon`, `AUTH_STORAGE_KEY`.
 
 i18n keys removed from `shared/i18n/locales/en.json` (verified as used only by the deleted
@@ -160,14 +144,14 @@ register and Google paths): `auth.createAccount`, `auth.registerSubtitle`, `auth
 `auth.verify`, `auth.verifying`, `auth.registrationFailed`, `auth.resend`, `auth.resendCode`,
 `auth.resendFailed`, `auth.codeResent`, `auth.codeSentTitle`, `auth.codeSentDescription`,
 `auth.didntReceiveCode`, `auth.otpInvalid`, `auth.continueWithGoogle`, `auth.or`, and the
-unused `auth.oauth*` group. `auth.fullName` is **kept** — `features/admin/AdminUsers.tsx` uses
+unused `auth.oauth*` group. `auth.fullName` is **kept** — `features/admin/AdminUsers.jsx` uses
 it. New keys: an accounts-are-administrator-created line, a session-expired line, and a
 signed-out confirmation.
 
 **Mock exports that stop being used by this phase:** `uid` from `@/shared/mock-data/mockData`
 (the only mock import in `features/auth/`). Nothing else in `features/auth/` touches the mock
 module after this change, so the feature folder is mock-free. `AppDataProvider` stays in
-`app/providers.tsx` for the features that still need it.
+`app/providers.jsx` for the features that still need it.
 
 ## 5. Data model changes
 
@@ -180,12 +164,11 @@ lifecycle) own the authoritative shapes; the table records what this slice needs
 
 | Method & path | Used by | Needs from the response |
 |---|---|---|
-| `POST /api/v1/auth/login` | `useLogin` | access token; user identity (or a follow-up current-user call) |
+| `POST /api/v1/auth/login` | `useLogin` | access token in JSON; refresh cookie set by the browser (D14); user identity (or a follow-up current-user call) |
 | `GET /api/v1/auth/me` | `useCurrentUser` | id, display name, email, and the caller's permissions |
-| `POST /api/v1/auth/refresh` | Phase 13 coordinator + boot | a fresh access token, or `401` |
-| `POST /api/v1/auth/logout` | `useLogout` | `204`; invalidates the refresh credential server-side |
-| `POST /api/v1/auth/password-reset/request` | `ForgotPasswordPage` | same response whether or not the email exists |
-| `POST /api/v1/auth/password-reset/confirm` | `ResetPasswordPage` | success, or an error code for expired / used / weak |
+| `POST /api/v1/auth/refresh` | Phase 13 coordinator + boot | a fresh access token (cookie + CSRF), or `401` |
+| `POST /api/v1/auth/logout` | `useLogout` | `204`; invalidates the refresh cookie server-side |
+| `POST /api/v1/auth/password/change` | signed-in change | `passwordChanged`, `reauthenticationRequired` |
 
 Frontend-visible contract details this phase depends on:
 
@@ -193,7 +176,7 @@ Frontend-visible contract details this phase depends on:
   `message` and never composes its own text (`ui-action-feedback.mdc`).
 - Error codes this slice must be able to distinguish, by code rather than by copy:
   invalid credentials, account disabled, rate limited (`429`, with `Retry-After` when sent),
-  reset token expired, reset token already used, password policy rejected.
+  password policy rejected.
 - A `401` on any protected request means "session gone" after Phase 13's single retry. A `403`
   means "signed in, not permitted" and must never sign the user out.
 - The correlation ID (Phase 13 §4.3) is displayed alongside sign-in and reset failures when the
@@ -202,38 +185,37 @@ Frontend-visible contract details this phase depends on:
 ## 7. Configuration & environment variables
 
 **No new variables.** `VITE_API_BASE_URL` from Phase 13 is the only one this slice reads, and
-it is read through `shared/api`, never directly. If option A in §4.2 is confirmed and the API is
-served cross-origin, a credentialed-request setting may be needed — that is a Phase 13 change,
-not a new frontend variable. Mirror any `.env.example` edit into `.env` as usual.
+it is read through `shared/api`, never directly. D14 uses same-origin cookies; a cross-origin
+API would need CORS credentials — that is a Phase 13 change, not a new frontend variable.
 
 ## 8. Files to create or change
 
 | Path | Purpose |
 |---|---|
-| `frontend/src/features/auth/AuthContext.tsx` | **Rewrite:** real endpoints, React Query, session-loss subscription |
-| `frontend/src/features/auth/AuthContext.test.tsx` | **Rewrite:** login, boot, expiry, logout |
-| `frontend/src/features/auth/api/authApi.ts` | **New:** typed calls over `shared/api` |
-| `frontend/src/features/auth/api/authApi.test.ts` | **New:** request shapes and error mapping |
-| `frontend/src/features/auth/api/useLogin.ts` | **New:** login mutation |
-| `frontend/src/features/auth/api/useCurrentUser.ts` | **New:** current-user query |
-| `frontend/src/features/auth/api/useLogout.ts` | **New:** logout mutation + cache reset |
-| `frontend/src/features/auth/api/usePasswordReset.ts` | **New:** request + confirm mutations |
-| `frontend/src/features/auth/ProtectedRoute.tsx` | **Change:** gate on resolved auth state |
-| `frontend/src/features/auth/ProtectedRoute.test.tsx` | **New:** loading, signed-out, signed-in |
-| `frontend/src/features/auth/LoginPage.tsx` | **Change:** real login; remove Google and register footer |
-| `frontend/src/features/auth/LoginPage.test.tsx` | **Rewrite:** success, failure, loader, expiry notice |
-| `frontend/src/features/auth/ForgotPasswordPage.tsx` | **Change:** real request endpoint |
-| `frontend/src/features/auth/ForgotPasswordPage.test.tsx` | **Extend:** transport failure path |
-| `frontend/src/features/auth/ResetPasswordPage.tsx` | **Change:** real confirm endpoint |
-| `frontend/src/features/auth/ResetPasswordPage.test.tsx` | **Extend:** expired / used token |
-| `frontend/src/features/auth/RegisterPage.tsx` | **Delete** (D6) |
-| `frontend/src/features/auth/RegisterPage.test.tsx` | **Delete** (D6) |
-| `frontend/src/features/auth/GoogleIcon.tsx` | **Delete** (no backend provider) |
-| `frontend/src/features/auth/index.ts` | **Change:** drop deleted exports |
-| `frontend/src/app/routes.tsx` | **Change:** remove `/register` and its import |
-| `frontend/src/app/providers.tsx` | **Change:** provider order for the query-backed AuthProvider |
+| `frontend/src/features/auth/AuthContext.jsx` | **Rewrite:** real endpoints, React Query, session-loss subscription |
+| `frontend/src/features/auth/AuthContext.test.jsx` | **Rewrite:** login, boot, expiry, logout |
+| `frontend/src/features/auth/api/authApi.js` | **New:** typed calls over `shared/api` |
+| `frontend/src/features/auth/api/authApi.test.js` | **New:** request shapes and error mapping |
+| `frontend/src/features/auth/api/useLogin.js` | **New:** login mutation |
+| `frontend/src/features/auth/api/useCurrentUser.js` | **New:** current-user query |
+| `frontend/src/features/auth/api/useLogout.js` | **New:** logout mutation + cache reset |
+| `frontend/src/features/auth/api/usePasswordChange.js` | **New:** signed-in change mutation |
+| `frontend/src/features/auth/ProtectedRoute.jsx` | **Change:** gate on resolved auth state |
+| `frontend/src/features/auth/ProtectedRoute.test.jsx` | **New:** loading, signed-out, signed-in |
+| `frontend/src/features/auth/LoginPage.jsx` | **Change:** real login; remove Google, register footer, forgot link; contact-admin copy |
+| `frontend/src/features/auth/LoginPage.test.jsx` | **Rewrite:** success, failure, loader, expiry notice |
+| `frontend/src/features/auth/ForgotPasswordPage.jsx` | **Delete** (D15) |
+| `frontend/src/features/auth/ForgotPasswordPage.test.jsx` | **Delete** |
+| `frontend/src/features/auth/ResetPasswordPage.jsx` | **Delete** (D15) |
+| `frontend/src/features/auth/ResetPasswordPage.test.jsx` | **Delete** |
+| `frontend/src/features/auth/RegisterPage.jsx` | **Delete** (D6) |
+| `frontend/src/features/auth/RegisterPage.test.jsx` | **Delete** (D6) |
+| `frontend/src/features/auth/GoogleIcon.jsx` | **Delete** (no backend provider) |
+| `frontend/src/features/auth/index.js` | **Change:** drop deleted exports |
+| `frontend/src/app/routes.jsx` | **Change:** remove `/register` and its import |
+| `frontend/src/app/providers.jsx` | **Change:** provider order for the query-backed AuthProvider |
 | `frontend/src/shared/i18n/locales/en.json` | **Change:** remove register/Google keys, add new auth keys |
-| `frontend/src/test/renderWithProviders.tsx` | **Change:** replace `seedAuthSession` / `clearAuthSession` with API-client session seeding |
+| `frontend/src/test/renderWithProviders.jsx` | **Change:** replace `seedAuthSession` / `clearAuthSession` with API-client session seeding |
 
 ## 9. Tests (≥ 80% line and branch)
 
@@ -262,12 +244,9 @@ not a new frontend variable. Mirror any `.env.example` edit into `.env` as usual
 - `LoginPage`: an error with no parseable body renders the localized fallback.
 - `LoginPage`: the correlation ID is shown when the error carries one and omitted when not.
 - `LoginPage`: after a successful sign-in the user lands on `returnTo`, defaulting to `/`.
-- `LoginPage`: no Google button, no registration link, and the administrator-created-accounts
-  line is present.
-- `ForgotPasswordPage`: the success panel shows for both known and unknown emails; a network
-  failure shows the inline error instead of the success panel.
-- `ResetPasswordPage`: missing token renders the invalid-link branch; mismatched passwords do
-  not call the API; an expired-token error renders its backend message.
+- `LoginPage`: no Google button, no registration link, no forgot-password link; contact-admin
+  copy is present.
+- Navigating to `/forgot-password` or `/reset-password` renders the not-found page.
 - Renders without horizontal scroll at 375 px, 768 px and 1280 px.
 
 ### Removal assertions
@@ -281,14 +260,14 @@ not a new frontend variable. Mirror any `.env.example` edit into `.env` as usual
 - [ ] `AuthContext` exposes no `register`, `verifyOtp`, `resendOtp`, `loginWithGoogle` or
       `pendingEmail`, and `AUTH_STORAGE_KEY` no longer exists.
 - [ ] No user object or access token is written to `localStorage` or `sessionStorage`.
-- [ ] `RegisterPage.tsx`, `RegisterPage.test.tsx` and `GoogleIcon.tsx` are deleted; `/register`
-      returns the not-found page.
+- [ ] `RegisterPage.jsx`, `ForgotPasswordPage.jsx`, `ResetPasswordPage.jsx` and `GoogleIcon.jsx`
+      are deleted; `/register`, `/forgot-password` and `/reset-password` return not-found.
 - [ ] The removed i18n keys are gone and no component references a missing key.
 - [ ] Session expiry returns the user to sign-in with no protected data left in the cache and
       resumes at `returnTo` after re-authentication.
 - [ ] Every submit button shows a loader, is disabled while in flight, sets `aria-busy`, and
       renders an inline `role="alert"` error from `error.message` with a localized fallback.
-- [ ] `npm run typecheck`, `npm run lint` and `npm test` pass in `frontend/`.
+- [ ] `npm run lint` and `npm test` pass in `frontend/`.
 - [ ] Coverage for every file this phase touched is ≥ 80% line and ≥ 80% branch.
 
 ## 11. Documentation & ADR updates
@@ -303,16 +282,14 @@ not a new frontend variable. Mirror any `.env.example` edit into `.env` as usual
 
 Ask the user; do not assume (`.cursor/rules/no-assumptions.mdc`).
 
-1. **Token storage (blocking).** Confirm option A in §4.2 (in-memory access token + httpOnly
-   refresh cookie). If Phase 07 has not decided, this phase cannot start.
+1. **Token storage.** **Decided (D14).** In-memory access token + httpOnly refresh cookie.
 2. **Permissions on the user object.** Does `GET /auth/me` return the caller's effective
    permission list, or is there a separate endpoint? Phase 15 needs it to decide which admin
    controls to render, and §85 requires human-readable labels rather than raw identifiers.
-3. **Password change for the signed-in user** is required by frontend §7A but has no endpoint in
-   `solution.md` §8.4. Add it to Phase 08, or defer the UI? Not invented here.
-4. **Reset-link delivery.** Email channels are out of scope (README §5, in-app notifications
-   only). How does a user actually receive the reset token — and what should
-   `ForgotPasswordPage` say happens next so it is not a fabricated promise (§98)?
+3. **Password change UI.** Phase 08 defines `POST /auth/password/change`. Confirm it ships in
+   this slice (proposed: yes, a signed-in change form) rather than a later settings page.
+4. **Reset-link delivery.** **Decided (D15).** No public forgot. Login copy tells the user to
+   contact an administrator.
 5. **Session-expired copy.** Should the sign-in screen distinguish "you were signed out" from a
    normal visit, and does that leak anything? Proposal: a neutral localized line, shown only
    when the navigation carried the expiry flag.

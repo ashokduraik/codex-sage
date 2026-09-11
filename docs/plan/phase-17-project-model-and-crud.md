@@ -1,7 +1,8 @@
 # Phase 17 — Project model, CRUD & lifecycle states
 
 - **Layer:** BE
-- **Depends on:** Phase 09 (RBAC engine), Phase 10 (audit writer)
+- **Depends on:** Phase 09 (RBAC engine), Phase 10 (audit writer), Phase 12 (`Idempotency-Key`
+  on create)
 - **Unblocks:** Phase 18, 19, 20, 23, 24, 30, 41 (every project-scoped resource)
 - **Size:** 1–2 days
 - **Requirements covered:** `backend/requirments.md` §7 (project model), §9 (project creation
@@ -302,34 +303,34 @@ Defaults mirror solution §12.3; the UI renders these facts and never hardcodes 
 
 ## 7. Configuration & environment variables
 
-| Variable | Example | Required | Purpose |
-|---|---|---|---|
-| `PROJECTS_LIST_DEFAULT_LIMIT` | `20` | no (default `20`) | Page size when `limit` is absent |
-| `PROJECTS_LIST_MAX_LIMIT` | `100` | no (default `100`) | Upper bound for `limit` |
+**None.** No new `.env` keys. List page sizes are named constants
+(`.cursor/rules/env-config.mdc`).
 
-Add both to `backend/.env.example` and mirror the keys into `backend/.env`
-(`.cursor/rules/env-example-sync.mdc`). Never print `.env` contents.
+### Constants (not env)
+
+| Constant | Value | Where | Purpose |
+|---|---|---|---|
+| `PROJECTS_LIST_DEFAULT_LIMIT` | `20` | `modules/projects/projects.repository.js` | Page size when `limit` is absent |
+| `PROJECTS_LIST_MAX_LIMIT` | `100` | `modules/projects/projects.repository.js` | Upper bound for `limit` |
 
 ## 8. Files to create or change
 
 | Path | Purpose |
 |---|---|
-| `backend/src/modules/projects/projects.model.ts` | **New:** schema, enums, indexes |
-| `backend/src/modules/projects/projects.lifecycle.ts` | **New:** transition table + guards |
-| `backend/src/modules/projects/projects.lifecycle.test.ts` | **New:** full valid/invalid matrix |
-| `backend/src/modules/projects/projects.repository.ts` | **New:** org-scoped queries, keyset list |
-| `backend/src/modules/projects/projects.repository.test.ts` | **New:** scoping, pagination, soft delete |
-| `backend/src/modules/projects/projects.service.ts` | **New:** use cases, audit, idempotency |
-| `backend/src/modules/projects/projects.service.test.ts` | **New:** service behaviour and failures |
-| `backend/src/modules/projects/projects.routes.ts` | **New:** handlers, request schemas |
-| `backend/src/modules/projects/projects.routes.test.ts` | **New:** integration via `app.inject` |
-| `backend/src/modules/projects/projects.types.ts` | **New:** DTOs |
-| `backend/src/modules/projects/index.ts` | **New:** public surface |
-| `backend/src/http/routes.ts` | Register `projectRoutes` |
-| `backend/src/http/routes.test.ts` | Assert the new routes are mounted |
+| `backend/src/modules/projects/projects.model.js` | **New:** schema, enums, indexes |
+| `backend/src/modules/projects/projects.lifecycle.js` | **New:** transition table + guards |
+| `backend/src/modules/projects/projects.lifecycle.test.js` | **New:** full valid/invalid matrix |
+| `backend/src/modules/projects/projects.repository.js` | **New:** org-scoped queries, keyset list |
+| `backend/src/modules/projects/projects.repository.test.js` | **New:** scoping, pagination, soft delete |
+| `backend/src/modules/projects/projects.service.js` | **New:** use cases, audit, idempotency |
+| `backend/src/modules/projects/projects.service.test.js` | **New:** service behaviour and failures |
+| `backend/src/modules/projects/projects.routes.js` | **New:** handlers, request schemas |
+| `backend/src/modules/projects/projects.routes.test.js` | **New:** integration via `app.inject` |
+| `backend/src/modules/projects/projects.types.js` | **New:** DTOs |
+| `backend/src/modules/projects/index.js` | **New:** public surface |
+| `backend/src/http/routes.js` | Register `projectRoutes` |
+| `backend/src/http/routes.test.js` | Assert the new routes are mounted |
 | `backend/migrations/` | **New migration:** create `projects` collection and its indexes |
-| `backend/.env.example` | Document the two new variables |
-| `backend/.env` | Mirror the new keys |
 
 ## 9. Tests (≥ 80% line and branch)
 
@@ -384,7 +385,7 @@ Add both to `backend/.env.example` and mirror the keys into `backend/.env`
 - [ ] Audit events are written for create, update, settings change, archive, restore, delete.
 - [ ] Counts are never computed or guessed in this module.
 - [ ] Keyset pagination works with a stable order and an opaque cursor.
-- [ ] `npm run typecheck`, `npm run lint` and `npm test` pass in `backend/`, with ≥ 80% line
+- [ ] `npm run lint` and `npm test` pass in `backend/`, with ≥ 80% line
       and branch coverage on every file this phase touched.
 - [ ] The migration creates the collection and all three indexes; no `autoIndex` reliance.
 

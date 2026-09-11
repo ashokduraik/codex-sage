@@ -16,7 +16,7 @@
 After this phase the frontend has **one typed way to call the backend**. A single
 `frontend/src/shared/api/` module owns the base URL, the access token, the
 `{ error: { code, message, details? } }` envelope, the support correlation ID, a single-flight
-refresh-on-401, and request cancellation. `shared/lib/query-client.ts` gains real defaults so
+refresh-on-401, and request cancellation. `shared/lib/query-client.js` gains real defaults so
 every later slice inherits the same retry, staleness and error behaviour.
 
 You can see it working through the test suite: with a mocked `fetch`, a `200` returns typed
@@ -39,7 +39,7 @@ the session.
 ### In scope
 
 - `frontend/src/shared/api/` module: config, request function, `ApiError`, session holder,
-  refresh coordinator, error-code to i18n-key mapping, public `index.ts`.
+  refresh coordinator, error-code to i18n-key mapping, public `index.js`.
 - Validated `VITE_API_BASE_URL` read in exactly one place, with a readable startup failure when
   it is missing or malformed.
 - Parsing of the backend error envelope, including HTTP failures with no parseable body.
@@ -50,7 +50,7 @@ the session.
 - `AbortSignal` support so React Query's `signal` cancels in-flight requests.
 - i18n additions under `errors.*` so every known backend code has a user-facing string and an
   unknown code falls back to a generic localized message.
-- `frontend/.env.example` updated and mirrored into `frontend/.env`; `vite.config.ts` test env
+- `frontend/.env.example` updated and mirrored into `frontend/.env`; `vite.config.js` test env
   pinned to the same value.
 
 ### Out of scope (owner phase)
@@ -103,10 +103,10 @@ Construction rules, in order:
 4. The request was aborted → a distinguishable abort path that callers must **not** render as
    a failure.
 
-`correlationId` is required by frontend §90 and §105.38 and by backend §105. Where it travels
-is not yet decided (Phase 02 owns it) — see section 12. The client reads a response header
-first, falls back to `error.details.correlationId`, and treats it as absent when neither exists
-rather than inventing one.
+`correlationId` is required by frontend §90 and §105.38 and by backend §105. **Decision (Phase
+02):** it is Fastify's `request.id`, returned as `X-Correlation-Id` on every response and as
+`error.reference` on error bodies. The client reads `X-Correlation-Id` first, then
+`error.reference`, and treats it as absent when neither exists rather than inventing one.
 
 ### 4.4 Code-to-message mapping
 
@@ -133,13 +133,13 @@ On a `401` for any request other than the refresh call itself:
 ```
 
 The retry counter is per-request, so a persistently failing endpoint cannot loop. Requests that
-carry `skipAuthRefresh` (login, password reset, the refresh call) never enter this path. Whether
-refresh sends a body token or relies on an httpOnly cookie is Phase 07's decision;
-`refreshClient.ts` isolates it to one function, and Phase 14 states the chosen option.
+carry `skipAuthRefresh` (login, the refresh call) never enter this path. **Decision D14:**
+refresh sends no body token; `credentials: 'include'` so the httpOnly cookie is attached, plus
+the CSRF header from Phase 07. `refreshClient.ts` is the only function that performs that call.
 
 ### 4.6 React Query defaults
 
-Replace the current two-line default block in `shared/lib/query-client.ts`:
+Replace the current two-line default block in `shared/lib/query-client.js`:
 
 | Option | Value | Reason |
 |---|---|---|
@@ -172,10 +172,17 @@ relies on. All of them must be confirmed against Phases 02 and 07 before impleme
 | `Content-Type` | requests with a JSON body | `application/json` |
 | `Accept-Language` | every request | active i18n language |
 | `Idempotency-Key` | only when a caller supplies one | caller-generated UUID (`solution.md` §13) |
+| `X-CSRF-Token` | `POST /auth/refresh` and `POST /auth/logout` | double-submit token from Phase 07 (D14) |
+
+`fetch` uses `credentials: 'include'` so the refresh cookie is sent. The access token never
+goes in a cookie.
 
 ### Error envelope consumed
 
-`{ "error": { "code": "VALIDATION_ERROR", "message": "email is required", "details": {} } }`
+`{ "error": { "code": "VALIDATION_ERROR", "message": "email is required", "details": {}, "reference": "REQ-…" } }`
+
+`ApiError.correlationId` is set from the `X-Correlation-Id` response header, then from
+`error.reference`.
 
 ### Statuses the client handles centrally
 
@@ -187,19 +194,20 @@ relies on. All of them must be confirmed against Phases 02 and 07 before impleme
 | `429` | no retry; `Retry-After` (when present) attached to `ApiError` for §64 copy |
 | `5xx` | retried per the query policy, then surfaced with the correlation ID |
 
-**Correlation ID surfacing is open (section 12).** Proposal: an `x-request-id` response header
-on every response, with `error.details.correlationId` as the fallback; needs Phase 02 to confirm.
+**Correlation ID:** header `X-Correlation-Id`, fallback `error.reference` (Phase 02). Do not
+read `x-request-id` or `error.details.correlationId`.
 
 ## 7. Configuration & environment variables
 
 Add to `frontend/.env.example` **and** mirror the key into `frontend/.env`
-(`.cursor/rules/env-example-sync.mdc`). Never print `.env` contents.
+(`.cursor/rules/env-example-sync.mdc`). Never print `.env` contents. This is the only frontend
+env var this slice needs; query retry/stale defaults stay as constants in `query-client.ts`.
 
 | Variable | Example | Required | Purpose |
 |---|---|---|---|
 | `VITE_API_BASE_URL` | `/api/v1` | **yes** | Base URL for every backend call; default changes from `/api` to `/api/v1` |
 
-`vite.config.ts` pins `test.env.VITE_API_BASE_URL` so tests do not depend on a developer's local
+`vite.config.js` pins `test.env.VITE_API_BASE_URL` so tests do not depend on a developer's local
 file — update that pin to `/api/v1` in the same change. `VITE_*` values are inlined into the
 browser bundle, so no secret may ever be stored in one.
 
@@ -207,25 +215,25 @@ browser bundle, so no secret may ever be stored in one.
 
 | Path | Purpose |
 |---|---|
-| `frontend/src/shared/api/apiConfig.ts` | **New:** validate and expose the base URL |
-| `frontend/src/shared/api/apiConfig.test.ts` | **New:** valid path, absolute URL, missing, malformed |
-| `frontend/src/shared/api/ApiError.ts` | **New:** typed error + envelope parsing |
-| `frontend/src/shared/api/ApiError.test.ts` | **New:** every construction branch |
-| `frontend/src/shared/api/apiSession.ts` | **New:** in-memory token + session-cleared subscribers |
-| `frontend/src/shared/api/apiSession.test.ts` | **New:** set/get/clear, subscriber notification |
-| `frontend/src/shared/api/refreshClient.ts` | **New:** single-flight refresh coordinator |
-| `frontend/src/shared/api/refreshClient.test.ts` | **New:** concurrency, failure, no recursion |
-| `frontend/src/shared/api/apiRequest.ts` | **New:** the one `fetch` wrapper |
-| `frontend/src/shared/api/apiRequest.test.ts` | **New:** success, errors, retry, abort, headers |
-| `frontend/src/shared/api/errorMessages.ts` | **New:** code → i18n key + failure category |
-| `frontend/src/shared/api/errorMessages.test.ts` | **New:** known codes, unknown code fallback |
-| `frontend/src/shared/api/index.ts` | **New:** public surface for features |
-| `frontend/src/shared/lib/query-client.ts` | **Change:** real retry / stale / error defaults |
-| `frontend/src/shared/lib/query-client.test.ts` | **New:** retry predicate per status |
+| `frontend/src/shared/api/apiConfig.js` | **New:** validate and expose the base URL |
+| `frontend/src/shared/api/apiConfig.test.js` | **New:** valid path, absolute URL, missing, malformed |
+| `frontend/src/shared/api/ApiError.js` | **New:** typed error + envelope parsing |
+| `frontend/src/shared/api/ApiError.test.js` | **New:** every construction branch |
+| `frontend/src/shared/api/apiSession.js` | **New:** in-memory token + session-cleared subscribers |
+| `frontend/src/shared/api/apiSession.test.js` | **New:** set/get/clear, subscriber notification |
+| `frontend/src/shared/api/refreshClient.js` | **New:** single-flight refresh coordinator |
+| `frontend/src/shared/api/refreshClient.test.js` | **New:** concurrency, failure, no recursion |
+| `frontend/src/shared/api/apiRequest.js` | **New:** the one `fetch` wrapper |
+| `frontend/src/shared/api/apiRequest.test.js` | **New:** success, errors, retry, abort, headers |
+| `frontend/src/shared/api/errorMessages.js` | **New:** code → i18n key + failure category |
+| `frontend/src/shared/api/errorMessages.test.js` | **New:** known codes, unknown code fallback |
+| `frontend/src/shared/api/index.js` | **New:** public surface for features |
+| `frontend/src/shared/lib/query-client.js` | **Change:** real retry / stale / error defaults |
+| `frontend/src/shared/lib/query-client.test.js` | **New:** retry predicate per status |
 | `frontend/src/shared/i18n/locales/en.json` | **Change:** add `errors.unexpected`, `errors.codes.*`, `errors.correlationId` |
 | `frontend/.env.example` | **Change:** `VITE_API_BASE_URL=/api/v1` |
 | `frontend/.env` | **Change:** mirror the same key |
-| `frontend/vite.config.ts` | **Change:** pin `test.env.VITE_API_BASE_URL` to `/api/v1` |
+| `frontend/vite.config.js` | **Change:** pin `test.env.VITE_API_BASE_URL` to `/api/v1` |
 
 ## 9. Tests (≥ 80% line and branch)
 
@@ -262,16 +270,16 @@ All tests mock `fetch` with `vi.stubGlobal`; no network call is made.
 
 ## 10. Definition of Done
 
-- [ ] `frontend/src/shared/api/` exists with the module layout in §4.1 and a public `index.ts`.
+- [ ] `frontend/src/shared/api/` exists with the module layout in §4.1 and a public `index.js`.
 - [ ] `apiRequest.ts` is the only file under `frontend/src/` that calls `fetch`.
 - [ ] `import.meta.env` is read only in `apiConfig.ts`.
 - [ ] `ApiError` exposes `status`, `code`, `message`, `details?`, `correlationId?`.
 - [ ] Two concurrent `401`s produce exactly one refresh request (asserted in a test).
 - [ ] No user-facing string is hardcoded; all fallbacks come from `errors.*` in `en.json`.
 - [ ] `VITE_API_BASE_URL` is documented in `frontend/.env.example`, mirrored into
-      `frontend/.env`, and pinned in `vite.config.ts` test env.
+      `frontend/.env`, and pinned in `vite.config.js` test env.
 - [ ] No feature file was modified — no slice is rewired in this phase.
-- [ ] `npm run typecheck`, `npm run lint` and `npm test` pass in `frontend/`.
+- [ ] `npm run lint` and `npm test` pass in `frontend/`.
 - [ ] Coverage for every file this phase touched is ≥ 80% line and ≥ 80% branch.
 
 ## 11. Documentation & ADR updates
@@ -287,17 +295,15 @@ All tests mock `fetch` with `vi.stubGlobal`; no network call is made.
 
 Ask the user; do not assume (`.cursor/rules/no-assumptions.mdc`).
 
-1. **Correlation ID transport.** Header name (`x-request-id`?), `error.details.correlationId`,
-   or both? Frontend §90 and §105.38 require displaying it, so Phase 02 must define the field
-   before this client can read it.
-2. **Refresh transport.** Does `POST /auth/refresh` read an httpOnly cookie or a refresh token
-   in the body? Phase 07 decides; this phase only isolates the call.
+1. **Correlation ID transport.** **Decided (Phase 02):** header `X-Correlation-Id` and
+   `error.reference`. Do not use `x-request-id` or `error.details.correlationId`.
+2. **Refresh transport.** **Decided (D14):** httpOnly cookie + CSRF header; no refresh token
+   in JSON. This phase uses `credentials: 'include'` and isolates the call in `refreshClient.ts`.
 3. **Error-code catalog.** Is there an agreed list of backend `error.code` values (Phase 02)?
    Without it, every unmapped code falls through to the generic category in §4.4.
 4. **Base URL default.** Confirm `/api/v1` given the Vite proxy, and that no deployment needs an
    absolute cross-origin URL — that would require CORS and credentialed-cookie handling first.
 5. **`Retry-After` semantics.** Seconds or an HTTP date on `429` (`solution.md` §13)? They parse
    differently.
-6. **Scope check.** This phase is at the upper end of 1–2 days. If the refresh coordinator turns
-   out to depend on unresolved Phase 07 decisions, ship the client and query defaults first and
-   split the refresh loop into its own change rather than guessing the contract.
+6. **Scope check.** This phase is at the upper end of 1–2 days. Ship the client and query
+   defaults first and split the refresh loop only if CSRF wiring slips the budget.

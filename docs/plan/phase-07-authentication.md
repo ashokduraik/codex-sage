@@ -38,7 +38,7 @@ invalidate.
 ### In scope
 
 - An argon2id hashing module: `hashPassword`, `verifyPassword`, `needsRehash`, with cost
-  parameters read from configuration.
+  parameters read from named constants.
 - JWT access tokens signed and verified through `@fastify/jwt`, with a short TTL.
 - Opaque refresh tokens stored hashed in a new `sessions` collection, with rotation on every
   use and reuse detection that revokes the whole session family.
@@ -73,9 +73,9 @@ invalidate.
 
 ### 4.1 Password hashing
 
-`src/modules/auth/passwordHasher.ts` is the only module that imports `argon2`. It always uses
+`src/modules/auth/passwordHasher.js` is the only module that imports `argon2`. It always uses
 the argon2id variant (solution §8.3) and takes memory cost, time cost and parallelism from
-configuration so the values can be raised without a code change.
+named constants in `passwordHasher.ts`. Raising them is a code change, not an env change.
 
 `verifyPassword` never short-circuits on a missing user. When the email is unknown, or the
 user has no `passwordHash` because they are still `invited`, the login path still runs a
@@ -83,7 +83,7 @@ verification against a fixed dummy hash generated once at boot, then fails. With
 response time alone tells an attacker which emails exist.
 
 On a successful login, if `needsRehash` reports that the stored hash used weaker parameters
-than the current configuration, the hash is recomputed and written back. This is the only
+than the current constants, the hash is recomputed and written back. This is the only
 place a password hash is written outside Phase 08.
 
 The concrete cost parameters are **not** proposed here — see section 12. They must be chosen
@@ -97,10 +97,10 @@ Two tokens with deliberately different properties:
 | | Access token | Refresh token |
 |---|---|---|
 | Format | Signed JWT (`@fastify/jwt`) | Opaque random bytes, base64url |
-| Lifetime | Short, minutes (configurable) | Long, days (configurable) |
+| Lifetime | Short, minutes (named constants) | Long, days (named constants) |
 | Stored server-side | No | Yes, SHA-256 hash only |
 | Revocable before expiry | Only via the checks in §4.4 | Yes, immediately |
-| Sent on | Every request, `Authorization: Bearer` | Only to `/auth/refresh` and `/auth/logout` |
+| Sent on | Every request, `Authorization: Bearer` | Only to `/auth/refresh` and `/auth/logout`, via httpOnly cookie (D14) |
 
 Access token claims are deliberately minimal:
 
@@ -222,8 +222,6 @@ Response `200`:
 {
   "accessToken": "<jwt>",
   "accessTokenExpiresInSeconds": 900,
-  "refreshToken": "<opaque>",
-  "refreshTokenExpiresInSeconds": 1209600,
   "user": {
     "id": "6712f0b1c9a41d2f8e4b3a02",
     "email": "admin@acme.example",
@@ -234,11 +232,12 @@ Response `200`:
 }
 ```
 
+The refresh token is **not** in this body (**D14**). It is set as `Set-Cookie`:
+`HttpOnly; SameSite=Strict; Path=/api/v1/auth; Secure` in production. A readable CSRF cookie
+is set alongside it; the client echoes it as `X-CSRF-Token` on refresh and logout.
+
 Errors: `400 VALIDATION_ERROR` (zod, missing or malformed field);
 `401 INVALID_CREDENTIALS` (every rejected case, §4.5); `429 RATE_LIMITED` (Phase 12).
-
-Whether `refreshToken` appears in this body at all depends on the transport decision in
-section 12 — with an httpOnly cookie it is set as a `Set-Cookie` header and omitted here.
 
 ### `POST /api/v1/auth/refresh`
 
@@ -280,50 +279,63 @@ what to render; it is not included here because the catalog does not exist yet.
 
 ## 7. Configuration & environment variables
 
-Add to `backend/.env.example` **and** mirror into `backend/.env`. `JWT_ACCESS_TOKEN_SECRET`
-is a real secret: generate it per environment, never commit a value, and never log it.
+Only secrets that must differ per environment go in `.env`. Token lifetimes, issuer, audience,
+and argon2 costs are named constants (`.cursor/rules/env-config.mdc`). Never print `.env`
+contents. `JWT_ACCESS_TOKEN_SECRET` is a real secret: generate it per environment, never commit
+a value, and never log it.
+
+### Environment variables
 
 | Variable | Example | Required | Purpose |
 |---|---|---|---|
 | `JWT_ACCESS_TOKEN_SECRET` | `<generated 32+ byte value>` | **yes** | Signing key for access tokens |
-| `JWT_ACCESS_TOKEN_TTL_SECONDS` | `900` | no | Access-token lifetime |
-| `JWT_REFRESH_TOKEN_TTL_SECONDS` | `1209600` | no | Refresh-token absolute lifetime |
-| `JWT_ISSUER` | `codex-sage` | no | `iss` claim, verified on every request |
-| `JWT_AUDIENCE` | `codex-sage-api` | no | `aud` claim, verified on every request |
-| `ARGON2_MEMORY_COST_KIB` | see section 12 | **yes** | argon2id memory cost |
-| `ARGON2_TIME_COST` | see section 12 | **yes** | argon2id iterations |
-| `ARGON2_PARALLELISM` | see section 12 | **yes** | argon2id lanes |
+| `BOOTSTRAP_ADMIN_PASSWORD` | `<generated>` | only for the seed | First admin password; hashed by this phase |
 
 Config validation must reject a missing or short `JWT_ACCESS_TOKEN_SECRET` and must not print
 the value in the error message (Phase 01 §4.1 already requires this).
+
+### Constants (not env)
+
+Concrete argon2 costs are chosen in section 12 against current argon2 guidance; until then the
+constant names and the JWT timings below are the recommended defaults.
+
+| Constant | Value | Where | Purpose |
+|---|---|---|---|
+| `JWT_ACCESS_TOKEN_TTL_SECONDS` | `900` | `modules/auth/tokenService.js` | Access-token lifetime |
+| `JWT_REFRESH_TOKEN_TTL_SECONDS` | `1209600` | `modules/auth/tokenService.js` | Refresh-token absolute lifetime |
+| `JWT_ISSUER` | `'codex-sage'` | `modules/auth/tokenService.js` | `iss` claim, verified on every request |
+| `JWT_AUDIENCE` | `'codex-sage-api'` | `modules/auth/tokenService.js` | `aud` claim, verified on every request |
+| `ARGON2_MEMORY_COST_KIB` | see section 12 | `modules/auth/passwordHasher.js` | argon2id memory cost |
+| `ARGON2_TIME_COST` | see section 12 | `modules/auth/passwordHasher.js` | argon2id iterations |
+| `ARGON2_PARALLELISM` | see section 12 | `modules/auth/passwordHasher.js` | argon2id lanes |
 
 ## 8. Files to create or change
 
 | Path | Purpose |
 |---|---|
-| `backend/package.json` | Add `argon2`, `@fastify/jwt` after the `dependency-versions.mdc` pre-install checks |
-| `backend/src/platform/config.ts` | Add the `auth` config group (JWT + argon2) |
-| `backend/src/platform/config.test.ts` | **Extend:** missing secret, short secret, defaults |
-| `backend/src/platform/logger.ts` | **Extend:** redaction paths for credentials and tokens |
-| `backend/src/platform/logger.test.ts` | **Extend:** assert redaction of each path |
-| `backend/src/modules/auth/passwordHasher.ts` | **New:** hash, verify, needsRehash |
-| `backend/src/modules/auth/passwordHasher.test.ts` | **New** |
-| `backend/src/modules/auth/tokenService.ts` | **New:** sign/verify access tokens, mint refresh tokens |
-| `backend/src/modules/auth/tokenService.test.ts` | **New** |
-| `backend/src/modules/auth/session.model.ts` | **New:** `sessions` schema and indexes |
-| `backend/src/modules/auth/session.repository.ts` | **New:** create, findByHash, rotate, revoke, revokeFamily, revokeAllForUser |
-| `backend/src/modules/auth/session.repository.test.ts` | **New** |
-| `backend/src/modules/auth/auth.service.ts` | **New:** login, refresh, logout as typed outcomes |
-| `backend/src/modules/auth/auth.service.test.ts` | **New** |
-| `backend/src/modules/auth/auth.routes.ts` | **New:** the four routes, zod-validated |
-| `backend/src/modules/auth/auth.routes.test.ts` | **New:** integration via `app.inject` |
-| `backend/src/modules/auth/authenticate.preHandler.ts` | **New:** principal resolution |
-| `backend/src/modules/auth/authenticate.preHandler.test.ts` | **New** |
-| `backend/src/modules/auth/index.ts` | **New:** public surface (`authenticate`, principal type) |
-| `backend/src/http/routes.ts` | Register `authRoutes` |
-| `backend/src/http/app.ts` | Register `@fastify/jwt`; declare the `principal` request decorator |
-| `backend/src/scripts/seedBootstrapOrganization.ts` | **Extend:** optional password for the first admin |
-| `backend/.env.example` / `backend/.env` | Document and mirror the auth variables |
+| `backend/package.json` | Add `argon2`, `@fastify/jwt`, `@fastify/cookie`, `@fastify/csrf-protection` after the `dependency-versions.mdc` pre-install checks |
+| `backend/src/platform/config.js` | Add `auth.jwtAccessTokenSecret` (and optional bootstrap password) |
+| `backend/src/platform/config.test.js` | **Extend:** missing secret, short secret |
+| `backend/src/platform/logger.js` | **Extend:** redaction paths for credentials and tokens |
+| `backend/src/platform/logger.test.js` | **Extend:** assert redaction of each path |
+| `backend/src/modules/auth/passwordHasher.js` | **New:** hash, verify, needsRehash |
+| `backend/src/modules/auth/passwordHasher.test.js` | **New** |
+| `backend/src/modules/auth/tokenService.js` | **New:** sign/verify access tokens, mint refresh tokens |
+| `backend/src/modules/auth/tokenService.test.js` | **New** |
+| `backend/src/modules/auth/session.model.js` | **New:** `sessions` schema and indexes |
+| `backend/src/modules/auth/session.repository.js` | **New:** create, findByHash, rotate, revoke, revokeFamily, revokeAllForUser |
+| `backend/src/modules/auth/session.repository.test.js` | **New** |
+| `backend/src/modules/auth/auth.service.js` | **New:** login, refresh, logout as typed outcomes |
+| `backend/src/modules/auth/auth.service.test.js` | **New** |
+| `backend/src/modules/auth/auth.routes.js` | **New:** the four routes, zod-validated |
+| `backend/src/modules/auth/auth.routes.test.js` | **New:** integration via `app.inject` |
+| `backend/src/modules/auth/authenticate.preHandler.js` | **New:** principal resolution |
+| `backend/src/modules/auth/authenticate.preHandler.test.js` | **New** |
+| `backend/src/modules/auth/index.js` | **New:** public surface (`authenticate`, principal type) |
+| `backend/src/http/routes.js` | Register `authRoutes` |
+| `backend/src/http/app.js` | Register `@fastify/jwt`, `@fastify/cookie`, `@fastify/csrf-protection`; declare the `principal` request decorator |
+| `backend/src/cli/bootstrap.js` | **Extend (Phase 06 file):** optional password for the first admin |
+| `backend/.env.example` / `backend/.env` | Document and mirror `JWT_ACCESS_TOKEN_SECRET` and `BOOTSTRAP_ADMIN_PASSWORD` |
 
 ## 9. Tests (≥ 80% line and branch)
 
@@ -331,7 +343,7 @@ the value in the error message (Phase 01 §4.1 already requires this).
 
 - `hashPassword` output verifies with `verifyPassword` and differs across two calls (salted).
 - `verifyPassword` returns false for a wrong password and for a malformed stored hash.
-- `needsRehash` is true when the stored parameters are below the configured ones.
+- `needsRehash` is true when the stored parameters are below the current constants.
 - Access tokens carry `sub`, `org`, `rls`, `sid`, `iss`, `aud`, and no permission claim.
 - Token verification rejects a wrong signature, a wrong issuer, a wrong audience and an
   expired token, with the expired case mapping to `SESSION_EXPIRED`.
@@ -361,7 +373,7 @@ the value in the error message (Phase 01 §4.1 already requires this).
 
 ## 10. Definition of Done
 
-- [ ] Passwords are hashed with argon2id using configured parameters; no plaintext is stored,
+- [ ] Passwords are hashed with argon2id using the hasher constants; no plaintext is stored,
       logged or returned.
 - [ ] Access tokens are short-lived, carry role ids rather than permissions, and are verified
       for issuer, audience and expiry.
@@ -376,10 +388,12 @@ the value in the error message (Phase 01 §4.1 already requires this).
 - [ ] The auth service returns typed outcomes at the single call site Phase 10 will audit.
 - [ ] Log redaction covers password, token, hash and `authorization` / `cookie` headers, with a
       test proving it.
-- [ ] `JWT_ACCESS_TOKEN_SECRET` and the argon2 parameters are documented in
+- [ ] `JWT_ACCESS_TOKEN_SECRET` (and `BOOTSTRAP_ADMIN_PASSWORD` for the seed) are documented in
       `backend/.env.example` and mirrored in `backend/.env`, with no real value committed.
-- [ ] `argon2` and `@fastify/jwt` installed at latest stable after the pre-install checks.
-- [ ] `npm run typecheck`, `npm run lint` and `npm test` pass; coverage ≥ 80% line and branch.
+      Argon2 costs and JWT lifetimes are constants, not env vars.
+- [ ] `argon2`, `@fastify/jwt`, `@fastify/cookie` and `@fastify/csrf-protection` installed at
+      latest stable after the pre-install checks (D14).
+- [ ] `npm run lint` and `npm test` pass; coverage ≥ 80% line and branch.
 
 ## 11. Documentation & ADR updates
 
@@ -390,23 +404,16 @@ the value in the error message (Phase 01 §4.1 already requires this).
 - `docs/data-model.md`: add the `sessions` collection.
 - `docs/architecture.md` §3: the line "JWT → org + user" now has a concrete shape; state where
   the principal comes from.
-- `backend/solution.md` §8.3: once the transport question is settled, replace "httpOnly cookie
-  or rotating store" with the decision.
+- `backend/solution.md` §8.3: replace "httpOnly cookie or rotating store" with D14 (httpOnly
+  refresh cookie + CSRF double-submit; access token in JSON / memory).
 
 ## 12. Risks & open questions
 
 Ask the user; do not assume (`.cursor/rules/no-assumptions.mdc`).
 
-1. **Refresh-token transport — the main open question.** Solution §8.3 says "httpOnly cookie
-   or rotating store" and does not choose. The server-side rotating store is needed either way
-   for revocation; what is undecided is how the browser holds the token.
-   - **httpOnly cookie:** immune to token theft by injected script, but makes the endpoint
-     cookie-authenticated and therefore CSRF-exposed, so it needs `SameSite=Strict` plus a
-     double-submit token, and it adds `@fastify/cookie` and `@fastify/csrf-protection`, neither
-     of which is in the solution §2 package list.
-   - **JSON body + client-held token:** no CSRF surface and no new dependency, but the token
-     must live somewhere in the browser, and anything readable by script is stealable.
-   This decision must be made before Phase 13 designs the API client. Which one?
+1. **Refresh-token transport.** **Decided (D14).** httpOnly cookie, `SameSite=Strict`,
+   `Path=/api/v1/auth`, plus a CSRF double-submit header on refresh and logout. The access
+   token stays in the JSON body and in browser memory only.
 2. **argon2id cost parameters.** Deliberately left unset. They must come from current OWASP /
    argon2 guidance and be measured on the target hardware — a guessed memory cost is either
    insecure or a denial-of-service on the login route. Who provides the target numbers?

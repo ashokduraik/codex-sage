@@ -57,7 +57,7 @@ CodeGraph daemon and no Node `worker_threads` yet.
                              │ JSON (CRUD)  ·  SSE (chat)
                              ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  API process — Fastify (`backend/src/index.ts`)                 │
+│  API process — Fastify (`backend/src/index.js`)                 │
 │                                                                 │
 │  Fast path: JWT, RBAC, CRUD, enqueue a job, open an SSE stream  │
 │  Chat: run the LangGraph workflow in this same process          │
@@ -76,7 +76,7 @@ CodeGraph daemon and no Node `worker_threads` yet.
         │ claim           │ write tree + index
         │                 │
 ┌───────┴─────────────────┴───────────────────────────────────────┐
-│  Worker process — (`backend/src/worker/index.ts`)               │
+│  Worker process — (`backend/src/worker/index.js`)               │
 │                                                                 │
 │  Polls Mongo `jobs`, claims one, heartbeats while running       │
 │  Unpacks source, indexes documents, git fetch, builds CodeGraph │

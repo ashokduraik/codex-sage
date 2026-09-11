@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run backend (tsx watch, port 3000) and frontend (Vite) together for local development.
+# Run backend (node --watch, port 3000) and frontend (Vite) together for local development.
 # Prefixed logs; Ctrl-C / TERM cleanly stops both processes.
 set -euo pipefail
 

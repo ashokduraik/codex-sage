@@ -8,7 +8,7 @@ alwaysApply: true
 Objective: code must be **production-grade, enterprise-grade, and easy to maintain for years**.
 
 ## Language & structure
-- **TypeScript for all new JS/TS code** (no plain `.js` for application code).
+- **JavaScript for all application code** (`.js` / `.jsx`); no TypeScript sources.
 - Follow **clean code** principles; small, single-purpose units.
 - A file must **not exceed 1000 lines** — split before it does.
 - **Prefer `async/await`** over callbacks/`.then` chains.
@@ -21,12 +21,12 @@ Objective: code must be **production-grade, enterprise-grade, and easy to mainta
 ## Comments & docs
 - Every function has **JSDoc**: purpose, params, returns, throws.
   Write them so an AI agent can understand intent without reading the body.
+  Do **not** use JSDoc as a substitute type system (`@param {Type}`) unless a specific rule asks.
 - Comments explain **why / intent**, not a line-by-line narration of what the code does.
 
 ## Formatting (target; enforced by Prettier/ESLint once wired)
 - **2-space** indentation; **no trailing whitespace**; **semicolons required**.
-- **Single quotes** for strings in JS/TS; **max line length 100**.
+- **Single quotes** for strings in JavaScript; **max line length 100**.
 
 ## External references
-- Follow the **Google TypeScript Style Guide**; format with **Prettier**; obey the project
-  **ESLint** config when present.
+- Format with **Prettier**; obey the project **ESLint** config when present.

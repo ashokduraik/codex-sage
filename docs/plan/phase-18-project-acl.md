@@ -163,7 +163,7 @@ it is cached using the mechanism Phase 09 introduced for organization permission
   effect on the next request rather than after the TTL — important because this is a security
   boundary, and because the API runs as more than one process (`docs/architecture.md` §2) and
   cannot rely on local eviction alone.
-- Caching is **disabled in tests** by config so authorization tests never pass on stale state.
+- Caching is **disabled in tests** (`nodeEnv === 'test'`) so authorization tests never pass on stale state.
 
 ### 4.6 Members API behaviour
 
@@ -266,39 +266,38 @@ No response body changes. Only the status codes change: an inaccessible project 
 
 ## 7. Configuration & environment variables
 
-| Variable | Example | Required | Purpose |
-|---|---|---|---|
-| `PROJECT_ACL_CACHE_TTL_MS` | `5000` | no (default `5000`) | TTL for the resolved-permission LRU |
-| `PROJECT_ACL_CACHE_MAX_ENTRIES` | `5000` | no (default `5000`) | LRU capacity |
-| `PROJECT_ACL_CACHE_ENABLED` | `true` | no (default `true`, forced `false` in tests) | Kill switch |
+**None.** No new `.env` keys. Cache TTL and capacity are named constants
+(`.cursor/rules/env-config.mdc`). Tests disable the LRU when `nodeEnv === 'test'`.
 
-Add all three to `backend/.env.example` and mirror the keys into `backend/.env`
-(`.cursor/rules/env-example-sync.mdc`).
+### Constants (not env)
+
+| Constant | Value | Where | Purpose |
+|---|---|---|---|
+| `PROJECT_ACL_CACHE_TTL_MS` | `5000` | `modules/projectMembers/projectAccess.js` | TTL for the resolved-permission LRU |
+| `PROJECT_ACL_CACHE_MAX_ENTRIES` | `5000` | `modules/projectMembers/projectAccess.js` | LRU capacity |
 
 ## 8. Files to create or change
 
 | Path | Purpose |
 |---|---|
-| `backend/src/modules/projectMembers/projectMembers.model.ts` | **New:** `ProjectMember` schema + indexes |
-| `backend/src/modules/projectMembers/projectMembers.repository.ts` | **New:** scoped queries, accessible-project ids |
-| `backend/src/modules/projectMembers/projectMembers.repository.test.ts` | **New:** scoping, reactivation, keyset |
-| `backend/src/modules/projectMembers/projectMembers.service.ts` | **New:** add/remove, audit, cache invalidation |
-| `backend/src/modules/projectMembers/projectMembers.service.test.ts` | **New:** idempotent add, soft remove |
-| `backend/src/modules/projectMembers/projectMembers.routes.ts` | **New:** members endpoints |
-| `backend/src/modules/projectMembers/projectMembers.routes.test.ts` | **New:** integration tests |
-| `backend/src/modules/projectMembers/projectAccess.ts` | **New:** `resolveProjectPermissions` + cache |
-| `backend/src/modules/projectMembers/projectAccess.test.ts` | **New:** the full resolution matrix |
-| `backend/src/modules/projectMembers/index.ts` | **New:** public surface (resolver + guard + service) |
-| `backend/src/http/preHandlers/requireProjectPermission.ts` | **New:** Fastify preHandler + `projectScope` |
-| `backend/src/http/preHandlers/requireProjectPermission.test.ts` | **New:** 400/403/404 branches |
-| `backend/src/modules/projects/projects.routes.ts` | Attach the guard to every `:projectId` route |
-| `backend/src/modules/projects/projects.routes.test.ts` | Extend with access-denied cases |
-| `backend/src/modules/projects/projects.repository.ts` | Apply the accessible-project filter in list |
-| `backend/src/modules/projects/projects.service.ts` | Insert the creator as a `ProjectMember` |
-| `backend/src/http/routes.ts` | Register `projectMemberRoutes` |
+| `backend/src/modules/projectMembers/projectMembers.model.js` | **New:** `ProjectMember` schema + indexes |
+| `backend/src/modules/projectMembers/projectMembers.repository.js` | **New:** scoped queries, accessible-project ids |
+| `backend/src/modules/projectMembers/projectMembers.repository.test.js` | **New:** scoping, reactivation, keyset |
+| `backend/src/modules/projectMembers/projectMembers.service.js` | **New:** add/remove, audit, cache invalidation |
+| `backend/src/modules/projectMembers/projectMembers.service.test.js` | **New:** idempotent add, soft remove |
+| `backend/src/modules/projectMembers/projectMembers.routes.js` | **New:** members endpoints |
+| `backend/src/modules/projectMembers/projectMembers.routes.test.js` | **New:** integration tests |
+| `backend/src/modules/projectMembers/projectAccess.js` | **New:** `resolveProjectPermissions` + cache |
+| `backend/src/modules/projectMembers/projectAccess.test.js` | **New:** the full resolution matrix |
+| `backend/src/modules/projectMembers/index.js` | **New:** public surface (resolver + guard + service) |
+| `backend/src/http/preHandlers/requireProjectPermission.js` | **New:** Fastify preHandler + `projectScope` |
+| `backend/src/http/preHandlers/requireProjectPermission.test.js` | **New:** 400/403/404 branches |
+| `backend/src/modules/projects/projects.routes.js` | Attach the guard to every `:projectId` route |
+| `backend/src/modules/projects/projects.routes.test.js` | Extend with access-denied cases |
+| `backend/src/modules/projects/projects.repository.js` | Apply the accessible-project filter in list |
+| `backend/src/modules/projects/projects.service.js` | Insert the creator as a `ProjectMember` |
+| `backend/src/http/routes.js` | Register `projectMemberRoutes` |
 | `backend/migrations/` | **New migrations:** `project_members`, `projectAccessMode`, `aclVersion` |
-| `backend/.env.example` | Document the three cache variables |
-| `backend/.env` | Mirror the new keys |
 
 ## 9. Tests (≥ 80% line and branch)
 
@@ -358,7 +357,7 @@ disabled; the per-request memo is used for repeated calls in one request.
 - [ ] Members add/remove are audited and never log or return emails, tokens or passwords.
 - [ ] Permission revocation takes effect on the next request via `aclVersion`, not after a TTL.
 - [ ] Every permission string used comes from solution §8.2 — no new names.
-- [ ] `npm run typecheck`, `npm run lint` and `npm test` pass in `backend/` with ≥ 80% line and
+- [ ] `npm run lint` and `npm test` pass in `backend/` with ≥ 80% line and
       branch coverage on the touched files.
 - [ ] A one-page note in the phase PR lists which routes later phases must guard, so Phase 23
       onward cannot forget.

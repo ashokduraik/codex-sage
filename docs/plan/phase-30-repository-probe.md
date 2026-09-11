@@ -70,7 +70,7 @@ lifecycle and audit trail to Phase 31.
 ### 4.1 Module layout
 
 New domain module `backend/src/modules/repositories/` (`routes + service + providers + tests`,
-public surface in `index.ts`). It has no Mongoose repository yet; Phase 31 adds one.
+public surface in `index.js`). It has no Mongoose repository yet; Phase 31 adds one.
 
 ```text
 repositories.routes.ts        POST /projects/:projectId/repositories/probe
@@ -142,7 +142,7 @@ log redaction paths. Provider response bodies are read for the fields above and 
 forwarded. Only read-only provider endpoints are called, matching §19's minimum-scope rule; the
 exact scopes we ask users for are an open question in section 12.
 
-`backend/src/platform/secretCrypto.ts` lands here even though nothing is stored yet:
+`backend/src/platform/secretCrypto.js` lands here even though nothing is stored yet:
 `encryptSecret` / `decryptSecret` over Node's built-in `crypto` with AES-256-GCM, a per-value
 random IV, and a key id stored with the ciphertext so rotation can find old values. Building it
 now lets "encrypted at rest, decrypted in memory only" be tested on its own and keeps Phase 31
@@ -228,40 +228,48 @@ section 12; this needs approval.
 
 ## 7. Configuration & environment variables
 
-Add to `backend/.env.example` **and** mirror into `backend/.env`
-(`.cursor/rules/env-example-sync.mdc`). Never print `.env` contents.
+Secrets and the private-host flag belong in `.env`. Probe timeouts, branch cap, README size,
+and rate budget are named constants (`.cursor/rules/env-config.mdc`). Never print `.env`
+contents.
+
+### Environment variables
 
 | Variable | Example | Required | Purpose |
 |---|---|---|---|
 | `REPO_CREDENTIAL_ENCRYPTION_KEY` | 32-byte base64 value | **yes** | AES-256-GCM key; startup fails if absent or wrong length |
 | `REPO_CREDENTIAL_KEY_ID` | `k1` | no | Key id stored with each ciphertext for rotation |
-| `REPO_PROBE_TIMEOUT_MS` | `10000` | no | Total budget for one provider call |
 | `REPO_PROBE_ALLOW_PRIVATE_HOSTS` | `false` | no | Allow private/loopback hosts (development only) |
-| `REPO_BRANCH_LIST_LIMIT` | `200` | no | Maximum branches returned |
-| `REPO_README_MAX_BYTES` | `65536` | no | Cap on the README read for the optional description |
-| `REPO_PROBE_RATE_LIMIT_PER_MIN` | `10` | no | Per-user probe budget |
+
+### Constants (not env)
+
+| Constant | Value | Where | Purpose |
+|---|---|---|---|
+| `REPO_PROBE_TIMEOUT_MS` | `10000` | `modules/repositories/providers/outboundHttp.js` | Total budget for one provider call |
+| `REPO_BRANCH_LIST_LIMIT` | `200` | `modules/repositories/repositoryProbe.service.js` | Maximum branches returned |
+| `REPO_README_MAX_BYTES` | `65536` | `modules/repositories/repositoryProbe.service.js` | Cap on the README read for the optional description |
+| `REPO_PROBE_RATE_LIMIT_PER_MIN` | `10` | `modules/repositories/repositories.routes.js` | Per-user probe budget |
 
 ## 8. Files to create or change
 
-Each new source file ships its colocated `*.test.ts` in the same change.
+Each new source file ships its colocated `*.test.js` in the same change.
 
 | Path | Purpose |
 |---|---|
-| `backend/src/platform/secretCrypto.ts` (+ test) | **New:** AES-256-GCM encrypt/decrypt with key id |
-| `backend/src/modules/repositories/providers/providerResolver.ts` (+ test) | **New:** URL → provider, base URL, owner path |
-| `backend/src/modules/repositories/providers/githubProbe.ts` (+ test) | **New:** GitHub repository, branches, README |
-| `backend/src/modules/repositories/providers/gitlabProbe.ts` (+ test) | **New:** GitLab SaaS and self-hosted equivalents |
-| `backend/src/modules/repositories/providers/probeErrorMap.ts` (+ test) | **New:** provider status → state + reason code |
-| `backend/src/modules/repositories/providers/outboundHttp.ts` (+ test) | **New:** timeout, redirect, size, host guards |
-| `backend/src/modules/repositories/repositoryProbe.service.ts` (+ test) | **New:** probe orchestration |
-| `backend/src/modules/repositories/repositories.schemas.ts` | **New:** zod request/response schemas |
-| `backend/src/modules/repositories/repositories.routes.ts` (+ test) | **New:** the probe route |
-| `backend/src/modules/repositories/index.ts` | **New:** public surface |
-| `backend/src/http/routes.ts` | Register `repositoryRoutes` |
-| `backend/src/platform/config.ts` (+ test) | Add the `repositories` config group |
-| `backend/src/platform/logger.ts` | Add `accessToken` to the redaction paths |
-| `backend/src/test/appConfig.ts` | Extend the fixture with the `repositories` group |
-| `backend/.env.example` / `backend/.env` | Document and mirror the new variables |
+| `backend/src/platform/secretCrypto.js` (+ test) | **New:** AES-256-GCM encrypt/decrypt with key id |
+| `backend/src/modules/repositories/providers/providerResolver.js` (+ test) | **New:** URL → provider, base URL, owner path |
+| `backend/src/modules/repositories/providers/githubProbe.js` (+ test) | **New:** GitHub repository, branches, README |
+| `backend/src/modules/repositories/providers/gitlabProbe.js` (+ test) | **New:** GitLab SaaS and self-hosted equivalents |
+| `backend/src/modules/repositories/providers/probeErrorMap.js` (+ test) | **New:** provider status → state + reason code |
+| `backend/src/modules/repositories/providers/outboundHttp.js` (+ test) | **New:** timeout, redirect, size, host guards |
+| `backend/src/modules/repositories/repositoryProbe.service.js` (+ test) | **New:** probe orchestration |
+| `backend/src/modules/repositories/repositories.schemas.js` | **New:** zod request/response schemas |
+| `backend/src/modules/repositories/repositories.routes.js` (+ test) | **New:** the probe route |
+| `backend/src/modules/repositories/index.js` | **New:** public surface |
+| `backend/src/http/routes.js` | Register `repositoryRoutes` |
+| `backend/src/platform/config.js` (+ test) | Add `repositories` env fields (encryption key, key id, allow-private-hosts) |
+| `backend/src/platform/logger.js` | Add `accessToken` to the redaction paths |
+| `backend/src/test/appConfig.js` | Extend the fixture with the `repositories` env fields |
+| `backend/.env.example` / `backend/.env` | Document and mirror the three env variables |
 
 ## 9. Tests (≥ 80% line and branch)
 
@@ -307,9 +315,11 @@ Provider calls are mocked at the `outboundHttp` boundary; no test reaches the ne
 - [ ] The token never appears in a response, log line or error payload (asserted).
 - [ ] Nothing is persisted; no new collection exists after this phase.
 - [ ] `secretCrypto` is the only encryption entry point and is covered by tests.
-- [ ] Private/loopback hosts are rejected unless configuration allows them.
-- [ ] New variables are in `backend/.env.example` and mirrored into `backend/.env`.
-- [ ] `npm run typecheck`, `npm run lint` and `npm test` pass; coverage for touched files is
+- [ ] Private/loopback hosts are rejected unless `REPO_PROBE_ALLOW_PRIVATE_HOSTS` is true.
+- [ ] Encryption key, key id, and the private-host flag are in `backend/.env.example` and
+      mirrored into `backend/.env`. Probe timeout, branch cap, README size, and rate budget
+      are constants.
+- [ ] `npm run lint` and `npm test` pass; coverage for touched files is
       ≥ 80% line and ≥ 80% branch.
 
 ## 11. Documentation & ADR updates

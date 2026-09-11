@@ -39,7 +39,7 @@ two codes this catalog must adopt. It does not block phase 03, which only consum
 - Correlation identifier generation, its relation to Fastify's `request.id`, and propagation into
   responses, headers, logs and error bodies, including an `AsyncLocalStorage` context so services
   read it without threading it through every signature.
-- Extension of `src/platform/errors.ts` and `src/platform/logger.ts` (redaction, serializers,
+- Extension of `src/platform/errors.js` and `src/platform/logger.js` (redaction, serializers,
   environment-driven verbosity), plus a pure builder for the SSE terminal `error` frame.
 
 ### Out of scope (owner phase)
@@ -71,7 +71,7 @@ Separating them makes solution §4.6 hard rule 3 mechanically enforceable.
 
 ### 4.2 The error-code catalog
 
-New file `src/platform/errorCatalog.ts`, a frozen record and the **only** place a code may be
+New file `src/platform/errorCatalog.js`, a frozen record and the **only** place a code may be
 introduced:
 
 ```text
@@ -94,10 +94,10 @@ registering them now stops later phases spelling them differently.
 
 ### 4.3 Retryability and backoff
 
-New file `src/platform/retryPolicy.ts`, pure functions only: `classifyRetryability(code)` returns
+New file `src/platform/retryPolicy.js`, pure functions only: `classifyRetryability(code)` returns
 the catalog verdict, `isAutoRetryable(code)` is true only for `temporary`, and
 `computeRetryDelayMs(attempt, policy)` is capped exponential backoff with full jitter, its policy
-values taken from configuration (§7) rather than call-site constants. Backend §109 and solution
+values taken from named constants in that file rather than env vars. Backend §109 and solution
 §4.6 hard rule 3 reduce to two testable invariants: only `temporary` codes are auto-retried, and
 `permanent` / `user_action_required` codes never increment an attempt counter. Phase 21 owns the
 worker loop and phase 45 the Ollama retry path; neither re-implements the classification.
@@ -115,7 +115,7 @@ support receives (backend §105 shows `Reference: REQ-…`). No new dependency i
 | Response header | `onSend` hook sets `X-Correlation-Id` on **every** response |
 | Error body | The global handler copies it into `error.reference` |
 | SSE terminal frame | The stream error builder embeds it (§4.5) |
-| Services / repositories | `src/platform/requestContext.ts`, an `AsyncLocalStorage` store of `{ correlationId, organizationId?, userId? }` entered by an `onRequest` hook |
+| Services / repositories | `src/platform/requestContext.js`, an `AsyncLocalStorage` store of `{ correlationId, organizationId?, userId? }` entered by an `onRequest` hook |
 
 The tenant fields are declared now and populated in phase 07 so the log shape does not change
 later. Reads outside a request return `undefined` rather than throwing, so worker code keeps
@@ -127,7 +127,7 @@ into logs (§12 question 1).
 
 Once stream headers are sent the HTTP status cannot carry the failure, so a terminal chunk must be
 emitted (`.cursor/rules/error-handling.mdc`). `errors.ts` already exposes `canSendJsonError`; this
-phase adds `src/platform/streamErrors.ts` with a pure builder
+phase adds `src/platform/streamErrors.js` with a pure builder
 `buildStreamErrorEvent(error, correlationId)` returning
 `{ event: 'error', data: { code, class, retryability, message, reference } }`. The builder never
 touches the reply: per `.cursor/rules/function-design.mdc` the handler owning the stream (phase
@@ -189,33 +189,31 @@ carrying those same five fields as its `data` object. Phase 01's readiness body 
 
 ## 7. Configuration & environment variables
 
-Add to `backend/.env.example` **and** mirror into `backend/.env`
-(`.cursor/rules/env-example-sync.mdc`). Never print `.env` contents.
+**None.** `LOG_LEVEL` already exists from phase 01 and now also controls stack-trace verbosity.
+Do not add correlation-id or retry knobs to `.env`.
 
-| Variable | Example | Required | Purpose |
+### Constants (not env)
+
+| Constant | Value | Where | Purpose |
 |---|---|---|---|
-| `CORRELATION_ID_PREFIX` | `REQ` | no (default `REQ`) | Prefix of the generated reference |
-| `CORRELATION_ID_HEADER` | `X-Correlation-Id` | no (default as shown) | Response header name |
-| `RETRY_BASE_DELAY_MS` | `1000` | no (default `1000`) | First backoff step for `temporary` failures |
-| `RETRY_MAX_DELAY_MS` | `60000` | no (default `60000`) | Backoff cap |
-| `RETRY_MAX_ATTEMPTS` | `5` | no (default `5`) | Attempt ceiling for auto-retry |
-
-`LOG_LEVEL` already exists from phase 01 and now also controls stack-trace verbosity.
+| `CORRELATION_ID_PREFIX` | `'REQ'` | `platform/requestContext.js` | Prefix of the generated reference |
+| `CORRELATION_ID_HEADER` | `'X-Correlation-Id'` | `http/app.ts` | Response header name |
+| `RETRY_BASE_DELAY_MS` | `1000` | `platform/retryPolicy.js` | First backoff step for `temporary` failures |
+| `RETRY_MAX_DELAY_MS` | `60000` | `platform/retryPolicy.js` | Backoff cap |
+| `RETRY_MAX_ATTEMPTS` | `5` | `platform/retryPolicy.js` | Attempt ceiling for auto-retry |
 
 ## 8. Files to create or change
 
 | Path | Purpose |
 |---|---|
-| `backend/src/platform/errorCatalog.ts` + `.test.ts` | **New:** the single code → class/status/retryability/message table |
-| `backend/src/platform/errors.ts` + `.test.ts` | **Extend:** new envelope fields, catalog-driven mapping, unknown-code defect log |
-| `backend/src/platform/retryPolicy.ts` + `.test.ts` | **New:** classification helpers and jittered backoff |
-| `backend/src/platform/requestContext.ts` + `.test.ts` | **New:** `AsyncLocalStorage` correlation/tenant context |
-| `backend/src/platform/streamErrors.ts` + `.test.ts` | **New:** pure SSE terminal-frame builder |
-| `backend/src/platform/logger.ts` + `.test.ts` | **Extend:** redact paths, `req`/`err` serializers, level-driven stacks |
-| `backend/src/platform/config.ts` | **Extend:** config group for the §7 variables |
-| `backend/src/http/app.ts` + `app.test.ts` | `genReqId`, `onRequest` context hook, `onSend` header hook |
-| `backend/src/test/appConfig.ts` | **Extend:** fixture covers the new config group |
-| `backend/.env.example`, `backend/.env` | Document and mirror the new variables |
+| `backend/src/platform/errorCatalog.js` + `.test.js` | **New:** the single code → class/status/retryability/message table |
+| `backend/src/platform/errors.js` + `.test.js` | **Extend:** new envelope fields, catalog-driven mapping, unknown-code defect log |
+| `backend/src/platform/retryPolicy.js` + `.test.js` | **New:** classification helpers and jittered backoff (constants in this file) |
+| `backend/src/platform/requestContext.js` + `.test.js` | **New:** `AsyncLocalStorage` correlation/tenant context |
+| `backend/src/platform/streamErrors.js` + `.test.js` | **New:** pure SSE terminal-frame builder |
+| `backend/src/platform/logger.js` + `.test.js` | **Extend:** redact paths, `req`/`err` serializers, level-driven stacks |
+| `backend/src/http/app.js` + `app.test.js` | `genReqId`, `onRequest` context hook, `onSend` header hook |
+| `backend/src/test/appConfig.js` | Fixture stays as-is unless a real env field is added |
 
 ## 9. Tests (≥ 80% line and branch)
 
@@ -250,13 +248,13 @@ Add to `backend/.env.example` **and** mirror into `backend/.env`
       `CONTEXT_ACCOUNTING_UNAVAILABLE` and `KNOWLEDGE_UNAVAILABLE` are registered as `temporary`.
 - [ ] Every JSON error carries `code`, `class`, `retryability`, `message`, `reference`, and every
       response carries `X-Correlation-Id` equal to `request.id` and to that request's log `reqId`.
-- [ ] Only `temporary` codes are auto-retryable; the backoff calculator is pure and
-      configuration-driven.
+- [ ] Only `temporary` codes are auto-retryable; the backoff calculator is pure and uses the
+      retry constants in `retryPolicy.ts`.
 - [ ] No test log output contains an authorization header, cookie, password, token, connection
       string, request body, or query string.
 - [ ] The SSE terminal-frame builder exists and writes nothing to a reply itself.
-- [ ] New variables are in `backend/.env.example` and mirrored in `backend/.env`.
-- [ ] `npm run typecheck`, `npm run lint` and `npm test` pass; touched files are ≥ 80% line and
+- [ ] No new `.env` keys. Correlation prefix, header name, and retry numbers are constants.
+- [ ] `npm run lint` and `npm test` pass; touched files are ≥ 80% line and
       branch coverage.
 
 ## 11. Documentation & ADR updates

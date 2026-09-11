@@ -2,7 +2,7 @@
 
 Technical architecture: [`docs/architecture.md`](../docs/architecture.md)  
 Requirements: [`backend/requirments.md`](./backend/requirments.md)  
-Platform shell: Fastify 5 + Pino + TypeScript (ADR 0002 / 0004)
+Platform shell: Fastify 5 + Pino + JavaScript (ADR 0002 / 0004 / plain-JS ADR)
 
 **MVP goal:** Ingest a large **Node.js + MongoDB** target app → current structural code
 knowledge plus on-demand Markdown/text access → grounded Q&A, plus org/RBAC admin, audit,
@@ -109,7 +109,7 @@ tool-round cap, but exhausting any budget terminates the run.
 
 | Layer | Choice |
 |-------|--------|
-| Runtime | Node.js 24+, TypeScript |
+| Runtime | Node.js 26+, JavaScript |
 | HTTP | Fastify 5, `/api/v1` |
 | Data access | **Mongoose** (schemas, validation, CRUD, middleware) |
 | DB | Local MongoDB **8+** (current stable; use latest 8.x) |

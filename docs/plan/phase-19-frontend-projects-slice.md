@@ -80,7 +80,7 @@ frontend/src/features/projects/
   hooks/useProjectMutations.ts create / patch / archive / restore / delete
   hooks/useProjectDeletionPreview.ts
   projectStatusMap.ts         the single backend-code → badge mapping
-  ProjectDeleteDialog.tsx     consequence-explaining delete confirmation
+  ProjectDeleteDialog.jsx     consequence-explaining delete confirmation
 ```
 
 The HTTP client, auth header handling and typed error shape come from Phase 13; this phase adds
@@ -137,7 +137,7 @@ Rules enforced by tests:
 
 ### 4.3 Badge components
 
-`shared/components/StatusBadge.tsx` currently keys its styles on display strings
+`shared/components/StatusBadge.jsx` currently keys its styles on display strings
 (`'Knowledge ready'`) produced by the mock data. This phase adds two new exports that take
 backend codes — `ProjectLifecycleBadge` and `KnowledgeHealthBadge` — and leaves the existing
 `ProjectStatusBadge` / `KnowledgeStatusBadge` untouched so `SourcesPanel`, `HealthPanel`,
@@ -269,46 +269,47 @@ codes **plus** `string`, so an unfamiliar backend value flows into the unknown-c
 ## 7. Configuration & environment variables
 
 **None new.** The API base URL variable is introduced by Phase 13 in `frontend/.env.example`
-and mirrored into `frontend/.env` there. If this phase needs any new variable, it must be added
+and mirrored into `frontend/.env` there. Do not add page-size or cache tunables as env vars
+(`.cursor/rules/env-config.mdc`). If this phase needs any new variable, it must be added
 to both files in the same change (`.cursor/rules/env-example-sync.mdc`).
 
 ## 8. Files to create or change
 
 | Path | Purpose |
 |---|---|
-| `frontend/src/features/projects/api/projectsApi.ts` | **New:** request functions for the Phase 17 endpoints |
-| `frontend/src/features/projects/api/projectTypes.ts` | **New:** DTO types from section 6 |
-| `frontend/src/features/projects/hooks/useProjects.ts` | **New:** infinite list query |
-| `frontend/src/features/projects/hooks/useProjects.test.ts` | **New:** paging, search, archived filter |
-| `frontend/src/features/projects/hooks/useProject.ts` | **New:** detail query |
-| `frontend/src/features/projects/hooks/useProjectMutations.ts` | **New:** create/patch/archive/restore/delete |
-| `frontend/src/features/projects/hooks/useProjectMutations.test.ts` | **New:** success, error, invalidation |
-| `frontend/src/features/projects/hooks/useProjectDeletionPreview.ts` | **New:** preview query |
-| `frontend/src/features/projects/projectStatusMap.ts` | **New:** the single mapping table + `isProjectAskable` |
-| `frontend/src/features/projects/projectStatusMap.test.ts` | **New:** every code, unknown fallback, Ready ≠ Partial |
-| `frontend/src/features/projects/ProjectDeleteDialog.tsx` | **New:** consequence-explaining confirmation |
-| `frontend/src/features/projects/ProjectDeleteDialog.test.tsx` | **New:** loading, error, confirm paths |
-| `frontend/src/features/projects/ProjectsPage.tsx` | Replace `useAppData` with `useProjects`; skeletons, error, paging |
-| `frontend/src/features/projects/ProjectsPage.test.tsx` | Rewrite against a mocked API client |
-| `frontend/src/features/projects/ProjectPickerPage.tsx` | Use `useProjects`, exclude archived |
-| `frontend/src/features/projects/ProjectPickerPage.test.tsx` | Update expectations |
-| `frontend/src/features/projects/CreateProjectDialog.tsx` | Real `POST /projects` + hand-off |
-| `frontend/src/features/projects/CreateProjectDialog.test.tsx` | Pending, error, hand-off assertions |
-| `frontend/src/features/projects/ProjectDetailPage.tsx` | Real fetch, archive/restore/delete, outlet context |
-| `frontend/src/features/projects/ProjectDetailPage.test.tsx` | `404`, archived banner, menu actions |
-| `frontend/src/features/projects/ProjectOverview.tsx` | Identity block from the API; tree still mocked |
-| `frontend/src/features/projects/ProjectOverview.test.tsx` | Identity assertions |
-| `frontend/src/features/projects/index.ts` | Export the new hooks, map and dialog |
-| `frontend/src/features/home/HomePage.tsx` | Recent projects + knowledge status from the API |
-| `frontend/src/features/home/HomePage.test.tsx` | Empty, loading, error and populated cases |
-| `frontend/src/shared/components/StatusBadge.tsx` | Add `ProjectLifecycleBadge`, `KnowledgeHealthBadge` |
-| `frontend/src/shared/components/StatusBadge.test.tsx` | Cover the new badges and the unknown code |
-| `frontend/src/shared/components/index.ts` | Export the new badges |
+| `frontend/src/features/projects/api/projectsApi.js` | **New:** request functions for the Phase 17 endpoints |
+| `frontend/src/features/projects/api/projectTypes.js` | **New:** DTO types from section 6 |
+| `frontend/src/features/projects/hooks/useProjects.js` | **New:** infinite list query |
+| `frontend/src/features/projects/hooks/useProjects.test.js` | **New:** paging, search, archived filter |
+| `frontend/src/features/projects/hooks/useProject.js` | **New:** detail query |
+| `frontend/src/features/projects/hooks/useProjectMutations.js` | **New:** create/patch/archive/restore/delete |
+| `frontend/src/features/projects/hooks/useProjectMutations.test.js` | **New:** success, error, invalidation |
+| `frontend/src/features/projects/hooks/useProjectDeletionPreview.js` | **New:** preview query |
+| `frontend/src/features/projects/projectStatusMap.js` | **New:** the single mapping table + `isProjectAskable` |
+| `frontend/src/features/projects/projectStatusMap.test.js` | **New:** every code, unknown fallback, Ready ≠ Partial |
+| `frontend/src/features/projects/ProjectDeleteDialog.jsx` | **New:** consequence-explaining confirmation |
+| `frontend/src/features/projects/ProjectDeleteDialog.test.jsx` | **New:** loading, error, confirm paths |
+| `frontend/src/features/projects/ProjectsPage.jsx` | Replace `useAppData` with `useProjects`; skeletons, error, paging |
+| `frontend/src/features/projects/ProjectsPage.test.jsx` | Rewrite against a mocked API client |
+| `frontend/src/features/projects/ProjectPickerPage.jsx` | Use `useProjects`, exclude archived |
+| `frontend/src/features/projects/ProjectPickerPage.test.jsx` | Update expectations |
+| `frontend/src/features/projects/CreateProjectDialog.jsx` | Real `POST /projects` + hand-off |
+| `frontend/src/features/projects/CreateProjectDialog.test.jsx` | Pending, error, hand-off assertions |
+| `frontend/src/features/projects/ProjectDetailPage.jsx` | Real fetch, archive/restore/delete, outlet context |
+| `frontend/src/features/projects/ProjectDetailPage.test.jsx` | `404`, archived banner, menu actions |
+| `frontend/src/features/projects/ProjectOverview.jsx` | Identity block from the API; tree still mocked |
+| `frontend/src/features/projects/ProjectOverview.test.jsx` | Identity assertions |
+| `frontend/src/features/projects/index.js` | Export the new hooks, map and dialog |
+| `frontend/src/features/home/HomePage.jsx` | Recent projects + knowledge status from the API |
+| `frontend/src/features/home/HomePage.test.jsx` | Empty, loading, error and populated cases |
+| `frontend/src/shared/components/StatusBadge.jsx` | Add `ProjectLifecycleBadge`, `KnowledgeHealthBadge` |
+| `frontend/src/shared/components/StatusBadge.test.jsx` | Cover the new badges and the unknown code |
+| `frontend/src/shared/components/index.js` | Export the new badges |
 | `frontend/src/shared/i18n/locales/en.json` | Add `status.lifecycle.*`, `status.knowledgeHealth.*`, delete-consequence and error keys |
-| `frontend/src/shared/types/domain.ts` | Mark the mock `Project`/`ProjectStatus` types as mock-only |
-| `frontend/src/test/renderWithProviders.tsx` | Allow a per-test `QueryClient` and API-client stub |
+| `frontend/src/shared/mock-data domain shapes` | Mark the mock `Project`/`ProjectStatus` types as mock-only |
+| `frontend/src/test/renderWithProviders.jsx` | Allow a per-test `QueryClient` and API-client stub |
 
-`frontend/src/shared/mock-data/AppDataContext.tsx` is **not** edited: the provider stays mounted
+`frontend/src/shared/mock-data/AppDataContext.jsx` is **not** edited: the provider stays mounted
 for the features listed in section 3's out-of-scope block. `ProjectOutletContext` gains a
 `mockProject` field for the panels that still need mock fields (`knowledgeTree`, `fileCount`,
 `excludedCount`, `source`, `partial`); the field name makes its removal in Phases 33–36 obvious.
@@ -373,7 +374,7 @@ for the features listed in section 3's out-of-scope block. `ProjectOutletContext
       projects are absent from the default list, the picker and Home.
 - [ ] The delete dialog shows only backend-provided consequences and counts.
 - [ ] No horizontal scroll at 375 px, 768 px and 1280 px on every screen this phase touches.
-- [ ] `npm run typecheck`, `npm run lint` and `npm test` pass in `frontend/` with ≥ 80% line and
+- [ ] `npm run lint` and `npm test` pass in `frontend/` with ≥ 80% line and
       branch coverage on the touched files.
 
 ## 11. Documentation & ADR updates

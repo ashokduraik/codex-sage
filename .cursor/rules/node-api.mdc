@@ -19,9 +19,10 @@ instead of doing that work inline.
   and update these rules.
 - **Security:** encrypt tokens at rest, enforce RBAC + tenant isolation, audit-log sensitive
   actions.
-- Small files, descriptive names, colocated `*.test.ts`. No secrets in code.
+- Small files, descriptive names, colocated `*.test.js`. No secrets in code.
+- **Node ESM:** relative imports must include the `.js` extension (`import { x } from './foo.js'`).
 
-```ts
+```js
 // ❌ BAD: blocking heavy work in a request handler
 app.post('/projects/:id/sources', async (req, res) => {
   await ingestAndIndex(req.body); // minutes of work

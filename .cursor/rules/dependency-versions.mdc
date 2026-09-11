@@ -52,11 +52,11 @@ If any check fails (abandoned, last publish > 12 months ago, deprecated, no reac
 1. Run the **pre-install checks** above for each package.
 2. **Install latest stable** of packages that passed — do not pin older majors/minors/patches unless the user asked.
 3. **Record** the resolved version in the manifest and lockfile.
-4. **Verify** with typecheck, lint, and relevant tests after the upgrade.
+4. **Verify** with lint and relevant tests after the upgrade.
 
 ## When latest is incompatible
 
-If install, resolve, build, typecheck, or tests fail due to a **peer dependency** or
+If install, resolve, build, lint, or tests fail due to a **peer dependency** or
 **transitive conflict**:
 
 1. **Stop** — do not silently pick an older version or change unrelated pins.

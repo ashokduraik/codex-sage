@@ -1,4 +1,4 @@
-# Phase 08 — Password lifecycle: self-service and admin-initiated reset
+# Phase 08 — Password lifecycle: signed-in change and admin-set password
 
 - **Layer:** BE
 - **Depends on:** Phase 07 (hashing, sessions, principal resolution)
@@ -14,14 +14,14 @@
 ## 1. Goal
 
 After this phase a password can be changed or reset without a developer touching the database.
-A signed-in user can change their own password; a user who has forgotten it can redeem a
-one-time reset token; an administrator with `users.manage` can start a reset for someone in
-their organization and see its status. Every one of those paths invalidates the affected
-user's existing sessions.
+A signed-in user can change their own password. A user who has forgotten it contacts an
+administrator; the administrator sets a new password (**D15** — no public forgot/reset-token
+flow, no email). Every path invalidates the affected user's existing sessions.
 
 You can see it working by changing your password through the API and watching the previously
-issued access token stop being accepted on the next request, and by redeeming a reset token
-once and getting a rejection the second time.
+issued access token stop being accepted on the next request, and by an administrator setting a
+new password for another user in the same organization (the new secret never appears in the
+response).
 
 ## 2. Why this phase is here
 
@@ -39,22 +39,19 @@ a password reset that actually protects the account.
 ### In scope
 
 - Authenticated self-service password change.
-- Self-service forgot / reset with a one-time token that is hashed at rest, single-use and
-  time-limited (solution §8.3).
-- Administrator-initiated reset for a user in the administrator's organization, and the reset
-  status the administrator is shown (frontend §84).
-- Revocation of every session and every outstanding reset token for a user whenever their
-  password changes, by any path.
+- Administrator-set password for a user in the administrator's organization (**D15**). The
+  administrator supplies `newPassword` in the request; the value is never returned.
+- Revocation of every session for a user whenever their password changes, by any path.
 - A password policy module: minimum length, a rejection of the current password, and the
   proposed history check.
-- A read model (`passwordResetStatus`) that Phase 11 surfaces on the admin user detail.
+- A read model (`passwordResetStatus`) that Phase 11 surfaces on the admin user detail
+  (`state: 'none' | 'completed'` from `passwordUpdatedAt` / last admin-set timestamp).
 
 ### Out of scope (owner phase)
 
-- **Delivering the reset token to the user.** There is no email or SMS channel in this slice
-  (solution §14, README §5). Section 12 raises this as the blocking question; this phase must
-  not invent a delivery mechanism.
-- Rate limiting on the reset routes (solution §13.1 puts login and reset in one class at
+- **Public forgot / email delivery.** **Decided (D15):** there is no public forgot endpoint and
+  no email/SMS channel. The administrator communicates the new password out of band.
+- Rate limiting on the reset routes (solution §13.1 puts login and password change in one class at
   10/min) — **Phase 12**. Leave the hook: every route here declares
   `config: { rateLimitClass: 'auth' }`.
 - Audit events for password change, admin-initiated reset and reset redemption — **Phase 10**.
@@ -70,54 +67,31 @@ a password reset that actually protects the account.
 
 ## 4. Design
 
-### 4.1 Three entry points, one write path
+### 4.1 Two entry points, one write path
 
-All three flows converge on a single internal function that (1) validates the new password
+Both flows converge on a single internal function that (1) validates the new password
 against the policy, (2) hashes it with the Phase 07 hasher, (3) writes `passwordHash` and
-`passwordUpdatedAt`, (4) sets `userStatus` to `active` if the user was `invited`, (5) revokes
-every session for that user, and (6) consumes or invalidates every outstanding reset token.
-Steps 3–6 run inside one transaction (decision D5), because a password written without the
-session revocation is worse than no change at all.
+`passwordUpdatedAt`, (4) sets `userStatus` to `active` if the user was `invited`, and (5)
+revokes every session for that user. Steps 3–5 run inside one transaction (decision D5).
 
 ```text
-self change      → verify current password  ─┐
-redeem token     → verify one-time token    ─┼→ applyNewPassword(userId, newPassword, reason)
-admin initiate   → (issues a token; no write of a password)
+self change   → verify current password  ─┐
+admin set     → users.manage + org scope ─┴→ applyNewPassword(userId, newPassword, reason)
 ```
 
-An administrator never sets a password value directly. They create a reset token, and the user
-completes the change. That keeps the invariant that no one but the account holder ever knows
-the credential (backend §147, §148).
+**D15:** the administrator *does* set a password value. The user cannot complete a reset
+themselves (no email, no public token). The secret originates from the administrator and is
+never echoed in a response (backend §148). The administrator communicates it out of band.
 
-### 4.2 The one-time token
+### 4.2 No reset-token collection
 
-The token is 256 bits of cryptographically secure randomness, base64url-encoded, returned once
-and never stored. The `passwordResetTokens` collection stores its SHA-256 hash, exactly as
-Phase 07 stores refresh-token hashes and for the same reason: a database dump must not be
-redeemable.
+There is no `passwordResetTokens` collection and no public forgot/reset routes.
 
-Redemption is a conditional update, not a read followed by a write:
+### 4.3 Admin-set password
 
-```text
-findOneAndUpdate(
-  { tokenHash, status: 'A', usedAt: null, expiresAt: { $gt: now } },
-  { $set: { usedAt: now } }
-)
-```
-
-A `null` result means unknown, already used, or expired, and all three produce the same
-response. Doing this as an atomic update is what makes the token genuinely single-use under
-two concurrent redemptions.
-
-Tokens carry a `purpose` of `self_service` or `admin_initiated` so the audit trail and the
-status read model can tell them apart, but they redeem through the same endpoint.
-
-### 4.3 Forgot: no enumeration, no oracle
-
-`POST /auth/password/forgot` always returns `202` with the same body, whether the email is
-unknown, belongs to a disabled user, or belongs to an active one. A token is created only in
-the active case. This is the same reasoning as Phase 07 §4.5: the endpoint is unauthenticated,
-so any variation in its response is an account-enumeration oracle.
+`POST /users/:userId/reset-password` accepts `newPassword`, runs `applyNewPassword` with
+reason `admin_set`, and returns status only. Cross-tenant targets are `404`. The caller
+cannot target themselves (`409` — they use `/auth/password/change`).
 
 Creating a second token for a user invalidates their outstanding ones, so a user who clicks
 twice does not end up with two live tokens.
@@ -163,15 +137,15 @@ request (frontend §7A).
 
 ### 4.6 Policy
 
-`src/modules/auth/passwordPolicy.ts` validates a candidate password and returns a list of
+`src/modules/auth/passwordPolicy.js` validates a candidate password and returns a list of
 violation codes rather than a sentence, so the UI can localise them (README §4, frontend i18n).
 
 Proposed rules, all **PROPOSED** and all listed in section 12:
 
-- Minimum length from configuration; no maximum below what argon2 accepts.
+- Minimum length from a named constant; no maximum below what argon2 accepts.
 - Rejected if it equals the user's current password.
-- Rejected if it matches one of the last *N* hashes in `passwordHistory`, with *N*
-  configurable and `0` disabling the check.
+- Rejected if it matches one of the last *N* hashes in `passwordHistory`, with *N* a named
+  constant and `0` disabling the check.
 - No composition rules (mandatory symbol classes), because they push users toward predictable
   substitutions; length is the control that matters.
 
@@ -181,30 +155,13 @@ verifications, so *N* must stay small — this is a real cost, not a free check.
 
 ## 5. Data model changes
 
-### New collection: `passwordResetTokens`
-
-On the Phase 03 base schema.
-
-| Field | Type | Notes |
-|---|---|---|
-| `organizationId` | ObjectId, required | Tenant scope |
-| `userId` | ObjectId, required | Target account |
-| `tokenHash` | string, required | SHA-256 of the one-time token; the value is never stored |
-| `purpose` | `'self_service' \| 'admin_initiated'` | Drives audit context and the status model |
-| `requestedByUserId` | ObjectId, optional | Set for `admin_initiated` only |
-| `expiresAt` | Date, required | UTC |
-| `usedAt` | Date, optional | Set atomically on redemption |
-| `invalidatedAt` | Date, optional | Set when superseded by a newer token or by a password change |
-| `status` | `'A' \| 'D'` | Row visibility; Phase 60 retention tombstones old rows |
-
-Indexes: unique `{ tokenHash: 1 }`; `{ organizationId: 1, userId: 1, createdAt: -1 }` for the
-status read model; `{ expiresAt: 1 }` for the Phase 60 sweep.
+**No `passwordResetTokens` collection (D15).**
 
 ### Changed collection: `users`
 
 | Field | Type | Notes |
 |---|---|---|
-| `passwordHistory` | `[{ hash: string, changedAt: Date }]`, `select: false`, default `[]` | Capped at the configured length; only if the reuse check is confirmed (section 12) |
+| `passwordHistory` | `[{ hash: string, changedAt: Date }]`, `select: false`, default `[]` | Capped at `PASSWORD_HISTORY_LENGTH`; only if the reuse check is confirmed (section 12) |
 
 `passwordUpdatedAt` already exists from Phase 06 and is written here on every change.
 
@@ -229,64 +186,38 @@ Errors: `400 VALIDATION_ERROR`; `401 UNAUTHENTICATED`; `403 INVALID_CURRENT_PASS
 `details: { violations: ['TOO_SHORT' | 'SAME_AS_CURRENT' | 'RECENTLY_USED'] }`;
 `429 RATE_LIMITED` (Phase 12).
 
-### `POST /api/v1/auth/password/forgot`
+### `POST /api/v1/auth/password/forgot` and `POST /api/v1/auth/password/reset`
 
-- **Auth:** none. **Permission:** none.
-
-```json
-{ "email": "user@acme.example" }
-```
-
-Response `202`, identical in every case:
-
-```json
-{ "accepted": true }
-```
-
-No field in this response may vary with whether the account exists.
-
-### `POST /api/v1/auth/password/reset`
-
-- **Auth:** none; the token is the credential. **Permission:** none.
-
-```json
-{ "token": "<one-time token>", "newPassword": "<user supplied>" }
-```
-
-Response `200`:
-
-```json
-{ "passwordChanged": true, "reauthenticationRequired": true }
-```
-
-Errors: `400 VALIDATION_ERROR`; `401 RESET_TOKEN_INVALID` (unknown, used or expired — one
-code for all three); `422 PASSWORD_POLICY_VIOLATION`; `429 RATE_LIMITED`.
+**Not shipped.** Decision D15 removes the public forgot/reset-token flow. Phase 09's public
+allowlist must not include these paths.
 
 ### `POST /api/v1/users/:userId/reset-password`
 
 - **Auth:** access token. **Permission:** `users.manage` (enforced by Phase 09).
 
-Request body: empty, or `{}`.
+```json
+{ "newPassword": "<admin supplied>" }
+```
 
 Response `200`:
 
 ```json
 {
   "userId": "6712f0b1c9a41d2f8e4b3a02",
-  "email": "user@acme.example",
   "resetStatus": {
-    "state": "pending",
-    "requestedAt": "2026-05-04T09:12:00.000Z",
-    "expiresAt": "2026-05-04T10:12:00.000Z",
-    "completedAt": null
+    "state": "completed",
+    "completedAt": "2026-05-04T09:12:00.000Z"
   },
-  "deliveryChannel": "TBD — see section 12, question 1"
+  "sessionsRevoked": true,
+  "deliveryChannel": "administrator"
 }
 ```
 
-Errors: `401 UNAUTHENTICATED`; `403 FORBIDDEN` (missing `users.manage`); `404 NOT_FOUND` (no
-such user in the caller's organization, or the user is soft-deleted); `409 CONFLICT` (target
-is the caller — self-service is the correct route); `429 RATE_LIMITED`.
+The new password **must not** appear in this body, in logs, or in audit context (backend §148,
+frontend §105.35). Errors: `401 UNAUTHENTICATED`; `403 FORBIDDEN`; `404 NOT_FOUND` (no such
+user in the caller's organization, or the user is soft-deleted); `409 CONFLICT` (target is the
+caller — self-service `POST /auth/password/change` is the correct route);
+`422 PASSWORD_POLICY_VIOLATION`; `429 RATE_LIMITED`.
 
 Whether this response also carries the token value is the open question in section 12. It is
 deliberately absent from the proposal above: returning a credential for another account in an
@@ -295,41 +226,35 @@ decision if it happens at all.
 
 ## 7. Configuration & environment variables
 
-Add to `backend/.env.example` **and** mirror into `backend/.env`.
+**None.** No new `.env` keys. Password policy numbers are named constants
+(`.cursor/rules/env-config.mdc`). Concrete min-length and history values are chosen in
+section 12.
 
-| Variable | Example | Required | Purpose |
+### Constants (not env)
+
+| Constant | Value | Where | Purpose |
 |---|---|---|---|
-| `PASSWORD_RESET_TOKEN_TTL_SECONDS` | `3600` | no | Lifetime of a one-time reset token |
-| `PASSWORD_MIN_LENGTH` | see section 12 | **yes** | Minimum accepted password length |
-| `PASSWORD_HISTORY_LENGTH` | see section 12 | no | Number of previous hashes checked; `0` disables |
-
-No new secret is introduced. The reset token is generated per request and never stored in
-configuration.
+| `PASSWORD_MIN_LENGTH` | see section 12 | `modules/auth/passwordPolicy.js` | Minimum accepted password length |
+| `PASSWORD_HISTORY_LENGTH` | see section 12 | `modules/auth/passwordPolicy.js` | Previous hashes checked; `0` disables |
 
 ## 8. Files to create or change
 
 | Path | Purpose |
 |---|---|
-| `backend/src/platform/config.ts` | Extend the `auth` group with the password-policy settings |
-| `backend/src/platform/config.test.ts` | **Extend:** new variables, defaults, invalid values |
-| `backend/src/platform/logger.ts` | **Extend:** redact `currentPassword`, `newPassword`, `token` |
-| `backend/src/modules/auth/passwordPolicy.ts` | **New:** validation returning violation codes |
-| `backend/src/modules/auth/passwordPolicy.test.ts` | **New** |
-| `backend/src/modules/auth/passwordResetToken.model.ts` | **New:** schema and indexes |
-| `backend/src/modules/auth/passwordResetToken.repository.ts` | **New:** issue, redeem atomically, invalidate, latest-for-user |
-| `backend/src/modules/auth/passwordResetToken.repository.test.ts` | **New** |
-| `backend/src/modules/auth/password.service.ts` | **New:** change, forgot, reset, admin initiate, `applyNewPassword` |
-| `backend/src/modules/auth/password.service.test.ts` | **New** |
-| `backend/src/modules/auth/password.routes.ts` | **New:** the three `/auth/password/*` routes |
-| `backend/src/modules/auth/password.routes.test.ts` | **New** |
-| `backend/src/modules/identity/user.model.ts` | **Extend:** `passwordHistory` |
-| `backend/src/modules/identity/user.repository.ts` | **Extend:** write hash + history + `passwordUpdatedAt` in one update |
-| `backend/src/modules/identity/user.repository.test.ts` | **Extend** |
-| `backend/src/modules/identity/adminPasswordReset.routes.ts` | **New:** `POST /users/:userId/reset-password` |
-| `backend/src/modules/identity/adminPasswordReset.routes.test.ts` | **New** |
-| `backend/src/modules/auth/index.ts` | **Extend:** export the reset-status read model for Phase 11 |
-| `backend/src/http/routes.ts` | Register the new route modules |
-| `backend/.env.example` / `backend/.env` | Document and mirror the new variables |
+| `backend/src/platform/logger.js` | **Extend:** redact `currentPassword`, `newPassword`, `token` |
+| `backend/src/modules/auth/passwordPolicy.js` | **New:** validation returning violation codes |
+| `backend/src/modules/auth/passwordPolicy.test.js` | **New** |
+| `backend/src/modules/auth/password.service.js` | **New:** change, admin set, `applyNewPassword` |
+| `backend/src/modules/auth/password.service.test.js` | **New** |
+| `backend/src/modules/auth/password.routes.js` | **New:** `POST /auth/password/change` only |
+| `backend/src/modules/auth/password.routes.test.js` | **New** |
+| `backend/src/modules/identity/user.model.js` | **Extend:** `passwordHistory` |
+| `backend/src/modules/identity/user.repository.js` | **Extend:** write hash + history + `passwordUpdatedAt` in one update |
+| `backend/src/modules/identity/user.repository.test.js` | **Extend** |
+| `backend/src/modules/identity/adminPasswordReset.routes.js` | **New:** `POST /users/:userId/reset-password` |
+| `backend/src/modules/identity/adminPasswordReset.routes.test.js` | **New** |
+| `backend/src/modules/auth/index.js` | **Extend:** export the reset-status read model for Phase 11 |
+| `backend/src/http/routes.js` | Register the new route modules |
 
 ## 9. Tests (≥ 80% line and branch)
 
@@ -339,89 +264,65 @@ configuration.
 - The policy returns `SAME_AS_CURRENT` when the candidate matches the stored hash.
 - The policy returns `RECENTLY_USED` for a hash in history, and skips the check when
   `PASSWORD_HISTORY_LENGTH` is `0`.
-- `passwordHistory` is capped at the configured length, oldest entry dropped first.
-- Generated reset tokens are unique across many calls and are stored only as hashes.
-- The reset-status read model maps token rows to `none`, `pending`, `completed` and `expired`.
+- `passwordHistory` is capped at `PASSWORD_HISTORY_LENGTH`, oldest entry dropped first.
+- The reset-status read model is `none` or `completed` from `passwordUpdatedAt` (no pending token).
 
 ### Integration (`app.inject`, Phase 03 database harness)
 
 - Self change with the correct current password returns `200`, and the previously issued
   access token is rejected on the next request.
 - Self change revokes every `sessions` row for that user.
-- Forgot for an existing active user creates exactly one active token.
-- A second forgot invalidates the first token.
-- Reset redeems the token, changes the password, and the same token then fails.
-- Reset moves an `invited` user to `active`.
-- Admin reset for a user in the same organization returns `200` with `state: 'pending'`.
+- Admin set-password for a user in the same organization returns `200` with `state: 'completed'`
+  and does not echo `newPassword`.
+- Admin set-password moves an `invited` user to `active`.
 
 ### Unhappy paths that must be covered
 
-- Forgot for an unknown email, a disabled user and a soft-deleted user all return byte-
-  identical `202` bodies, and none creates a token.
-- Reset with an expired token, a used token and an unknown token all return
-  `401 RESET_TOKEN_INVALID`.
-- Two concurrent redemptions of the same token: exactly one succeeds.
 - Self change with the wrong current password returns `403` and does not revoke sessions.
-- Admin reset for a user in another organization returns `404`, and the target's tokens are
-  untouched.
-- Admin reset without `users.manage` returns `403`.
-- Admin reset targeting the caller returns `409`.
-- No response, error or log line contains a reset token, a password or a hash — asserted by a
+- Admin set-password for a user in another organization returns `404`.
+- Admin set-password without `users.manage` returns `403`.
+- Admin set-password targeting the caller returns `409`.
+- No response, error or log line contains a password or a hash — asserted by a
   test scanning the captured log output.
 
 ## 10. Definition of Done
 
-- [ ] All three write paths go through one transactional `applyNewPassword`.
-- [ ] Reset tokens are single-use, time-limited, hashed at rest, and redeemed by an atomic
-      conditional update.
-- [ ] `POST /auth/password/forgot` is indistinguishable across existing, disabled and unknown
-      accounts.
+- [ ] Both write paths go through one transactional `applyNewPassword`.
+- [ ] There is no public forgot/reset-token route and no `passwordResetTokens` collection (D15).
 - [ ] Every password change revokes all of that user's sessions and writes `passwordUpdatedAt`,
       making outstanding access tokens fail on their next request.
 - [ ] The admin reset route resolves the target inside the caller's organization only and
       returns `404` for anyone outside it.
-- [ ] The administrator response states the reset status and the delivery channel truthfully;
-      it never implies an email was sent (solution §14).
+- [ ] The administrator response never echoes `newPassword` and never implies an email was sent
+      (D15, solution §14).
 - [ ] No token value or password hash appears in any response, log line or audit context.
 - [ ] Rate-limit class and audit hook points are declared for Phases 12 and 10.
-- [ ] New variables are documented in `backend/.env.example` and mirrored in `backend/.env`.
-- [ ] `npm run typecheck`, `npm run lint` and `npm test` pass; coverage ≥ 80% line and branch.
+- [ ] No new `.env` keys. Password policy numbers are constants.
+- [ ] `npm run lint` and `npm test` pass; coverage ≥ 80% line and branch.
 
 ## 11. Documentation & ADR updates
 
-- `docs/data-model.md`: add `passwordResetTokens` and the `users.passwordHistory` field.
-- `docs/adr/`: once question 1 is answered, record the reset-delivery decision as an ADR. It
-  determines whether the product needs an email channel, which README §5 currently places out
-  of scope for the whole plan — that is a scope change, not an implementation detail.
-- `backend/solution.md` §8.3: replace "user self-reset via one-time token" with the concrete
-  delivery mechanism once it is agreed.
+- `docs/data-model.md`: add `users.passwordHistory` only (no reset-token collection).
+- `docs/adr/`: record D15 (admin-mediated reset; no public token flow) as an ADR in this phase.
+  README §5 already places email/SMS out of scope; D15 is not a scope change.
+- `backend/solution.md` §8.3: replace "user self-reset via one-time token" with
+  "administrator sets `newPassword`; secret never returned; user receives it out of band".
 
 ## 12. Risks & open questions
 
 Ask the user; do not assume (`.cursor/rules/no-assumptions.mdc`).
 
-1. **How does a user actually receive a self-service reset token?** This is the blocking
-   question for the phase. Solution §14 and README §5 exclude email and SMS from this slice, so
-   `POST /auth/password/forgot` currently creates a token that reaches nobody. The options, none
-   of which may be chosen without the product owner:
-   - **Admin-mediated only:** drop the self-service forgot endpoint from this slice entirely; a
-     user who forgets their password contacts an administrator, who starts a reset. The
-     administrator then still needs a way to pass the token to the user.
-   - **Token returned to the administrator:** `POST /users/:id/reset-password` returns the
-     one-time token in its response for the administrator to relay out of band. This is
-     workable but it puts another account's credential in an API response and in the browser,
-     which backend §148 otherwise forbids. It needs an explicit exception and an ADR.
-   - **Add an email channel:** the clean product answer, but it contradicts solution §14 and
-     README §5 and adds a mail provider, a template surface and a deliverability concern —
-     a plan-level scope change, not a phase-level one.
-   Until this is answered, the `deliveryChannel` field in section 6 has no value and the
-   self-service flow cannot be shipped end to end. **Do not pick a default.**
+1. **How does a user receive a new password?** **Decided (D15).** No public forgot. The
+   administrator sets `newPassword` in `POST /users/:userId/reset-password` and communicates it
+   out of band. The secret is never returned in the API response.
 2. **Password minimum length.** Left unset on purpose. What is the required minimum, and is
    there an organization-configurable override?
 3. **Password history.** Should reuse be blocked at all, and if so over how many previous
    passwords? Every entry costs one argon2 verification per change, and storing old hashes is
    additional sensitive data to protect (backend §147).
-4. **Reset-token lifetime.** One hour is proposed as a placeholder. Confirm.
+4. **Must-change-on-next-login after admin set.** Proposed: no extra flag in this slice; the
+   user can sign in with the admin-set password and change it via `POST /auth/password/change`.
+   Confirm.
 5. **Does an administrator-initiated reset disable the account until the reset completes?**
    Leaving the old password working means the reset is advisory; forcing `userStatus: 'invited'`
    locks out a user whose administrator clicked by mistake. Which behaviour is wanted?
@@ -431,6 +332,5 @@ Ask the user; do not assume (`.cursor/rules/no-assumptions.mdc`).
 7. **Who may reset whose password?** Backend §5 says "permitted users". Is `users.manage`
    sufficient for every target, including another `org_admin`? Should an administrator be able
    to reset their own password through the admin route (currently `409`)?
-8. **Scope check.** If the email channel in question 1 turns out to be in scope, this phase
-   grows past the 1–2 day target and the channel should be split into its own phase rather than
-   absorbed here.
+8. **Scope check.** **Decided (D15).** Email is out of scope. Do not add a channel in this
+   phase. Remaining open items: minimum length, history, must-change-on-next-login.

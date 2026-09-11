@@ -35,7 +35,7 @@ These are safety nets, not a substitute for correct stream/request handling.
 
 ## Frontend
 
-- Pre-stream HTTP failures → typed API error + localized/user-facing message (`role="alert"`).
+- Pre-stream HTTP failures → API error + localized/user-facing message (`role="alert"`).
 - Mid-stream `error` chunk or truncated stream (no terminal event) → treat as failure; never
   silently succeed.
 - Do not show opaque transport strings (`fetch failed`, `terminated`) to users.

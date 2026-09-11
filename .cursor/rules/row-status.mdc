@@ -27,7 +27,7 @@ Every table **must** have a `status` column for row visibility:
 
 ## Examples
 
-```ts
+```js
 // ❌ BAD: filter by deleted_at (legacy)
 WHERE deleted_at IS NULL
 

@@ -147,13 +147,14 @@ A failed job is never removed (solution §4.6 hard rule 1, backend §36).
 
 Additive only; no new collection; delivered as a versioned migration.
 
-**`jobs`** (phase 20) gains `currentStage: string | null`, `stageCheckpoint:
-{ lastCompletedStage, cursor?, updatedAt }`, `progressCounters` (the subdocument in §4.4) and
-`partialSuccess: boolean`.
+**`jobs`** — **owned by Phase 20.** This phase does not add `currentStage`, `stageCheckpoint`,
+`progressCounters` or `partialSuccess`. It only writes those fields through the Phase 21
+runtime helpers.
 
 **`sourceFiles`** (phase 24) gains `fileState: 'stored' | 'missing' | 'corrupt'` (domain
 lifecycle, distinct from row `status`), `exclusionReason: string | null`,
-`excludedFromGraph: boolean` and `orphanedAt: Date | null`.
+`excludedFromGraph: boolean` and `orphanedAt: Date | null` — only if Phase 24 did not already
+add them. Confirm against Phase 24's schema before a second migration.
 
 Row visibility stays `status: 'A' | 'D'` on both; nothing here hard-deletes. Indexes:
 `{ organizationId, projectId, sourceVersionId, path }` on `sourceFiles` filtered to
@@ -171,7 +172,7 @@ here is the internal stage contract that phases 26, 27, 28 and 32 implement agai
   "stageResult": {
     "outcome": "completed | completed_with_warnings",
     "cursor": null,
-    "warnings": [{ "code": "SOURCE_FILE_MISSING", "path": "src/a.ts" }]
+    "warnings": [{ "code": "SOURCE_FILE_MISSING", "path": "src/a.js" }]
   },
   "stageFailure": {
     "code": "SOURCE_VERSION_EMPTY_AFTER_EXCLUSIONS",
@@ -191,33 +192,35 @@ here is the internal stage contract that phases 26, 27, 28 and 32 implement agai
 
 ## 7. Configuration & environment variables
 
-Add to `backend/.env.example` **and** mirror into `backend/.env` (never print `.env` contents).
+**None.** No new `.env` keys. Batch size, flush interval, failed-file ratio, and stage timeout
+are named constants in the ingest module (`.cursor/rules/env-config.mdc`).
 
-| Variable | Example | Required | Purpose |
+### Constants (not env)
+
+| Constant | Value | Where | Purpose |
 |---|---|---|---|
-| `INGEST_FILE_BATCH_SIZE` | `250` | no (default `250`) | Files reconciled per batch before a progress flush |
-| `INGEST_PROGRESS_FLUSH_MS` | `2000` | no (default `2000`) | Minimum interval between counter writes |
-| `INGEST_MAX_FAILED_FILE_RATIO` | `0.05` | no (default `0.05`) | Above this share of failed files S1 fails instead of continuing partially |
-| `INGEST_STAGE_TIMEOUT_MS` | `900000` | no (default `900000`) | Per-stage wall-clock budget before aborting as `temporary` |
+| `INGEST_FILE_BATCH_SIZE` | `250` | `modules/ingest/ingest.counters.js` | Files reconciled per batch before a progress flush |
+| `INGEST_PROGRESS_FLUSH_MS` | `2000` | `modules/ingest/ingest.counters.js` | Minimum interval between counter writes |
+| `INGEST_MAX_FAILED_FILE_RATIO` | `0.05` | `modules/ingest/stages/s1StoreFiles.js` | Above this share of failed files S1 fails instead of continuing partially |
+| `INGEST_STAGE_TIMEOUT_MS` | `900000` | `modules/ingest/ingest.handler.js` | Per-stage wall-clock budget before aborting as `temporary` |
 
 ## 8. Files to create or change
 
 | Path | Purpose |
 |---|---|
-| `backend/src/modules/ingest/index.ts` | **New:** public surface (`registerIngestHandler`, stage types) |
-| `backend/src/modules/ingest/ingest.handler.ts` (+ `.test.ts`) | **New:** handler entry, full stage run over fixtures |
-| `backend/src/modules/ingest/ingest.stages.ts` (+ `.test.ts`) | **New:** ordered stage list, resume resolution, placeholders |
-| `backend/src/modules/ingest/ingest.context.ts` | **New:** `IngestStageContext` built from a claimed job |
-| `backend/src/modules/ingest/ingest.counters.ts` (+ `.test.ts`) | **New:** counters, batch flush, partial-success derivation |
-| `backend/src/modules/ingest/ingest.events.ts` (+ `.test.ts`) | **New:** user-readable `JobEvent` message builders |
-| `backend/src/modules/ingest/stages/s0ValidateUpload.ts` (+ `.test.ts`) | **New:** stage S0 |
-| `backend/src/modules/ingest/stages/s1StoreFiles.ts` (+ `.test.ts`) | **New:** stage S1, cursor resume, orphan marking |
-| `backend/src/modules/ingest/stages/s2ExcludeApply.ts` (+ `.test.ts`) | **New:** stage S2 |
-| `backend/src/modules/ingest/ingest.repository.ts` | **New:** tenant-scoped reads/writes for jobs, source files, events |
-| `backend/src/worker/index.ts` | Register the ingest handler with the phase 21 registry |
-| `backend/migrations/00NN-ingest-stage-fields.ts` | **New:** additive fields and indexes from section 5 |
+| `backend/src/modules/ingest/index.js` | **New:** public surface (`registerIngestHandler`, stage types) |
+| `backend/src/modules/ingest/ingest.handler.js` (+ `.test.js`) | **New:** handler entry, full stage run over fixtures |
+| `backend/src/modules/ingest/ingest.stages.js` (+ `.test.js`) | **New:** ordered stage list, resume resolution, placeholders |
+| `backend/src/modules/ingest/ingest.context.js` | **New:** `IngestStageContext` built from a claimed job |
+| `backend/src/modules/ingest/ingest.counters.js` (+ `.test.js`) | **New:** counters, batch flush, partial-success derivation |
+| `backend/src/modules/ingest/ingest.events.js` (+ `.test.js`) | **New:** user-readable `JobEvent` message builders |
+| `backend/src/modules/ingest/stages/s0ValidateUpload.js` (+ `.test.js`) | **New:** stage S0 |
+| `backend/src/modules/ingest/stages/s1StoreFiles.js` (+ `.test.js`) | **New:** stage S1, cursor resume, orphan marking |
+| `backend/src/modules/ingest/stages/s2ExcludeApply.js` (+ `.test.js`) | **New:** stage S2 |
+| `backend/src/modules/ingest/ingest.repository.js` | **New:** tenant-scoped reads/writes for jobs, source files, events |
+| `backend/src/worker/index.js` | Register the ingest handler with the phase 21 registry |
+| `backend/migrations/00NN-ingest-stage-fields.js` | **New:** additive fields and indexes from section 5 |
 | `backend/src/test/fixtures/ingest/` | **New:** small tree, tree with excluded paths, tree with a file over 1 MiB |
-| `backend/.env.example`, `backend/.env` | The four variables in section 7 |
 
 ## 9. Tests (≥ 80% line and branch)
 
@@ -243,7 +246,7 @@ Add to `backend/.env.example` **and** mirror into `backend/.env` (never print `.
   `user_action_required` and a path-safety code respectively.
 - Job whose `organizationId` differs from the source version → abort, nothing mutated.
 - One hash mismatch → counted failed, job continues, partial success recorded; failed ratio
-  above the configured maximum → S1 fails as `temporary`.
+  above `INGEST_MAX_FAILED_FILE_RATIO` → S1 fails as `temporary`.
 - Aborted `signal` mid-batch → stage stops, cursor persisted, no counters lost.
 
 ## 10. Definition of Done
@@ -256,9 +259,10 @@ Add to `backend/.env.example` **and** mirror into `backend/.env` (never print `.
       explicit succeeded and failed counts.
 - [ ] Orphaned GridFS objects are marked, never hard-deleted.
 - [ ] Every failure carries a code plus a phase 21 retryability class.
-- [ ] Migration applies the additive fields and indexes; row `status` semantics unchanged.
-- [ ] New env vars exist in `backend/.env.example` and are mirrored in `backend/.env`.
-- [ ] `npm run typecheck`, `npm run lint`, `npm test` pass; coverage ≥ 80% line and branch.
+- [ ] Additive `sourceFiles` fields (if not already on Phase 24) ship as one migration; Job
+      fields are not re-migrated. Row `status` semantics unchanged.
+- [ ] No new `.env` keys. Ingest batch, flush, ratio, and timeout are constants.
+- [ ] `npm run lint`, `npm test` pass; coverage ≥ 80% line and branch.
 
 ## 11. Documentation & ADR updates
 
@@ -270,13 +274,12 @@ Add to `backend/.env.example` **and** mirror into `backend/.env` (never print `.
 
 ## 12. Risks & open questions
 
-1. **Field ownership overlap:** phase 20 may already define `currentStage`, `stageCheckpoint`
-   and `progressCounters` on `Job`. Confirm before adding a second migration.
+1. **Field ownership overlap.** **Decided.** Phase 20 owns `currentStage`, `stageCheckpoint`
+   and `progressCounters` on `Job`. Do not add a second migration for those fields.
 2. **Failed-file threshold:** is 5% the right boundary between partial success and stage
    failure, or should any failed file fail the ingest?
-3. **S1 responsibility:** phase 24 writes bytes during the request, so S1 is reconciliation.
-   Is that the intended split, or should the upload endpoint stage bytes to a temporary area and
-   S1 own the GridFS write?
+3. **S1 responsibility.** **Decided.** Phase 24 writes accepted bytes during the request.
+   S1 is reconciliation (missing/corrupt vs GridFS), not a second full write.
 4. **Event granularity:** should the runner also emit a "stage started" event, doubling the
    event count the frontend checklist (frontend §20) consumes?
 5. **Exclusion replay:** if the rule set changed between upload and worker run, must S2 use the

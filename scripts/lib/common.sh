@@ -45,7 +45,7 @@ prefixStream() {
   done
 }
 
-# Recursively terminate a process and its descendants (npm → node → vite/tsx).
+# Recursively terminate a process and its descendants (npm → node → vite).
 killTree() {
   local pid="$1"
   local child

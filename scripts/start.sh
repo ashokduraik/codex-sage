@@ -1,23 +1,17 @@
 #!/usr/bin/env bash
-# Run production builds: backend (node dist/index.js) and frontend (vite preview).
-# Requires a prior npm run build. Prefixed logs; Ctrl-C / TERM cleanly stops both.
+# Run production: backend (node src/index.js) and frontend (vite preview).
+# Frontend requires a prior npm run build. Prefixed logs; Ctrl-C / TERM cleanly stops both.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/common.sh
 source "${SCRIPT_DIR}/lib/common.sh"
 
-requireDist() {
-  local app="$1"
-  local dist_dir="${REPO_ROOT}/${app}/dist"
-  if [ ! -d "${dist_dir}" ]; then
-    logError "${app}/dist is missing. Run: npm run build"
-    exit 1
-  fi
-}
-
-requireDist "backend"
-requireDist "frontend"
+FRONTEND_DIST="${REPO_ROOT}/frontend/dist"
+if [ ! -d "${FRONTEND_DIST}" ]; then
+  logError "frontend/dist is missing. Run: npm run build"
+  exit 1
+fi
 
 BACKEND_PID=""
 FRONTEND_PID=""

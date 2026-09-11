@@ -2,24 +2,27 @@ import eslint from '@eslint/js';
 import globals from 'globals';
 import reactHooks from 'eslint-plugin-react-hooks';
 import reactRefresh from 'eslint-plugin-react-refresh';
-import tseslint from 'typescript-eslint';
 
 /** ESLint flat config for the standalone React frontend package. */
-export default tseslint.config(
+export default [
   { ignores: ['dist/**', 'coverage/**', 'node_modules/**', 'src/shared/ui/**'] },
   eslint.configs.recommended,
-  ...tseslint.configs.recommended,
   {
-    files: ['**/*.{ts,tsx}'],
+    files: ['**/*.{js,jsx}'],
     languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
       globals: globals.browser,
+      parserOptions: {
+        ecmaFeatures: { jsx: true },
+      },
     },
     plugins: {
       'react-hooks': reactHooks,
       'react-refresh': reactRefresh,
     },
     rules: {
-      '@typescript-eslint/no-unused-vars': [
+      'no-unused-vars': [
         'error',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
       ],
@@ -33,4 +36,4 @@ export default tseslint.config(
       'react-refresh/only-export-components': 'off',
     },
   },
-);
+];

@@ -25,11 +25,11 @@ All root commands operate on **both** `backend/` and `frontend/`.
 | --- | --- |
 | `npm run setup` | Verify Node >= 26, copy `.env.example` → `.env` only if missing, then install |
 | `npm run install` | `npm ci` per app when a lockfile exists; otherwise `npm install` |
-| `npm run dev` | Dev servers: backend (`tsx watch`, **:3000**) and frontend (Vite; `/api` proxied to **:3000**) |
-| `npm run build` | Production builds: backend (`tsup`) and frontend (`vite build`) |
-| `npm run start` | Production run: backend (`node dist/index.js`) and frontend (`vite preview`); requires a prior build |
+| `npm run dev` | Dev servers: backend (`node --watch`, **:3000**) and frontend (Vite; `/api` proxied to **:3000**) |
+| `npm run build` | Production builds: backend (no-op; plain JavaScript) and frontend (`vite build`) |
+| `npm run start` | Production run: backend (`node src/index.js`) and frontend (`vite preview`); frontend requires a prior build |
 | `npm run test` | Vitest with coverage in both apps |
-| `npm run lint` | ESLint + `tsc --noEmit` in both apps |
+| `npm run lint` | ESLint in both apps |
 | `npm run clean` | Remove `node_modules`, `dist`, and `coverage` in both apps (prompts; use `npm run clean -- --yes` to skip) |
 
 You can also run the scripts directly:
@@ -42,8 +42,8 @@ bash scripts/clean.sh --yes
 
 ## Layout
 
-- `backend/` — Node.js API + workers (Fastify)
-- `frontend/` — React app (Vite)
+- `backend/` — Node.js API + workers (Fastify), plain JavaScript
+- `frontend/` — React app (Vite), plain JavaScript / JSX
 - `scripts/` — root setup / install / run helpers
 - `docs/` — architecture, local MongoDB setup, and ADRs
 

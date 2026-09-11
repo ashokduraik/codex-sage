@@ -22,7 +22,9 @@ root `.env.example` (if used), then mirror each to its `.env`.
 
 ## Rules
 
-- **Add missing keys** to `.env` with the same placeholder/default as `.env.example`.
+- Add missing keys to `.env` with the same placeholder/default as `.env.example`.
+- Do not add tunables (pool sizes, page sizes, timeouts, cache TTLs) to `.env.example` —
+  those belong in named constants (`env-config.mdc`).
 - **Do not overwrite** existing secret values in `.env` — only add the key or update documented
   non-secret defaults when intentionally changing the default.
 - **Never commit** `.env` files.

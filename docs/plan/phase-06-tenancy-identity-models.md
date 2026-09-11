@@ -58,7 +58,7 @@ the only way any authenticated test or manual run of Phase 07 onward can exist a
 ### 4.1 Module layout
 
 One module, `src/modules/identity/`, following the repo's `model + repository + tests` shape with
-a single public surface (`index.ts`). Nothing outside the module imports a model file directly;
+a single public surface (`index.js`). Nothing outside the module imports a model file directly;
 later phases consume the repositories. Routes arrive in Phase 11 and live in the same module.
 
 ### 4.2 Row status versus domain lifecycle
@@ -105,7 +105,7 @@ fact; the repository treats the `Membership` document as authoritative for roles
 
 ### 4.5 Bootstrap seed
 
-Invoked as `npm run bootstrap` in `backend/` (an `tsx` entry at `src/cli/bootstrap.ts`), it loads
+Invoked as `npm run bootstrap` in `backend/` (an `tsx` entry at `src/cli/bootstrap.js`), it loads
 the same validated config as the API, connects to Mongo, runs inside a transaction (available per
 decision D5), and disconnects. It is a command, not a route: there is no public signup (D6), and
 no HTTP surface may ever create an organization from an unauthenticated request.
@@ -238,7 +238,7 @@ contract below is the command-line surface.
 
 - **Second run:** identical body with `"result": "already_bootstrapped"`, exit code `0`.
 - **Failure:** exit code `1` plus one line using the platform envelope from
-  `backend/src/platform/errors.ts`, so the seed and the API speak the same language:
+  `backend/src/platform/errors.js`, so the seed and the API speak the same language:
 
 ```json
 { "error": { "code": "BOOTSTRAP_CONFIG_INVALID", "message": "Bootstrap variables are missing or invalid.", "details": { "variables": ["BOOTSTRAP_ADMIN_EMAIL"] } }}
@@ -251,7 +251,8 @@ variable **names** only — never values.
 ## 7. Configuration & environment variables
 
 Add to `backend/.env.example` **and** mirror the same keys into `backend/.env`
-(`.cursor/rules/env-example-sync.mdc`). Never print `.env` contents in chat, logs, or a test
+(`.cursor/rules/env-example-sync.mdc`). These are per-install identity values, not tunables
+(`.cursor/rules/env-config.mdc`). Never print `.env` contents in chat, logs, or a test
 snapshot.
 
 | Variable | Example | Required | Purpose |
@@ -270,21 +271,21 @@ absent.
 
 | Path | Purpose |
 |---|---|
-| `backend/src/modules/identity/organization.model.ts` | **New:** Organization schema + indexes |
-| `backend/src/modules/identity/user.model.ts` | **New:** User schema, `userStatus`, hidden `passwordHash` |
-| `backend/src/modules/identity/role.model.ts` | **New:** Role schema, built-in guard |
-| `backend/src/modules/identity/membership.model.ts` | **New:** Membership schema |
-| `backend/src/modules/identity/builtInRoles.ts` | **New:** The four built-in role keys and descriptions |
-| `backend/src/modules/identity/organization.repository.ts` | **New:** Slug lookup, create, soft delete |
-| `backend/src/modules/identity/user.repository.ts` | **New:** Org-scoped find/create/list/soft delete |
-| `backend/src/modules/identity/role.repository.ts` | **New:** Org-scoped role reads and built-in seeding |
-| `backend/src/modules/identity/membership.repository.ts` | **New:** Org-scoped membership reads and writes |
-| `backend/src/modules/identity/index.ts` | **New:** Public surface of the module |
-| `backend/src/modules/identity/*.test.ts` | **New:** Colocated tests for every file above |
-| `backend/src/cli/bootstrap.ts` | **New:** Idempotent transactional seed command |
-| `backend/src/cli/bootstrap.test.ts` | **New:** First run, second run, concurrent run, failure |
-| `backend/src/platform/errorCatalog.ts` | Register `BOOTSTRAP_CONFIG_INVALID`, `BOOTSTRAP_FAILED` |
-| `backend/src/platform/config.ts` | Add the optional `bootstrap` config group |
+| `backend/src/modules/identity/organization.model.js` | **New:** Organization schema + indexes |
+| `backend/src/modules/identity/user.model.js` | **New:** User schema, `userStatus`, hidden `passwordHash` |
+| `backend/src/modules/identity/role.model.js` | **New:** Role schema, built-in guard |
+| `backend/src/modules/identity/membership.model.js` | **New:** Membership schema |
+| `backend/src/modules/identity/builtInRoles.js` | **New:** The four built-in role keys and descriptions |
+| `backend/src/modules/identity/organization.repository.js` | **New:** Slug lookup, create, soft delete |
+| `backend/src/modules/identity/user.repository.js` | **New:** Org-scoped find/create/list/soft delete |
+| `backend/src/modules/identity/role.repository.js` | **New:** Org-scoped role reads and built-in seeding |
+| `backend/src/modules/identity/membership.repository.js` | **New:** Org-scoped membership reads and writes |
+| `backend/src/modules/identity/index.js` | **New:** Public surface of the module |
+| `backend/src/modules/identity/*.test.js` | **New:** Colocated tests for every file above |
+| `backend/src/cli/bootstrap.js` | **New:** Idempotent transactional seed command |
+| `backend/src/cli/bootstrap.test.js` | **New:** First run, second run, concurrent run, failure |
+| `backend/src/platform/errorCatalog.js` | Register `BOOTSTRAP_CONFIG_INVALID`, `BOOTSTRAP_FAILED` |
+| `backend/src/platform/config.js` | Add the optional `bootstrap` config group |
 | `backend/package.json` | Add the `bootstrap` script |
 | `backend/.env.example` / `backend/.env` | Document and mirror the four variables |
 
@@ -337,7 +338,7 @@ absent.
 - [ ] `BOOTSTRAP_*` variables are in `backend/.env.example` and mirrored into `backend/.env`.
 - [ ] No credential, password, or `.env` value appears in any log line, stdout summary, or test
       fixture.
-- [ ] `npm run typecheck`, `npm run lint`, and `npm test` pass; coverage ≥ 80% line and branch for
+- [ ] `npm run lint`, and `npm test` pass; coverage ≥ 80% line and branch for
       every file this phase touched.
 
 ## 11. Documentation & ADR updates

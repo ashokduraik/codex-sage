@@ -13,7 +13,7 @@ branch.** No code is "done" until the threshold is met and CI is green (once CI 
 - Write tests **with** the code (same change/PR), not later. Cover every branch, error path, and
   edge case — not just the happy path.
 - **CI enforces the threshold** when wired. Do not lower the threshold to make a build pass.
-- Coverage tooling applies to **TypeScript** in `frontend/` and `backend/`.
+- Coverage tooling applies to **JavaScript** in `frontend/` and `backend/`.
 - Test the module's **public surface** and its behavior, not implementation details.
 - If a line is genuinely impossible to cover, justify it with an explicit, reviewed ignore
   annotation — used **rarely** and only with a one-line reason. Do not blanket-ignore files.

@@ -19,7 +19,7 @@ Every button (or interactive control) that fires an API call **must** follow thi
 Use React Query's `isPending` (mutations) or `isFetching` (queries) to drive both the visual
 indicator and the `disabled` prop atomically — they always stay in sync.
 
-```tsx
+```jsx
 // ❌ BAD: no feedback while the request runs
 <button onClick={() => createProject(data)}>Create</button>
 
@@ -48,7 +48,7 @@ const { mutate, isPending } = useCreateProject();
 Catch the error returned by React Query and render it next to the action that caused it.
 Never show a raw `Error` object or a generic "Something went wrong" without actionable detail.
 
-```tsx
+```jsx
 // ❌ BAD: generic / silent error
 {isError && <p>Something went wrong.</p>}
 
@@ -56,7 +56,7 @@ Never show a raw `Error` object or a generic "Something went wrong" without acti
 const { mutate, isPending, isError, error } = useCreateProject();
 const apiMessage =
   error && typeof error === 'object' && 'message' in error
-    ? String((error as { message: string }).message)
+    ? String(error.message)
     : t('errors.unexpected');
 
 {isError && (

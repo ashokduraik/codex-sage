@@ -13,16 +13,18 @@ Complements `node-api.mdc` (boundary + module structure). These are the quality 
 - Use **middleware for authentication** and authorization (RBAC + tenant scope), not
   ad-hoc per-handler checks only.
 - **Logging with levels** (`debug` / `info` / `warn` / `error`) via structured logging.
-- All configuration via **environment variables**, loaded and validated in **one central
-  config module**. No `process.env` reads scattered across modules.
+- Environment-specific values (secrets, URIs, host/port, log level) via **environment
+  variables**, loaded and validated in **one central config module**. No `process.env`
+  reads scattered across modules. Driver tunables, page sizes, timeouts, cache TTLs, and
+  algorithm parameters are named constants — see `env-config.mdc`.
 - Keep the HTTP framework choice explicit via ADR if not already decided — do not assume
   a specific framework in new code without asking.
 
 ## Error handling
 - Return a **consistent error response shape** for every error:
 
-```ts
-// { error: { code: string; message: string; details?: unknown } }
+```js
+// { error: { code, message, details? } }
 return res.status(400).json({
   error: { code: 'VALIDATION_ERROR', message: 'email is required' },
 });

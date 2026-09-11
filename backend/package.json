@@ -3,20 +3,19 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "main": "dist/index.js",
+  "main": "src/index.js",
   "engines": {
     "node": ">=26"
   },
   "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "build": "tsup",
-    "start": "node dist/index.js",
-    "typecheck": "tsc --noEmit",
+    "dev": "node --watch src/index.js",
+    "build": "node -e \"console.log('backend: no compile step (plain JavaScript)')\"",
+    "start": "node src/index.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "test": "vitest run --coverage",
-    "dev:worker": "tsx watch src/worker/index.ts",
-    "start:worker": "node dist/worker/index.js"
+    "dev:worker": "node --watch src/worker/index.js",
+    "start:worker": "node src/worker/index.js"
   },
   "dependencies": {
     "@fastify/cors": "^11.3.0",
@@ -29,14 +28,9 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@types/node": "^26.1.2",
     "@vitest/coverage-v8": "^4.1.10",
     "eslint": "^10.8.0",
     "globals": "^17.8.0",
-    "tsup": "^8.5.1",
-    "tsx": "^4.23.1",
-    "typescript": "^6.0.3",
-    "typescript-eslint": "^8.65.0",
     "vitest": "^4.1.10"
   }
 }

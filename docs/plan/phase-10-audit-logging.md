@@ -55,7 +55,7 @@ route actually calls the writer.
 ### 4.1 Module, writer API and action catalog
 
 New module `backend/src/modules/audit/` (`routes + service + repository + tests`, public surface in
-`index.ts`). Other modules import the writer from that surface only, never the model.
+`index.js`). Other modules import the writer from that surface only, never the model.
 
 ```text
 recordAuditEvent({
@@ -74,8 +74,8 @@ valuable of the three and is never skipped because the request already returned 
 Free-text actions would make the §87A filter list unusable within a month, so `audit.actions.ts`
 exports a typed union of `<domain>.<verb>` values with the `resourceType` each pairs with, seeded
 with what this phase writes: `user.create`, `user.activate`, `user.deactivate`, `user.remove`,
-`user.password_reset_requested`, `user.password_reset_completed`, `user.roles_changed`,
-`role.create`, `role.update`, `membership.update`. Later phases extend the union in the change that
+`user.password_changed`, `user.password_set_by_admin`, `user.roles_changed`, `role.create`,
+`role.update`, `membership.update`. Later phases extend the union in the change that
 adds their route; adding a value is additive, renaming one breaks the audit UI.
 
 ### 4.2 Context sanitizer — the hard exclusion list
@@ -88,7 +88,7 @@ number, boolean, or arrays of those at depth 1 with no nested objects; keys matc
 substring (`password`, `token`, `secret`, `credential`, `authorization`, `apiKey`, `privateKey`,
 `cookie`, `hash`) become `'[redacted]'` under the same key so a reviewer can see something was
 removed; values cap at `AUDIT_CONTEXT_MAX_VALUE_CHARS` and the serialized object at
-`AUDIT_CONTEXT_MAX_BYTES`, truncating with `contextTruncated: true` rather than failing. This pure
+`AUDIT_CONTEXT_MAX_BYTES` (named constants in the sanitizer), truncating with `contextTruncated: true` rather than failing. This pure
 function is the single control keeping backend §148 true for the trail, so it is exhaustively
 unit-tested.
 
@@ -137,7 +137,7 @@ New collection `auditevents`.
 | `resourceId` | string, optional | Id of the affected resource |
 | `result` | `'success' \| 'denied' \| 'failed'` | §4.1 |
 | `correlationId` | string, required | Links to request/job logs (Phase 02) |
-| `ip` / `userAgent` | string, optional | Source of action; `userAgent` truncated by config |
+| `ip` / `userAgent` | string, optional | Source of action; `userAgent` truncated by the sanitizer constant |
 | `context` | object, optional | Sanitized non-secret metadata (§4.2) |
 | `createdAt` | Date, required, UTC | Set by the schema, never by the caller |
 | `status` | `'A' \| 'D'`, default `'A'` | Row visibility; `'D'` only from Phase 60 |
@@ -189,34 +189,33 @@ delete endpoint is proposed — that is deliberate (§4.3).
 
 ## 7. Configuration & environment variables
 
-Add to `backend/.env.example` **and** mirror into `backend/.env`
-(`.cursor/rules/env-example-sync.mdc`); never print `.env` contents. All values are read through the
-Phase 01 config module — no `process.env` access in this module.
+**None.** No new `.env` keys. Size caps and page sizes are named constants
+(`.cursor/rules/env-config.mdc`).
 
-| Variable | Example | Required | Purpose |
+### Constants (not env)
+
+| Constant | Value | Where | Purpose |
 |---|---|---|---|
-| `AUDIT_CONTEXT_MAX_BYTES` | `4096` | no (default `4096`) | Cap on the serialized `context` |
-| `AUDIT_CONTEXT_MAX_VALUE_CHARS` | `512` | no (default `512`) | Cap on a single context string |
-| `AUDIT_USER_AGENT_MAX_CHARS` | `256` | no (default `256`) | Truncation length for `userAgent` |
-| `AUDIT_LIST_PAGE_SIZE_DEFAULT` | `50` | no (default `50`) | Default page size |
-| `AUDIT_LIST_PAGE_SIZE_MAX` | `200` | no (default `200`) | Hard cap on `limit` |
+| `AUDIT_CONTEXT_MAX_BYTES` | `4096` | `modules/audit/audit.sanitizer.js` | Cap on the serialized `context` |
+| `AUDIT_CONTEXT_MAX_VALUE_CHARS` | `512` | `modules/audit/audit.sanitizer.js` | Cap on a single context string |
+| `AUDIT_USER_AGENT_MAX_CHARS` | `256` | `modules/audit/audit.sanitizer.js` | Truncation length for `userAgent` |
+| `AUDIT_LIST_PAGE_SIZE_DEFAULT` | `50` | `modules/audit/audit.repository.js` | Default page size |
+| `AUDIT_LIST_PAGE_SIZE_MAX` | `200` | `modules/audit/audit.repository.js` | Hard cap on `limit` |
 
 ## 8. Files to create or change
 
 | Path | Purpose |
 |---|---|
-| `backend/src/modules/audit/audit.actions.ts` | **New:** typed action / resourceType catalog |
-| `backend/src/modules/audit/audit.model.ts` (+ `.test.ts`) | **New:** schema, indexes, append-only guards |
-| `backend/src/modules/audit/audit.sanitizer.ts` (+ `.test.ts`) | **New:** allowlist, redaction, size caps |
-| `backend/src/modules/audit/audit.repository.ts` (+ `.test.ts`) | **New:** insert + org-scoped keyset list |
-| `backend/src/modules/audit/audit.service.ts` (+ `.test.ts`) | **New:** both writer entry points, list service |
-| `backend/src/modules/audit/audit.routes.ts` (+ `.test.ts`) | **New:** `GET /audit-events` (+ detail if approved) |
-| `backend/src/modules/audit/index.ts` | **New:** public surface for other modules |
-| `backend/src/http/routes.ts` | Register `auditRoutes` alongside `healthRoutes` |
-| `backend/src/platform/config.ts` (+ `.test.ts`) | Add and validate the `audit` config group |
-| `backend/src/modules/users/*`, `backend/src/modules/auth/*` (Phases 06–08) | Add audit calls to identity and password-reset actions |
-| `backend/src/test/appConfig.ts` | Extend the fixture with the `audit` group |
-| `backend/.env.example` / `backend/.env` | Document and mirror the new variables |
+| `backend/src/modules/audit/audit.actions.js` | **New:** typed action / resourceType catalog |
+| `backend/src/modules/audit/audit.model.js` (+ `.test.js`) | **New:** schema, indexes, append-only guards |
+| `backend/src/modules/audit/audit.sanitizer.js` (+ `.test.js`) | **New:** allowlist, redaction, size caps |
+| `backend/src/modules/audit/audit.repository.js` (+ `.test.js`) | **New:** insert + org-scoped keyset list |
+| `backend/src/modules/audit/audit.service.js` (+ `.test.js`) | **New:** both writer entry points, list service |
+| `backend/src/modules/audit/audit.routes.js` (+ `.test.js`) | **New:** `GET /audit-events` (+ detail if approved) |
+| `backend/src/modules/audit/index.js` | **New:** public surface for other modules |
+| `backend/src/http/routes.js` | Register `auditRoutes` alongside `healthRoutes` |
+| `backend/src/modules/identity/*`, `backend/src/modules/auth/*` (Phases 06–08) | Add audit calls to identity and password-change / admin-set-password actions |
+| `backend/src/test/appConfig.js` | Fixture stays as-is |
 
 ## 9. Tests (≥ 80% line and branch)
 
@@ -234,8 +233,8 @@ Phase 01 config module — no `process.env` access in this module.
 - `403` without `audit.view`, `401` without a token, and only the caller's organization's rows when
   two organizations have events.
 - Keyset pagination across two pages: no duplicates, no gaps, `hasMore` false on the last page.
-- Each of `from`, `to`, `actor`, `action`, `resourceType` narrows the result set; `limit` above the
-  configured maximum is clamped rather than rejected.
+- Each of `from`, `to`, `actor`, `action`, `resourceType` narrows the result set; `limit` above
+  `AUDIT_LIST_PAGE_SIZE_MAX` is clamped rather than rejected.
 - A denied admin action produces one row with `result: 'denied'`; deactivating a user writes exactly
   one `user.deactivate` row carrying the request correlation id.
 - A `status: 'D'` row never appears; `updateOne` / `deleteOne` without the retention option throws.
@@ -255,8 +254,8 @@ Phase 01 config module — no `process.env` access in this module.
       validates all five filters, and rejects unknown query parameters.
 - [ ] The sanitizer blocks every item on the exclusion list, with a test naming each one.
 - [ ] The §4.4 write-failure policy is implemented and both entry points are used deliberately.
-- [ ] New env variables are in `backend/.env.example` and mirrored into `backend/.env`.
-- [ ] `npm run typecheck`, `npm run lint`, and `npm test` pass; coverage for every touched file is
+- [ ] No new `.env` keys. Audit size caps and page sizes are constants.
+- [ ] `npm run lint`, and `npm test` pass; coverage for every touched file is
       ≥ 80% line and ≥ 80% branch.
 - [ ] No secret, credential, source body, or chat content appears in any row, log, or response.
 

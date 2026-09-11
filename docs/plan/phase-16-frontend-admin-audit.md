@@ -12,7 +12,7 @@
 
 ## 1. Goal
 
-After this phase `AdminAudit.tsx` reads the organization audit trail from the real backend
+After this phase `AdminAudit.jsx` reads the organization audit trail from the real backend
 instead of the in-memory mock. An authorized administrator can list audit events, filter them by
 date range, actor, action and resource type, page through them with the backend's keyset cursor,
 and expand one event to inspect the actor, action, target resource, timestamp and result that
@@ -50,8 +50,8 @@ pattern for keyset pagination and safe rendering of backend-supplied metadata.
 
 ### Out of scope (owner phase)
 
-- Usage screen (`AdminUsage.tsx`) — **Phase 59**.
-- Retention settings, including audit retention (`AdminRetention.tsx`) — **Phase 60**.
+- Usage screen (`AdminUsage.jsx`) — **Phase 59**.
+- Retention settings, including audit retention (`AdminRetention.jsx`) — **Phase 60**.
 - Users and roles — **Phase 15**.
 - Audit export (CSV/JSON download) — no endpoint exists; not invented here (section 12).
 - Writing audit events from the frontend. Audit is backend-authored and append-only
@@ -67,10 +67,10 @@ features/admin/
 ├── api/auditApi.ts        typed call over shared/api
 ├── api/useAuditEvents.ts  infinite query, cursor-driven
 ├── auditFieldPolicy.ts    what may be rendered from an event's context
-├── AdminAudit.tsx         filters + list + detail disclosure
+├── AdminAudit.jsx         filters + list + detail disclosure
 ```
 
-`AdminAudit.tsx` today holds the whole filter and expand state inline and filters an in-memory
+`AdminAudit.jsx` today holds the whole filter and expand state inline and filters an in-memory
 array with `useMemo`. Filtering moves to the server, because the audit collection is unbounded
 and client-side filtering of one page would silently lie about what matched.
 
@@ -92,7 +92,7 @@ resource-type filters are only offered in a form the backend accepts: if `actor`
 rather than a free-text name, the control is a user picker, not a text box (section 12).
 
 Timestamps are stored and compared in UTC and formatted at the presentation edge with the
-existing `shared/lib/format.ts` helpers. The date-range filter sends UTC boundaries so a user in
+existing `shared/lib/format.js` helpers. The date-range filter sends UTC boundaries so a user in
 a non-UTC timezone does not silently miss events at the edges of a day.
 
 ### 4.3 Result values
@@ -149,16 +149,16 @@ the listed fields "when provided by the backend". So:
 
 ### 4.7 Mock exports that stop being used
 
-After this phase `features/admin/AdminAudit.tsx` no longer imports from `@/shared/mock-data`.
+After this phase `features/admin/AdminAudit.jsx` no longer imports from `@/shared/mock-data`.
 Specifically these stop being used **by this feature**:
 
 - `useAppData()` field `audit`
-- `AuditEntry` from `shared/types/domain.ts`, replaced by the API response type
+- `AuditEntry` from `shared/mock-data domain shapes`, replaced by the API response type
 
 `logAudit` on `useAppData()` is still called by the features that have not been rewired yet
 (projects, chat, processing), so it stays for now; every one of its call sites disappears as
 those slices are converted, and the mock module is deleted once nothing imports it (D7).
-`SeedData.audit` in `shared/types/domain.ts` also stays until then.
+`SeedData.audit` in `shared/mock-data domain shapes` also stays until then.
 
 ## 5. Data model changes
 
@@ -200,23 +200,24 @@ Frontend-visible contract details:
 ## 7. Configuration & environment variables
 
 **None.** This slice adds no variable; it reaches the backend through `shared/api` using
-`VITE_API_BASE_URL` from Phase 13. Any future `.env.example` change must still be mirrored into
+`VITE_API_BASE_URL` from Phase 13. Do not add tunables as env vars
+(`.cursor/rules/env-config.mdc`). Any future `.env.example` change must still be mirrored into
 `.env` in the same change.
 
 ## 8. Files to create or change
 
 | Path | Purpose |
 |---|---|
-| `frontend/src/features/admin/api/auditApi.ts` | **New:** typed `GET /audit-events` call |
-| `frontend/src/features/admin/api/auditApi.test.ts` | **New:** parameter serialization, error mapping |
-| `frontend/src/features/admin/api/useAuditEvents.ts` | **New:** infinite query driven by `nextCursor` |
-| `frontend/src/features/admin/api/useAuditEvents.test.ts` | **New:** paging, filter-driven key changes, cursor reset |
-| `frontend/src/features/admin/auditFieldPolicy.ts` | **New:** render allowlist + secret-shaped key rejection |
-| `frontend/src/features/admin/auditFieldPolicy.test.ts` | **New:** allowed keys, rejected keys, nested payloads |
-| `frontend/src/features/admin/AdminAudit.tsx` | **Rewrite:** real API, server filters, cursor paging, safe detail |
-| `frontend/src/features/admin/AdminAudit.test.tsx` | **Rewrite:** list, filters, paging, detail, empty, loading, error, `403`, secret redaction |
+| `frontend/src/features/admin/api/auditApi.js` | **New:** typed `GET /audit-events` call |
+| `frontend/src/features/admin/api/auditApi.test.js` | **New:** parameter serialization, error mapping |
+| `frontend/src/features/admin/api/useAuditEvents.js` | **New:** infinite query driven by `nextCursor` |
+| `frontend/src/features/admin/api/useAuditEvents.test.js` | **New:** paging, filter-driven key changes, cursor reset |
+| `frontend/src/features/admin/auditFieldPolicy.js` | **New:** render allowlist + secret-shaped key rejection |
+| `frontend/src/features/admin/auditFieldPolicy.test.js` | **New:** allowed keys, rejected keys, nested payloads |
+| `frontend/src/features/admin/AdminAudit.jsx` | **Rewrite:** real API, server filters, cursor paging, safe detail |
+| `frontend/src/features/admin/AdminAudit.test.jsx` | **Rewrite:** list, filters, paging, detail, empty, loading, error, `403`, secret redaction |
 | `frontend/src/shared/i18n/locales/en.json` | **Change:** result values, filter labels, date-range labels, empty/error copy, not-recorded label; remove the `Partial` audit result string |
-| `frontend/src/shared/types/domain.ts` | **Change:** `AuditEntry` no longer describes the admin audit view once the API type lands |
+| `frontend/src/shared/mock-data domain shapes` | **Change:** `AuditEntry` no longer describes the admin audit view once the API type lands |
 
 ## 9. Tests (≥ 80% line and branch)
 
@@ -253,7 +254,7 @@ Frontend-visible contract details:
 
 ## 10. Definition of Done
 
-- [ ] `AdminAudit.tsx` contains no import from `@/shared/mock-data`.
+- [ ] `AdminAudit.jsx` contains no import from `@/shared/mock-data`.
 - [ ] All filtering and pagination happen on the server; no client-side filter over a page.
 - [ ] `auditFieldPolicy.ts` is the only path by which event context reaches the DOM, and a test
       proves a secret-shaped key is never rendered.
@@ -263,7 +264,7 @@ Frontend-visible contract details:
 - [ ] Empty, loading, error and forbidden states all render and are covered by tests.
 - [ ] No user-facing string is hardcoded; all copy comes from `en.json`.
 - [ ] The screen renders without horizontal scroll at 375 px, 768 px and 1280 px.
-- [ ] `npm run typecheck`, `npm run lint` and `npm test` pass in `frontend/`.
+- [ ] `npm run lint` and `npm test` pass in `frontend/`.
 - [ ] Coverage for every file this phase touched is ≥ 80% line and ≥ 80% branch.
 
 ## 11. Documentation & ADR updates

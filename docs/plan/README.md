@@ -36,7 +36,10 @@ Source-of-truth documents this plan derives from (read them before any non-trivi
 3. Obey [`.cursor/rules/no-assumptions.mdc`](../../.cursor/rules/no-assumptions.mdc): anything
    marked **PROPOSED** or listed under "Open questions" must be confirmed by the user before
    it is implemented. Never silently pick a default.
-4. Do not pull work forward from a later phase. If a later phase's work is blocking you, stop
+4. Obey [`.cursor/rules/env-config.mdc`](../../.cursor/rules/env-config.mdc): only per-environment
+   values go in `.env`. Do not add pool sizes, page sizes, timeouts, or similar tunables as
+   env vars.
+5. Do not pull work forward from a later phase. If a later phase's work is blocking you, stop
    and ask.
 
 ---
@@ -49,17 +52,21 @@ phase. Anything not listed here and not in the source documents above is an open
 | # | Decision |
 |---|---|
 | D1 | Plan layout: one markdown file per phase in `docs/plan/`, indexed by this README |
-| D2 | Phase shape: phases 1–12 are backend/platform foundations; from phase 13 onward, work is delivered as vertical slices (backend capability + the frontend wiring that consumes it) |
-| D3 | Tech choices in `solution.md` are **not** treated as pre-locked. Phase 4 records them as ADRs, and Phase 5 runs a real evaluation/benchmark (Qwen3.8 context + tokenizer parity + CodeGraph at ~2M LOC) whose results lock the numbers |
+| D2 | Phase shape: phases 1–12 are backend/platform foundations. From phase 13 onward, a backend capability is followed by a later frontend slice that consumes it — not necessarily in the same pull request. D9 still applies: one phase ≈ one reviewable PR |
+| D3 | Tech choices in `solution.md` are **not** treated as pre-locked. Phase 4 records them as ADRs (including stack choices Phase 01 already installs). Phase 5 runs a real evaluation/benchmark (Qwen3.8 context + tokenizer parity + CodeGraph at ~2M LOC) whose results lock the numbers |
 | D4 | Benchmark corpus: public open-source repositories, with selection criteria documented (no customer code) |
 | D5 | MongoDB: an **external MongoDB 8 replica set** is supplied through a connection-string env var. Multi-document transactions are available and may be used |
-| D6 | Identity: **invite/seed only**. There is no public self-registration. `frontend/src/features/auth/RegisterPage.tsx` is removed in Phase 14. Self-service *password reset* stays |
+| D6 | Identity: **invite/seed only**. There is no public self-registration. `frontend/src/features/auth/RegisterPage.jsx` is removed in Phase 14. Password reset is **admin-mediated only** (D15). Signed-in self-service *password change* stays |
 | D7 | Frontend mock data (`frontend/src/shared/mock-data/`) is replaced feature by feature. Each frontend slice moves its feature onto React Query + the real API and deletes that feature's mock usage; the mock module is deleted once nothing imports it |
 | D8 | API contracts are **proposed inside each phase document** (section 6), marked `PROPOSED`, and must be approved before implementation |
 | D9 | Phase size target: one reviewable pull request, roughly 1–2 days of focused work. The plan therefore has more than 20 phases |
-| D10 | CI (GitHub Actions: lint + typecheck + tests + coverage gate) is wired in the final phase (63), together with the Playwright E2E suite |
+| D10 | CI (GitHub Actions: lint + tests + coverage gate) is wired in the final phase (63), together with the Playwright E2E suite |
 | D11 | Containerisation, deployment, and production infrastructure are **out of scope** for this plan. Target is a working local development environment with tests |
 | D12 | Automated end-to-end tests come **last** (phase 63). Every earlier phase still ships unit + integration tests at ≥ 80% line and branch coverage |
+| D13 | `.env` holds only values that must differ per environment (secrets, URIs, bind address, log level, bootstrap identity, encryption keys, env-specific flags). Driver tunables, page sizes, cache TTLs, retry/backoff, algorithm parameters, and route prefixes are named constants — not env vars (`.cursor/rules/env-config.mdc`) |
+| D14 | Refresh token is an **httpOnly** cookie (`SameSite=Strict`, `Path` limited to `/api/v1/auth`). Access token stays in memory. Refresh and logout send a CSRF double-submit header. Packages: `@fastify/cookie`, `@fastify/csrf-protection` |
+| D15 | Password reset is **admin-mediated only**. There is no public forgot/reset-token flow. An administrator with `users.manage` sets a new password in the request body; the secret is never returned. The user receives it out of band. Signed-in `POST /auth/password/change` stays |
+| D16 | Integration tests use the **same external MongoDB 8 replica set** as development, with a **separate database name** (`codex_sage_test`). `mongodb-memory-server` is not used |
 
 ---
 
@@ -69,15 +76,15 @@ phase. Anything not listed here and not in the source documents above is an open
 
 | Exists | Notes |
 |---|---|
-| `src/index.ts` | Entry point: process handlers → config → Fastify listen |
-| `src/http/app.ts` | `buildApp()`; CORS in non-production; routes mounted at `/api` |
-| `src/http/routes.ts` | Registers `healthRoutes` only |
+| `src/index.js` | Entry point: process handlers → config → Fastify listen |
+| `src/http/app.js` | `buildApp()`; CORS in non-production; routes mounted at `/api` |
+| `src/http/routes.js` | Registers `healthRoutes` only |
 | `src/modules/health/` | `GET /health` |
-| `src/platform/config.ts` | Hand-rolled env parsing (host, port, nodeEnv, log settings) |
-| `src/platform/logger.ts` | Pino options + request logging |
-| `src/platform/errors.ts` | `ApiError`, `{ error: { code, message, details? } }` envelope, global handler, 404 handler |
-| `src/platform/processHandlers.ts` | `unhandledRejection` / `uncaughtException` safety nets |
-| Tooling | TypeScript, tsup, tsx, ESLint, Vitest + v8 coverage |
+| `src/platform/config.js` | Hand-rolled env parsing (host, port, nodeEnv, log settings) |
+| `src/platform/logger.js` | Pino options + request logging |
+| `src/platform/errors.js` | `ApiError`, `{ error: { code, message, details? } }` envelope, global handler, 404 handler |
+| `src/platform/processHandlers.js` | `unhandledRejection` / `uncaughtException` safety nets |
+| Tooling | JavaScript, plain Node, ESLint, Vitest + v8 coverage |
 
 **Not present at all:** MongoDB/Mongoose, GridFS, any domain model, auth, RBAC, audit, jobs,
 worker process, ingest, CodeGraph, LLM client, LangGraph, SSE, notifications, usage, retention,
@@ -95,16 +102,17 @@ rate limiting, idempotency, API versioning (`/api/v1`).
 | `src/features/processing/` | Processing center |
 | `src/features/admin/` | Users, roles, projects, audit, usage, retention |
 | `src/features/layout/` | App shell, header, sidebar, processing indicator |
-| `src/shared/` | shadcn/Radix UI kit, i18n (`en.json`), React Query client, formatters, `types/domain.ts`, **`mock-data/`** |
+| `src/shared/` | shadcn/Radix UI kit, i18n (`en.json`), React Query client, formatters, `mock-data domain shapes`, **`mock-data/`** |
 | Tooling | Vite, Tailwind 4, Vitest + jsdom + Testing Library, ESLint |
 
 **Not present:** any HTTP client, real authentication, SSE consumption, server-state hooks.
-`shared/mock-data/AppDataContext.tsx` is the current source of all application state.
+`shared/mock-data/AppDataContext.jsx` is the current source of all application state.
 
 ### Docs
 
-`docs/architecture.md` exists. **`docs/adr/` does not exist yet** even though `solution.md`
-references "ADR 0002 / 0004" — Phase 4 creates the ADR set.
+`docs/architecture.md` exists. `docs/adr/` holds accepted decisions (starting with
+[ADR 0000 — plain JavaScript](../adr/0000-plain-javascript.md)). Phase 4 expands the ADR set
+for datastore/HTTP/auth/jobs.
 
 ---
 
@@ -114,7 +122,7 @@ Taken from `AGENTS.md` and `.cursor/rules/`. Repeated here so a phase document d
 
 ### Code
 
-- TypeScript only. No Python anywhere in the repo.
+- JavaScript only. No Python anywhere in the repo.
 - Files stay under 1000 lines; names under 60 characters; intention-revealing names.
 - `async`/`await` only — no callback APIs, no `.then` chains.
 - Every function carries JSDoc (purpose, params, returns, throws).
@@ -138,6 +146,16 @@ Taken from `AGENTS.md` and `.cursor/rules/`. Repeated here so a phase document d
 - All timestamps stored in UTC. Pagination on every list endpoint (keyset preferred).
 - Schema changes only through versioned migrations under `backend/`.
 
+### Configuration
+
+- `.env` holds only values that **must differ per environment** (secrets, connection strings,
+  bind host/port, `NODE_ENV`, log level, bootstrap identity, encryption keys, env-specific
+  flags). See `.cursor/rules/env-config.mdc`.
+- Driver tunables, page sizes, timeouts, cache TTLs, retry/backoff, algorithm parameters, and
+  route prefixes are **named constants** in the module that uses them. Do not add an env var
+  "just in case". Create a constant only when the code reads it.
+- `process.env` is read in one config module only. That module does not re-export constants.
+
 ### Security
 
 - Secrets never committed. New env vars are documented in the matching `.env.example` **and**
@@ -156,7 +174,7 @@ Taken from `AGENTS.md` and `.cursor/rules/`. Repeated here so a phase document d
 
 ### Tests
 
-- Vitest, colocated as `*.test.ts` / `*.test.tsx`.
+- Vitest, colocated as `*.test.js` / `*.test.jsx`.
 - **≥ 80% line and branch coverage** for the code the phase touches, shipped in the same change.
 - Descriptive names that state the behaviour (`it('returns 403 when the caller lacks chat.ask')`).
 - Test the public surface, plus the unhappy paths: errors, authorization failures, empty and
@@ -222,11 +240,11 @@ measurement/decision · `DOC` documentation.
 |---|---|---|---|---|
 | 06 | [Tenancy & identity models with bootstrap seed](./phase-06-tenancy-identity-models.md) | BE | 03 | be §3–5; sol §8.1 |
 | 07 | [Authentication: argon2 passwords, JWT access & refresh](./phase-07-authentication.md) | BE | 06 | be §5, §88, §90; fe §7A; sol §8.3 |
-| 08 | [Password lifecycle: self-service and admin-initiated reset](./phase-08-password-lifecycle.md) | BE | 07 | be §5; fe §7A, §84 |
+| 08 | [Password lifecycle: signed-in change and admin-set password](./phase-08-password-lifecycle.md) | BE | 07 | be §5; fe §7A, §84 |
 | 09 | [RBAC engine & route authorization](./phase-09-rbac-engine.md) | BE | 07 | be §6, §89, §90; sol §8.2 |
 | 10 | [Audit logging](./phase-10-audit-logging.md) | BE | 09 | be §86, §87, §150; sol §9 |
 | 11 | [Admin identity APIs: users, roles, memberships](./phase-11-admin-identity-apis.md) | BE | 09, 10 | be §5, §6, §135, §136; sol §8.4 |
-| 12 | [Rate limiting & idempotency](./phase-12-rate-limit-idempotency.md) | BE | 09 | be §91, §92; sol §13 |
+| 12 | [Rate limiting & idempotency](./phase-12-rate-limit-idempotency.md) | BE | 03, 09 | be §91, §92; sol §13 |
 
 ### Part C — Frontend platform, auth and admin slices
 
@@ -241,7 +259,7 @@ measurement/decision · `DOC` documentation.
 
 | # | Phase | Layer | Depends on | Primary requirements |
 |---|---|---|---|---|
-| 17 | [Project model, CRUD & lifecycle states](./phase-17-project-model-and-crud.md) | BE | 09, 10 | be §7, §9, §102, §111, §153; fe §9, §81B |
+| 17 | [Project model, CRUD & lifecycle states](./phase-17-project-model-and-crud.md) | BE | 09, 10, 12 | be §7, §9, §102, §111, §153; fe §9, §81B |
 | 18 | [Project membership & project-scoped authorization](./phase-18-project-acl.md) | BE | 17 | be §8, §89, §114, §115; sol §8.1 |
 | 19 | [Frontend projects slice](./phase-19-frontend-projects-slice.md) | FE | 14, 17, 18 | fe §8, §9, §30, §81, §81B, §88 |
 
@@ -251,7 +269,7 @@ measurement/decision · `DOC` documentation.
 |---|---|---|---|---|
 | 20 | [Job & JobEvent models with job read APIs](./phase-20-job-models-and-apis.md) | BE | 03, 17 | be §31–35, §95, §97, §154; sol §7 |
 | 21 | [Worker process: claim, heartbeat, lease sweeper, scheduler](./phase-21-worker-process.md) | BE | 20 | be §93–95, §109, §151; sol §7; arch §2 |
-| 22 | [Job control: retry, cancel & human-readable progress](./phase-22-job-control-and-progress.md) | BE | 21 | be §33, §34, §36, §37, §109, §153 |
+| 22 | [Job control: retry, cancel & human-readable progress](./phase-22-job-control-and-progress.md) | BE | 12, 21 | be §33, §34, §36, §37, §109, §153 |
 
 ### Part F — Source ingest
 
@@ -373,7 +391,8 @@ valid answer.
 Method, path, required permission, request shape, response shape, error codes.
 
 ## 7. Configuration & environment variables
-Name, example value, purpose, and the reminder to mirror `.env.example` into `.env`.
+Only values that must differ per environment go in `.env`. Tunables are named constants in
+the consuming module (`.cursor/rules/env-config.mdc`). "None" is a valid answer.
 
 ## 8. Files to create or change
 Path-by-path list with a one-line purpose for each.

@@ -1,16 +1,16 @@
 ---
-description: React + TypeScript standards (components, state, i18n, testing)
+description: React + JavaScript standards (components, state, i18n, testing)
 globs: frontend/**
 alwaysApply: false
 ---
 
-# React + TypeScript standards (frontend/)
+# React + JavaScript standards (frontend/)
 
 Complements `web-frontend.mdc` (feature structure + boundary). These are the quality rules.
 
 ## Components
 - **Functional components only** (hooks); no class components.
-- Type props with **interfaces**; components named in **PascalCase**.
+- Document props in JSDoc (purpose); components named in **PascalCase**.
 - Extract **custom hooks** for complex/reusable logic; keep components presentational.
 - Implement **error boundaries**; prefer composition over deep prop trees.
 
@@ -27,7 +27,7 @@ Complements `web-frontend.mdc` (feature structure + boundary). These are the qua
 ## Testing
 - **≥ 80% test coverage** (Vitest); descriptive test names; cover loading/error/empty states.
 
-```tsx
+```jsx
 // ❌ const title = 'Create project';
 // ✅ const title = t('projects.create.title');
 ```

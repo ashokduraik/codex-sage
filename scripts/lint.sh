@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run eslint and tsc --noEmit in backend and frontend.
+# Run eslint in backend and frontend.
 # Runs all checks even if one fails; exits non-zero if any failed.
 set -euo pipefail
 
@@ -21,23 +21,11 @@ for app in ${APPS}; do
   else
     logInfo "${app} lint passed."
   fi
-
-  logInfo "Typechecking ${app}..."
-  set +e
-  runInApp "${app}" typecheck
-  TYPE_STATUS=$?
-  set -e
-  if [ "${TYPE_STATUS}" -ne 0 ]; then
-    logError "${app} typecheck failed (exit ${TYPE_STATUS})."
-    FAILED=1
-  else
-    logInfo "${app} typecheck passed."
-  fi
 done
 
 if [ "${FAILED}" -ne 0 ]; then
-  logError "One or more lint/typecheck steps failed."
+  logError "One or more lint steps failed."
   exit 1
 fi
 
-logInfo "All lint and typecheck steps passed."
+logInfo "All lint steps passed."

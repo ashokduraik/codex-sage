@@ -28,7 +28,7 @@ Use these named breakpoints consistently:
 - **No horizontal overflow** on the page.
 - Stack single-column on mobile → multi-column on tablet and wider.
 
-```tsx
+```jsx
 // ❌ BAD: fixed-width sidebar, breaks on mobile
 <div className="flex">
   <aside className="w-64">…</aside>

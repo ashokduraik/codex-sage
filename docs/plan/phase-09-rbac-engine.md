@@ -72,7 +72,7 @@ and after Phase 06 because roles and memberships are what the resolver reads.
 
 ### 4.1 The catalog
 
-`src/modules/authorization/permissionCatalog.ts` exports a frozen array. It is the single
+`src/modules/authorization/permissionCatalog.js` exports a frozen array. It is the single
 source of truth: role validation, the boot assertion and the UI all read it.
 
 | Group | Permissions (solution §8.2) |
@@ -133,7 +133,7 @@ request. Caching the *user's* permission set is not, because a deactivated user 
 role-assignment change has to take effect immediately, and Phase 07's principal resolution
 already pays for the user read.
 
-The cache is a `Map` keyed by `${organizationId}:${roleId}` with a configurable TTL, plus
+The cache is a `Map` keyed by `${organizationId}:${roleId}` with a named TTL constant, plus
 `invalidateRole(organizationId, roleId)` and `invalidateOrganization(organizationId)` exported
 for Phase 11 to call after a role write. Because the API may run as more than one process, a
 local invalidation only clears the process that handled the write; other processes converge
@@ -158,8 +158,7 @@ app.post('/projects', {
 `config.requiredPermissions` is the declaration; the `preHandler` is the enforcement. The
 declaration exists so that a boot-time assertion can walk Fastify's route table and fail
 startup when a route has neither a declaration nor a place on the public allowlist
-(`/health`, `/readiness`, `/auth/login`, `/auth/refresh`, `/auth/logout`,
-`/auth/password/forgot`, `/auth/password/reset`). Deny-by-default is only real if forgetting
+(`/health`, `/readiness`, `/auth/login`, `/auth/refresh`, `/auth/logout`). Deny-by-default is only real if forgetting
 the guard is impossible, and a forgotten `preHandler` is otherwise invisible. Phase 61 repeats
 this check as a review pass over the finished route table.
 
@@ -269,44 +268,41 @@ permission list already. The required permissions are logged and, from Phase 10,
 
 ## 7. Configuration & environment variables
 
-Add to `backend/.env.example` **and** mirror into `backend/.env`.
+**None.** No new `.env` keys. Cache TTL and capacity are named constants
+(`.cursor/rules/env-config.mdc`).
 
-| Variable | Example | Required | Purpose |
+### Constants (not env)
+
+| Constant | Value | Where | Purpose |
 |---|---|---|---|
-| `RBAC_ROLE_CACHE_TTL_SECONDS` | `30` | no | How long a role's permission array is cached in-process; also the worst-case staleness after a role edit on another process |
-| `RBAC_ROLE_CACHE_MAX_ENTRIES` | `500` | no | Upper bound on cached roles, so one process cannot grow without limit |
-
-Both values are behaviour, not secrets. The TTL is the one number an operator may need to
-lower, which is why it is configuration rather than a constant.
+| `RBAC_ROLE_CACHE_TTL_SECONDS` | `30` | `modules/authorization/roleCache.js` | In-process role-permission cache TTL; also the worst-case staleness after a role edit on another process |
+| `RBAC_ROLE_CACHE_MAX_ENTRIES` | `500` | `modules/authorization/roleCache.js` | Upper bound on cached roles |
 
 ## 8. Files to create or change
 
 | Path | Purpose |
 |---|---|
-| `backend/src/platform/config.ts` | Add the `rbac` config group |
-| `backend/src/platform/config.test.ts` | **Extend:** new variables and defaults |
-| `backend/src/modules/authorization/permissionCatalog.ts` | **New:** the 23 permissions, groups, labels, descriptions |
-| `backend/src/modules/authorization/permissionCatalog.test.ts` | **New:** completeness and uniqueness |
-| `backend/src/modules/authorization/permissionResolver.ts` | **New:** role ids → effective permission set |
-| `backend/src/modules/authorization/permissionResolver.test.ts` | **New** |
-| `backend/src/modules/authorization/roleCache.ts` | **New:** TTL cache with explicit invalidation |
-| `backend/src/modules/authorization/roleCache.test.ts` | **New** |
-| `backend/src/modules/authorization/requirePermissions.ts` | **New:** the preHandler factory |
-| `backend/src/modules/authorization/requirePermissions.test.ts` | **New** |
-| `backend/src/modules/authorization/organizationScope.ts` | **New:** compare an org path param to the principal |
-| `backend/src/modules/authorization/organizationScope.test.ts` | **New** |
-| `backend/src/modules/authorization/routeDeclarationAudit.ts` | **New:** boot assertion + public allowlist |
-| `backend/src/modules/authorization/routeDeclarationAudit.test.ts` | **New** |
-| `backend/src/modules/authorization/permissions.routes.ts` | **New:** `GET /permissions` |
-| `backend/src/modules/authorization/permissions.routes.test.ts` | **New** |
-| `backend/src/modules/authorization/index.ts` | **New:** public surface |
-| `backend/src/modules/auth/auth.routes.ts` | **Extend:** `/auth/me` returns `permissions` |
-| `backend/src/modules/auth/auth.routes.test.ts` | **Extend** |
-| `backend/src/modules/identity/builtInRoles.ts` | **Extend:** type the arrays against the catalog |
-| `backend/src/modules/identity/adminPasswordReset.routes.ts` | **Extend:** replace the Phase 08 inline check with `requirePermissions(['users.manage'])` |
-| `backend/src/http/app.ts` | Run the route-declaration assertion after routes are registered |
-| `backend/src/http/routes.ts` | Register `permissionsRoutes` |
-| `backend/.env.example` / `backend/.env` | Document and mirror the two variables |
+| `backend/src/modules/authorization/permissionCatalog.js` | **New:** the 23 permissions, groups, labels, descriptions |
+| `backend/src/modules/authorization/permissionCatalog.test.js` | **New:** completeness and uniqueness |
+| `backend/src/modules/authorization/permissionResolver.js` | **New:** role ids → effective permission set |
+| `backend/src/modules/authorization/permissionResolver.test.js` | **New** |
+| `backend/src/modules/authorization/roleCache.js` | **New:** TTL cache with explicit invalidation |
+| `backend/src/modules/authorization/roleCache.test.js` | **New** |
+| `backend/src/modules/authorization/requirePermissions.js` | **New:** the preHandler factory |
+| `backend/src/modules/authorization/requirePermissions.test.js` | **New** |
+| `backend/src/modules/authorization/organizationScope.js` | **New:** compare an org path param to the principal |
+| `backend/src/modules/authorization/organizationScope.test.js` | **New** |
+| `backend/src/modules/authorization/routeDeclarationAudit.js` | **New:** boot assertion + public allowlist |
+| `backend/src/modules/authorization/routeDeclarationAudit.test.js` | **New** |
+| `backend/src/modules/authorization/permissions.routes.js` | **New:** `GET /permissions` |
+| `backend/src/modules/authorization/permissions.routes.test.js` | **New** |
+| `backend/src/modules/authorization/index.js` | **New:** public surface |
+| `backend/src/modules/auth/auth.routes.js` | **Extend:** `/auth/me` returns `permissions` |
+| `backend/src/modules/auth/auth.routes.test.js` | **Extend** |
+| `backend/src/modules/identity/builtInRoles.js` | **Extend:** type the arrays against the catalog |
+| `backend/src/modules/identity/adminPasswordReset.routes.js` | **Extend:** replace the Phase 08 inline check with `requirePermissions(['users.manage'])` |
+| `backend/src/http/app.js` | Run the route-declaration assertion after routes are registered |
+| `backend/src/http/routes.js` | Register `permissionsRoutes` |
 
 ## 9. Tests (≥ 80% line and branch)
 
@@ -359,7 +355,7 @@ lower, which is why it is configuration rather than a constant.
 - [ ] The catalog holds exactly the solution §8.2 permission strings, each with a group, label
       and description, and no permission for an out-of-scope feature.
 - [ ] Effective permissions resolve from role ids scoped to the principal's organization.
-- [ ] Role permissions are cached with a configurable TTL and an explicit invalidation surface,
+- [ ] Role permissions are cached with a named TTL constant and an explicit invalidation surface,
       and the staleness bound is documented.
 - [ ] User status and membership are not cached, so deactivation takes effect on the next
       request.
@@ -373,7 +369,7 @@ lower, which is why it is configuration rather than a constant.
 - [ ] A startup assertion verifies every permission stored on a role exists in the catalog.
 - [ ] Phase 08's inline `users.manage` check is replaced by the shared factory.
 - [ ] The denial path throws a typed error carrying the audit context Phase 10 needs.
-- [ ] `npm run typecheck`, `npm run lint` and `npm test` pass; coverage ≥ 80% line and branch.
+- [ ] `npm run lint` and `npm test` pass; coverage ≥ 80% line and branch.
 
 ## 11. Documentation & ADR updates
 

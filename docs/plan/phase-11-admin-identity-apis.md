@@ -134,22 +134,22 @@ invariant with its own test, not a UI convention.
 
 This phase never sets, hashes, compares, or returns a password. Two paths touch credentials:
 
-- **User create** produces a user with `userStatus: 'invited'` and no `passwordHash`, then calls
-  the Phase 08 service to issue a reset/activation token. The response reports only
-  `passwordResetStatus` and `passwordResetRequestedAt` — never the token, never a link.
-- **Admin reset trigger** (`POST /users/:userId/reset-password`) calls the same Phase 08 service
-  and returns the same non-secret status.
+- **User create** produces a user with `userStatus: 'invited'` and no `passwordHash`. No
+  reset token is issued (**D15**). The user cannot sign in until an administrator sets a
+  password via `POST /users/:userId/reset-password`.
+- **Admin set-password** (`POST /users/:userId/reset-password`) calls the Phase 08
+  `applyNewPassword` service with `{ newPassword }` from the request. The response reports
+  `{ userId, passwordResetStatus: 'completed', completedAt }` — never the secret.
 
-Email delivery is out of scope for the whole plan (README §5, in-app notifications only), so how
-the user actually receives the token is unresolved and blocks the honest wording of the Phase 15
-dialog — see §12, question 2. The API must not claim an email was sent.
+Email delivery is out of scope for the whole plan (README §5). The administrator communicates
+the new password out of band. The API must not claim an email was sent.
 
 ### 4.6 Audit
 
 Every mutating route writes exactly one event through `recordAuditEvent` from the Phase 10
 surface, inside the business transaction, using the catalog values Phase 10 already seeded:
 `user.create`, `user.activate`, `user.deactivate`, `user.remove`,
-`user.password_reset_requested`, `user.roles_changed`, `role.create`, `role.update`,
+`user.password_set_by_admin`, `user.roles_changed`, `role.create`, `role.update`,
 `membership.update`. Denied requests are recorded best-effort with `result: 'denied'` by the
 Phase 09 guard, so a `403` here is not silent. Context carries ids, the previous and next
 `userStatus`, and role-id arrays — never an email password, hash, or token.
@@ -169,7 +169,8 @@ Two additive changes:
 
 Both ship as migrations under `backend/` per `.cursor/rules/data-model.mdc`. No field is added,
 renamed or removed. `lastActivity` — which frontend §82 wants in the user table — does not exist
-on the model; `lastLoginAt` does. See §12, question 4.
+on the model; **this slice maps it to `lastLoginAt`** unless a later phase adds a dedicated
+activity field (see §12, question 4).
 
 ## 6. API contract — PROPOSED (needs approval before implementation)
 
@@ -190,7 +191,7 @@ Response `201`:
   "userStatus": "invited",
   "roles": [{ "id": "6712f0b1c9a41d2f8e4b3a03", "name": "Member", "isBuiltIn": true }],
   "lastLoginAt": null,
-  "passwordResetStatus": "pending",
+  "passwordResetStatus": "none",
   "createdAt": "2026-09-11T09:14:22.481Z"
 }
 ```
@@ -221,9 +222,10 @@ refresh store. Response `204`. Errors as for deactivate.
 
 ### `POST /users/:userId/reset-password` — `users.manage`
 
-No body. Response `200`:
-`{ "userId": "…", "passwordResetStatus": "pending", "requestedAt": "2026-09-11T09:20:00.000Z" }`.
-No token, no URL, no delivery claim.
+Request: `{ "newPassword": "…" }`. Response `200`:
+`{ "userId": "…", "passwordResetStatus": "completed", "completedAt": "2026-09-11T09:20:00.000Z" }`.
+Never echoes `newPassword`. Errors: `400 VALIDATION_ERROR` (policy), `403 FORBIDDEN`,
+`404 NOT_FOUND`, `409 CANNOT_MODIFY_SELF`.
 
 ### `GET /roles?cursor&limit` · `POST /roles` · `PATCH /roles/:roleId` — `roles.manage`
 
@@ -242,36 +244,35 @@ Response `200` with the updated user. Errors: `409 LAST_ADMIN_REQUIRED`, `404 NO
 
 ## 7. Configuration & environment variables
 
-| Variable | Example | Required | Purpose |
-|---|---|---|---|
-| `IDENTITY_LIST_PAGE_SIZE_DEFAULT` | `25` | no (default `25`) | Default page size for user and role lists |
-| `IDENTITY_LIST_PAGE_SIZE_MAX` | `100` | no (default `100`) | Hard cap on `limit`; larger values clamp |
+**None.** No new `.env` keys. List page sizes are named constants
+(`.cursor/rules/env-config.mdc`).
 
-Add both to `backend/.env.example` **and** mirror them into `backend/.env` in the same change
-(`.cursor/rules/env-example-sync.mdc`). Never print `.env` contents. Both are read through the
-Phase 01 config module; this module performs no `process.env` access.
+### Constants (not env)
+
+| Constant | Value | Where | Purpose |
+|---|---|---|---|
+| `IDENTITY_LIST_PAGE_SIZE_DEFAULT` | `25` | `modules/identity/identity.routes.js` | Default page size for user and role lists |
+| `IDENTITY_LIST_PAGE_SIZE_MAX` | `100` | `modules/identity/identity.routes.js` | Hard cap on `limit`; larger values clamp |
 
 ## 8. Files to create or change
 
 | Path | Purpose |
 |---|---|
-| `backend/src/modules/identity/identity.schemas.ts` | **New:** zod request/response schemas |
-| `backend/src/modules/identity/identity.mappers.ts` | **New:** document → DTO, secret stripping |
-| `backend/src/modules/identity/identity.mappers.test.ts` | **New:** no hash or token in any DTO |
-| `backend/src/modules/identity/user.service.ts` | **New:** user lifecycle + guards |
-| `backend/src/modules/identity/user.service.test.ts` | **New:** guard matrix, conflicts |
-| `backend/src/modules/identity/role.service.ts` | **New:** role list/create/update |
-| `backend/src/modules/identity/role.service.test.ts` | **New:** built-in and in-use rules |
-| `backend/src/modules/identity/membership.service.ts` | **New:** role assignment |
-| `backend/src/modules/identity/membership.service.test.ts` | **New:** atomic replace, last admin |
-| `backend/src/modules/identity/identity.routes.ts` | **New:** all routes with permission guards |
-| `backend/src/modules/identity/identity.routes.test.ts` | **New:** status codes, scoping, audit |
-| `backend/src/modules/identity/index.ts` | **Change:** export the services and route plugin |
-| `backend/src/shared/pagination/keysetCursor.ts` | **New or reuse:** shared cursor encode/decode |
-| `backend/src/http/routes.ts` | **Change:** register `identityRoutes` |
-| `backend/src/platform/config.ts` + `.test.ts` | **Change:** `identity` config group |
+| `backend/src/modules/identity/identity.schemas.js` | **New:** zod request/response schemas |
+| `backend/src/modules/identity/identity.mappers.js` | **New:** document → DTO, secret stripping |
+| `backend/src/modules/identity/identity.mappers.test.js` | **New:** no hash or token in any DTO |
+| `backend/src/modules/identity/user.service.js` | **New:** user lifecycle + guards |
+| `backend/src/modules/identity/user.service.test.js` | **New:** guard matrix, conflicts |
+| `backend/src/modules/identity/role.service.js` | **New:** role list/create/update |
+| `backend/src/modules/identity/role.service.test.js` | **New:** built-in and in-use rules |
+| `backend/src/modules/identity/membership.service.js` | **New:** role assignment |
+| `backend/src/modules/identity/membership.service.test.js` | **New:** atomic replace, last admin |
+| `backend/src/modules/identity/identity.routes.js` | **New:** all routes with permission guards |
+| `backend/src/modules/identity/identity.routes.test.js` | **New:** status codes, scoping, audit |
+| `backend/src/modules/identity/index.js` | **Change:** export the services and route plugin |
+| `backend/src/shared/pagination/keysetCursor.js` | **New or reuse:** shared cursor encode/decode |
+| `backend/src/http/routes.js` | **Change:** register `identityRoutes` |
 | `backend/src/migrations/<ts>-identity-list-indexes.ts` | **New:** the three indexes in §5 |
-| `backend/.env.example` / `backend/.env` | Document and mirror the two variables |
 
 ## 9. Tests (≥ 80% line and branch)
 
@@ -301,8 +302,9 @@ Phase 01 config module; this module performs no `process.env` access.
 - `q`, `userStatus` and `roleId` each narrow the result set; unknown parameters are rejected.
 - Create → list shows the user as `invited`; activate → list shows `active`; remove → the user
   disappears from the list but the audit rows remain.
-- `POST /users/:id/reset-password` returns a status object and the response body contains no
-  token; the same assertion runs over the emitted log lines.
+- `POST /users/:id/reset-password` with `{ newPassword }` returns `passwordResetStatus:
+  'completed'` and the response body contains no secret; the same assertion runs over the
+  emitted log lines.
 - Creating a user with a `roleId` owned by another organization returns `404`.
 - When the audit insert fails, the user create rolls back and no user row exists (Phase 10 §4.6).
 
@@ -327,8 +329,8 @@ Phase 01 config module; this module performs no `process.env` access.
       parameters.
 - [ ] The last-administrator, self-modification, role-in-use and unknown-permission guards each
       have a named test.
-- [ ] The two new variables are in `backend/.env.example` and mirrored into `backend/.env`.
-- [ ] `npm run typecheck`, `npm run lint` and `npm test` pass in `backend/`.
+- [ ] No new `.env` keys. List page sizes are constants.
+- [ ] `npm run lint` and `npm test` pass in `backend/`.
 - [ ] Coverage for every file this phase touched is ≥ 80% line and ≥ 80% branch.
 
 ## 11. Documentation & ADR updates
@@ -343,18 +345,15 @@ Phase 01 config module; this module performs no `process.env` access.
 
 Ask the user; do not assume (`.cursor/rules/no-assumptions.mdc`).
 
-1. **Project access at user-create time.** Frontend §83 asks the administrator to assign project
-   access while creating a user, but `ProjectMember` is Phase 18. Should `POST /users` accept a
-   project-access array once Phase 18 lands, or does Phase 15 send a second request? Nothing is
-   invented here until this is answered.
-2. **Reset-token delivery (blocking for Phase 15 copy).** Email is out of scope for the plan.
-   How does the user receive the token — an operator copies it, an in-app notification, or
-   something else? `POST /users/:id/reset-password` must not imply an email was sent.
+1. **Project access at user-create time.** **Deferred to Phase 18 / 19.** `POST /users` does
+   not accept a project-access array. Phase 15 does not invent membership columns. Phase 19
+   assigns project access from the project side.
+2. **Reset-token delivery.** **Decided (D15).** The administrator supplies `newPassword` in
+   the body and communicates it out of band. No token, no email claim.
 3. **Who may read the user list?** Proposed as `users.manage`. Should a non-administrator with
    `org.view` be able to see colleagues (for project-member pickers in Phase 19)?
-4. **`lastActivity` for the admin table.** Frontend §82 shows "Last activity". The model has
-   `lastLoginAt` only. Is last sign-in an acceptable definition, or does a real activity
-   timestamp need a new field and a write path?
+4. **`lastActivity` for the admin table.** **Proposed for this slice:** render `lastLoginAt`
+   as last activity. A dedicated activity timestamp is not added here.
 5. **Is email mutable?** Proposed as immutable after create. If administrators must be able to
    correct a typo, the endpoint needs re-verification and audit rules for identifier changes.
 6. **Organization create/update endpoints.** Solution §8.4 lists them, but no phase owns them

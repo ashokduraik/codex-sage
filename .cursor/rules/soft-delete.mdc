@@ -21,7 +21,7 @@ convention.
 
 ## Examples
 
-```ts
+```js
 // ❌ BAD: hard delete on user detach
 await db`DELETE FROM repos WHERE id = ${repoId}`;
 

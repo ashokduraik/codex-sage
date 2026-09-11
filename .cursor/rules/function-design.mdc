@@ -12,14 +12,14 @@ alwaysApply: true
   `temp`, `helper`, `handle`, `doStuff`).
 - Prefer verbs for functions (`loadProjectById`) and nouns for values (`projectId`).
 
-```ts
+```js
 // ❌ BAD
 const d = await get(id);
 function h(r, s) { /* ... */ }
 
  // ✅ GOOD
 const project = await loadProjectById(projectId);
-async function listActiveProjects(organizationId: string) { /* ... */ }
+async function listActiveProjects(organizationId) { /* ... */ }
 ```
 
 ## Own the response — never hand off `res`
@@ -30,7 +30,7 @@ response (`res.status(…).json(…)`, `reply.send(…)`, etc.).
 
 Helpers return data or throw; they never call `res.*`.
 
-```ts
+```js
 // ❌ BAD — control of `res` transferred to a helper
 async function sendProject(res, projectId) {
   const project = await loadProjectById(projectId);
@@ -55,7 +55,7 @@ app.get('/projects/:id', async (req, res) => {
 - If a library is callback-only, wrap it once at the boundary with `util.promisify` or a thin
   Promise adapter, then `await` everywhere else.
 
-```ts
+```js
 // ❌ BAD
 fs.readFile(path, (err, data) => { /* ... */ });
 
@@ -71,9 +71,9 @@ const data = await fs.promises.readFile(path);
   **two or more** places, or when the body is complex enough that a name materially aids
   understanding (multi-branch / multi-step domain logic — not a one-liner wrapper).
 
-```ts
+```js
 // ❌ BAD — one-liner helper used once
-function toStatusCode(ok: boolean) {
+function toStatusCode(ok) {
   return ok ? 200 : 400;
 }
 res.status(toStatusCode(valid)).json(body);
@@ -82,5 +82,5 @@ res.status(toStatusCode(valid)).json(body);
 res.status(valid ? 200 : 400).json(body);
 
 // ✅ GOOD — shared logic used in multiple handlers
-function mapProjectToDto(project: Project): ProjectDto { /* ... */ }
+function mapProjectToDto(project) { /* ... */ }
 ```

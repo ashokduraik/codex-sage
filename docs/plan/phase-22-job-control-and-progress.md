@@ -1,7 +1,8 @@
 # Phase 22 — Job control: retry, cancel & human-readable progress
 
 - **Layer:** BE
-- **Depends on:** Phase 21 (worker runtime, checkpoints, failure classes)
+- **Depends on:** Phase 21 (worker runtime, checkpoints, failure classes), Phase 12
+  (`Idempotency-Key` on retry)
 - **Unblocks:** Phase 29, 35, 58 (re-ingest, the processing center UI, notifications)
 - **Size:** 1–2 days
 - **Requirements covered:** `backend/requirments.md` §33 (job progress), §34 (understandable
@@ -198,22 +199,20 @@ retry appends new ones, which is what frontend §28 renders as processing histor
 
 ## 5. Data model changes
 
-No new collection. Additive fields on `Job` (owned by Phase 20; see §12 question 2):
+No new collection. Phase 20 already owns `cancelRequestedAt` and the checkpoint/progress
+fields. This phase adds only user-initiated retry metadata:
 
 | Field | Type | Purpose |
 |---|---|---|
-| `cancelRequestedAt` | Date \| null | Set by cancel on a running job |
-| `cancelRequestedBy` | ObjectId \| null | Actor for audit and display |
+| `cancelRequestedBy` | ObjectId \| null | Actor for audit and display (cancel path) |
 | `retryRequestedAt` | Date \| null | Last user-initiated retry |
 | `retryRequestedBy` | ObjectId \| null | Actor |
 | `retryCount` | number | User-initiated retries, distinct from `attempt` |
 | `lastRetryMode` | `'resume' \| 'full'` \| null | What the last retry did |
-| `itemsProcessed`, `itemsFailed`, `warningCount` | number | Counters stages increment |
 
-`JobEvent` gains `eventCode` and `severity` (`info | warning | error`) if Phase 20 did not
-already define them. Index `{ organizationId: 1, jobId: 1, createdAt: 1 }` on `jobEvents` with
-`status: 'A'` keeps the projection a single ordered scan. `status: 'A' | 'D'` stays on both
-collections and is never used to hide a failure.
+`JobEvent` already has `eventCode` and `severity` from Phase 20. This phase only extends the
+human-readable catalogue. Index `{ organizationId: 1, jobId: 1, createdAt: 1 }` on `jobEvents`
+filtered to `status: 'A'` if Phase 20 did not already create it.
 
 ## 6. API contract — PROPOSED (needs approval before implementation)
 
@@ -314,36 +313,36 @@ collections and is never used to hide a failure.
 
 ## 7. Configuration & environment variables
 
-| Variable | Example | Purpose |
-|---|---|---|
-| `JOB_CANCEL_GRACE_MS` | `60000` | How long a cancel request waits for the worker to confirm before the sweeper is allowed to finish the job as `cancelled` |
-| `JOB_MAX_USER_RETRIES` | `10` | Ceiling on user-initiated retries per job, so a retry button cannot be used as a load generator |
+**None.** No new `.env` keys. Cancel grace and retry ceiling are named constants in the jobs
+module (`.cursor/rules/env-config.mdc`). Rate-limit budgets for these routes are configured by
+Phase 12, not here.
 
-Both belong to the `worker` config group added in Phase 21, documented in
-`backend/.env.example` and mirrored into `backend/.env` (env-example-sync rule). Rate-limit
-budgets for these routes are configured by Phase 12, not here.
+### Constants (not env)
+
+| Constant | Value | Where | Purpose |
+|---|---|---|---|
+| `JOB_CANCEL_GRACE_MS` | `60000` | `modules/jobs/jobControl.service.js` | How long a cancel request waits for the worker to confirm before the sweeper is allowed to finish the job as `cancelled` |
+| `JOB_MAX_USER_RETRIES` | `10` | `modules/jobs/jobControl.service.js` | Ceiling on user-initiated retries per job |
 
 ## 8. Files to create or change
 
 | Path | Purpose |
 |---|---|
-| `backend/src/modules/jobs/jobControl.routes.ts` | **New:** retry and cancel routes; the handler owns `reply` |
-| `backend/src/modules/jobs/jobControl.routes.test.ts` | **New:** status codes, permissions, idempotency replay |
-| `backend/src/modules/jobs/jobControl.service.ts` | **New:** transition validation, retry mode, cancel, audit |
-| `backend/src/modules/jobs/jobControl.service.test.ts` | **New:** transition matrix and retry-mode matrix |
-| `backend/src/modules/jobs/jobTransitions.ts` | **New:** the allowed-transition table and guard |
-| `backend/src/modules/jobs/jobTransitions.test.ts` | **New:** every allowed and rejected pair |
-| `backend/src/modules/jobs/jobStageCatalog.ts` | **New:** ordered stage list and labels per job type |
-| `backend/src/modules/jobs/jobEventCatalog.ts` | **New:** event code → human-readable message |
-| `backend/src/modules/jobs/jobEventCatalog.test.ts` | **New:** no ids, paths or stack traces in messages |
-| `backend/src/modules/jobs/jobProgress.ts` | **New:** projection from job + events |
-| `backend/src/modules/jobs/jobProgress.test.ts` | **New:** stage states, null percent, counters |
-| `backend/src/modules/jobs/jobs.repository.ts` | **Extend:** conditional control updates, active-job lookup |
-| `backend/src/modules/jobs/index.ts` | Export the new public surface |
-| `backend/src/modules/jobs/jobs.routes.ts` | Mount the control routes; include `progress` in detail |
-| `backend/src/worker/workerRuntime.ts` | **Extend:** honour `cancelRequestedAt` at stage boundaries |
-| `backend/src/platform/config.ts` | Two new validated values |
-| `backend/.env.example` / `backend/.env` | Document and mirror them |
+| `backend/src/modules/jobs/jobControl.routes.js` | **New:** retry and cancel routes; the handler owns `reply` |
+| `backend/src/modules/jobs/jobControl.routes.test.js` | **New:** status codes, permissions, idempotency replay |
+| `backend/src/modules/jobs/jobControl.service.js` | **New:** transition validation, retry mode, cancel, audit |
+| `backend/src/modules/jobs/jobControl.service.test.js` | **New:** transition matrix and retry-mode matrix |
+| `backend/src/modules/jobs/jobTransitions.js` | **New:** the allowed-transition table and guard |
+| `backend/src/modules/jobs/jobTransitions.test.js` | **New:** every allowed and rejected pair |
+| `backend/src/modules/jobs/jobStageCatalog.js` | **New:** ordered stage list and labels per job type |
+| `backend/src/modules/jobs/jobEventCatalog.js` | **New:** event code → human-readable message |
+| `backend/src/modules/jobs/jobEventCatalog.test.js` | **New:** no ids, paths or stack traces in messages |
+| `backend/src/modules/jobs/jobProgress.js` | **New:** projection from job + events |
+| `backend/src/modules/jobs/jobProgress.test.js` | **New:** stage states, null percent, counters |
+| `backend/src/modules/jobs/jobs.repository.js` | **Extend:** conditional control updates, active-job lookup |
+| `backend/src/modules/jobs/index.js` | Export the new public surface |
+| `backend/src/modules/jobs/jobs.routes.js` | Mount the control routes; include `progress` in detail |
+| `backend/src/worker/workerRuntime.js` | **Extend:** honour `cancelRequestedAt` at stage boundaries |
 
 ## 9. Tests (≥ 80% line and branch)
 
@@ -397,9 +396,9 @@ budgets for these routes are configured by Phase 12, not here.
       stack trace, or credential.
 - [ ] Retry and cancel write audit events; neither writes secrets into audit context.
 - [ ] Permissions and tenant scope are enforced in the service, not only in the route.
-- [ ] `npm run typecheck`, `npm run lint`, `npm test` pass; coverage ≥ 80% line and branch on the
+- [ ] `npm run lint`, `npm test` pass; coverage ≥ 80% line and branch on the
       touched files.
-- [ ] `backend/.env.example` and `backend/.env` both carry the two new variables.
+- [ ] No new `.env` keys. Cancel grace and retry ceiling are constants.
 
 ## 11. Documentation & ADR updates
 
@@ -417,8 +416,9 @@ budgets for these routes are configured by Phase 12, not here.
 1. **Where does progress live?** Proposal: extend Phase 20's `GET /api/v1/jobs/:jobId` with the
    `progress` block rather than adding `GET /jobs/:jobId/progress`. Confirm, because Phase 20 owns
    that response and Phase 35 will code against whichever is chosen.
-2. **Phase 20 field overlap.** Confirm whether `eventCode`, `severity`, `itemsProcessed` and the
-   retry/cancel fields already exist on `Job` / `JobEvent` from Phase 20.
+2. **Phase 20 field overlap.** **Decided.** Phase 20 owns `eventCode`, `severity`,
+   `progressCounters`, `stageCheckpoint`, `cancelRequestedAt`. This phase adds retry metadata
+   (`retryRequestedAt`, `retryCount`, `lastRetryMode`, `cancelRequestedBy`).
 3. **Route shape.** `POST /api/v1/jobs/:jobId/retry` (flat) versus
    `POST /api/v1/projects/:projectId/jobs/:jobId/retry` (nested, matching solution §4.7's
    `POST .../jobs/:jobId/retry`). Proposal: flat, with the project resolved from the job; needs
