@@ -6,7 +6,6 @@ import { toast } from 'sonner';
 import AuthLayout from '@/features/auth/AuthLayout';
 import { useAuth } from '@/features/auth/AuthContext';
 import { safeReturnTo } from '@/features/auth/authReturnTo';
-import GoogleIcon from '@/features/auth/GoogleIcon';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
@@ -23,7 +22,7 @@ function messageFromUnknown(err, fallback) {
     return fallback;
 }
 /**
- * Email/password and Google sign-in page.
+ * Email/password sign-in page.
  * @returns Login form UI.
  */
 export default function LoginPage() {
@@ -56,25 +55,6 @@ export default function LoginPage() {
             setLoading(false);
         }
     }
-    /**
-     * Sign in with the mock Google provider and navigate to `returnTo`.
-     */
-    async function handleGoogle() {
-        setError('');
-        setLoading(true);
-        try {
-            await auth.loginWithGoogle();
-            navigate(returnTo);
-        }
-        catch (err) {
-            const message = messageFromUnknown(err, t('auth.invalidCredentials'));
-            setError(message);
-            toast.error(message);
-        }
-        finally {
-            setLoading(false);
-        }
-    }
     const registerHref = returnTo !== '/'
         ? `/register?returnTo=${encodeURIComponent(returnTo)}`
         : '/register';
@@ -84,20 +64,6 @@ export default function LoginPage() {
             {t('auth.createOne')}
           </Link>
         </>}>
-      <Button type="button" variant="outline" className="w-full h-12 text-sm font-medium mb-6" onClick={() => void handleGoogle()} disabled={loading} aria-busy={loading}>
-        <GoogleIcon className="w-5 h-5 mr-2"/>
-        {t('auth.continueWithGoogle')}
-      </Button>
-
-      <div className="relative mb-6">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-border"/>
-        </div>
-        <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-card px-3 text-muted-foreground">{t('auth.or')}</span>
-        </div>
-      </div>
-
       {error && (<div role="alert" className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
           {error}
         </div>)}

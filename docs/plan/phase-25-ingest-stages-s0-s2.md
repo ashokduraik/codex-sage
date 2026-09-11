@@ -78,7 +78,7 @@ Every stage receives exactly one argument. This is the contract later phases ext
 
 ```text
 IngestStageContext
-├── scope      : { organizationId, projectId, sourceVersionId, jobId, correlationId }
+├── scope      : { orgId, projectId, sourceVersionId, jobId, correlationId }
 ├── origin     : 'upload' | 'github' | 'gitlab'   ← phase 32 uses the repository values
 ├── attempt    : number     checkpoint : { lastCompletedStage, cursor? }
 ├── counters   : mutable IngestCounters (§4.4)
@@ -145,7 +145,8 @@ A failed job is never removed (solution §4.6 hard rule 1, backend §36).
 
 ## 5. Data model changes
 
-Additive only; no new collection; delivered as a versioned migration.
+Additive only; no new collection. Fields and indexes are declared on the Mongoose schemas and
+synced via Phase 03 `syncSchemaIndexes`.
 
 **`jobs`** — **owned by Phase 20.** This phase does not add `currentStage`, `stageCheckpoint`,
 `progressCounters` or `partialSuccess`. It only writes those fields through the Phase 21
@@ -154,11 +155,11 @@ runtime helpers.
 **`sourceFiles`** (phase 24) gains `fileState: 'stored' | 'missing' | 'corrupt'` (domain
 lifecycle, distinct from row `status`), `exclusionReason: string | null`,
 `excludedFromGraph: boolean` and `orphanedAt: Date | null` — only if Phase 24 did not already
-add them. Confirm against Phase 24's schema before a second migration.
+add them. Confirm against Phase 24's schema before a second schema edit.
 
 Row visibility stays `status: 'A' | 'D'` on both; nothing here hard-deletes. Indexes:
-`{ organizationId, projectId, sourceVersionId, path }` on `sourceFiles` filtered to
-`status: 'A'`, and `{ organizationId, projectId, jobStatus, currentStage }` on `jobs`.
+`{ orgId, projectId, sourceVersionId, path }` on `sourceFiles` filtered to
+`status: 'A'`, and `{ orgId, projectId, jobStatus, currentStage }` on `jobs`.
 
 ## 6. API contract — PROPOSED (needs approval before implementation)
 
@@ -219,7 +220,7 @@ are named constants in the ingest module (`.cursor/rules/env-config.mdc`).
 | `backend/src/modules/ingest/stages/s2ExcludeApply.js` (+ `.test.js`) | **New:** stage S2 |
 | `backend/src/modules/ingest/ingest.repository.js` | **New:** tenant-scoped reads/writes for jobs, source files, events |
 | `backend/src/worker/index.js` | Register the ingest handler with the phase 21 registry |
-| `backend/migrations/00NN-ingest-stage-fields.js` | **New:** additive fields and indexes from section 5 |
+| `backend/src/modules/sources/sourceFile.model.js` | **Change if needed:** additive fields/indexes from §5 |
 | `backend/src/test/fixtures/ingest/` | **New:** small tree, tree with excluded paths, tree with a file over 1 MiB |
 
 ## 9. Tests (≥ 80% line and branch)
@@ -244,7 +245,7 @@ are named constants in the ingest module (`.cursor/rules/env-config.mdc`).
 
 - Tree empty after exclusions, and a path containing `..` or an absolute prefix → S0 fails with
   `user_action_required` and a path-safety code respectively.
-- Job whose `organizationId` differs from the source version → abort, nothing mutated.
+- Job whose `orgId` differs from the source version → abort, nothing mutated.
 - One hash mismatch → counted failed, job continues, partial success recorded; failed ratio
   above `INGEST_MAX_FAILED_FILE_RATIO` → S1 fails as `temporary`.
 - Aborted `signal` mid-batch → stage stops, cursor persisted, no counters lost.
@@ -259,8 +260,8 @@ are named constants in the ingest module (`.cursor/rules/env-config.mdc`).
       explicit succeeded and failed counts.
 - [ ] Orphaned GridFS objects are marked, never hard-deleted.
 - [ ] Every failure carries a code plus a phase 21 retryability class.
-- [ ] Additive `sourceFiles` fields (if not already on Phase 24) ship as one migration; Job
-      fields are not re-migrated. Row `status` semantics unchanged.
+- [ ] Additive `sourceFiles` fields (if not already on Phase 24) ship on the schema in one
+      change; Job fields are not re-declared. Row `status` semantics unchanged.
 - [ ] No new `.env` keys. Ingest batch, flush, ratio, and timeout are constants.
 - [ ] `npm run lint`, `npm test` pass; coverage ≥ 80% line and branch.
 
@@ -275,7 +276,7 @@ are named constants in the ingest module (`.cursor/rules/env-config.mdc`).
 ## 12. Risks & open questions
 
 1. **Field ownership overlap.** **Decided.** Phase 20 owns `currentStage`, `stageCheckpoint`
-   and `progressCounters` on `Job`. Do not add a second migration for those fields.
+   and `progressCounters` on `Job`. Do not add a second schema pass for those fields.
 2. **Failed-file threshold:** is 5% the right boundary between partial success and stage
    failure, or should any failed file fail the ingest?
 3. **S1 responsibility.** **Decided.** Phase 24 writes accepted bytes during the request.

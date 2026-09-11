@@ -12,10 +12,15 @@
 ## 1. Goal
 
 After this phase every Mongoose model is built on one **base schema** (row `status: 'A' | 'D'`,
-UTC timestamps), list and detail queries default to active rows, tenant collections require
-`organizationId`, schema changes ship as **versioned migrations** under `backend/migrations/`,
-and integration tests talk to the **same external MongoDB 8 replica set** using database name
-`codex_sage_test` (**D16**). Production never relies on `autoIndex`.
+UTC timestamps, actor fields `createdBy` / `updatedBy`), list and detail queries default to
+active rows, tenant collections require `orgId`, indexes are **declared on schemas** (not a
+versioned migration runner), and integration tests talk to the **same external MongoDB 8
+replica set** using database name `codex_sage_test` (**D16**). Production never relies on
+`autoIndex`.
+
+**No versioned schema migrations in this stage.** The datastore is MongoDB and the product is
+pre–go-live; collections and indexes evolve with schema definitions. A migration runner can be
+introduced later when production cutover needs controlled, repeatable schema changes.
 
 You can see it working by running a fixture model test: inserting a row, soft-deleting it
 (`status: 'D'`), and watching the default finder return nothing; and by running the harness
@@ -23,10 +28,11 @@ twice against the replica set without touching the development database named in
 
 ## 2. Why this phase is here
 
-Phase 06 cannot invent row-status, timestamps, tenant keys, or a test database of its own —
-every later module would copy a slightly different convention. Phase 01 already connects
-Mongoose; this phase owns *how* documents are shaped and *how* tests isolate data. It does
-not block Phase 02 (errors) or Phase 04 (ADRs); those can run in parallel.
+Phase 06 cannot invent row-status, timestamps, actor fields, tenant keys, indexes, or a test
+database of its own — every later module would copy a slightly different convention. Phase 01
+already connects Mongoose; this phase owns *how* documents are shaped, *how* indexes are
+declared, and *how* tests isolate data. It does not block Phase 02 (errors) or Phase 04
+(ADRs); those can run in parallel.
 
 It cannot come later: the first domain collection (organizations) must inherit the base
 schema on day one, and the first integration test must not write into the development
@@ -36,21 +42,24 @@ database.
 
 ### In scope
 
-- Shared Mongoose plugins: row `status`, UTC `createdAt` / `updatedAt`, optional tenant key.
+- Shared Mongoose plugins: row `status`, UTC `createdAt` / `updatedAt`, `createdBy` /
+  `updatedBy` (ObjectId → user), optional tenant key `orgId`.
 - Query defaults that exclude `status: 'D'` unless the caller opts in.
-- Repository conventions: every tenant read/write takes `organizationId`; helpers never
-  accept a client-supplied scope as authority.
-- Versioned migration runner and folder `backend/migrations/`.
+- Repository conventions: every tenant read/write takes `orgId`; helpers never accept a
+  client-supplied scope as authority.
+- Index conventions: every schema declares the indexes it needs; production uses
+  `autoIndex: false`. **Development startup and the test harness call
+  `syncSchemaIndexes`.**
 - Integration-test harness that rewrites the database name in `MONGODB_URI` to
   `codex_sage_test`. **No `mongodb-memory-server`.**
-- `autoIndex: false` in production; development may still use `autoIndex` for local
-  convenience, but indexes that matter ship as migrations.
 
 ### Out of scope (owner phase)
 
+- Versioned migration runner / `backend/migrations/` — **deferred until go-live** (or a later
+  phase that introduces production cutover).
 - Any domain collection — **Phase 06 onward**.
 - GridFS bucket helpers — **Phase 24**.
-- Job claim indexes — **Phase 20 / 21**.
+- Job claim indexes — **Phase 20 / 21** (declared on those schemas when built).
 - Error catalog codes beyond those Phase 02 already owns (`TENANT_SCOPE_MISSING`,
   `INVALID_CURSOR` are consumed here, not invented).
 
@@ -64,13 +73,21 @@ One plugin applied by every domain model:
 status     : 'A' | 'D'   required, default 'A', enum only those two
 createdAt  : Date        UTC, set on insert
 updatedAt  : Date        UTC, set on insert and every update
+createdBy  : ObjectId    ref users (userId); set on insert; null allowed for system/bootstrap
+updatedBy  : ObjectId    ref users (userId); set on insert and every update; null allowed for
+                         system/bootstrap
 ```
 
 Domain lifecycle (`userStatus`, `lifecycleStatus`, `jobStatus`, `knowledgeHealth`,
-`connectionStatus`) is **never** this field. Timestamps are stored as BSON Date and
+`connectionStatus`) is **never** the row `status` field. Timestamps are stored as BSON Date and
 serialized as ISO-8601 with a `Z` suffix. Application code does not call `new Date()` for
 persistence when the operation can use Mongo server time (`$$NOW`) — lease and claim paths
 in Phase 21 will need that; the helper is introduced here.
+
+Repositories stamp `createdBy` on insert and `updatedBy` on every update from the caller's
+`userId` when present (null for system/bootstrap). Soft delete also sets `updatedBy` (and
+`updatedAt`). Until Phase 07 auth exists, tests pass actors as function arguments. Phase 02's
+request-context ALS will expose `{ correlationId, orgId?, userId? }` once auth lands.
 
 ### 4.2 Soft-delete query defaults
 
@@ -79,40 +96,58 @@ aggregations that list documents) adds `{ status: 'A' }` unless the query explic
 `status` or the caller uses `includeDeleted()`. Soft delete is:
 
 ```text
-updateOne({ _id, organizationId, status: 'A' }, { $set: { status: 'D' } })
+updateOne(
+  { _id, orgId, status: 'A' },
+  { $set: { status: 'D', updatedBy, updatedAt } }
+)
 ```
 
 Never `deleteOne` / `deleteMany` on user-facing resources. Hard purge is out of this plan
 (README §5 / a later ADR). Background jobs must use the same default so a detached project
 is not processed.
 
-### 4.3 Tenant `organizationId`
+### 4.3 Tenant `orgId`
 
-Tenant collections declare `organizationId` as required `ObjectId`. A second plugin
-rejects `save` / `insert` without it and rejects repository methods that omit it
-(`TENANT_SCOPE_MISSING`). Platform collections that are not tenant-scoped (none in this
-phase; later: possibly migration metadata) opt out explicitly. List repositories never
-take `organizationId` from the request body; the authenticated context (Phase 07) will
-supply it. Until then, tests pass it as a function argument.
+Tenant collections declare `orgId` as required `ObjectId`. A second plugin rejects `save` /
+`insert` without it and rejects repository methods that omit it (`TENANT_SCOPE_MISSING`).
+**`organizations` opts out** of the tenant plugin (the org document's `_id` *is* the org id).
+Other platform collections that are not tenant-scoped also opt out explicitly.
 
-### 4.4 Versioned migrations
+`orgId` is the single name everywhere: Mongo fields, repository args, request context /
+`principal`, and API JSON. The JWT claim key stays the short `org` and carries that same id;
+`principal.orgId` is set from it. List repositories never take `orgId` from the request body;
+the authenticated context (Phase 07) supplies it. Until then, tests pass it as a function
+argument.
 
-Folder `backend/migrations/`. Each file is `NNNN-short-name.js` exporting:
+### 4.4 Indexes (schema-declared; no migration runner yet)
+
+Indexes live next to the schema that needs them (`schema.index(...)`). Rules:
+
+1. **Tenant list / detail paths** always include `orgId` as the leading key and filter active
+   rows with a partial filter `{ status: 'A' }` when the datastore supports it.
+2. **Keyset pagination** (see §4.6) uses a stable sort on `createdAt` + `_id` (or
+   `updatedAt` + `_id` when the list is “recently updated”); the matching compound index must
+   exist on that collection.
+3. **Uniqueness** that is tenant-scoped is always `{ orgId, … }` with partial `status: 'A'`.
+4. **Production:** `autoIndex: false`. Indexes are never created by Mongoose auto-create in
+   production.
+5. **Development:** app startup calls `syncSchemaIndexes` for registered models. The test
+   harness does the same in `beforeAll`.
+6. **Pre–go-live:** dropping or reshaping an index is a schema edit + re-sync against the
+   shared MongoDB. Introduce a versioned migration runner only when production needs
+   controlled, auditable schema changes.
+
+Base / tenant plugin **does not** auto-add indexes to every schema. The shapes below are
+**templates** — a domain phase applies each only when that list/filter path exists. A fixture
+tenant schema in tests may declare them to prove the convention:
 
 ```text
-id: string            // matches the filename prefix
-description: string
-up(session): Promise<void>
+{ orgId: 1, createdAt: -1, _id: -1 }   partial status: 'A'   // default list keyset
+{ orgId: 1, updatedAt: -1, _id: -1 }   partial status: 'A'   // recently-updated lists
+{ orgId: 1, createdBy: 1 }             partial status: 'A'   // “created by me” when needed
 ```
 
-A `schemaMigrations` collection records applied `id`s (`status: 'A' | 'D'` still required
-on that collection). `npm run migrate` in `backend/` applies pending files in order, each
-inside a transaction when the operation is transactional (D5). Startup in development may
-call the same runner; **production startup does not silently migrate** — operators run
-`migrate` deliberately. Migrations create collections and indexes; they do not rely on
-`autoIndex`.
-
-There is no `down` in this slice. Rollback is a forward migration or a restored backup.
+Domain phases add their own unique and query indexes on top of these conventions.
 
 ### 4.5 Integration-test harness (**D16**)
 
@@ -122,7 +157,7 @@ There is no `down` in this slice. Rollback is a forward migration or a restored 
 2. Parse the URI and **substitute the database name** with constant `TEST_DATABASE_NAME`
    (`codex_sage_test`). No new env var.
 3. Connect with the same mongoose options as production (pool constants from Phase 01).
-4. `beforeAll`: connect once per Vitest worker.
+4. `beforeAll`: connect once per Vitest worker; sync indexes for models under test.
 5. `afterEach`: delete documents from collections used in that file (or drop those
    collections), never the development database.
 6. `afterAll`: disconnect.
@@ -139,27 +174,44 @@ format later.
 
 ## 5. Data model changes
 
-No product collection. One platform collection:
+No product collection in this phase. Conventions only:
 
-### `schemaMigrations`
+### Base fields (every domain document)
 
 | Field | Type | Notes |
 |---|---|---|
-| `id` | string | Migration id, unique |
-| `appliedAt` | Date | UTC |
 | `status` | `'A' \| 'D'` | default `'A'` |
+| `createdAt` | Date | UTC |
+| `updatedAt` | Date | UTC |
+| `createdBy` | ObjectId \| null | userId; null for system/bootstrap |
+| `updatedBy` | ObjectId \| null | userId; null for system/bootstrap |
 
-Index: unique `{ id: 1 }` partial `status: 'A'`.
+### Tenant fields (tenant-scoped collections)
+
+| Field | Type | Notes |
+|---|---|---|
+| `orgId` | ObjectId | required; short tenant key |
+
+### Index templates (apply only when the list path exists)
+
+| Index | Partial | Purpose |
+|---|---|---|
+| `{ orgId: 1, createdAt: -1, _id: -1 }` | `status: 'A'` | Default list keyset |
+| `{ orgId: 1, updatedAt: -1, _id: -1 }` | `status: 'A'` | Recently-updated lists |
+| `{ orgId: 1, createdBy: 1 }` | `status: 'A'` | Filter by creator (when needed) |
+
+Not every tenant collection gets all three. Domain unique and query indexes are owned by later
+phases and must still lead with `orgId` when tenant-scoped.
 
 ## 6. API contract — PROPOSED (needs approval before implementation)
 
 **No HTTP endpoint.** Internal contracts:
 
-- `createBaseSchema(definition)` → schema with plugins applied.
+- `createBaseSchema(definition, options)` → schema with plugins + declared indexes.
 - `includeDeleted(query)` → query that may see `status: 'D'`.
-- `softDelete(filter)` → sets `status: 'D'` only on `status: 'A'` matches.
+- `softDelete(filter, { updatedBy })` → sets `status: 'D'` only on `status: 'A'` matches.
 - `encodeCursor` / `decodeCursor`.
-- `applyPendingMigrations()`.
+- `syncSchemaIndexes(models)` → explicit index sync for dev/test (and deliberate ops use).
 - `withMongoHarness()` for tests.
 
 ## 7. Configuration & environment variables
@@ -180,16 +232,14 @@ name is a constant.
 | Path | Purpose |
 |---|---|
 | `backend/src/platform/data/rowStatus.js` | **New:** `'A' \| 'D'` constants |
-| `backend/src/platform/data/baseSchema.js` | **New:** plugins + `createBaseSchema` |
-| `backend/src/platform/data/baseSchema.test.js` | **New:** defaults, soft-delete, timestamps |
+| `backend/src/platform/data/baseSchema.js` | **New:** plugins + `createBaseSchema` + index helpers |
+| `backend/src/platform/data/baseSchema.test.js` | **New:** defaults, soft-delete, timestamps, actors, indexes |
 | `backend/src/platform/data/cursors.js` | **New:** keyset encode/decode |
 | `backend/src/platform/data/cursors.test.js` | **New:** round-trip, invalid cursor |
-| `backend/src/platform/data/migrations.js` | **New:** runner |
-| `backend/src/platform/data/migrations.test.js` | **New:** apply once, skip applied, order |
-| `backend/migrations/.gitkeep` | **New:** folder exists |
-| `backend/src/test/mongoHarness.js` | **New:** URI rewrite + connect/cleanup |
+| `backend/src/platform/data/syncIndexes.js` | **New:** explicit index sync helper |
+| `backend/src/platform/data/syncIndexes.test.js` | **New:** creates declared indexes; idempotent |
+| `backend/src/test/mongoHarness.js` | **New:** URI rewrite + connect/cleanup + index sync |
 | `backend/src/test/mongoHarness.test.js` | **New:** refuses non-test db name; rewrites path |
-| `backend/package.json` | **Change:** `migrate` script |
 | `backend/src/platform/mongo.js` | **Change:** `autoIndex` off in production |
 
 ## 9. Tests (≥ 80% line and branch)
@@ -198,10 +248,11 @@ name is a constant.
 
 - Base schema default `status: 'A'`; rejecting any other value.
 - Soft-delete hides the row from default `find`; `includeDeleted` still sees it.
-- `updatedAt` changes on update; stored value is UTC.
-- Insert without `organizationId` on a tenant schema throws `TENANT_SCOPE_MISSING`.
+- `updatedAt` / `updatedBy` change on update; stored timestamp is UTC.
+- Insert stamps `createdBy`; update stamps `updatedBy`.
+- Insert without `orgId` on a tenant schema throws `TENANT_SCOPE_MISSING`.
 - Cursor round-trip; malformed cursor → `INVALID_CURSOR`.
-- Migration runner applies `0001` then `0002` and is a no-op on a second run.
+- Declared compound indexes are present after `syncSchemaIndexes` (fixture tenant model).
 
 ### Integration (harness)
 
@@ -209,20 +260,22 @@ name is a constant.
 - A document written in a test is gone after `afterEach`.
 - The development database named in the original URI has no new collections from the suite.
 - A URI whose rewritten name would not be `codex_sage_test` is rejected.
+- Fixture tenant indexes exist after harness `beforeAll` sync.
 
 ### Unhappy paths
 
-- Two concurrent `migrate` runs apply each file once (unique index / transaction).
 - `softDelete` on an already-`'D'` row matches zero documents.
+- Soft delete without `updatedBy` still succeeds when the caller is system (null actor).
 
 ## 10. Definition of Done
 
 - [ ] Every new model in later phases can be built with `createBaseSchema`; there is one
-      definition of row `status`.
+      definition of row `status`, timestamps, and `createdBy` / `updatedBy`.
 - [ ] Default queries never return `status: 'D'`.
-- [ ] Tenant schemas require `organizationId`.
-- [ ] `backend/migrations/` exists and `npm run migrate` applies pending files.
-- [ ] Production mongoose sets `autoIndex: false`.
+- [ ] Tenant schemas require `orgId`; `organizations` opts out of the tenant plugin.
+- [ ] Indexes are declared on schemas; production mongoose sets `autoIndex: false`;
+      development startup and the harness call `syncSchemaIndexes`.
+- [ ] No versioned migration runner or `backend/migrations/` folder in this phase.
 - [ ] Integration tests use `codex_sage_test` on the external replica set; no
       `mongodb-memory-server` dependency.
 - [ ] The harness refuses to run against any other database name.
@@ -231,22 +284,37 @@ name is a constant.
 
 ## 11. Documentation & ADR updates
 
-- Create `docs/data-model.md` with the row-status rule, UTC timestamps, tenant-key rule, and
-  the `schemaMigrations` collection.
-- `docs/architecture.md` §3: one line that schema changes go through `backend/migrations/`.
+- Create `docs/data-model.md` with the row-status rule, UTC timestamps, actor fields,
+  `orgId` tenant-key rule, and index conventions (schema-declared; migrations deferred until
+  go-live).
+- `docs/architecture.md` §3: note that pre–go-live schema/index changes are schema-driven;
+  versioned migrations are deferred.
+- Align `.cursor/rules/data-model.mdc` when this phase lands (migrations rule becomes
+  go-live / production posture, not day-one).
 - No new ADR expected; MongoDB as datastore is Phase 04.
 
 ## 12. Risks & open questions
 
+### Decided
+
+1. **`createdBy` / `updatedBy` nullability** — null allowed for system/bootstrap; stamp from
+   authenticated `userId` when present.
+2. **Field name** — `orgId` everywhere (Mongo, repos, principal, API JSON). JWT claim key
+   stays short `org` and carries that id.
+3. **Dev index sync** — development startup calls `syncSchemaIndexes`; production does not
+   auto-create indexes.
+4. **Plan-wide rename** — later phase docs and convention sources use `orgId`,
+   `createdBy` / `updatedBy`, and schema-declared indexes (no versioned migrations pre–go-live).
+
+### Still open
+
 Ask the user; do not assume (`.cursor/rules/no-assumptions.mdc`).
 
-1. **Migrate on boot in development?** Proposed: yes, so `npm run dev` is enough. Production
-   stays explicit `npm run migrate`. Confirm.
-2. **Test cleanup:** `deleteMany` per collection vs `dropDatabase` on `codex_sage_test` after
+1. **Test cleanup:** `deleteMany` per collection vs `dropDatabase` on `codex_sage_test` after
    the suite. Drop is faster and complete; delete is safer if two suites share the name.
    Proposal: drop the test database in `afterAll` of the global setup, plus `deleteMany` in
    `afterEach` for isolation inside a file.
-3. **Global mongoose plugins vs per-schema.** Proposed: per-schema via `createBaseSchema` so
+2. **Global mongoose plugins vs per-schema.** Proposed: per-schema via `createBaseSchema` so
    a platform collection can opt out. Confirm.
-4. **Cursor payload.** Proposed: `{ t: iso, i: hexObjectId }` then base64url. Confirm before
+3. **Cursor payload.** Proposed: `{ t: iso, i: hexObjectId }` then base64url. Confirm before
    Phase 11 freezes the header/query format.

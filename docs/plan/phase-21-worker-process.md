@@ -110,7 +110,7 @@ Exclusivity spans jobs, so it cannot live in one document update. After the clai
 handler runs, acquire a lock in a dedicated collection with a unique key:
 
 ```text
-acquireProjectJobLock(organizationId, projectId, jobId)
+acquireProjectJobLock(orgId, projectId, jobId)
   → conditional upsert; succeeds when no live lock exists or the existing expiresAt has passed
   → duplicate-key error → the project is busy
 ```
@@ -173,7 +173,7 @@ Graceful shutdown registers a Phase 01 hook that stops the poll timer, waits up 
 `scheduledAt = now`, clears `workerId`, releases the lock and writes an event — so a normal deploy
 costs no lease-timeout delay.
 
-One structured child logger per job with `{ workerId, jobId, jobType, organizationId, projectId,
+One structured child logger per job with `{ workerId, jobId, jobType, orgId, projectId,
 attempt, stage, correlationId }`. Claim, stage transitions, requeue, failure and completion at
 `info`; heartbeat and empty polls at `debug`. Never log source bytes, credentials or tokens
 (backend §148).
@@ -192,13 +192,13 @@ Canonical checkpoint shape (owned by Phase 20, consumed here):
 stageCheckpoint: { lastCompletedStage: string, cursor?: unknown, updatedAt: Date }
 ```
 
-New collection `projectJobLocks`: `organizationId`, `projectId`, `jobId`, `workerId`,
+New collection `projectJobLocks`: `orgId`, `projectId`, `jobId`, `workerId`,
 `lockScope` (`'project_writer'`), `acquiredAt`, `expiresAt` (UTC), and the mandatory
 `status: 'A' | 'D'` (required, default `'A'`). Indexes: unique
-`{ organizationId, projectId, lockScope }` partial on `status: 'A'`; `{ expiresAt: 1 }` for the
+`{ orgId, projectId, lockScope }` partial on `status: 'A'`; `{ expiresAt: 1 }` for the
 sweeper. On `jobs`: `{ status, jobStatus, jobType, scheduledAt }` for the claim and
-`{ status, jobStatus, leaseExpiresAt }` for the sweep. All created by a migration in the Phase 03
-migration folder, not by `autoIndex` in production.
+`{ status, jobStatus, leaseExpiresAt }` for the sweep. All declared on the Mongoose schemas and
+synced via Phase 03 `syncSchemaIndexes`, not by `autoIndex` in production.
 
 ## 6. API contract — PROPOSED (needs approval before implementation)
 
@@ -211,7 +211,7 @@ Claimed job as the handler sees it (subset, PROPOSED):
 ```json
 {
   "jobId": "665f1c9d4b2a8e0012a4f001",
-  "organizationId": "6650aa1b4b2a8e0012a4e001",
+  "orgId": "6650aa1b4b2a8e0012a4e001",
   "projectId": "6651bb2c4b2a8e0012a4e002",
   "jobType": "ingest",
   "jobStatus": "running",
@@ -286,7 +286,7 @@ module, not via env validation.
 | `backend/src/worker/workerLogger.js` | **New:** per-job child logger with the fixed field set |
 | `backend/src/worker/worker.constants.js` | **New:** recommended worker timings and concurrency |
 | `backend/src/worker/worker.constants.test.js` | **New:** lease TTL exceeds heartbeat |
-| `backend/src/migrations/…-project-job-lock.ts` | **New:** lock collection plus claim and sweep indexes (numbering from Phase 03) |
+| `backend/src/worker/projectJobLock.model.js` | **New:** lock schema + claim/sweep indexes |
 
 ## 9. Tests (≥ 80% line and branch)
 

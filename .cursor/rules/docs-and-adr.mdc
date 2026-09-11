@@ -14,7 +14,7 @@ Docs are part of the deliverable; keep them truthful and in sync with the code.
 - Cross-cutting architecture notes and ADRs live under `docs/` (create `docs/adr/` when the
   first decision is recorded).
 - When a data model doc exists (`docs/data-model.md`, `docs/schema/`), update it in the **same
-  change** as any migration.
+  change** as the schema/index change it describes.
 - Prefer updating an existing doc over creating a new file; never let docs claim something the
   code doesn't do.
 - **One decision = one ADR** in `docs/adr/` (Status · Context · Decision · Consequences ·

@@ -21,8 +21,9 @@ Additional docs and ADRs live under [`docs/`](./docs/).
    without asking.
 4. **Do not assume** tech choices not spelled in requirements (datastore, HTTP framework,
    LLM provider, infra). Ask the user or record an ADR in `docs/adr/` before choosing.
-5. **One concern, one place.** Schema changes only via migrations under `backend/`. Product
-   requirements stay in the requirements docs; decisions go in ADRs.
+5. **One concern, one place.** Pre–go-live: declare indexes on Mongoose schemas and sync
+   deliberately (`syncSchemaIndexes`); versioned migrations under `backend/` come at
+   go-live. Product requirements stay in the requirements docs; decisions go in ADRs.
 
 ## Code style & structure
 

@@ -19,7 +19,7 @@ function h(r, s) { /* ... */ }
 
  // ✅ GOOD
 const project = await loadProjectById(projectId);
-async function listActiveProjects(organizationId) { /* ... */ }
+async function listActiveProjects(orgId) { /* ... */ }
 ```
 
 ## Own the response — never hand off `res`

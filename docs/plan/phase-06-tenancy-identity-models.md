@@ -13,9 +13,12 @@
 
 After this phase MongoDB holds the four collections every other tenant-scoped feature hangs off:
 `organizations`, `users`, `roles`, `memberships`. Each is a Mongoose model built on the Phase 03
-base schema (row `status: 'A' | 'D'`, UTC timestamps) with a repository whose every read and
-write takes an `organizationId`, plus tenant-scoped unique indexes that make a duplicate email
-inside one organization impossible while leaving that same email free in another organization.
+base schema (row `status: 'A' | 'D'`, UTC timestamps, `createdBy` / `updatedBy`) with
+tenant-scoped repositories for `users` / `roles` / `memberships` whose every read and write
+takes an `orgId`, plus tenant-scoped unique indexes that make a duplicate email inside one
+organization impossible while leaving that same email free in another organization.
+`organizations` uses the base schema but **opts out** of the tenant `orgId` plugin (its `_id`
+*is* the org id).
 
 A controlled `npm run bootstrap` command in `backend/` creates the first organization, its four
 built-in roles, and its first administrator. Running it twice against the same database changes
@@ -24,7 +27,7 @@ nothing and exits `0`. There is still no HTTP route and no login — Phase 07 ad
 ## 2. Why this phase is here
 
 Phase 07 needs a `User` document to authenticate, Phase 09 needs `Role` and `Membership` to
-resolve permissions, and Phases 10, 11, 17 need an `organizationId` that means something. Every
+resolve permissions, and Phases 10, 11, 17 need an `orgId` that means something. Every
 one of them would otherwise invent its own shape.
 
 It cannot come earlier: Phase 03 owns the base schema helper, the soft-delete query defaults,
@@ -99,9 +102,9 @@ write that targets a document with `isBuiltIn: true` outside the seed path.
 
 `Membership` links one user to one organization with one or more `roleIds`. Solution §8.1 states
 a user belongs to exactly one organization in the MVP, so the unique index on
-`{ organizationId, userId }` plus the user's own `organizationId` are two expressions of the same
+`{ orgId, userId }` plus the user's own `orgId` are two expressions of the same
 fact; the repository treats the `Membership` document as authoritative for roles and the user's
-`organizationId` as the tenant key.
+`orgId` as the tenant key.
 
 ### 4.5 Bootstrap seed
 
@@ -153,10 +156,15 @@ them now:
 ## 5. Data model changes
 
 All four collections use the Phase 03 base schema: `status: 'A' | 'D'` (required, default `'A'`),
-`createdAt` / `updatedAt` in UTC. Every partial index below includes `status: 'A'` so a
-soft-deleted row never blocks a new one.
+UTC `createdAt` / `updatedAt`, and `createdBy` / `updatedBy` (ObjectId → user; null for
+bootstrap/system). Soft-deleted rows (`status: 'D'`) are hidden by default. Domain lifecycle
+never overloads row `status`. Every partial index below includes `status: 'A'` so a soft-deleted
+row never blocks a new one.
 
 ### `organizations`
+
+Opts out of the tenant `orgId` plugin. The document `_id` is the org id other collections store
+as `orgId`.
 
 | Field | Type | Notes |
 |---|---|---|
@@ -171,7 +179,7 @@ Indexes: unique `{ slug: 1 }` partial `status: 'A'`; `{ status: 1, _id: -1 }` fo
 
 | Field | Type | Notes |
 |---|---|---|
-| `organizationId` | `ObjectId` | Tenant key, required |
+| `orgId` | `ObjectId` | Tenant key, required |
 | `email` | `string` | Stored lowercase and trimmed |
 | `displayName` | `string` | 1–120 chars |
 | `passwordHash` | `string?` | `select: false`; absent while `invited` |
@@ -180,8 +188,8 @@ Indexes: unique `{ slug: 1 }` partial `status: 'A'`; `{ status: 1, _id: -1 }` fo
 | `lastLoginAt` | `Date?` | Written by Phase 07 |
 | `status` | `'A' \| 'D'` | Row visibility |
 
-Indexes: unique `{ organizationId: 1, email: 1 }` partial `status: 'A'`;
-`{ organizationId: 1, status: 1, _id: -1 }`; `{ organizationId: 1, userStatus: 1, _id: -1 }`.
+Indexes: unique `{ orgId: 1, email: 1 }` partial `status: 'A'`;
+`{ orgId: 1, status: 1, _id: -1 }`; `{ orgId: 1, userStatus: 1, _id: -1 }`.
 
 `passwordHash` is excluded from query results by default so no handler can return it by accident;
 Phase 07 must opt in explicitly on the login path.
@@ -190,7 +198,7 @@ Phase 07 must opt in explicitly on the login path.
 
 | Field | Type | Notes |
 |---|---|---|
-| `organizationId` | `ObjectId` | Tenant key |
+| `orgId` | `ObjectId` | Tenant key |
 | `name` | `string` | Display name, unique per active organization |
 | `description` | `string?` | Human-readable, shown in Phase 15 |
 | `isBuiltIn` | `boolean` | Default `false` |
@@ -198,20 +206,20 @@ Phase 07 must opt in explicitly on the login path.
 | `permissions` | `string[]` | Empty for built-ins (§4.3) |
 | `status` | `'A' \| 'D'` | Row visibility |
 
-Indexes: unique `{ organizationId: 1, name: 1 }` partial `status: 'A'`; unique
-`{ organizationId: 1, builtInKey: 1 }` partial `{ isBuiltIn: true, status: 'A' }`.
+Indexes: unique `{ orgId: 1, name: 1 }` partial `status: 'A'`; unique
+`{ orgId: 1, builtInKey: 1 }` partial `{ isBuiltIn: true, status: 'A' }`.
 
 ### `memberships`
 
 | Field | Type | Notes |
 |---|---|---|
-| `organizationId` | `ObjectId` | Tenant key |
+| `orgId` | `ObjectId` | Tenant key |
 | `userId` | `ObjectId` | Member |
 | `roleIds` | `ObjectId[]` | At least one |
 | `status` | `'A' \| 'D'` | Row visibility |
 
-Indexes: unique `{ organizationId: 1, userId: 1 }` partial `status: 'A'`;
-`{ organizationId: 1, roleIds: 1 }` for "who has this role" lookups in Phase 11.
+Indexes: unique `{ orgId: 1, userId: 1 }` partial `status: 'A'`;
+`{ orgId: 1, roleIds: 1 }` for "who has this role" lookups in Phase 11.
 
 ## 6. API contract — PROPOSED (needs approval before implementation)
 
@@ -228,7 +236,7 @@ contract below is the command-line surface.
 ```json
 {
   "result": "created",
-  "organizationId": "6710c0a1f2b34c5d6e7f8091",
+  "orgId": "6710c0a1f2b34c5d6e7f8091",
   "slug": "acme",
   "adminUserId": "6710c0a1f2b34c5d6e7f8092",
   "adminUserStatus": "invited",
@@ -300,7 +308,7 @@ absent.
 - `it('omits passwordHash from a default query result')`.
 - `it('rejects a rename of a built-in role')` and the same for a permission edit.
 - `it('rejects a soft delete of a built-in role')`.
-- `it('throws when a repository call is made without an organizationId')`.
+- `it('throws when a repository call is made without an orgId')`.
 
 ### Integration (real Mongo via the Phase 03 harness)
 
@@ -310,7 +318,7 @@ absent.
 - `it('excludes status D users from listUsers')` and the same for roles and memberships.
 - `it('returns a keyset page ordered by _id descending')` for the user list.
 - `it('finds a membership only within its own organization')` — a cross-tenant read by a valid
-  `userId` with the wrong `organizationId` returns null, not the document.
+  `userId` with the wrong `orgId` returns null, not the document.
 - `it('creates organization, four roles, admin user and membership on first bootstrap')`.
 - `it('changes nothing and exits 0 on a second bootstrap')` — asserts unchanged `updatedAt`.
 - `it('creates exactly one organization when two bootstraps run concurrently')`.
@@ -326,10 +334,12 @@ absent.
 
 ## 10. Definition of Done
 
-- [ ] Four models exist, each with `status: 'A' | 'D'` defaulting to `'A'` and UTC timestamps.
+- [ ] Four models exist, each with `status: 'A' | 'D'` defaulting to `'A'`, UTC timestamps, and
+      `createdBy` / `updatedBy`.
 - [ ] `userStatus` exists as a separate field and no code path uses `status` for enable/disable.
 - [ ] Every tenant-unique index is partial on `status: 'A'` and verified by an integration test.
-- [ ] Every repository function requires an `organizationId` and has no overload that omits it.
+- [ ] Every tenant-scoped repository function requires an `orgId`; `organizations` opts out of
+      the tenant plugin.
 - [ ] The four built-in roles are seeded per organization and cannot be renamed, re-permissioned,
       or soft-deleted through a repository call.
 - [ ] `npm run bootstrap` creates the first organization and admin; a second run is a no-op that

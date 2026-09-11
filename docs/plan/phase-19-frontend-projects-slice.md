@@ -235,7 +235,7 @@ every later slice imports it:
   "sourceConfig": { "sourceType": "repository" },
   "counts": { "sourceVersions": 3, "files": 4812, "excludedFiles": 9, "conversations": 12 },
   "archivedAt": null,
-  "createdByUserId": "6650f0aa0000000000000001",
+  "createdBy": "6650f0aa0000000000000001",
   "createdAt": "2026-09-11T09:12:04.000Z",
   "updatedAt": "2026-09-11T09:40:00.000Z"
 }

@@ -137,7 +137,7 @@ Encrypted workspace on disk (current graph only)
 ```
 
 Every Mongo query and every workspace path is scoped to
-`organizationId + projectId + status: 'A'` (and the current knowledge version on retrieval).
+`orgId + projectId + status: 'A'` (and the current knowledge version on retrieval).
 Soft-delete is `status: 'D'`. Lifecycle uses other fields (`lifecycleStatus`, `jobStatus`,
 `knowledgeHealth`, …).
 

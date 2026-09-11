@@ -38,7 +38,7 @@ route actually calls the writer.
 - Retro-fit of the identity actions in solution §9.2 (user create/activate/deactivate, password
   reset, role and permission changes) built in Phases 06–08.
 - `GET /api/v1/audit-events` with keyset pagination and `from`/`to`/`actor`/`action`/`resourceType`
-  filters, always scoped to the caller's `organizationId`.
+  filters, always scoped to the caller's `orgId`.
 - A decision (§4.4) on whether an audit write failure may fail the business action.
 
 ### Out of scope (owner phase)
@@ -59,13 +59,13 @@ New module `backend/src/modules/audit/` (`routes + service + repository + tests`
 
 ```text
 recordAuditEvent({
-  organizationId, actorUserId?, action, resourceType, resourceId?,
+  orgId, actorUserId?, action, resourceType, resourceId?,
   result: 'success' | 'denied' | 'failed',
   correlationId, ip?, userAgent?, context?
 }) → Promise<void>
 ```
 
-`buildAuditContextFromRequest(request)` extracts `organizationId`, `actorUserId`, `correlationId`,
+`buildAuditContextFromRequest(request)` extracts `orgId`, `actorUserId`, `correlationId`,
 `ip` and `userAgent` from the authenticated request so handlers pass only the action-specific parts;
 it returns data and never touches `reply`. `result` means: `success` = completed, `denied` = rejected
 by authorization or a policy guard, `failed` = attempted and errored. A denied action is the most
@@ -118,7 +118,7 @@ phase document states which it uses; residual risk is in §12.
 
 `correlationId` is **required**: a row that cannot be tied back to the request logs is half-useful,
 and backend §105 makes that id the support handle. Worker-written events (Phases 25–32) reuse the
-job's correlation id. On the list path, `organizationId` comes from the authenticated request and is
+job's correlation id. On the list path, `orgId` comes from the authenticated request and is
 injected at the repository boundary; a client-supplied organization filter is ignored, not honoured.
 Sort is `createdAt` descending with `_id` as the tiebreak, the cursor is an opaque base64 of
 `{ createdAt, _id }`, and an unparseable cursor is a `400`. Offset pagination is not offered — audit
@@ -130,7 +130,7 @@ New collection `auditevents`.
 
 | Field | Type | Notes |
 |---|---|---|
-| `organizationId` | ObjectId, required | Tenant scope; always filtered |
+| `orgId` | ObjectId, required | Tenant scope; always filtered |
 | `actorUserId` | ObjectId, optional | Absent for system/worker-initiated actions |
 | `action` | string, required | From the `audit.actions.ts` catalog |
 | `resourceType` | string, required | `user`, `role`, `membership`, … |
@@ -142,9 +142,9 @@ New collection `auditevents`.
 | `createdAt` | Date, required, UTC | Set by the schema, never by the caller |
 | `status` | `'A' \| 'D'`, default `'A'` | Row visibility; `'D'` only from Phase 60 |
 
-Indexes: `{ organizationId, status, createdAt: -1, _id: -1 }` (default list path);
-`{ organizationId, actorUserId, createdAt: -1 }`; `{ organizationId, action, createdAt: -1 }`;
-`{ organizationId, resourceType, resourceId, createdAt: -1 }`. No TTL index — expiry is a
+Indexes: `{ orgId, status, createdAt: -1, _id: -1 }` (default list path);
+`{ orgId, actorUserId, createdAt: -1 }`; `{ orgId, action, createdAt: -1 }`;
+`{ orgId, resourceType, resourceId, createdAt: -1 }`. No TTL index — expiry is a
 soft-delete policy owned by Phase 60, not a hard purge.
 
 ## 6. API contract — PROPOSED (needs approval before implementation)
@@ -223,7 +223,7 @@ delete endpoint is proposed — that is deliberate (§4.3).
 
 - Sanitizer redacts `password`, `token`, `secret`, `credential` and `authorization` keys, rejects
   nested objects and functions, truncates over-long strings and sets `contextTruncated`.
-- `recordAuditEvent` throws when `correlationId`, `action`, `resourceType` or `organizationId` is
+- `recordAuditEvent` throws when `correlationId`, `action`, `resourceType` or `orgId` is
   missing; `recordAuditEventBestEffort` returns normally and logs at `error` when the insert rejects.
 - Cursor encode/decode round-trips; a malformed cursor raises `VALIDATION_ERROR`; an unknown action
   string is rejected at runtime, not only by the type.

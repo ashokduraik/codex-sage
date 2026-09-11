@@ -1,15 +1,25 @@
 ---
-description: Database schema source-of-truth and migration rules
+description: Database schema source-of-truth and index/migration rules
 globs: backend/**,docs/data-model.md,docs/schema/**
 alwaysApply: false
 ---
 
-# Data & migrations
+# Data model & indexes
 
-- **One concern, one place:** schema changes happen **only via versioned migrations under
-  `backend/`** (exact folder once scaffolded). Never change production schema ad-hoc.
-- When `docs/data-model.md` and/or `docs/schema/<table>.md` exist, update them in the **same
-  change** as any migration.
+- **Tenant key:** `orgId` (not `organizationId`) on tenant-scoped documents, repository
+  args, request context / `principal`, and API JSON. JWT claim key stays short `org` and
+  carries that id. The `organizations` collection opts out (its `_id` *is* the org id).
+- **Actors:** every domain document has `createdBy` / `updatedBy` (ObjectId → user); null
+  allowed for system/bootstrap writes.
+- **Indexes:** declare on the Mongoose schema (`schema.index(...)`). Production uses
+  `autoIndex: false`. Development startup and the integration-test harness call
+  `syncSchemaIndexes`. Tenant list/unique indexes lead with `orgId` and use a partial
+  filter `{ status: 'A' }` when applicable.
+- **Pre–go-live:** schema and index changes are schema edits + re-sync against shared
+  MongoDB. A **versioned migration runner** under `backend/` is the go-live / production
+  posture — not required while the product is still pre-production.
+- When `docs/data-model.md` and/or `docs/schema/<table>.md` exist, update them in the
+  **same change** as the schema/index change they describe.
 - **Do not invent a datastore** (engine, vector store, broker). Requirements do not prescribe
   one — ask or write an ADR before adding any data system.
 - Derived knowledge that requires trust must keep **confidence (or equivalent) + source

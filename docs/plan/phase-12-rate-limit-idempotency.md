@@ -96,7 +96,7 @@ Clients send `Idempotency-Key` (header name exact) on:
 | Job retry / reingest / repo sync | 22, 29, 32 | existing active job |
 | Chat message create | 41 | existing message id |
 
-Key uniqueness: `{ organizationId, userId, route, key }` while `status: 'A'` and
+Key uniqueness: `{ orgId, userId, route, key }` while `status: 'A'` and
 `expiresAt > now`. Store `responseStatus`, `responseBodyHash`, `resourceId`, serialized
 body needed for replay (capped size constant). TTL `IDEMPOTENCY_RECORD_TTL_MS` = 24h;
 a sweeper or TTL index removes expired rows (soft-delete `status: 'D'` or expire —
@@ -130,7 +130,7 @@ at the handler boundary. Implementation must obey `function-design.mdc` (no pass
 
 | Field | Type | Notes |
 |---|---|---|
-| `organizationId` | ObjectId | tenant key |
+| `orgId` | ObjectId | tenant key |
 | `userId` | ObjectId | caller |
 | `route` | string | method + path template |
 | `key` | string | client header, max length constant |
@@ -143,8 +143,9 @@ at the handler boundary. Implementation must obey `function-design.mdc` (no pass
 | `status` | `'A' \| 'D'` | default `'A'` |
 | `createdAt` / `updatedAt` | Date | UTC |
 
-Indexes: unique `{ organizationId, userId, route, key }` partial `status: 'A'`;
-`{ expiresAt: 1 }` (TTL if approved). Migration under `backend/migrations/`.
+Indexes: unique `{ orgId, userId, route, key }` partial `status: 'A'`;
+`{ expiresAt: 1 }` (TTL if approved). Declared on the schema; synced via Phase 03
+`syncSchemaIndexes`.
 
 ## 6. API contract — PROPOSED (needs approval before implementation)
 
@@ -197,7 +198,6 @@ read here. Solution §13.1's "tunable via env" is **not** followed.
 | `backend/src/platform/rateLimit.test.js` | **New:** class mapping, IP vs user key |
 | `backend/src/platform/idempotency.constants.js` | **New** |
 | `backend/src/modules/platform/idempotency/` | **New:** model, repository, middleware, tests |
-| `backend/migrations/00NN-idempotency-records.js` | **New** |
 | `backend/src/http/app.js` | Register rate-limit plugin |
 | `backend/src/platform/errorCatalog.js` | Add/confirm codes |
 | Existing auth/admin routes | Enforce class + required key on creates |

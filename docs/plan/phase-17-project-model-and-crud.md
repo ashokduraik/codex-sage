@@ -22,14 +22,14 @@ list with keyset pagination, get, patch, settings patch, archive, restore, and s
 You can see it working with an authenticated `POST /api/v1/projects`: the response carries
 `lifecycleStatus: "awaiting_source"` or `"connecting_repository"`, the project appears in
 `GET /api/v1/projects`, an `AuditEvent` row exists for the creation, a forged
-`organizationId` in the body is ignored, and any attempt to set `knowledge_ready` over HTTP is
+`orgId` in the body is ignored, and any attempt to set `knowledge_ready` over HTTP is
 rejected with `409 INVALID_STATE_TRANSITION`.
 
 ## 2. Why this phase is here
 
 Projects are the tenant's second scoping key: jobs (Phase 20), source versions (Phase 24),
 repositories (Phase 30), conversations (Phase 41) and every retrieval path are keyed by
-`organizationId + projectId`. None of them can be written before the collection and its state
+`orgId + projectId`. None of them can be written before the collection and its state
 machine exist.
 
 It cannot come earlier because every route needs the RBAC preHandler from Phase 09 and the
@@ -107,7 +107,7 @@ knowledge_ready · updating · failed · partially_available · archived
 Everything not in the table is invalid and returns `409 INVALID_STATE_TRANSITION` with the
 attempted pair in `details` (backend §153). `transitionLifecycle` is the **only** writer of
 `lifecycleStatus`; it takes `{ from, to, source, reasonCode, actorUserId?, knowledgeVersionId? }`,
-performs a conditional update on `{ _id, organizationId, status: 'A', lifecycleStatus: from }`,
+performs a conditional update on `{ _id, orgId, status: 'A', lifecycleStatus: from }`,
 and treats a zero-match result as a lost race → re-read and re-validate once, then fail.
 
 Two extra rules the state table alone cannot express:
@@ -161,9 +161,9 @@ cascade is Phase 60 (solution §12.3) and audit rows always survive (solution §
 
 ### 4.7 Tenant scoping and pagination
 
-Every repository function takes `organizationId` as its first argument and injects
-`{ organizationId, status: 'A' }` into the filter. Routes pass the org id resolved from the JWT
-by Phase 07 — a body or query `organizationId` is stripped by the request schema. List uses
+Every repository function takes `orgId` as its first argument and injects
+`{ orgId, status: 'A' }` into the filter. Routes pass the org id resolved from the JWT
+by Phase 07 — a body or query `orgId` is stripped by the request schema. List uses
 keyset pagination on `(updatedAt, _id)` with an opaque base64 cursor; archived projects are
 excluded unless `includeArchived=true` (frontend §81B).
 
@@ -173,7 +173,7 @@ New collection `projects`.
 
 | Field | Type | Notes |
 |---|---|---|
-| `organizationId` | ObjectId | Tenant key, required |
+| `orgId` | ObjectId | Tenant key, required |
 | `name` | string | 1–120 chars, trimmed |
 | `description` | string | optional, ≤ 2000 chars |
 | `lifecycleStatus` | enum (10 values above) | default `creating` |
@@ -185,17 +185,18 @@ New collection `projects`.
 | `sourceConfig` | `{ sourceType: 'upload'\|'repository', repositoryConnectionId?, currentSourceVersionId? }` | reference only; populated by Phases 24/31 |
 | `settings` | object | validated against a key registry (§4 and open question 2) |
 | `counts` | `{ sourceVersions, files, excludedFiles, conversations }` | default `0` |
-| `createdByUserId` | ObjectId | |
+| `createdBy` | ObjectId | |
 | `archivedAt` / `createdAt` / `updatedAt` | Date (UTC) | |
 | `status` | `'A' \| 'D'` | default `'A'` (README §4) |
 
 Indexes:
 
-- `{ organizationId: 1, updatedAt: -1, _id: -1 }` partial `status: 'A'` — list keyset path.
-- `{ organizationId: 1, lifecycleStatus: 1 }` partial `status: 'A'` — dashboard grouping.
-- `{ organizationId: 1, name: 1 }` unique, partial `status: 'A'` — see open question 1.
+- `{ orgId: 1, updatedAt: -1, _id: -1 }` partial `status: 'A'` — list keyset path.
+- `{ orgId: 1, lifecycleStatus: 1 }` partial `status: 'A'` — dashboard grouping.
+- `{ orgId: 1, name: 1 }` unique, partial `status: 'A'` — see open question 1.
 
-Created through the migration mechanism from Phase 03 (`backend/migrations/`), not `autoIndex`.
+Declared on the `Project` Mongoose schema; synced via Phase 03 `syncSchemaIndexes`, not
+`autoIndex` in production.
 
 ## 6. API contract — PROPOSED (needs approval before implementation)
 
@@ -219,7 +220,7 @@ Permission names come from solution §8.2.
   "knowledgeHealth": "none",
   "sourceConfig": { "sourceType": "repository" },
   "counts": { "sourceVersions": 0, "files": 0, "excludedFiles": 0, "conversations": 0 },
-  "createdByUserId": "6650f0aa0000000000000001",
+  "createdBy": "6650f0aa0000000000000001",
   "createdAt": "2026-09-11T09:12:04.000Z",
   "updatedAt": "2026-09-11T09:12:04.000Z"
 }
@@ -262,7 +263,7 @@ Returns the create-response shape plus `archivedAt` and `currentKnowledgeVersion
 ```
 
 Only `name` and `description` are accepted. Any attempt to send `lifecycleStatus`,
-`knowledgeHealth`, `counts`, `organizationId` or `status` → `400 VALIDATION_ERROR` naming the
+`knowledgeHealth`, `counts`, `orgId` or `status` → `400 VALIDATION_ERROR` naming the
 rejected field. `200` returns the updated project.
 
 ### `GET /projects/:projectId/settings` · `PATCH /projects/:projectId/settings` — `settings.manage`
@@ -330,7 +331,6 @@ Defaults mirror solution §12.3; the UI renders these facts and never hardcodes 
 | `backend/src/modules/projects/index.js` | **New:** public surface |
 | `backend/src/http/routes.js` | Register `projectRoutes` |
 | `backend/src/http/routes.test.js` | Assert the new routes are mounted |
-| `backend/migrations/` | **New migration:** create `projects` collection and its indexes |
 
 ## 9. Tests (≥ 80% line and branch)
 
@@ -366,7 +366,7 @@ Defaults mirror solution §12.3; the UI renders these facts and never hardcodes 
   gets `404`, not `403` — existence must not leak (backend §89, §114).
 - A caller missing `projects.create` / `projects.update` / `projects.delete` gets `403`.
 - An unauthenticated request gets `401` on every route.
-- `organizationId` supplied in the body or query is ignored, and the row keeps the JWT's org.
+- `orgId` supplied in the body or query is ignored, and the row keeps the JWT's org.
 - A concurrent double transition leaves exactly one winner and one `409`.
 - Duplicate active name in the same org → `409 PROJECT_NAME_TAKEN`; the same name in another
   org succeeds.
@@ -378,7 +378,7 @@ Defaults mirror solution §12.3; the UI renders these facts and never hardcodes 
       function assigns it directly.
 - [ ] No HTTP route can produce `knowledge_ready` or `partially_available`.
 - [ ] `knowledgeHealth` is a separate field and is still `none` after this phase's flows.
-- [ ] Every repository function takes `organizationId` and injects `status: 'A'`.
+- [ ] Every repository function takes `orgId` and injects `status: 'A'`.
 - [ ] List, get, patch, settings, archive, restore, delete, deletion-preview all exist under
       `/api/v1` with the permissions in section 6.
 - [ ] Delete is soft (`status: 'D'`); no `deleteOne`/`deleteMany` exists in the module.
@@ -387,7 +387,8 @@ Defaults mirror solution §12.3; the UI renders these facts and never hardcodes 
 - [ ] Keyset pagination works with a stable order and an opaque cursor.
 - [ ] `npm run lint` and `npm test` pass in `backend/`, with ≥ 80% line
       and branch coverage on every file this phase touched.
-- [ ] The migration creates the collection and all three indexes; no `autoIndex` reliance.
+- [ ] The `Project` schema declares all three indexes; synced via `syncSchemaIndexes`; no
+      `autoIndex` reliance in production.
 
 ## 11. Documentation & ADR updates
 

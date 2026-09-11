@@ -42,7 +42,7 @@ does not replace it.
 
 - `ProjectMember` model from solution §8.1 with row `status: 'A' | 'D'`.
 - The three access shapes of backend §8: all organization projects, selected projects, none.
-- `resolveProjectPermissions(organizationId, userId, projectId)` — the single source of truth.
+- `resolveProjectPermissions(orgId, userId, projectId)` — the single source of truth.
 - `requireProjectPermission(permission)` Fastify preHandler + a `projectScope` request
   decoration that repositories consume.
 - Retrofitting Phase 17's project routes onto the guard.
@@ -82,7 +82,7 @@ until granted.
 ### 4.2 Effective permission resolution
 
 ```text
-resolveProjectPermissions(organizationId, userId, projectId):
+resolveProjectPermissions(orgId, userId, projectId):
   1  load the project           → not found / status 'D' / other org  → NO_ACCESS
   2  load the membership        → missing or userStatus != active     → NO_ACCESS
   3  orgPermissions = union(permissions of membership.roleIds)        (Phase 09)
@@ -109,7 +109,7 @@ Three deliberate rules:
 
 ```text
 requireProjectPermission('projects.update')
-  → authenticate (Phase 07) → organizationId, userId
+  → authenticate (Phase 07) → orgId, userId
   → read :projectId from params; reject a non-ObjectId with 400
   → resolveProjectPermissions(...)
        NO_ACCESS                      → 404 PROJECT_NOT_FOUND
@@ -122,8 +122,8 @@ confirm that the project exists, which backend §114/§115 forbid across tenants
 `403` is only used once the caller can already see the project, which is information they
 legitimately have.
 
-`request.projectScope = { organizationId, projectId, userId, permissions }` is the **only**
-scope a repository may trust. Repository functions keep taking `organizationId` and
+`request.projectScope = { orgId, projectId, userId, permissions }` is the **only**
+scope a repository may trust. Repository functions keep taking `orgId` and
 `projectId` as explicit arguments (Phase 17 §4.7) — the decoration is what routes read them
 from, so no handler reconstructs a filter from raw request input.
 
@@ -154,7 +154,7 @@ list query a single indexed lookup rather than an N+1 per row.
 Resolution touches three documents, and Phase 50's chat path will call it on every message, so
 it is cached using the mechanism Phase 09 introduced for organization permissions:
 
-- **Per-request memo** keyed `organizationId:userId:projectId`, always used.
+- **Per-request memo** keyed `orgId:userId:projectId`, always used.
 - **Process-local LRU** with a short TTL (`PROJECT_ACL_CACHE_TTL_MS`), keyed the same way, with
   the value carrying the `aclVersion` it was computed from.
 - **`aclVersion`** is an integer on the organization document, incremented whenever a role's
@@ -185,7 +185,7 @@ New collection `project_members`.
 
 | Field | Type | Notes |
 |---|---|---|
-| `organizationId` | ObjectId | Tenant key, required |
+| `orgId` | ObjectId | Tenant key, required |
 | `projectId` | ObjectId | Required |
 | `userId` | ObjectId | Required |
 | `roleId` | ObjectId \| null | Optional project-level role (solution §8.1) |
@@ -196,17 +196,19 @@ New collection `project_members`.
 
 Indexes:
 
-- `{ organizationId: 1, projectId: 1, userId: 1 }` unique, partial `status: 'A'`.
-- `{ organizationId: 1, userId: 1 }` partial `status: 'A'` — the accessible-project filter.
-- `{ organizationId: 1, projectId: 1, createdAt: -1, _id: -1 }` partial `status: 'A'` — member
+- `{ orgId: 1, projectId: 1, userId: 1 }` unique, partial `status: 'A'`.
+- `{ orgId: 1, userId: 1 }` partial `status: 'A'` — the accessible-project filter.
+- `{ orgId: 1, projectId: 1, createdAt: -1, _id: -1 }` partial `status: 'A'` — member
   list keyset.
 
 Changed collection `memberships` (created in Phase 06): add
 `projectAccessMode: 'all' | 'selected' | 'none'`, required, default `'selected'`.
 
 Changed collection `organizations`: add `aclVersion: number`, default `0`, incremented by the
-invalidation hook in §4.5. Both changes ship as migrations under `backend/migrations/`
-(Phase 03 mechanism), including a back-fill that sets `projectAccessMode` for existing rows.
+invalidation hook in §4.5. Both schema changes (plus indexes on `project_members`) are declared
+on the Mongoose models and synced via Phase 03 `syncSchemaIndexes`. Bootstrap / tests set
+`projectAccessMode` on new memberships; existing local docs are updated when re-synced or
+re-seeded (no versioned migration pre–go-live).
 
 ## 6. API contract — PROPOSED (needs approval before implementation)
 
@@ -297,7 +299,7 @@ No response body changes. Only the status codes change: an inaccessible project 
 | `backend/src/modules/projects/projects.repository.js` | Apply the accessible-project filter in list |
 | `backend/src/modules/projects/projects.service.js` | Insert the creator as a `ProjectMember` |
 | `backend/src/http/routes.js` | Register `projectMemberRoutes` |
-| `backend/migrations/` | **New migrations:** `project_members`, `projectAccessMode`, `aclVersion` |
+| `backend/src/modules/identity/` models | **Change:** add `projectAccessMode` on memberships; `aclVersion` on organizations |
 
 ## 9. Tests (≥ 80% line and branch)
 
@@ -340,7 +342,7 @@ disabled; the per-request memo is used for repeated calls in one request.
 | User of org A adds a user of org B to their own project | `404 USER_NOT_FOUND` |
 | Org member with `projects.view` but no project access | `404`, not `403` |
 | Project member with `projects.view` calling `PATCH` | `403 FORBIDDEN` |
-| Request carrying `organizationId` of org B in body or query | ignored; JWT org wins |
+| Request carrying `orgId` of org B in body or query | ignored; JWT org wins |
 | Request with a valid token for a deactivated user | `401`/`403`, never data |
 | `:projectId` that is not an ObjectId | `400 VALIDATION_ERROR`, no database hit |
 
@@ -377,7 +379,7 @@ Ask the user; do not assume (`.cursor/rules/no-assumptions.mdc`).
 
 1. **Where does `projectAccessMode` belong?** Proposed: on `Membership`. Alternatives: on the
    `Role` (so `org_admin` implies `all`), or a separate policy document. Confirm before the
-   migration, because it changes Phase 06's schema.
+   schema change, because it changes Phase 06's model.
 2. **Deny overlays.** Should a `ProjectMember` row ever be able to *remove* a permission granted
    by the organization role (for example, an org member who must not ask questions in one
    sensitive project)? Proposed: no, grants only.

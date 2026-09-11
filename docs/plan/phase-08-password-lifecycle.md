@@ -99,7 +99,7 @@ twice does not end up with two live tokens.
 ### 4.4 Admin-initiated reset and what the administrator is told
 
 `POST /api/v1/users/:userId/reset-password` (solution §8.4) requires `users.manage`, resolves
-the target user strictly inside `principal.organizationId`, and returns a reset status object.
+the target user strictly inside `principal.orgId`, and returns a reset status object.
 A target in another organization returns `404`, never `403` — see Phase 09 §4.5.
 
 Frontend §84 requires the UI to communicate which user is affected, what will happen, whether

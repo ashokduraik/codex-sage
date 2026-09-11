@@ -115,7 +115,7 @@ support receives (backend §105 shows `Reference: REQ-…`). No new dependency i
 | Response header | `onSend` hook sets `X-Correlation-Id` on **every** response |
 | Error body | The global handler copies it into `error.reference` |
 | SSE terminal frame | The stream error builder embeds it (§4.5) |
-| Services / repositories | `src/platform/requestContext.js`, an `AsyncLocalStorage` store of `{ correlationId, organizationId?, userId? }` entered by an `onRequest` hook |
+| Services / repositories | `src/platform/requestContext.js`, an `AsyncLocalStorage` store of `{ correlationId, orgId?, userId? }` entered by an `onRequest` hook |
 
 The tenant fields are declared now and populated in phase 07 so the log shape does not change
 later. Reads outside a request return `undefined` rather than throwing, so worker code keeps

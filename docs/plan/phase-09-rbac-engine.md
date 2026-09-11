@@ -46,7 +46,7 @@ and after Phase 06 because roles and memberships are what the resolver reads.
 - A route-declaration convention plus a boot-time assertion that every registered route either
   declares required permissions or is on an explicit public allowlist.
 - Organization scope resolution: the rule that a tenant scope always comes from
-  `request.principal.organizationId`, never from a client-supplied parameter, and a helper that
+  `request.principal.orgId`, never from a client-supplied parameter, and a helper that
   compares an organization path parameter to the principal's.
 - The `403` versus `404` policy for cross-tenant resources.
 - Extending `GET /api/v1/auth/me` with the caller's effective permissions.
@@ -105,10 +105,10 @@ whole plan, and a permission for a feature that does not exist is a trap.
 ### 4.2 Resolving effective permissions
 
 ```text
-principal.roleIds  →  active roles in principal.organizationId  →  union(permissions[])
+principal.roleIds  →  active roles in principal.orgId  →  union(permissions[])
 ```
 
-The role read is scoped by `organizationId` in the query filter, so a tampered token carrying
+The role read is scoped by `orgId` in the query filter, so a tampered token carrying
 role ids from another tenant resolves to an empty set rather than to those roles' permissions.
 
 `org_admin` resolves to every catalog permission. Whether that is stored as an explicit array
@@ -133,8 +133,8 @@ request. Caching the *user's* permission set is not, because a deactivated user 
 role-assignment change has to take effect immediately, and Phase 07's principal resolution
 already pays for the user read.
 
-The cache is a `Map` keyed by `${organizationId}:${roleId}` with a named TTL constant, plus
-`invalidateRole(organizationId, roleId)` and `invalidateOrganization(organizationId)` exported
+The cache is a `Map` keyed by `${orgId}:${roleId}` with a named TTL constant, plus
+`invalidateRole(orgId, roleId)` and `invalidateOrganization(orgId)` exported
 for Phase 11 to call after a role write. Because the API may run as more than one process, a
 local invalidation only clears the process that handled the write; other processes converge
 within the TTL. That bound must be short and it must be written down — see section 12.
@@ -168,7 +168,7 @@ domain collection, and never inspects a path parameter.
 
 ### 4.5 Tenant scope, `403` and `404`
 
-The scope rule is absolute: `organizationId` comes from `request.principal`, which comes from a
+The scope rule is absolute: `orgId` comes from `request.principal`, which comes from a
 verified token claim (backend §89, §90). No handler, service or repository may take it from a
 path, query or body parameter. Where solution §8.4 exposes an organization in the path
 (`GET /organizations/:orgId`), the parameter is compared to the principal's organization and a
@@ -191,7 +191,7 @@ organization's data through status codes. Within the caller's own tenant a `403`
 and more useful answer, because the resource genuinely exists and the UI can say so.
 
 This falls out of the design rather than needing per-route care: repositories filter by
-`organizationId`, so a cross-tenant lookup returns `null` and the handler's ordinary
+`orgId`, so a cross-tenant lookup returns `null` and the handler's ordinary
 not-found path runs.
 
 ### 4.6 Ordering
@@ -246,7 +246,7 @@ The Phase 07 body gains one field:
   "id": "6712f0b1c9a41d2f8e4b3a02",
   "email": "admin@acme.example",
   "displayName": "Acme Administrator",
-  "organizationId": "6712f0b1c9a41d2f8e4b3a01",
+  "orgId": "6712f0b1c9a41d2f8e4b3a01",
   "roleIds": ["6712f0b1c9a41d2f8e4b3a03"],
   "permissions": ["org.view", "users.manage", "projects.create"]
 }
@@ -362,7 +362,7 @@ permission list already. The required permissions are logged and, from Phase 10,
 - [ ] `requirePermissions` supports "all of" and "any of", and denies by default.
 - [ ] Every registered route declares its required permissions or is on the public allowlist,
       enforced by a boot-time assertion.
-- [ ] No code path derives `organizationId` from a client-supplied parameter.
+- [ ] No code path derives `orgId` from a client-supplied parameter.
 - [ ] Cross-tenant resources return `404` and are byte-identical to a non-existent resource;
       in-tenant permission failures return `403`.
 - [ ] Error bodies never name the missing permission.
@@ -406,7 +406,7 @@ Ask the user; do not assume (`.cursor/rules/no-assumptions.mdc`).
    with an account.
 5. **Wildcard for `org_admin`.** Depends on Phase 06 question 4. If the array is stored
    explicitly, adding a permission in a later phase silently fails to grant it to existing
-   `org_admin` roles, which needs a migration in whichever phase adds the permission.
+   `org_admin` roles, which needs a schema/catalog update in whichever phase adds the permission.
 6. **Deny-by-default at the framework level.** The boot assertion catches undeclared routes but
    still relies on the `preHandler` being wired. A global `onRequest` hook that reads
    `config.requiredPermissions` would make the two impossible to diverge. It is a bigger change

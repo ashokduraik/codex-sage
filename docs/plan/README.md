@@ -141,10 +141,13 @@ Taken from `AGENTS.md` and `.cursor/rules/`. Repeated here so a phase document d
   lifecycle uses a *differently named* field (`lifecycleStatus`, `jobStatus`, `userStatus`,
   `knowledgeHealth`, `connectionStatus`, …).
 - Deletes and detaches are **soft**: `status: 'D'`. List and detail queries filter `status: 'A'`.
-- Every query is scoped by `organizationId` (and `projectId` where the resource is
-  project-scoped) at the data boundary — never by trusting a client-supplied scope.
+- Every query is scoped by `orgId` (and `projectId` where the resource is project-scoped)
+  at the data boundary — never by trusting a client-supplied scope. Actor fields are
+  `createdBy` / `updatedBy` (ObjectId → user; null allowed for system/bootstrap).
 - All timestamps stored in UTC. Pagination on every list endpoint (keyset preferred).
-- Schema changes only through versioned migrations under `backend/`.
+- Pre–go-live: indexes are declared on Mongoose schemas and synced via
+  `syncSchemaIndexes` in development and tests (`autoIndex: false` in production). A
+  versioned migration runner is deferred until go-live / production cutover.
 
 ### Configuration
 

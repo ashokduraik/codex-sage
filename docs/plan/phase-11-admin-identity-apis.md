@@ -81,7 +81,7 @@ identity.mappers.ts    document → DTO; the only place a user becomes a respons
 
 Handlers own `reply`; services return data or throw typed errors
 (`.cursor/rules/function-design.mdc`). Services take the authenticated request context
-(`organizationId`, `actorUserId`, `correlationId`) as an argument rather than reading a request.
+(`orgId`, `actorUserId`, `correlationId`) as an argument rather than reading a request.
 
 ### 4.2 Permission gating
 
@@ -102,7 +102,7 @@ so a hidden control in Phase 15 still produces a `403` here.
 
 ### 4.3 Tenancy, soft delete and pagination
 
-- `organizationId` always comes from the authenticated request context and is injected at the
+- `orgId` always comes from the authenticated request context and is injected at the
   repository boundary. A client-supplied organization value is rejected by the schema, not
   ignored silently.
 - A resource belonging to another organization returns `404 NOT_FOUND`, never `403` — a `403`
@@ -163,14 +163,14 @@ Two additive changes:
 
 | Collection | Change | Reason |
 |---|---|---|
-| `users` | Index `{ organizationId: 1, status: 1, createdAt: -1, _id: -1 }` | Keyset list path |
-| `users` | Index `{ organizationId: 1, displayName: 1 }` | `q` prefix filter without a collection scan |
-| `roles` | Index `{ organizationId: 1, status: 1, createdAt: -1, _id: -1 }` | Keyset list path |
+| `users` | Index `{ orgId: 1, status: 1, createdAt: -1, _id: -1 }` | Keyset list path |
+| `users` | Index `{ orgId: 1, displayName: 1 }` | `q` prefix filter without a collection scan |
+| `roles` | Index `{ orgId: 1, status: 1, createdAt: -1, _id: -1 }` | Keyset list path |
 
-Both ship as migrations under `backend/` per `.cursor/rules/data-model.mdc`. No field is added,
-renamed or removed. `lastActivity` — which frontend §82 wants in the user table — does not exist
-on the model; **this slice maps it to `lastLoginAt`** unless a later phase adds a dedicated
-activity field (see §12, question 4).
+Indexes are declared on the Phase 06 Mongoose schemas and synced via Phase 03
+`syncSchemaIndexes`. No field is added, renamed or removed. `lastActivity` — which frontend
+§82 wants in the user table — does not exist on the model; **this slice maps it to
+`lastLoginAt`** unless a later phase adds a dedicated activity field (see §12, question 4).
 
 ## 6. API contract — PROPOSED (needs approval before implementation)
 
@@ -272,7 +272,6 @@ Response `200` with the updated user. Errors: `409 LAST_ADMIN_REQUIRED`, `404 NO
 | `backend/src/modules/identity/index.js` | **Change:** export the services and route plugin |
 | `backend/src/shared/pagination/keysetCursor.js` | **New or reuse:** shared cursor encode/decode |
 | `backend/src/http/routes.js` | **Change:** register `identityRoutes` |
-| `backend/src/migrations/<ts>-identity-list-indexes.ts` | **New:** the three indexes in §5 |
 
 ## 9. Tests (≥ 80% line and branch)
 
@@ -317,7 +316,7 @@ Response `200` with the updated user. Errors: `409 LAST_ADMIN_REQUIRED`, `404 NO
 ## 10. Definition of Done
 
 - [ ] Every route declares a permission from the Phase 09 catalog and is enforced by the guard.
-- [ ] Every route resolves `organizationId` from the request context; no handler trusts a
+- [ ] Every route resolves `orgId` from the request context; no handler trusts a
       client-supplied scope.
 - [ ] Cross-organization access returns `404`, proven by an integration test.
 - [ ] Removal is a soft delete (`status: 'D'`); the codebase contains no hard delete of a user,
@@ -335,7 +334,7 @@ Response `200` with the updated user. Errors: `409 LAST_ADMIN_REQUIRED`, `404 NO
 
 ## 11. Documentation & ADR updates
 
-- Update `docs/data-model.md` with the three new indexes in the same change as the migration.
+- Update `docs/data-model.md` with the three new indexes in the same change as the schema.
 - Add the identity routes to the API surface section of `docs/architecture.md` if one exists;
   otherwise confirm §10's audit row still matches what these routes write.
 - No new ADR is expected — solution §8.4 already records the surface. If review changes the

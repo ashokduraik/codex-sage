@@ -211,7 +211,7 @@ fields. This phase adds only user-initiated retry metadata:
 | `lastRetryMode` | `'resume' \| 'full'` \| null | What the last retry did |
 
 `JobEvent` already has `eventCode` and `severity` from Phase 20. This phase only extends the
-human-readable catalogue. Index `{ organizationId: 1, jobId: 1, createdAt: 1 }` on `jobEvents`
+human-readable catalogue. Index `{ orgId: 1, jobId: 1, createdAt: 1 }` on `jobEvents`
 filtered to `status: 'A'` if Phase 20 did not already create it.
 
 ## 6. API contract — PROPOSED (needs approval before implementation)

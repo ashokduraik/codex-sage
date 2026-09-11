@@ -12,12 +12,12 @@ describe('LoginPage', () => {
         clearAuthSession();
         localStorage.clear();
     });
-    it('renders the login form with email, password, and Google button', () => {
+    it('renders the login form with email and password fields', () => {
         renderWithProviders(<LoginPage />, { route: '/login' });
         expect(screen.getByRole('heading', { name: 'Welcome back' })).toBeTruthy();
         expect(screen.getByLabelText('Email')).toBeTruthy();
         expect(screen.getByLabelText('Password')).toBeTruthy();
-        expect(screen.getByRole('button', { name: /Continue with Google/i })).toBeTruthy();
+        expect(screen.queryByRole('button', { name: /Continue with Google/i })).toBeNull();
         expect(screen.getByRole('button', { name: 'Log in' })).toBeTruthy();
     });
     it('submits login and stores an authenticated session', async () => {
@@ -42,14 +42,5 @@ describe('LoginPage', () => {
         fireEvent.submit(form);
         expect(await screen.findByRole('alert')).toBeTruthy();
         expect(screen.getByRole('alert').textContent).toMatch(/Email and password are required/i);
-    });
-    it('signs in with the Google button', async () => {
-        renderWithProviders(<LoginPage />, { route: '/login' });
-        fireEvent.click(screen.getByRole('button', { name: /Continue with Google/i }));
-        await waitFor(() => {
-            const raw = localStorage.getItem(AUTH_STORAGE_KEY);
-            expect(raw).toBeTruthy();
-            expect(JSON.parse(raw).user.email).toBe('google.user@acme.io');
-        });
     });
 });

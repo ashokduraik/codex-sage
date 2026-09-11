@@ -15,7 +15,7 @@
 After this phase a seeded user can sign in and stay signed in. The backend hashes passwords
 with argon2id, issues a short-lived JWT access token plus a rotating refresh token, exposes
 `/api/v1/auth/login`, `/refresh`, `/logout` and `/me`, and attaches a verified principal
-(`organizationId`, `userId`, `roleIds`, `sessionId`) to every authenticated request.
+(`orgId`, `userId`, `roleIds`, `sessionId`) to every authenticated request.
 
 You can see it working with three curl calls: login returns an access token and a user
 summary; `/me` with that token returns the same summary and returns `401` without it; refresh
@@ -105,13 +105,14 @@ Two tokens with deliberately different properties:
 Access token claims are deliberately minimal:
 
 ```text
-sub  userId          org  organizationId      sid  sessionId
+sub  userId          org  (orgId value)      sid  sessionId
 rls  roleIds[]       typ  'access'            iss / aud / iat / exp
 ```
 
-`rls` carries role ids, not permissions. Permissions change when an administrator edits a role,
-and a token that carried them would keep granting access until it expired. Phase 09 resolves
-permissions per request from the role ids.
+Claim key `org` is short; `request.principal.orgId` is set from it. `rls` carries role ids, not
+permissions. Permissions change when an administrator edits a role, and a token that carried
+them would keep granting access until it expired. Phase 09 resolves permissions per request from
+the role ids.
 
 The refresh token value is never stored. The `sessions` collection stores its SHA-256 hash, so
 a database read cannot be replayed as a login. SHA-256 is correct here and argon2 is not: the
@@ -142,7 +143,7 @@ rotating refresh tokens and it is the reason rotation is worth the extra collect
    missing                                            → 401 UNAUTHENTICATED
    userStatus !== 'active'                            → 401 UNAUTHENTICATED
 4. reject if user.passwordUpdatedAt > token iat       → 401 SESSION_EXPIRED   (Phase 08 relies on this)
-5. request.principal = { userId, organizationId, roleIds, sessionId }
+5. request.principal = { userId, orgId, roleIds, sessionId }
 ```
 
 Two distinct `401` codes matter to the UI. `SESSION_EXPIRED` tells the frontend to attempt a
@@ -154,7 +155,7 @@ Step 3 costs one indexed read per request. That is accepted: it is what makes de
 (Phase 11) and password change (Phase 08) take effect immediately instead of at token expiry.
 Phase 09 adds caching for the role→permission lookup, which is the part that is safe to cache.
 
-`request.principal.organizationId` comes from the verified token and from nowhere else. No
+`request.principal.orgId` comes from the verified token and from nowhere else. No
 route may take a tenant scope from a path, query or body parameter — Phase 09 makes that a
 enforced convention, but the principal shape established here is what makes it possible.
 
@@ -184,7 +185,7 @@ One new collection, `sessions`, on the Phase 03 base schema.
 
 | Field | Type | Notes |
 |---|---|---|
-| `organizationId` | ObjectId, required | Tenant scope |
+| `orgId` | ObjectId, required | Tenant scope |
 | `userId` | ObjectId, required | Owner |
 | `familyId` | string, required | Shared by every rotation of one login |
 | `refreshTokenHash` | string, required | SHA-256 of the opaque token; the value itself is never stored |
@@ -196,7 +197,7 @@ One new collection, `sessions`, on the Phase 03 base schema.
 | `revokedReason` | `'logout' \| 'reuse_detected' \| 'password_changed' \| 'user_disabled'`, optional | |
 | `status` | `'A' \| 'D'` | Row visibility; retention (Phase 60) tombstones old rows |
 
-Indexes: unique `{ refreshTokenHash: 1 }`; `{ organizationId: 1, userId: 1, status: 1 }` for
+Indexes: unique `{ refreshTokenHash: 1 }`; `{ orgId: 1, userId: 1, status: 1 }` for
 "revoke all sessions of this user" (Phase 08); `{ familyId: 1 }` for reuse-driven family
 revocation; `{ expiresAt: 1 }` for the Phase 60 cleanup sweep.
 
@@ -226,7 +227,7 @@ Response `200`:
     "id": "6712f0b1c9a41d2f8e4b3a02",
     "email": "admin@acme.example",
     "displayName": "Acme Administrator",
-    "organizationId": "6712f0b1c9a41d2f8e4b3a01",
+    "orgId": "6712f0b1c9a41d2f8e4b3a01",
     "roleIds": ["6712f0b1c9a41d2f8e4b3a03"]
   }
 }
@@ -267,7 +268,7 @@ Response `200`:
   "id": "6712f0b1c9a41d2f8e4b3a02",
   "email": "admin@acme.example",
   "displayName": "Acme Administrator",
-  "organizationId": "6712f0b1c9a41d2f8e4b3a01",
+  "orgId": "6712f0b1c9a41d2f8e4b3a01",
   "roleIds": ["6712f0b1c9a41d2f8e4b3a03"]
 }
 ```

@@ -52,8 +52,8 @@ Changing it now costs one line; changing it after 60 routes exist does not.
 ### Out of scope (owner phase)
 
 - Error-code catalog, correlation IDs, log redaction — **Phase 02**.
-- Base Mongoose schema conventions, migrations, and the integration-test database harness —
-  **Phase 03**.
+- Base Mongoose schema conventions, index sync helpers, and the integration-test database
+  harness — **Phase 03**.
 - Job claiming, heartbeating, lease sweeping, scheduling — **Phase 21**.
 - Any domain collection or route — **Phase 06 onward**.
 - Authentication, rate limiting, CORS policy for production — **Phases 07, 12, 61**.
@@ -123,8 +123,8 @@ Behaviour requirements:
   of hanging until an opaque timeout.
 - Transactions are available (decision D5, replica set). This phase does not use them; it only
   must not configure anything that prevents them.
-- `autoIndex` is enabled in development and disabled in production; index creation belongs to
-  the migration path in Phase 03.
+- `autoIndex` is disabled in production; development index creation belongs to Phase 03's
+  `syncSchemaIndexes` helper (called on app startup in development).
 
 ### 4.3 API versioning, health and readiness
 

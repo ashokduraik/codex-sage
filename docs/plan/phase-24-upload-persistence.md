@@ -45,7 +45,7 @@ cannot come after 25 (the worker would have nothing to claim).
 - Multipart/zip upload route on the project.
 - Stream zip entries: skip via Phase 23 **before** `openUploadStream`.
 - GridFS bucket for accepted source/doc bytes only.
-- `SourceVersion` and `SourceFile` models + migration.
+- `SourceVersion` and `SourceFile` models (indexes declared on schemas).
 - Enqueue `ingest` job `pending`, audit `source.upload`.
 - `202` with ids; `Idempotency-Key` required; rate class `upload`.
 - Mark `excludedFromGraph` for >1 MiB accepted files.
@@ -92,9 +92,9 @@ file contents. Paths in audit context are allowed (solution §9.1 allows paths).
 ### 4.2 GridFS conventions
 
 - Bucket name constant `GRIDFS_SOURCE_BUCKET` (`'sourceFiles'`).
-- Filename = tenant-safe key: `{organizationId}/{projectId}/{sourceVersionId}/{normalizedPath}`
+- Filename = tenant-safe key: `{orgId}/{projectId}/{sourceVersionId}/{normalizedPath}`
   so a blob is never reached by path alone from another tenant.
-- `metadata`: `{ organizationId, projectId, sourceVersionId, path, sha256 }` — required for
+- `metadata`: `{ orgId, projectId, sourceVersionId, path, sha256 }` — required for
   sweeps. No user tokens.
 
 Mongoose `createBaseSchema` does not apply to GridFS files; the **`sourceFiles` document**
@@ -114,7 +114,7 @@ job (Phase 12). In-flight duplicate waits or `409 IDEMPOTENCY_IN_FLIGHT`.
 
 ### 4.5 Authorization and tenancy
 
-`organizationId` and `projectId` from the authenticated project record, never from the zip
+`orgId` and `projectId` from the authenticated project record, never from the zip
 or query. A file claiming to be from another project is not a concept — paths are relative
 inside the archive.
 
@@ -124,24 +124,24 @@ inside the archive.
 
 | Field | Type | Notes |
 |---|---|---|
-| `organizationId` | ObjectId | required |
+| `orgId` | ObjectId | required |
 | `projectId` | ObjectId | required |
 | `origin` | `'upload' \| 'repository'` | this phase writes `'upload'` |
 | `exclusionRulesetId` | string | from Phase 23 |
 | `versionLifecycle` | `'received' \| 'failed' \| 'accepted'` | domain; not row `status`. Start `received`; 25/28 advance |
 | `jobId` | ObjectId | pending ingest job |
-| `createdByUserId` | ObjectId | |
+| `createdBy` | ObjectId | |
 | `fileCounts` | `{ accepted, skipped, excludedFromGraph }` | |
 | `status` | `'A' \| 'D'` | default `'A'` |
 | `createdAt` / `updatedAt` | Date | UTC |
 
-Indexes: `{ organizationId, projectId, createdAt: -1 }` partial `status: 'A'`.
+Indexes: `{ orgId, projectId, createdAt: -1 }` partial `status: 'A'`.
 
 ### `sourceFiles`
 
 | Field | Type | Notes |
 |---|---|---|
-| `organizationId` | ObjectId | required |
+| `orgId` | ObjectId | required |
 | `projectId` | ObjectId | required |
 | `sourceVersionId` | ObjectId | required |
 | `path` | string | normalized relative path |
@@ -156,7 +156,7 @@ Indexes: `{ organizationId, projectId, createdAt: -1 }` partial `status: 'A'`.
 | `status` | `'A' \| 'D'` | default `'A'` |
 | `createdAt` / `updatedAt` | Date | UTC |
 
-Index: unique `{ organizationId, projectId, sourceVersionId, path }` partial `status: 'A'`.
+Index: unique `{ orgId, projectId, sourceVersionId, path }` partial `status: 'A'`.
 
 Skipped paths are **not** `sourceFiles` rows (bytes never stored). Their count lives on
 `sourceVersions.fileCounts.skipped` only.
@@ -212,7 +212,6 @@ Reuse Phase 23 size constants; do not duplicate as env.
 | `backend/src/modules/sources/gridfs.js` | **New:** bucket helper |
 | `backend/src/modules/sources/index.js` | **New** |
 | colocated tests | **New** |
-| `backend/migrations/00NN-source-versions-and-files.js` | **New** |
 | `backend/src/http/routes.js` | Register upload route |
 | `backend/src/http/app.js` | Multipart parser if not already; size cap from constants |
 

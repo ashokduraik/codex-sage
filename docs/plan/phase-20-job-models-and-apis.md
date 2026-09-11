@@ -1,8 +1,8 @@
 # Phase 20 — Job & JobEvent models with job read APIs
 
 - **Layer:** BE
-- **Depends on:** Phase 03 (base schema, migrations, test harness), Phase 17 (project +
-  `organizationId` / `projectId` scope)
+- **Depends on:** Phase 03 (base schema, index sync, test harness), Phase 17 (project +
+  `orgId` / `projectId` scope)
 - **Unblocks:** Phase 21 (claim loop), Phase 22 (retry/cancel/progress), Phase 24 (enqueue
   `pending` ingest jobs)
 - **Size:** 1–2 days
@@ -129,12 +129,12 @@ is the gate — same as other project reads. Cross-tenant ids return `404`, not 
 
 | Field | Type | Notes |
 |---|---|---|
-| `organizationId` | ObjectId | required |
+| `orgId` | ObjectId | required |
 | `projectId` | ObjectId | required |
 | `jobType` | string | `'ingest' \| 'reingest' \| 'repo_sync' \| …`; ingest used first |
 | `jobStatus` | enum | see §4.2 |
 | `sourceVersionId` | ObjectId \| null | set by Phase 24 |
-| `createdByUserId` | ObjectId \| null | |
+| `createdBy` | ObjectId \| null | |
 | `correlationId` | string \| null | Phase 02 request id when enqueued from HTTP |
 | `workerId` | string \| null | Phase 21 |
 | `attempt` | number | default 0 |
@@ -155,8 +155,8 @@ is the gate — same as other project reads. Cross-tenant ids return `404`, not 
 
 Indexes (partial `status: 'A'` where listed):
 
-- `{ organizationId, projectId, createdAt: -1, _id: -1 }` — list keyset
-- `{ organizationId, projectId, jobStatus }` — dashboard
+- `{ orgId, projectId, createdAt: -1, _id: -1 }` — list keyset
+- `{ orgId, projectId, jobStatus }` — dashboard
 - `{ status, jobStatus, jobType, scheduledAt }` — claim (Phase 21)
 - `{ status, jobStatus, leaseExpiresAt }` — sweep (Phase 21)
 
@@ -164,7 +164,7 @@ Indexes (partial `status: 'A'` where listed):
 
 | Field | Type | Notes |
 |---|---|---|
-| `organizationId` | ObjectId | required |
+| `orgId` | ObjectId | required |
 | `projectId` | ObjectId | required |
 | `jobId` | ObjectId | required |
 | `eventCode` | string | |
@@ -175,7 +175,7 @@ Indexes (partial `status: 'A'` where listed):
 | `status` | `'A' \| 'D'` | default `'A'` |
 | `createdAt` | Date | UTC; no updates in practice |
 
-Index: `{ organizationId, jobId, createdAt: 1 }` partial `status: 'A'`.
+Index: `{ orgId, jobId, createdAt: 1 }` partial `status: 'A'`.
 
 ## 6. API contract — PROPOSED (needs approval before implementation)
 
@@ -268,7 +268,6 @@ same number — implementers must not introduce an env var. Proposed: define
 | `backend/src/modules/jobs/jobs.constants.js` | **New** |
 | `backend/src/modules/jobs/index.js` | **New:** public surface |
 | colocated `*.test.js` | **New** |
-| `backend/migrations/00NN-jobs-and-job-events.js` | **New** |
 | `backend/src/http/routes.js` | Register job routes |
 
 ## 9. Tests (≥ 80% line and branch)
@@ -296,7 +295,7 @@ same number — implementers must not introduce an env var. Proposed: define
 
 ## 10. Definition of Done
 
-- [ ] `Job` includes every field in §5 so Phases 21 and 25 add **no** overlapping migration.
+- [ ] `Job` includes every field in §5 so Phases 21 and 25 add **no** overlapping schema churn.
 - [ ] Checkpoint field is `stageCheckpoint` with `lastCompletedStage` / `cursor` / `updatedAt`.
 - [ ] Read APIs exist; no claim loop; no client job-create HTTP.
 - [ ] Failed jobs remain readable.
