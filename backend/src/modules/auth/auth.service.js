@@ -41,6 +41,7 @@ import {
  * @property {string} displayName
  * @property {string} orgId
  * @property {string[]} roleIds
+ * @property {boolean} mustChangePassword
  */
 
 /**
@@ -66,6 +67,7 @@ function toUserSummary(user, roleIds) {
     displayName: user.displayName,
     orgId: String(user.orgId),
     roleIds,
+    mustChangePassword: user.mustChangePassword === true,
   };
 }
 

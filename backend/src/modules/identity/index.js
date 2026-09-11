@@ -29,8 +29,10 @@ export {
   softDeleteUser,
   setPasswordHashIfMissing,
   updateUserPasswordHash,
+  applyPasswordUpdate,
   touchLastLoginAt,
 } from './user.repository.js';
+export { adminPasswordResetRoutes } from './adminPasswordReset.routes.js';
 export {
   findBuiltInRole,
   listRoles,

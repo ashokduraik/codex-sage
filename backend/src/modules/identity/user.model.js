@@ -30,6 +30,11 @@ const userSchema = createBaseSchema({
     type: Date,
     default: undefined,
   },
+  mustChangePassword: {
+    type: Boolean,
+    required: true,
+    default: false,
+  },
   userStatus: {
     type: String,
     enum: USER_STATUS_VALUES,

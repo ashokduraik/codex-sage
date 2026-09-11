@@ -37,6 +37,18 @@ export {
 export { createAuthService } from './auth.service.js';
 export { createAuthenticatePreHandler } from './authenticate.preHandler.js';
 export { authRoutes, CSRF_COOKIE_NAME } from './auth.routes.js';
+export { passwordRoutes } from './password.routes.js';
+export {
+  PASSWORD_MIN_LENGTH,
+  PASSWORD_HISTORY_LENGTH,
+  validatePasswordCandidate,
+} from './passwordPolicy.js';
+export {
+  applyNewPassword,
+  changeOwnPassword,
+  adminSetPassword,
+  getPasswordResetStatus,
+} from './password.service.js';
 
 import { Session } from './session.model.js';
 

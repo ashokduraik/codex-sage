@@ -69,6 +69,12 @@ export function createAuthenticatePreHandler(tokenService) {
       throw ApiError.fromCode('UNAUTHENTICATED');
     }
 
+    const allowWhenMustChange =
+      request.routeOptions?.config?.allowWhenMustChangePassword === true;
+    if (user.mustChangePassword === true && !allowWhenMustChange) {
+      throw ApiError.fromCode('PASSWORD_CHANGE_REQUIRED');
+    }
+
     /** @type {RequestPrincipal} */
     request.principal = {
       userId: String(user._id),

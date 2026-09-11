@@ -186,11 +186,12 @@ export async function revokeSessionFamily(familyId, reason) {
  * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
  * @param {import('mongoose').Types.ObjectId | string} userId User id.
  * @param {'password_changed' | 'user_disabled' | 'logout'} reason Reason.
+ * @param {{ session?: import('mongoose').ClientSession }} [options] Optional Mongo session.
  * @returns {Promise<import('mongoose').UpdateResult>}
  */
-export async function revokeAllSessionsForUser(orgId, userId, reason) {
+export async function revokeAllSessionsForUser(orgId, userId, reason, options = {}) {
   assertOrgId(orgId);
-  return Session.updateMany(
+  const query = Session.updateMany(
     { orgId, userId, status: ROW_STATUS_ACTIVE, revokedAt: null },
     {
       $set: {
@@ -200,4 +201,8 @@ export async function revokeAllSessionsForUser(orgId, userId, reason) {
       },
     },
   );
+  if (options.session) {
+    query.session(options.session);
+  }
+  return query.exec();
 }

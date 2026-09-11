@@ -187,7 +187,10 @@ export async function authRoutes(app) {
   app.get(
     '/auth/me',
     {
-      config: { rateLimitClass: 'auth' },
+      config: {
+        rateLimitClass: 'auth',
+        allowWhenMustChangePassword: true,
+      },
       preHandler: authenticate,
     },
     async (request) => {
@@ -203,6 +206,7 @@ export async function authRoutes(app) {
         displayName: user.displayName,
         orgId: String(user.orgId),
         roleIds: (membership?.roleIds ?? []).map((id) => String(id)),
+        mustChangePassword: user.mustChangePassword === true,
       };
     },
   );

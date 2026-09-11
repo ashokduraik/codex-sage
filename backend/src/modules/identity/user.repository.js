@@ -146,12 +146,13 @@ export async function setPasswordHashIfMissing(orgId, userId, passwordHash, opti
  * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
  * @param {import('mongoose').Types.ObjectId | string} userId User id.
  * @param {string} passwordHash New argon2id hash.
+ * @param {{ session?: import('mongoose').ClientSession }} [options] Optional Mongo session.
  * @returns {Promise<import('mongoose').UpdateResult>}
  */
-export async function updateUserPasswordHash(orgId, userId, passwordHash) {
+export async function updateUserPasswordHash(orgId, userId, passwordHash, options = {}) {
   assertOrgId(orgId);
   const now = new Date();
-  return User.updateOne(
+  const query = User.updateOne(
     { _id: userId, orgId },
     {
       $set: {
@@ -160,7 +161,46 @@ export async function updateUserPasswordHash(orgId, userId, passwordHash) {
         updatedAt: now,
       },
     },
-  ).exec();
+  );
+  if (options.session) {
+    query.session(options.session);
+  }
+  return query.exec();
+}
+
+/**
+ * Applies a full password update (hash, timestamps, must-change flag, optional status).
+ * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
+ * @param {import('mongoose').Types.ObjectId | string} userId User id.
+ * @param {{
+ *   passwordHash: string,
+ *   mustChangePassword: boolean,
+ *   userStatus?: string,
+ *   updatedBy?: import('mongoose').Types.ObjectId | string | null,
+ * }} input Update fields.
+ * @param {{ session?: import('mongoose').ClientSession }} [options] Optional Mongo session.
+ * @returns {Promise<{ matched: boolean, passwordUpdatedAt: Date }>}
+ */
+export async function applyPasswordUpdate(orgId, userId, input, options = {}) {
+  assertOrgId(orgId);
+  const now = new Date();
+  /** @type {Record<string, unknown>} */
+  const $set = {
+    passwordHash: input.passwordHash,
+    passwordUpdatedAt: now,
+    mustChangePassword: input.mustChangePassword,
+    updatedAt: now,
+    updatedBy: input.updatedBy ?? null,
+  };
+  if (input.userStatus !== undefined) {
+    $set.userStatus = input.userStatus;
+  }
+  const query = User.updateOne({ _id: userId, orgId }, { $set });
+  if (options.session) {
+    query.session(options.session);
+  }
+  const result = await query.exec();
+  return { matched: result.matchedCount > 0, passwordUpdatedAt: now };
 }
 
 /**

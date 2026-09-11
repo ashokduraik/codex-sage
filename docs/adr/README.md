@@ -15,6 +15,7 @@
 | [0010](./0010-structured-error-envelope.md) | Structured error envelope and correlation IDs | Accepted |
 | [0011](./0011-startup-bootstrap-seed.md) | Startup bootstrap seed (no public signup) | Accepted |
 | [0012](./0012-refresh-token-rotation.md) | Refresh-token rotation with strict reuse detection | Accepted |
+| [0013](./0013-admin-mediated-password-reset.md) | Admin-mediated password reset (no public token flow) | Accepted |
 
 One decision = one ADR. Accepted ADRs are immutable; supersede with a new number rather
 than rewriting history.

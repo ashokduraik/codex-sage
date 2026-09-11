@@ -60,8 +60,11 @@ plus base fields. Unique partial index on `{ slug: 1 }` where `status: 'A'`.
 ### `users`
 
 Tenant-scoped. Fields: `email`, `displayName`, `passwordHash` (`select: false`),
-`passwordUpdatedAt`, `userStatus` (`active` \| `invited` \| `disabled`), `lastLoginAt`, plus
-base fields. Unique partial index on `{ orgId: 1, email: 1 }` where `status: 'A'`.
+`passwordUpdatedAt`, `mustChangePassword` (boolean, default `false`; set on admin-set
+password, cleared on self-service change), `userStatus` (`active` \| `invited` \|
+`disabled`), `lastLoginAt`, plus base fields. Unique partial index on
+`{ orgId: 1, email: 1 }` where `status: 'A'`. No `passwordHistory` in this slice
+(`PASSWORD_HISTORY_LENGTH = 0`).
 
 ### `roles`
 

@@ -1,5 +1,7 @@
 import { healthRoutes } from '../modules/health/health.routes.js';
 import { authRoutes } from '../modules/auth/auth.routes.js';
+import { passwordRoutes } from '../modules/auth/password.routes.js';
+import { adminPasswordResetRoutes } from '../modules/identity/adminPasswordReset.routes.js';
 
 /**
  * Fastify plugin that registers every domain route module.
@@ -9,4 +11,6 @@ import { authRoutes } from '../modules/auth/auth.routes.js';
 export async function registerRoutes(app) {
   await app.register(healthRoutes);
   await app.register(authRoutes);
+  await app.register(passwordRoutes);
+  await app.register(adminPasswordResetRoutes);
 }

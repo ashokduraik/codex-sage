@@ -60,6 +60,31 @@ export const ERROR_CATALOG = Object.freeze({
     retryability: 'permanent',
     message: 'You do not have permission to perform this action.',
   }),
+  INVALID_CURRENT_PASSWORD: Object.freeze({
+    class: 'authorization',
+    httpStatus: 403,
+    retryability: 'user_action_required',
+    message: 'Current credential is incorrect.',
+  }),
+  PASSWORD_POLICY_VIOLATION: Object.freeze({
+    class: 'user',
+    httpStatus: 422,
+    retryability: 'user_action_required',
+    message: 'The new credential does not meet policy requirements.',
+    allowDetails: true,
+  }),
+  PASSWORD_CHANGE_REQUIRED: Object.freeze({
+    class: 'authorization',
+    httpStatus: 403,
+    retryability: 'user_action_required',
+    message: 'You must update your credential before continuing.',
+  }),
+  CANNOT_MODIFY_SELF: Object.freeze({
+    class: 'user',
+    httpStatus: 409,
+    retryability: 'user_action_required',
+    message: 'You cannot perform this action on your own account.',
+  }),
   CONFLICT: Object.freeze({
     class: 'user',
     httpStatus: 409,

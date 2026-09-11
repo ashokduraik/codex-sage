@@ -42,11 +42,19 @@ describe('ERROR_CATALOG', () => {
     expect(ERROR_CATALOG[MONGO_UNAVAILABLE_CODE].httpStatus).toBe(503);
   });
 
-  it('allows details only for VALIDATION_ERROR and RATE_LIMITED', () => {
+  it('allows details for validation, rate limit, and policy violation codes', () => {
     expect(allowsErrorDetails('VALIDATION_ERROR')).toBe(true);
     expect(allowsErrorDetails('RATE_LIMITED')).toBe(true);
+    expect(allowsErrorDetails('PASSWORD_POLICY_VIOLATION')).toBe(true);
     expect(allowsErrorDetails('NOT_FOUND')).toBe(false);
     expect(allowsErrorDetails('UNKNOWN')).toBe(false);
+  });
+
+  it('registers password-lifecycle codes used by Phase 08', () => {
+    expect(ERROR_CATALOG.INVALID_CURRENT_PASSWORD.httpStatus).toBe(403);
+    expect(ERROR_CATALOG.PASSWORD_POLICY_VIOLATION.httpStatus).toBe(422);
+    expect(ERROR_CATALOG.PASSWORD_CHANGE_REQUIRED.httpStatus).toBe(403);
+    expect(ERROR_CATALOG.CANNOT_MODIFY_SELF.httpStatus).toBe(409);
   });
 });
 

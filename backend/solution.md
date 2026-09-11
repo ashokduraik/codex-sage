@@ -925,7 +925,7 @@ and [ADR 0012](../docs/adr/0012-refresh-token-rotation.md) (rotation + strict re
 | Session | JWT access token (15 min TTL, in memory) + refresh token (httpOnly cookie, 1 day absolute TTL; D14) |
 | Refresh | Rotate on every use; reuse revokes the whole session family (no grace window) |
 | Login / logout / refresh / me | `/api/v1/auth/*` |
-| Password reset | Admin-mediated only (D15); signed-in self-service password change stays |
+| Password reset | Admin-mediated only (D15 / ADR 0013): administrator sets `newPassword` on `POST /users/:id/reset-password`; secret never returned; user receives it out of band. Signed-in self-service `POST /auth/password/change` stays. No public forgot/reset-token flow |
 | Bootstrap | Startup seed sets default admin password from a named constant (ADR 0011) — no open signup |
 
 ### 8.4 Admin API surface (`/api/v1`)
