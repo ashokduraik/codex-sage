@@ -43,6 +43,11 @@ being measured. The process layout below is the intended topology.
 
 ## 2. Runtime processes
 
+Stack choices for this topology (Fastify, MongoDB replica set, Mongoose/GridFS, Mongo
+jobs, logging) are recorded under [`docs/adr/`](./adr/README.md) — especially
+[0001](./adr/0001-mongodb-replica-set.md), [0002](./adr/0002-fastify-api-v1.md),
+[0003](./adr/0003-mongoose-and-gridfs.md), and [0004](./adr/0004-mongo-jobs-no-redis.md).
+
 Three participants. Concurrency in this slice is **async I/O inside each Node process**,
 plus a **dedicated worker process** for heavy ingest/index work. There is no separate
 CodeGraph daemon and no Node `worker_threads` yet.
@@ -361,6 +366,10 @@ Same tenant isolation as chat tools.
 ---
 
 ## 9. Connections (reference)
+
+Mechanisms below match the accepted stack ADRs
+([index](./adr/README.md)): Fastify [`0002`](./adr/0002-fastify-api-v1.md), Mongoose/GridFS
+[`0003`](./adr/0003-mongoose-and-gridfs.md), Mongo jobs [`0004`](./adr/0004-mongo-jobs-no-redis.md).
 
 | From | To | Mechanism | Carries |
 |------|----|-----------|---------|

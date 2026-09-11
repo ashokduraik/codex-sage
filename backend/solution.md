@@ -2,7 +2,10 @@
 
 Technical architecture: [`docs/architecture.md`](../docs/architecture.md)  
 Requirements: [`backend/requirments.md`](./backend/requirments.md)  
-Platform shell: Fastify 5 + Pino + JavaScript (ADR 0002 / 0004 / plain-JS ADR)
+Platform shell: Fastify 5 + Pino + JavaScript
+([ADR 0002](../docs/adr/0002-fastify-api-v1.md) /
+[ADR 0005](../docs/adr/0005-pino-logging.md) /
+[ADR 0000](../docs/adr/0000-plain-javascript.md))
 
 **MVP goal:** Ingest a large **Node.js + MongoDB** target app → current structural code
 knowledge plus on-demand Markdown/text access → grounded Q&A, plus org/RBAC admin, audit,
@@ -136,7 +139,7 @@ fastify @fastify/jwt @fastify/multipart @fastify/rate-limit zod
 mongoose argon2 jose pino ai @ai-sdk/openai
 @langchain/langgraph @langchain/core
 @colbymchenry/codegraph adm-zip ignore unified remark-parse
-vitest mongodb-memory-server
+vitest
 ```
 
 Install the latest stable CodeGraph package only when implementation begins, then record the
@@ -845,6 +848,8 @@ User: “What about the second step?”
 
 ## 6. Mongoose usage
 
+See [ADR 0003](../docs/adr/0003-mongoose-and-gridfs.md).
+
 Use **Mongoose** for:
 
 - All domain CRUD (organizations, users, roles, memberships, projects, source versions/files, jobs, conversations, messages, clarifications, knowledge versions, document sections)
@@ -860,6 +865,8 @@ source-version metadata.
 ---
 
 ## 7. Jobs without Redis
+
+See [ADR 0004](../docs/adr/0004-mongo-jobs-no-redis.md).
 
 ```text
 pending → running → completed | completed_with_warnings | failed | retrying | cancelled
@@ -908,10 +915,13 @@ Built-in roles: `org_admin` (all), `project_admin`, `member` (view + chat + sear
 
 ### 8.3 Auth
 
+See [ADR 0007](../docs/adr/0007-argon2id-jwt.md) (passwords + access JWT) and
+[ADR 0008](../docs/adr/0008-httponly-refresh-cookie.md) (httpOnly refresh cookie + CSRF).
+
 | Concern | MVP |
 |---------|-----|
 | Password | argon2id hash; never log plaintext |
-| Session | JWT access token (short TTL) + refresh token (httpOnly cookie or rotating store) |
+| Session | JWT access token (short TTL, in memory) + refresh token (httpOnly cookie; D14) |
 | Login / logout / refresh | `/api/v1/auth/*` |
 | Password reset | Admin-initiated reset + user self-reset via one-time token (hashed at rest, single use, expiry) |
 | Bootstrap | First org admin via controlled seed / invite — no open signup in MVP |
