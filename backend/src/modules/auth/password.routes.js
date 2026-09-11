@@ -16,16 +16,14 @@ const changeBodySchema = z.object({
  * @param {import('fastify').FastifyInstance} app Fastify app with auth decorations.
  */
 export async function passwordRoutes(app) {
-  const authenticate = app.authenticate;
-
   app.post(
     '/auth/password/change',
     {
       config: {
+        routeAccess: 'authenticated',
         rateLimitClass: 'auth',
         allowWhenMustChangePassword: true,
       },
-      preHandler: authenticate,
     },
     async (request) => {
       const parsed = changeBodySchema.safeParse(request.body ?? {});

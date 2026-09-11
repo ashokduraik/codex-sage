@@ -118,7 +118,9 @@ API process
   Fastify routes: JWT access token → request.principal { userId, orgId, roleIds, sessionId }
     (verify signature/iss/aud/exp, load active user, reject if passwordUpdatedAt > iat,
      load session by sid — must be active/not revoked; org never taken from path/query/body)
-  Then RBAC + project membership on every protected route (Phase 09+)
+  Global authorize preHandler (ADR 0015): routeAccess public | authenticated | requiredPermissions
+    → resolve effective permissions from roles (org-scoped; built-ins from code catalog)
+  Then project membership on project routes (Phase 18 inserts after permissions)
   Chat: LangGraph + SSE
   Before every model call: token budgeter
   Tools Node actually runs: explore_code, search_documents, read file/doc slices, abstain

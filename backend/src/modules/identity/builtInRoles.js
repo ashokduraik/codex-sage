@@ -1,6 +1,6 @@
 /**
  * Built-in role keys and display names seeded per organization.
- * Permissions stay empty — Phase 09 resolves them from the code catalog.
+ * Permission arrays are resolved from code in the authorization module (empty in Mongo).
  */
 
 /** @typedef {'org_admin' | 'project_admin' | 'member' | 'viewer'} BuiltInRoleKey */

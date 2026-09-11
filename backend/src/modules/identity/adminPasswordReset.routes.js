@@ -1,48 +1,21 @@
 /**
  * Administrator-set password route (D15).
- * Interim users.manage guard until Phase 09 requirePermissions.
+ * Guarded by requiredPermissions: users.manage (Phase 09 global authorize hook).
  */
 import { z } from 'zod';
 import { ApiError } from '../../platform/errors.js';
 import { adminSetPassword } from '../auth/password.service.js';
 import { PASSWORD_MIN_LENGTH } from '../auth/passwordPolicy.js';
-import { findMembership } from './membership.repository.js';
-import { Role } from './role.model.js';
 
 const resetBodySchema = z.object({
   newPassword: z.string().min(1).max(1024),
 });
 
 /**
- * True when the principal may manage users (interim until Phase 09).
- * Allows built-in org_admin or any role that already lists `users.manage`.
- * @param {string} orgId Tenant id.
- * @param {string} userId Actor user id.
- * @returns {Promise<boolean>}
- */
-async function actorHasUsersManage(orgId, userId) {
-  const membership = await findMembership(orgId, userId);
-  if (!membership?.roleIds?.length) {
-    return false;
-  }
-  const roles = await Role.find({
-    _id: { $in: membership.roleIds },
-    orgId,
-  }).exec();
-  return roles.some(
-    (role) =>
-      role.builtInKey === 'org_admin' ||
-      (Array.isArray(role.permissions) && role.permissions.includes('users.manage')),
-  );
-}
-
-/**
  * Registers `POST /users/:userId/reset-password`.
  * @param {import('fastify').FastifyInstance} app Fastify app with auth decorations.
  */
 export async function adminPasswordResetRoutes(app) {
-  const authenticate = app.authenticate;
-
   app.post(
     '/users/:userId/reset-password',
     {
@@ -50,15 +23,9 @@ export async function adminPasswordResetRoutes(app) {
         rateLimitClass: 'auth',
         requiredPermissions: ['users.manage'],
       },
-      preHandler: authenticate,
     },
     async (request) => {
       const principal = request.principal;
-      const allowed = await actorHasUsersManage(principal.orgId, principal.userId);
-      if (!allowed) {
-        throw ApiError.fromCode('FORBIDDEN');
-      }
-
       const targetUserId = request.params.userId;
       if (typeof targetUserId !== 'string' || !targetUserId) {
         throw ApiError.fromCode('VALIDATION_ERROR', {

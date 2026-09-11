@@ -284,24 +284,24 @@ permission list already. The required permissions are logged and, from Phase 10,
 |---|---|
 | `backend/src/modules/authorization/permissionCatalog.js` | **New:** the 23 permissions, groups, labels, descriptions |
 | `backend/src/modules/authorization/permissionCatalog.test.js` | **New:** completeness and uniqueness |
+| `backend/src/modules/authorization/builtInRolePermissions.js` | **New:** code maps for the four built-in roles |
 | `backend/src/modules/authorization/permissionResolver.js` | **New:** role ids → effective permission set |
 | `backend/src/modules/authorization/permissionResolver.test.js` | **New** |
 | `backend/src/modules/authorization/roleCache.js` | **New:** TTL cache with explicit invalidation |
 | `backend/src/modules/authorization/roleCache.test.js` | **New** |
-| `backend/src/modules/authorization/requirePermissions.js` | **New:** the preHandler factory |
-| `backend/src/modules/authorization/requirePermissions.test.js` | **New** |
+| `backend/src/modules/authorization/authorize.preHandler.js` | **New:** global authorize preHandler |
 | `backend/src/modules/authorization/organizationScope.js` | **New:** compare an org path param to the principal |
 | `backend/src/modules/authorization/organizationScope.test.js` | **New** |
 | `backend/src/modules/authorization/routeDeclarationAudit.js` | **New:** boot assertion + public allowlist |
 | `backend/src/modules/authorization/routeDeclarationAudit.test.js` | **New** |
+| `backend/src/modules/authorization/roleCatalogAudit.js` | **New:** startup catalog drift check |
 | `backend/src/modules/authorization/permissions.routes.js` | **New:** `GET /permissions` |
-| `backend/src/modules/authorization/permissions.routes.test.js` | **New** |
+| `backend/src/modules/authorization/permissions.routes.test.js` | **New** (covered in authorization.routes.test.js) |
 | `backend/src/modules/authorization/index.js` | **New:** public surface |
 | `backend/src/modules/auth/auth.routes.js` | **Extend:** `/auth/me` returns `permissions` |
 | `backend/src/modules/auth/auth.routes.test.js` | **Extend** |
-| `backend/src/modules/identity/builtInRoles.js` | **Extend:** type the arrays against the catalog |
-| `backend/src/modules/identity/adminPasswordReset.routes.js` | **Extend:** replace the Phase 08 inline check with `requirePermissions(['users.manage'])` |
-| `backend/src/http/app.js` | Run the route-declaration assertion after routes are registered |
+| `backend/src/modules/identity/adminPasswordReset.routes.js` | **Extend:** replace the Phase 08 inline check with `requiredPermissions: ['users.manage']` |
+| `backend/src/http/app.js` | Global authorize hook + route-declaration assertion after ready |
 | `backend/src/http/routes.js` | Register `permissionsRoutes` |
 
 ## 9. Tests (≥ 80% line and branch)
@@ -352,24 +352,24 @@ permission list already. The required permissions are logged and, from Phase 10,
 
 ## 10. Definition of Done
 
-- [ ] The catalog holds exactly the solution §8.2 permission strings, each with a group, label
+- [x] The catalog holds exactly the solution §8.2 permission strings, each with a group, label
       and description, and no permission for an out-of-scope feature.
-- [ ] Effective permissions resolve from role ids scoped to the principal's organization.
-- [ ] Role permissions are cached with a named TTL constant and an explicit invalidation surface,
+- [x] Effective permissions resolve from role ids scoped to the principal's organization.
+- [x] Role permissions are cached with a named TTL constant and an explicit invalidation surface,
       and the staleness bound is documented.
-- [ ] User status and membership are not cached, so deactivation takes effect on the next
+- [x] User status and membership are not cached, so deactivation takes effect on the next
       request.
-- [ ] `requirePermissions` supports "all of" and "any of", and denies by default.
-- [ ] Every registered route declares its required permissions or is on the public allowlist,
+- [x] `requirePermissions` supports "all of" and "any of", and denies by default.
+- [x] Every registered route declares its required permissions or is on the public allowlist,
       enforced by a boot-time assertion.
-- [ ] No code path derives `orgId` from a client-supplied parameter.
-- [ ] Cross-tenant resources return `404` and are byte-identical to a non-existent resource;
+- [x] No code path derives `orgId` from a client-supplied parameter.
+- [x] Cross-tenant resources return `404` and are byte-identical to a non-existent resource;
       in-tenant permission failures return `403`.
-- [ ] Error bodies never name the missing permission.
-- [ ] A startup assertion verifies every permission stored on a role exists in the catalog.
-- [ ] Phase 08's inline `users.manage` check is replaced by the shared factory.
-- [ ] The denial path throws a typed error carrying the audit context Phase 10 needs.
-- [ ] `npm run lint` and `npm test` pass; coverage ≥ 80% line and branch.
+- [x] Error bodies never name the missing permission.
+- [x] A startup assertion verifies every permission stored on a role exists in the catalog.
+- [x] Phase 08's inline `users.manage` check is replaced by the shared factory.
+- [x] The denial path throws a typed error carrying the audit context Phase 10 needs.
+- [x] `npm run lint` and `npm test` pass; coverage ≥ 80% line and branch.
 
 ## 11. Documentation & ADR updates
 
@@ -383,36 +383,18 @@ permission list already. The required permissions are logged and, from Phase 10,
 - Add the permission table (group, label, description) to `docs/data-model.md` or a new
   `docs/permissions.md`, since Phase 15 builds its UI from it.
 
-## 12. Risks & open questions
+## 12. Risks & open questions — resolved
 
-Ask the user; do not assume (`.cursor/rules/no-assumptions.mdc`).
-
-1. **Cache staleness bound.** A role edit takes effect immediately on the process that handled
-   it and within `RBAC_ROLE_CACHE_TTL_SECONDS` elsewhere. Is a bounded delay of tens of seconds
-   for a *permission reduction* acceptable? If not, the options are a cache-busting version
-   counter read per request (an extra Mongo read on every request) or a change-stream listener
-   (new infrastructure). Thirty seconds is a placeholder, not a recommendation.
-2. **How strictly should "do not expose internal permission identifiers" (frontend §85) be
-   read?** The proposal keeps `key` in the payload as an opaque value and renders only
-   `label` / `description`. If the requirement means the key must not reach the browser at
-   all, the API needs a separate stable public id per permission and a mapping, which is more
-   machinery for little gain.
-3. **`403` versus `404` in practice.** The policy is stated, but support engineers will find
-   `404` for a resource that visibly exists hard to diagnose. Is a correlation id in the
-   response plus the real reason in the audit log (Phase 10) sufficient?
-4. **Should `GET /permissions` require `roles.manage`?** It exposes no tenant data, only the
-   product's capability vocabulary. A looser guard (any authenticated user) would let other UI
-   surfaces render permission names, but it also describes the authorization model to anyone
-   with an account.
-5. **Wildcard for `org_admin`.** Depends on Phase 06 question 4. If the array is stored
-   explicitly, adding a permission in a later phase silently fails to grant it to existing
-   `org_admin` roles, which needs a schema/catalog update in whichever phase adds the permission.
-6. **Deny-by-default at the framework level.** The boot assertion catches undeclared routes but
-   still relies on the `preHandler` being wired. A global `onRequest` hook that reads
-   `config.requiredPermissions` would make the two impossible to diverge. It is a bigger change
-   to the request pipeline — worth doing now, or leave the two-place convention?
-7. **`viewer` and `chat.ask`.** Solution §8.2 leaves it to policy. The answer belongs to Phase
-   06's built-in role arrays but the negative tests here depend on it, so it must be settled by
-   the time this phase is implemented.
-8. **Permissions in the `/auth/me` payload** grow the response as roles grow. Acceptable, or
-   should the UI fetch them separately and cache them?
+1. **Cache staleness bound.** Locked: 30s TTL (`RBAC_ROLE_CACHE_TTL_SECONDS`) + local
+   invalidation; cross-process converges within the TTL.
+2. **Internal permission identifiers.** Locked: `key` travels as an opaque API value; UI
+   renders only `label` / `description`.
+3. **`403` versus `404`.** Locked: ADR 0014 — cross-tenant and missing ids are identical
+   `404`; in-tenant permission failures are `403`. Correlation id + Phase 10 audit for support.
+4. **`GET /permissions`.** Locked: requires `roles.manage`.
+5. **Wildcard for `org_admin`.** Locked: built-ins resolve from code; `org_admin` = full
+   catalog (empty array in Mongo). No DB wildcard.
+6. **Deny-by-default.** Locked: ADR 0015 — global hook reads `config.requiredPermissions` /
+   `routeAccess`; boot audit fails undeclared routes.
+7. **`viewer` and `chat.ask`.** Locked: viewer includes `chat.ask`.
+8. **Permissions on `/auth/me`.** Locked: include effective `permissions[]` on the me payload.

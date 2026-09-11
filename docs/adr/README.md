@@ -16,6 +16,8 @@
 | [0011](./0011-startup-bootstrap-seed.md) | Startup bootstrap seed (no public signup) | Accepted |
 | [0012](./0012-refresh-token-rotation.md) | Refresh-token rotation with strict reuse detection | Accepted |
 | [0013](./0013-admin-mediated-password-reset.md) | Admin-mediated password reset (no public token flow) | Accepted |
+| [0014](./0014-cross-tenant-404.md) | Cross-tenant resource misses return 404 | Accepted |
+| [0015](./0015-global-route-authorization.md) | Global route authorization via config declaration | Accepted |
 
 One decision = one ADR. Accepted ADRs are immutable; supersede with a new number rather
 than rewriting history.

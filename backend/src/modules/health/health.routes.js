@@ -49,11 +49,19 @@ export async function buildReadinessResponse() {
  * @param app - The Fastify application instance to register the routes on.
  */
 export async function healthRoutes(app) {
-    app.get('/health', async () => {
-        return buildHealthResponse();
-    });
-    app.get('/readiness', async (_request, reply) => {
-        const { statusCode, body } = await buildReadinessResponse();
-        return reply.status(statusCode).send(body);
-    });
+    app.get(
+        '/health',
+        { config: { routeAccess: 'public' } },
+        async () => {
+            return buildHealthResponse();
+        },
+    );
+    app.get(
+        '/readiness',
+        { config: { routeAccess: 'public' } },
+        async (_request, reply) => {
+            const { statusCode, body } = await buildReadinessResponse();
+            return reply.status(statusCode).send(body);
+        },
+    );
 }

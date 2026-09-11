@@ -149,7 +149,7 @@ describe('registerErrorHandler (integration via buildApp)', () => {
 
   it('returns 500 INTERNAL_ERROR for unhandled generic errors', async () => {
     app = buildApp(TEST_APP_CONFIG);
-    app.get('/boom', async () => {
+    app.get('/boom', { config: { routeAccess: 'public' } }, async () => {
       throw new Error('something broke');
     });
     const res = await app.inject({ method: 'GET', url: '/boom' });
@@ -167,7 +167,7 @@ describe('registerErrorHandler (integration via buildApp)', () => {
 
   it('returns catalog ApiError fields including allowlisted details', async () => {
     app = buildApp(TEST_APP_CONFIG);
-    app.get('/custom', async () => {
+    app.get('/custom', { config: { routeAccess: 'public' } }, async () => {
       throw ApiError.fromCode('VALIDATION_ERROR', {
         message: 'email is required',
         details: { field: 'email' },
@@ -189,7 +189,7 @@ describe('registerErrorHandler (integration via buildApp)', () => {
 
   it('maps non-ApiError 4xx to VALIDATION_ERROR', async () => {
     app = buildApp(TEST_APP_CONFIG);
-    app.get('/badreq', async () => {
+    app.get('/badreq', { config: { routeAccess: 'public' } }, async () => {
       const err = Object.assign(new Error('bad request'), { statusCode: 400 });
       throw err;
     });
@@ -202,7 +202,7 @@ describe('registerErrorHandler (integration via buildApp)', () => {
 
   it('serves INTERNAL_ERROR for an ApiError code missing from the catalog', async () => {
     app = buildApp(TEST_APP_CONFIG);
-    app.get('/unknown-code', async () => {
+    app.get('/unknown-code', { config: { routeAccess: 'public' } }, async () => {
       throw new ApiError(422, 'INVALID_PAYLOAD', 'bad data', { field: 'x' });
     });
     const res = await app.inject({ method: 'GET', url: '/unknown-code' });
@@ -258,7 +258,7 @@ describe('registerErrorHandler (integration via buildApp)', () => {
   it('populates request context correlation id during a handler', async () => {
     app = buildApp(TEST_APP_CONFIG);
     let seen;
-    app.get('/ctx', async (request) => {
+    app.get('/ctx', { config: { routeAccess: 'public' } }, async (request) => {
       seen = getCorrelationId();
       return { id: request.id };
     });

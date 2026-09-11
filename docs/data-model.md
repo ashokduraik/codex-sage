@@ -69,9 +69,9 @@ password, cleared on self-service change), `userStatus` (`active` \| `invited` \
 ### `roles`
 
 Tenant-scoped. Built-in roles use `isBuiltIn: true` and `builtInKey` (`org_admin`,
-`project_admin`, `member`, `viewer`) with empty `permissions` (resolved in Phase 09). Custom
-roles store `permissions`. Unique partial indexes on `{ orgId: 1, name: 1 }` and
-`{ orgId: 1, builtInKey: 1 }` (built-ins only).
+`project_admin`, `member`, `viewer`) with empty `permissions` (resolved from code — see
+[`permissions.md`](./permissions.md)). Custom roles store `permissions`. Unique partial
+indexes on `{ orgId: 1, name: 1 }` and `{ orgId: 1, builtInKey: 1 }` (built-ins only).
 
 ### `memberships`
 

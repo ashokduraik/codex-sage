@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { buildApp } from './http/app.js';
 import { AUTH_MODELS } from './modules/auth/index.js';
+import { assertRolePermissionsInCatalog } from './modules/authorization/index.js';
 import { IDENTITY_MODELS, runBootstrapSeed } from './modules/identity/index.js';
 import { loadConfig } from './platform/config.js';
 import { syncSchemaIndexes } from './platform/data/index.js';
@@ -20,7 +21,8 @@ import {
  *   3. Connect to MongoDB (fail fast on first connect).
  *   4. Sync schema indexes in non-production.
  *   5. Run the idempotent bootstrap seed.
- *   6. Build the Fastify app, register shutdown hooks, and listen.
+ *   6. Assert stored role permissions exist in the catalog.
+ *   7. Build the Fastify app, register shutdown hooks, and listen.
  */
 async function start() {
   registerProcessHandlers({
@@ -66,6 +68,19 @@ async function start() {
   try {
     await runBootstrapSeed(shutdownLog);
   } catch {
+    process.exit(1);
+  }
+
+  try {
+    await assertRolePermissionsInCatalog();
+  } catch (err) {
+    shutdownLog.error(
+      {
+        errName: err instanceof Error ? err.name : 'Error',
+        errMessage: err instanceof Error ? err.message : String(err),
+      },
+      'role permission catalog audit failed',
+    );
     process.exit(1);
   }
 

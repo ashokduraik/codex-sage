@@ -3,6 +3,7 @@
  */
 import { z } from 'zod';
 import { ApiError } from '../../platform/errors.js';
+import { resolveEffectivePermissions } from '../authorization/permissionResolver.js';
 import { findMembership } from '../identity/membership.repository.js';
 import { findUserById } from '../identity/user.repository.js';
 import {
@@ -115,13 +116,12 @@ function readRefreshToken(request) {
  */
 export async function authRoutes(app) {
   const authService = app.authService;
-  const authenticate = app.authenticate;
   const isProduction = app.config.env.isProduction;
 
   app.post(
     '/auth/login',
     {
-      config: { rateLimitClass: 'auth' },
+      config: { routeAccess: 'public', rateLimitClass: 'auth' },
     },
     async (request, reply) => {
       const parsed = loginBodySchema.safeParse(request.body ?? {});
@@ -150,7 +150,7 @@ export async function authRoutes(app) {
   app.post(
     '/auth/refresh',
     {
-      config: { rateLimitClass: 'auth' },
+      config: { routeAccess: 'public', rateLimitClass: 'auth' },
       onRequest: app.csrfProtection,
     },
     async (request, reply) => {
@@ -174,7 +174,7 @@ export async function authRoutes(app) {
   app.post(
     '/auth/logout',
     {
-      config: { rateLimitClass: 'auth' },
+      config: { routeAccess: 'public', rateLimitClass: 'auth' },
       onRequest: app.csrfProtection,
     },
     async (request, reply) => {
@@ -188,10 +188,10 @@ export async function authRoutes(app) {
     '/auth/me',
     {
       config: {
+        routeAccess: 'authenticated',
         rateLimitClass: 'auth',
         allowWhenMustChangePassword: true,
       },
-      preHandler: authenticate,
     },
     async (request) => {
       const principal = request.principal;
@@ -200,12 +200,15 @@ export async function authRoutes(app) {
         throw ApiError.fromCode('UNAUTHENTICATED');
       }
       const membership = await findMembership(principal.orgId, principal.userId);
+      const roleIds = (membership?.roleIds ?? []).map((id) => String(id));
+      const permissions = await resolveEffectivePermissions(principal.orgId, roleIds);
       return {
         id: String(user._id),
         email: user.email,
         displayName: user.displayName,
         orgId: String(user.orgId),
-        roleIds: (membership?.roleIds ?? []).map((id) => String(id)),
+        roleIds,
+        permissions,
         mustChangePassword: user.mustChangePassword === true,
       };
     },

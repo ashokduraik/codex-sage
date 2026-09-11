@@ -23,6 +23,11 @@ import {
   JWT_ISSUER,
   JWT_ACCESS_TOKEN_TTL_SECONDS,
 } from '../modules/auth/tokenService.js';
+import {
+  assertAllRoutesDeclareAccess,
+  createAuthorizePreHandler,
+  installRouteDeclarationCollector,
+} from '../modules/authorization/index.js';
 import { registerRoutes } from './routes.js';
 import { healthRoutes } from '../modules/health/health.routes.js';
 
@@ -56,9 +61,13 @@ export function buildApp(config = loadConfig()) {
 
   const authService = createAuthService(config.auth.jwtAccessTokenSecret);
   const authenticate = createAuthenticatePreHandler(authService);
+  const authorize = createAuthorizePreHandler(authenticate);
   app.decorate('authService', authService);
   app.decorate('authenticate', authenticate);
   app.decorateRequest('principal', null);
+
+  installRouteDeclarationCollector(app);
+  app.addHook('preHandler', authorize);
 
   // Enter ALS for the remainder of the request (Fastify continues inside `done`).
   app.addHook('onRequest', (request, _reply, done) => {
@@ -119,5 +128,10 @@ export function buildApp(config = loadConfig()) {
   // Unversioned infra aliases (same handlers as under API_BASE_PATH).
   void app.register(healthRoutes);
   void app.register(registerRoutes, { prefix: API_BASE_PATH });
+
+  app.addHook('onReady', async () => {
+    assertAllRoutesDeclareAccess(app);
+  });
+
   return app;
 }

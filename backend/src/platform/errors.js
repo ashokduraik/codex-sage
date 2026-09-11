@@ -146,18 +146,24 @@ export function buildErrorEnvelope(error, reference) {
  * @param {import('fastify').FastifyInstance} app Fastify application instance.
  */
 export function registerErrorHandler(app) {
-  app.setNotFoundHandler((request, reply) => {
-    const entry = ERROR_CATALOG.NOT_FOUND;
-    return reply.status(entry.httpStatus).send({
-      error: {
-        code: 'NOT_FOUND',
-        class: entry.class,
-        retryability: entry.retryability,
-        message: entry.message,
-        reference: request.id,
-      },
-    });
-  });
+  app.setNotFoundHandler(
+    {
+      // Not-found runs through preHandlers; keep it public so RBAC does not turn 404 into 403.
+      config: { routeAccess: 'public' },
+    },
+    (request, reply) => {
+      const entry = ERROR_CATALOG.NOT_FOUND;
+      return reply.status(entry.httpStatus).send({
+        error: {
+          code: 'NOT_FOUND',
+          class: entry.class,
+          retryability: entry.retryability,
+          message: entry.message,
+          reference: request.id,
+        },
+      });
+    },
+  );
 
   app.setErrorHandler((error, request, reply) => {
     const reference = request.id;
