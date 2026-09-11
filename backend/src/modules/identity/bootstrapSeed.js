@@ -7,6 +7,7 @@ import { BUILT_IN_ROLE_KEYS } from './builtInRoles.js';
 import {
   DEFAULT_ADMIN_EMAIL,
   DEFAULT_ADMIN_NAME,
+  DEFAULT_ADMIN_PASSWORD,
   DEFAULT_ORG_NAME,
   DEFAULT_ORG_SLUG,
 } from './bootstrapDefaults.js';
@@ -14,12 +15,18 @@ import {
   createOrganization,
   findOrganizationBySlug,
 } from './organization.repository.js';
-import { createUser, findUserByEmail } from './user.repository.js';
+import {
+  createUser,
+  findUserByEmail,
+  findUserByIdWithPassword,
+  setPasswordHashIfMissing,
+} from './user.repository.js';
 import { ensureBuiltInRoles } from './role.repository.js';
 import {
   createMembership,
   findMembership,
 } from './membership.repository.js';
+import { hashPassword } from '../auth/passwordHasher.js';
 
 /**
  * @typedef {object} BootstrapSeedResult
@@ -196,6 +203,42 @@ export async function runBootstrapSeed(log) {
 
   if (!summary) {
     throw ApiError.fromCode('BOOTSTRAP_FAILED');
+  }
+
+  // Password hashing stays outside the Mongo transaction (CPU-bound; keep locks short).
+  const debug =
+    typeof log.debug === 'function' ? log.debug.bind(log) : () => {};
+  const adminWithSecret = await findUserByIdWithPassword(
+    summary.orgId,
+    summary.adminUserId,
+  );
+  if (adminWithSecret && !adminWithSecret.passwordHash) {
+    const passwordHash = await hashPassword(DEFAULT_ADMIN_PASSWORD);
+    const updated = await setPasswordHashIfMissing(
+      summary.orgId,
+      summary.adminUserId,
+      passwordHash,
+    );
+    if (updated.modifiedCount > 0) {
+      summary = {
+        ...summary,
+        result: 'created',
+        adminUserStatus: 'active',
+      };
+      debug(
+        { step: 'admin_password', outcome: 'created' },
+        'bootstrap seed step',
+      );
+    }
+  } else if (adminWithSecret) {
+    summary = {
+      ...summary,
+      adminUserStatus: adminWithSecret.userStatus,
+    };
+    debug(
+      { step: 'admin_password', outcome: 'already_present' },
+      'bootstrap seed step',
+    );
   }
 
   log.info(

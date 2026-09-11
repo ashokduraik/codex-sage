@@ -233,12 +233,25 @@ describe('pino redact', () => {
     );
     logger.info({
       password: 'secret',
+      newPassword: 'new-secret',
       token: 'tok',
+      accessToken: 'access-tok',
+      refreshToken: 'refresh-tok',
+      passwordHash: 'argon-hash',
       connectionString: 'mongodb://user:pass@host/db',
     });
     const joined = lines.join('');
     expect(joined).toContain('[redacted]');
     expect(joined).not.toContain('secret');
+    expect(joined).not.toContain('new-secret');
+    expect(joined).not.toContain('access-tok');
+    expect(joined).not.toContain('refresh-tok');
+    expect(joined).not.toContain('argon-hash');
     expect(joined).not.toContain('mongodb://user:pass');
+  });
+
+  it('includes newPassword in LOG_REDACT_PATHS', () => {
+    expect(LOG_REDACT_PATHS).toContain('newPassword');
+    expect(LOG_REDACT_PATHS).toContain('*.newPassword');
   });
 });

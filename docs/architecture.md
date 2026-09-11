@@ -115,7 +115,10 @@ is active.
 
 ```text
 API process
-  Fastify routes: JWT → org + user, RBAC + project membership on every protected route
+  Fastify routes: JWT access token → request.principal { userId, orgId, roleIds, sessionId }
+    (verify signature/iss/aud/exp, load active user, reject if passwordUpdatedAt > iat,
+     load session by sid — must be active/not revoked; org never taken from path/query/body)
+  Then RBAC + project membership on every protected route (Phase 09+)
   Chat: LangGraph + SSE
   Before every model call: token budgeter
   Tools Node actually runs: explore_code, search_documents, read file/doc slices, abstain
@@ -127,7 +130,7 @@ Worker process
   Scheduled git sync (default every 30 minutes)
 
 MongoDB
-  Orgs, users, roles, memberships, projects
+  Orgs, users, roles, memberships, sessions (refresh-token families), projects
   Source versions/files, document sections (text index), knowledge metadata
   Jobs and job events
   Conversations, messages, clarifications, summaries

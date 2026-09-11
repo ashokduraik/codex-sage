@@ -915,16 +915,18 @@ Built-in roles: `org_admin` (all), `project_admin`, `member` (view + chat + sear
 
 ### 8.3 Auth
 
-See [ADR 0007](../docs/adr/0007-argon2id-jwt.md) (passwords + access JWT) and
-[ADR 0008](../docs/adr/0008-httponly-refresh-cookie.md) (httpOnly refresh cookie + CSRF).
+See [ADR 0007](../docs/adr/0007-argon2id-jwt.md) (passwords + access JWT),
+[ADR 0008](../docs/adr/0008-httponly-refresh-cookie.md) (httpOnly refresh cookie + CSRF),
+and [ADR 0012](../docs/adr/0012-refresh-token-rotation.md) (rotation + strict reuse detection).
 
 | Concern | MVP |
 |---------|-----|
-| Password | argon2id hash; never log plaintext |
-| Session | JWT access token (short TTL, in memory) + refresh token (httpOnly cookie; D14) |
-| Login / logout / refresh | `/api/v1/auth/*` |
-| Password reset | Admin-initiated reset + user self-reset via one-time token (hashed at rest, single use, expiry) |
-| Bootstrap | First org admin via controlled seed / invite — no open signup in MVP |
+| Password | argon2id hash (OWASP minimum costs as named constants); never log plaintext |
+| Session | JWT access token (15 min TTL, in memory) + refresh token (httpOnly cookie, 1 day absolute TTL; D14) |
+| Refresh | Rotate on every use; reuse revokes the whole session family (no grace window) |
+| Login / logout / refresh / me | `/api/v1/auth/*` |
+| Password reset | Admin-mediated only (D15); signed-in self-service password change stays |
+| Bootstrap | Startup seed sets default admin password from a named constant (ADR 0011) — no open signup |
 
 ### 8.4 Admin API surface (`/api/v1`)
 

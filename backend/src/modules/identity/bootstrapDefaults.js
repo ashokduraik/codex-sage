@@ -14,3 +14,9 @@ export const DEFAULT_ADMIN_EMAIL = 'admin@localhost';
 
 /** First administrator display name. */
 export const DEFAULT_ADMIN_NAME = 'Administrator';
+
+/**
+ * Default plaintext password for the bootstrap administrator (local/MVP).
+ * Hashed at seed; change after first login (Phase 08). Never log this value.
+ */
+export const DEFAULT_ADMIN_PASSWORD = 'abc123';

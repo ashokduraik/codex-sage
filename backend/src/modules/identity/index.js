@@ -7,6 +7,7 @@ export {
   DEFAULT_ORG_SLUG,
   DEFAULT_ADMIN_EMAIL,
   DEFAULT_ADMIN_NAME,
+  DEFAULT_ADMIN_PASSWORD,
 } from './bootstrapDefaults.js';
 export { Organization, SLUG_PATTERN } from './organization.model.js';
 export { User, USER_STATUS_VALUES } from './user.model.js';
@@ -21,9 +22,14 @@ export {
 export {
   findUserByEmail,
   findUserById,
+  findUserByIdWithPassword,
+  findActiveUsersByEmailWithPassword,
   createUser,
   listUsers,
   softDeleteUser,
+  setPasswordHashIfMissing,
+  updateUserPasswordHash,
+  touchLastLoginAt,
 } from './user.repository.js';
 export {
   findBuiltInRole,

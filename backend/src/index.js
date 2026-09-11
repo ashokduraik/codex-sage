@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { buildApp } from './http/app.js';
+import { AUTH_MODELS } from './modules/auth/index.js';
 import { IDENTITY_MODELS, runBootstrapSeed } from './modules/identity/index.js';
 import { loadConfig } from './platform/config.js';
 import { syncSchemaIndexes } from './platform/data/index.js';
@@ -52,7 +53,7 @@ async function start() {
 
   if (!config.env.isProduction) {
     try {
-      await syncSchemaIndexes([...IDENTITY_MODELS]);
+      await syncSchemaIndexes([...IDENTITY_MODELS, ...AUTH_MODELS]);
     } catch (err) {
       shutdownLog.error(
         { errName: err instanceof Error ? err.name : 'Error' },

@@ -14,6 +14,7 @@
 | [0009](./0009-integration-tests-external-mongo.md) | Integration tests on the external replica set | Accepted |
 | [0010](./0010-structured-error-envelope.md) | Structured error envelope and correlation IDs | Accepted |
 | [0011](./0011-startup-bootstrap-seed.md) | Startup bootstrap seed (no public signup) | Accepted |
+| [0012](./0012-refresh-token-rotation.md) | Refresh-token rotation with strict reuse detection | Accepted |
 
 One decision = one ADR. Accepted ADRs are immutable; supersede with a new number rather
 than rewriting history.

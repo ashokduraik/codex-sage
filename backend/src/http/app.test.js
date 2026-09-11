@@ -70,20 +70,29 @@ describe('buildApp', () => {
         expect(res.json().status).toBe('ready');
     });
     it('builds with the default config without throwing when env is valid', async () => {
-        const previous = process.env.MONGODB_URI;
+        const previousUri = process.env.MONGODB_URI;
+        const previousJwt = process.env.JWT_ACCESS_TOKEN_SECRET;
         process.env.MONGODB_URI =
             'mongodb://127.0.0.1:27017/codex_sage_test?replicaSet=rs0';
+        process.env.JWT_ACCESS_TOKEN_SECRET =
+            'test-jwt-access-token-secret-at-least-32-chars';
         try {
             app = buildApp();
             await app.ready();
             expect(app.hasRoute({ method: 'GET', url: `${API_BASE_PATH}/health` })).toBe(true);
         }
         finally {
-            if (previous === undefined) {
+            if (previousUri === undefined) {
                 delete process.env.MONGODB_URI;
             }
             else {
-                process.env.MONGODB_URI = previous;
+                process.env.MONGODB_URI = previousUri;
+            }
+            if (previousJwt === undefined) {
+                delete process.env.JWT_ACCESS_TOKEN_SECRET;
+            }
+            else {
+                process.env.JWT_ACCESS_TOKEN_SECRET = previousJwt;
             }
         }
     });

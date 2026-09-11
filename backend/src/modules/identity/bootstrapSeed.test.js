@@ -57,7 +57,7 @@ describe('runBootstrapSeed', () => {
       'member',
       'viewer',
     ]);
-    expect(result.adminUserStatus).toBe('invited');
+    expect(result.adminUserStatus).toBe('active');
 
     const org = await findOrganizationBySlug(DEFAULT_ORG_SLUG);
     expect(org).toBeTruthy();
@@ -65,6 +65,7 @@ describe('runBootstrapSeed', () => {
     expect(roles).toHaveLength(4);
     const admin = await findUserByEmail(org._id, DEFAULT_ADMIN_EMAIL);
     expect(admin).toBeTruthy();
+    expect(admin.userStatus).toBe('active');
     const memberships = await Membership.find({ orgId: org._id });
     expect(memberships).toHaveLength(1);
 
@@ -73,6 +74,7 @@ describe('runBootstrapSeed', () => {
     const logged = JSON.stringify(log.info.mock.calls);
     expect(logged).not.toContain(DEFAULT_ADMIN_EMAIL);
     expect(logged).not.toContain('password');
+    expect(logged).not.toContain('abc123');
   });
 
   it('changes nothing on a second seed and reports already_present', async () => {

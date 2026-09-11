@@ -6,6 +6,9 @@
  */
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import cookie from '@fastify/cookie';
+import csrf from '@fastify/csrf-protection';
+import fjwt from '@fastify/jwt';
 import { loadConfig } from '../platform/config.js';
 import { buildLoggerOptions, registerRequestLogging } from '../platform/logger.js';
 import { registerErrorHandler } from '../platform/errors.js';
@@ -13,6 +16,13 @@ import {
   generateCorrelationId,
   runWithRequestContext,
 } from '../platform/requestContext.js';
+import { createAuthenticatePreHandler } from '../modules/auth/authenticate.preHandler.js';
+import { createAuthService } from '../modules/auth/auth.service.js';
+import {
+  JWT_AUDIENCE,
+  JWT_ISSUER,
+  JWT_ACCESS_TOKEN_TTL_SECONDS,
+} from '../modules/auth/tokenService.js';
 import { registerRoutes } from './routes.js';
 import { healthRoutes } from '../modules/health/health.routes.js';
 
@@ -20,6 +30,8 @@ import { healthRoutes } from '../modules/health/health.routes.js';
 export const API_BASE_PATH = '/api/v1';
 /** Response header carrying the request correlation reference. */
 export const CORRELATION_ID_HEADER = 'X-Correlation-Id';
+/** CSRF header the browser must echo on refresh/logout. */
+export const CSRF_HEADER_NAME = 'x-csrf-token';
 
 /**
  * Builds and configures the Fastify application instance.
@@ -42,6 +54,12 @@ export function buildApp(config = loadConfig()) {
 
   app.decorate('config', config);
 
+  const authService = createAuthService(config.auth.jwtAccessTokenSecret);
+  const authenticate = createAuthenticatePreHandler(authService);
+  app.decorate('authService', authService);
+  app.decorate('authenticate', authenticate);
+  app.decorateRequest('principal', null);
+
   // Enter ALS for the remainder of the request (Fastify continues inside `done`).
   app.addHook('onRequest', (request, _reply, done) => {
     runWithRequestContext({ correlationId: request.id }, done);
@@ -56,11 +74,46 @@ export function buildApp(config = loadConfig()) {
   if (!config.env.isProduction) {
     void app.register(cors, {
       origin: true,
+      credentials: true,
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Authorization', 'Content-Type', CORRELATION_ID_HEADER],
+      allowedHeaders: [
+        'Authorization',
+        'Content-Type',
+        CORRELATION_ID_HEADER,
+        'X-CSRF-Token',
+      ],
       exposedHeaders: [CORRELATION_ID_HEADER],
     });
   }
+
+  void app.register(cookie, {
+    secret: config.auth.jwtAccessTokenSecret,
+  });
+  void app.register(fjwt, {
+    secret: config.auth.jwtAccessTokenSecret,
+    sign: {
+      expiresIn: JWT_ACCESS_TOKEN_TTL_SECONDS,
+      iss: JWT_ISSUER,
+      aud: JWT_AUDIENCE,
+    },
+    verify: {
+      allowedIss: JWT_ISSUER,
+      allowedAud: JWT_AUDIENCE,
+    },
+  });
+  void app.register(csrf, {
+    cookieOpts: {
+      signed: false,
+      httpOnly: true,
+      sameSite: 'strict',
+      path: `${API_BASE_PATH}/auth`,
+      secure: config.env.isProduction,
+    },
+    getToken: (request) => {
+      const header = request.headers[CSRF_HEADER_NAME];
+      return typeof header === 'string' ? header : undefined;
+    },
+  });
 
   registerErrorHandler(app);
   // Unversioned infra aliases (same handlers as under API_BASE_PATH).

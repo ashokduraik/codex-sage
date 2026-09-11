@@ -75,8 +75,18 @@ roles store `permissions`. Unique partial indexes on `{ orgId: 1, name: 1 }` and
 Tenant-scoped. Fields: `userId`, `roleIds` (one or more), plus base fields. Unique partial
 index on `{ orgId: 1, userId: 1 }` where `status: 'A'`.
 
+### `sessions`
+
+Tenant-scoped refresh-token rows (Phase 07 / ADR 0012). Fields: `userId`, `familyId`,
+`refreshTokenHash` (SHA-256 of the opaque token — never the raw value), `issuedAt`,
+`expiresAt`, optional `rotatedAt` / `replacedBySessionId`, optional `revokedAt` /
+`revokedReason` (`logout` \| `reuse_detected` \| `password_changed` \| `user_disabled`),
+plus base fields. Indexes: unique `{ refreshTokenHash: 1 }`; `{ orgId: 1, userId: 1, status: 1 }`;
+`{ familyId: 1 }`; `{ expiresAt: 1 }`.
+
 ## Bootstrap seed
 
-On API startup the process ensures the default organization, four built-in roles, invited
-admin user, and org_admin membership exist (ADR 0011). Defaults are named constants — not
-env vars. Worker processes do not seed.
+On API startup the process ensures the default organization, four built-in roles, admin
+user (password hashed from the named constant `DEFAULT_ADMIN_PASSWORD`, `userStatus: 'active'`),
+and org_admin membership exist (ADR 0011). Defaults are named constants — not env vars.
+Worker processes do not seed.

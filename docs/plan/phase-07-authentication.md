@@ -75,7 +75,7 @@ invalidate.
 
 `src/modules/auth/passwordHasher.js` is the only module that imports `argon2`. It always uses
 the argon2id variant (solution §8.3) and takes memory cost, time cost and parallelism from
-named constants in `passwordHasher.ts`. Raising them is a code change, not an env change.
+named constants in `passwordHasher.js`. Raising them is a code change, not an env change.
 
 `verifyPassword` never short-circuits on a missing user. When the email is unknown, or the
 user has no `passwordHash` because they are still `invited`, the login path still runs a
@@ -299,18 +299,17 @@ the value in the error message (Phase 01 §4.1 already requires this).
 
 ### Constants (not env)
 
-Concrete argon2 costs are chosen in section 12 against current argon2 guidance; until then the
-constant names and the JWT timings below are the recommended defaults.
+Locked values from the Phase 07 implementation review:
 
 | Constant | Value | Where | Purpose |
 |---|---|---|---|
 | `JWT_ACCESS_TOKEN_TTL_SECONDS` | `900` | `modules/auth/tokenService.js` | Access-token lifetime |
-| `JWT_REFRESH_TOKEN_TTL_SECONDS` | `1209600` | `modules/auth/tokenService.js` | Refresh-token absolute lifetime |
+| `JWT_REFRESH_TOKEN_TTL_SECONDS` | `86400` | `modules/auth/tokenService.js` | Refresh-token absolute lifetime (1 day) |
 | `JWT_ISSUER` | `'codex-sage'` | `modules/auth/tokenService.js` | `iss` claim, verified on every request |
 | `JWT_AUDIENCE` | `'codex-sage-api'` | `modules/auth/tokenService.js` | `aud` claim, verified on every request |
-| `ARGON2_MEMORY_COST_KIB` | see section 12 | `modules/auth/passwordHasher.js` | argon2id memory cost |
-| `ARGON2_TIME_COST` | see section 12 | `modules/auth/passwordHasher.js` | argon2id iterations |
-| `ARGON2_PARALLELISM` | see section 12 | `modules/auth/passwordHasher.js` | argon2id lanes |
+| `ARGON2_MEMORY_COST_KIB` | `19456` | `modules/auth/passwordHasher.js` | argon2id memory cost |
+| `ARGON2_TIME_COST` | `2` | `modules/auth/passwordHasher.js` | argon2id iterations |
+| `ARGON2_PARALLELISM` | `1` | `modules/auth/passwordHasher.js` | argon2id lanes |
 
 ## 8. Files to create or change
 
@@ -412,29 +411,15 @@ constant names and the JWT timings below are the recommended defaults.
 
 ## 12. Risks & open questions
 
-Ask the user; do not assume (`.cursor/rules/no-assumptions.mdc`).
+**Resolved (Phase 07 implementation review):**
 
-1. **Refresh-token transport.** **Decided (D14).** httpOnly cookie, `SameSite=Strict`,
-   `Path=/api/v1/auth`, plus a CSRF double-submit header on refresh and logout. The access
-   token stays in the JSON body and in browser memory only.
-2. **argon2id cost parameters.** Deliberately left unset. They must come from current OWASP /
-   argon2 guidance and be measured on the target hardware — a guessed memory cost is either
-   insecure or a denial-of-service on the login route. Who provides the target numbers?
-3. **Access-token TTL and refresh-token TTL.** The examples above (15 minutes, 14 days) are
-   placeholders in a proposed contract, not a recommendation. Confirm both.
-4. **Residual access-token validity after logout.** Logout revokes the session but an already
-   issued access token stays valid until it expires. Acceptable with a short TTL, or should
-   `authenticate` also check that `sid` is still active — one extra indexed read per request?
-5. **Concurrent refresh.** Two browser tabs refreshing at the same moment will make the second
-   look like token reuse and log everyone out. Mitigations: a short grace window during which
-   the immediately preceding token is still accepted, or requiring the client to serialise
-   refreshes. Which behaviour is wanted?
-6. **Disabled user, honest message.** Uniform `INVALID_CREDENTIALS` means a deactivated
-   employee sees "wrong email or password". Is that acceptable, or should a disabled account
-   get a distinct message once the password has been verified correctly (which is safe, but
-   only after a correct password)?
-7. **Login attempt throttling and lockout.** Rate limiting (Phase 12) caps request volume; it
-   is not per-account lockout. Is account lockout after N failures required, and if so, who
-   unlocks?
-8. **Session listing.** Should a user, or an administrator, be able to see and revoke active
-   sessions? No phase currently owns that surface.
+1. **Refresh-token transport.** Decided (D14 / ADR 0008).
+2. **argon2id cost parameters.** OWASP minimum: `m=19456` KiB, `t=2`, `p=1` (named constants).
+3. **TTLs.** Access `900` s; refresh `86400` s (1 day).
+4. **Residual access after logout.** `authenticate` checks `sid` session is still active.
+5. **Concurrent refresh.** Strict reuse detection — no grace window (ADR 0012).
+6. **Disabled user message.** Uniform `INVALID_CREDENTIALS` (including disabled).
+7. **Account lockout.** Deferred to Phase 12 rate limits; no per-account lockout in Phase 07.
+8. **Session listing.** Deferred; not in this phase.
+9. **Bootstrap admin password.** Named constant `DEFAULT_ADMIN_PASSWORD = 'abc123'`; hashed at
+   seed; `userStatus: 'active'`. Change via Phase 08.

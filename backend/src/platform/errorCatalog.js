@@ -42,6 +42,18 @@ export const ERROR_CATALOG = Object.freeze({
     retryability: 'permanent',
     message: 'Authentication required.',
   }),
+  INVALID_CREDENTIALS: Object.freeze({
+    class: 'authorization',
+    httpStatus: 401,
+    retryability: 'user_action_required',
+    message: 'Invalid email or credentials.',
+  }),
+  SESSION_EXPIRED: Object.freeze({
+    class: 'authorization',
+    httpStatus: 401,
+    retryability: 'user_action_required',
+    message: 'Session expired. Sign in again.',
+  }),
   FORBIDDEN: Object.freeze({
     class: 'authorization',
     httpStatus: 403,

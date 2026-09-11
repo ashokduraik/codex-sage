@@ -3,6 +3,7 @@ import { loadConfig, parseAppRunningPlatform, parseLogLevel, parsePort, } from '
 /** Minimal valid env for loadConfig tests. */
 const VALID_ENV = {
     MONGODB_URI: 'mongodb://127.0.0.1:27017/codex_sage?replicaSet=rs0',
+    JWT_ACCESS_TOKEN_SECRET: 'test-jwt-access-token-secret-at-least-32-chars',
 };
 describe('loadConfig', () => {
     it('uses defaults when optional env variables are absent', () => {
@@ -17,6 +18,7 @@ describe('loadConfig', () => {
         expect(cfg.logging.level).toBe('info');
         expect(cfg.logging.noConsoleLog).toBe(false);
         expect(cfg.mongo.uri).toBe(VALID_ENV.MONGODB_URI);
+        expect(cfg.auth.jwtAccessTokenSecret).toBe(VALID_ENV.JWT_ACCESS_TOKEN_SECRET);
     });
     it('reads overrides from env', () => {
         const cfg = loadConfig({
@@ -36,6 +38,7 @@ describe('loadConfig', () => {
         expect(cfg.env.appRunningPlatform).toBe('container');
         expect(cfg.logging.level).toBe('warning');
         expect(cfg.logging.noConsoleLog).toBe(true);
+        expect(cfg.auth.jwtAccessTokenSecret).toBe(VALID_ENV.JWT_ACCESS_TOKEN_SECRET);
     });
     it('disables the logger and sets isTest under NODE_ENV=test', () => {
         const cfg = loadConfig({ ...VALID_ENV, NODE_ENV: 'test' });
@@ -44,14 +47,46 @@ describe('loadConfig', () => {
         expect(cfg.env.isTest).toBe(true);
     });
     it('throws when MONGODB_URI is missing and names the variable', () => {
-        expect(() => loadConfig({})).toThrow(/MONGODB_URI/);
+        expect(() => loadConfig({
+            JWT_ACCESS_TOKEN_SECRET: VALID_ENV.JWT_ACCESS_TOKEN_SECRET,
+        })).toThrow(/MONGODB_URI/);
+    });
+    it('throws when JWT_ACCESS_TOKEN_SECRET is missing', () => {
+        expect(() => loadConfig({
+            MONGODB_URI: VALID_ENV.MONGODB_URI,
+        })).toThrow(/JWT_ACCESS_TOKEN_SECRET/);
+    });
+    it('throws when JWT_ACCESS_TOKEN_SECRET is too short', () => {
+        expect(() => loadConfig({
+            ...VALID_ENV,
+            JWT_ACCESS_TOKEN_SECRET: 'too-short',
+        })).toThrow(/JWT_ACCESS_TOKEN_SECRET/);
+    });
+    it('does not put the JWT secret value in the thrown message', () => {
+        const secret = 'super-secret-jwt-value-that-must-not-leak-xx';
+        try {
+            loadConfig({
+                MONGODB_URI: VALID_ENV.MONGODB_URI,
+                JWT_ACCESS_TOKEN_SECRET: 'short',
+            });
+            expect.unreachable('expected loadConfig to throw');
+        }
+        catch (err) {
+            const message = err instanceof Error ? err.message : String(err);
+            expect(message).not.toContain(secret);
+            expect(message).not.toContain('short');
+            expect(message).toContain('JWT_ACCESS_TOKEN_SECRET');
+        }
     });
     it('throws listing all invalid variables when several are wrong at once', () => {
         expect(() => loadConfig({
             API_HOST: '   ',
             API_PORT: 'abc',
             MONGODB_URI: '',
-        })).toThrow(/Invalid configuration:\nAPI_HOST:.*\nAPI_PORT:.*\nMONGODB_URI:/s);
+            JWT_ACCESS_TOKEN_SECRET: '',
+        })).toThrow(
+            /Invalid configuration:\nAPI_HOST:.*\nAPI_PORT:.*\nMONGODB_URI:.*\nJWT_ACCESS_TOKEN_SECRET:/s,
+        );
     });
     it('rejects a non-numeric or out-of-range API_PORT', () => {
         expect(() => loadConfig({ ...VALID_ENV, API_PORT: 'abc' })).toThrow(/API_PORT/);
@@ -76,22 +111,31 @@ describe('loadConfig', () => {
         const serialized = JSON.stringify(cfg);
         expect(serialized).not.toMatch(/pool|SOCKET|API_BASE_PATH|SHUTDOWN/i);
         expect(cfg).not.toHaveProperty('poolSize');
-        expect(Object.keys(cfg)).toEqual(['env', 'server', 'logging', 'mongo']);
+        expect(Object.keys(cfg)).toEqual(['env', 'server', 'logging', 'mongo', 'auth']);
     });
     it('falls back to process.env by default when MONGODB_URI is set', () => {
-        const previous = process.env.MONGODB_URI;
+        const previousUri = process.env.MONGODB_URI;
+        const previousJwt = process.env.JWT_ACCESS_TOKEN_SECRET;
         process.env.MONGODB_URI = VALID_ENV.MONGODB_URI;
+        process.env.JWT_ACCESS_TOKEN_SECRET = VALID_ENV.JWT_ACCESS_TOKEN_SECRET;
         try {
             const cfg = loadConfig();
             expect(typeof cfg.server.port).toBe('number');
             expect(cfg.mongo.uri.length).toBeGreaterThan(0);
+            expect(cfg.auth.jwtAccessTokenSecret.length).toBeGreaterThanOrEqual(32);
         }
         finally {
-            if (previous === undefined) {
+            if (previousUri === undefined) {
                 delete process.env.MONGODB_URI;
             }
             else {
-                process.env.MONGODB_URI = previous;
+                process.env.MONGODB_URI = previousUri;
+            }
+            if (previousJwt === undefined) {
+                delete process.env.JWT_ACCESS_TOKEN_SECRET;
+            }
+            else {
+                process.env.JWT_ACCESS_TOKEN_SECRET = previousJwt;
             }
         }
     });
