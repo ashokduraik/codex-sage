@@ -1,0 +1,40 @@
+/**
+ * Curated audit action catalog — free-text actions are rejected at write time.
+ * Later phases add entries in the same change that introduces their routes.
+ */
+
+/** @typedef {'user' | 'role' | 'membership' | 'route'} AuditResourceType */
+
+/**
+ * Map of known `<domain>.<verb>` actions to their paired resourceType.
+ * @type {Readonly<Record<string, AuditResourceType>>}
+ */
+export const AUDIT_ACTION_RESOURCE_TYPES = Object.freeze({
+  'user.password_changed': 'user',
+  'user.password_set_by_admin': 'user',
+  'authz.denied': 'route',
+});
+
+/** Frozen list of known action strings. */
+export const AUDIT_ACTIONS = Object.freeze(Object.keys(AUDIT_ACTION_RESOURCE_TYPES));
+
+/** Set for O(1) membership checks. */
+const AUDIT_ACTION_SET = new Set(AUDIT_ACTIONS);
+
+/**
+ * Returns whether `action` is a known catalog entry.
+ * @param {string} action Candidate action.
+ * @returns {boolean}
+ */
+export function isKnownAuditAction(action) {
+  return typeof action === 'string' && AUDIT_ACTION_SET.has(action);
+}
+
+/**
+ * Returns the resourceType paired with a known action.
+ * @param {string} action Catalog action.
+ * @returns {AuditResourceType | undefined}
+ */
+export function resourceTypeForAction(action) {
+  return AUDIT_ACTION_RESOURCE_TYPES[action];
+}

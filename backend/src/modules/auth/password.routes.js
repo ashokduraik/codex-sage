@@ -3,6 +3,10 @@
  */
 import { z } from 'zod';
 import { ApiError } from '../../platform/errors.js';
+import {
+  buildAuditContextFromRequest,
+  recordAuditEvent,
+} from '../audit/index.js';
 import { changeOwnPassword } from './password.service.js';
 import { PASSWORD_MIN_LENGTH } from './passwordPolicy.js';
 
@@ -44,6 +48,7 @@ export async function passwordRoutes(app) {
       }
 
       const principal = request.principal;
+      const auditBase = buildAuditContextFromRequest(request);
       const result = await changeOwnPassword(
         {
           orgId: principal.orgId,
@@ -55,6 +60,19 @@ export async function passwordRoutes(app) {
       );
 
       if (result.outcome === 'invalid_current_password') {
+        await recordAuditEvent(
+          {
+            ...auditBase,
+            orgId: principal.orgId,
+            actorUserId: principal.userId,
+            action: 'user.password_changed',
+            resourceType: 'user',
+            resourceId: principal.userId,
+            result: 'failed',
+            context: { reason: 'self_change', failure: 'invalid_current_password' },
+          },
+          { log: request.log },
+        );
         throw ApiError.fromCode('INVALID_CURRENT_PASSWORD');
       }
       if (result.outcome === 'policy_violation') {
@@ -65,6 +83,20 @@ export async function passwordRoutes(app) {
       if (result.outcome !== 'password_changed') {
         throw ApiError.fromCode('UNAUTHENTICATED');
       }
+
+      await recordAuditEvent(
+        {
+          ...auditBase,
+          orgId: principal.orgId,
+          actorUserId: principal.userId,
+          action: 'user.password_changed',
+          resourceType: 'user',
+          resourceId: principal.userId,
+          result: 'success',
+          context: { reason: 'self_change', sessionsRevoked: true },
+        },
+        { log: request.log },
+      );
 
       return {
         passwordChanged: true,

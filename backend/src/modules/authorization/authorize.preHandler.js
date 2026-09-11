@@ -3,6 +3,11 @@
  */
 import { ApiError } from '../../platform/errors.js';
 import {
+  buildAuditContextFromRequest,
+  recordAuditEvent,
+  shouldAuditAuthorizationDenial,
+} from '../audit/index.js';
+import {
   hasRequiredPermissions,
   resolveEffectivePermissions,
 } from './permissionResolver.js';
@@ -50,13 +55,14 @@ export function createAuthorizePreHandler(authenticate) {
     const effective = await resolveEffectivePermissions(principal.orgId, principal.roleIds);
 
     if (!hasRequiredPermissions(effective, required, mode)) {
+      const routeLabel = `${request.method} ${request.routeOptions?.url ?? request.url}`;
       const error = ApiError.fromCode('FORBIDDEN');
-      // Phase 10 reads these fields from logs/error handler — never sent to the client.
+      // Non-client fields for audit/logs — never sent in the error envelope.
       error.authorizationDenial = {
         requiredPermissions: [...required],
         permissionMode: mode,
         principalUserId: principal.userId,
-        route: `${request.method} ${request.routeOptions?.url ?? request.url}`,
+        route: routeLabel,
         decision: 'deny',
       };
       request.log.warn(
@@ -68,6 +74,27 @@ export function createAuthorizePreHandler(authenticate) {
         },
         'authorization denied',
       );
+
+      if (shouldAuditAuthorizationDenial(required)) {
+        const auditBase = buildAuditContextFromRequest(request);
+        await recordAuditEvent(
+          {
+            ...auditBase,
+            orgId: principal.orgId,
+            actorUserId: principal.userId,
+            action: 'authz.denied',
+            resourceType: 'route',
+            resourceId: routeLabel,
+            result: 'denied',
+            context: {
+              requiredPermissions: required,
+              permissionMode: mode,
+            },
+          },
+          { log: request.log },
+        );
+      }
+
       throw error;
     }
   };

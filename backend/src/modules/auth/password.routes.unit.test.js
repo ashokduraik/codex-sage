@@ -7,7 +7,19 @@ vi.mock('./password.service.js', () => ({
   changeOwnPassword: vi.fn(),
 }));
 
+vi.mock('../audit/index.js', () => ({
+  buildAuditContextFromRequest: vi.fn(() => ({
+    orgId: 'o1',
+    actorUserId: 'u1',
+    correlationId: 'REQ-unit',
+    ip: undefined,
+    userAgent: undefined,
+  })),
+  recordAuditEvent: vi.fn(async () => {}),
+}));
+
 import { changeOwnPassword } from './password.service.js';
+import { recordAuditEvent } from '../audit/index.js';
 import { passwordRoutes } from './password.routes.js';
 
 /**
@@ -41,9 +53,10 @@ describe('password.routes edge outcomes', () => {
     const handler = app.getHandler();
     await expect(
       handler({
+        id: 'REQ-unit',
         body: { currentPassword: 'abcdef', newPassword: 'ghijkl' },
         principal: { orgId: 'o1', userId: 'u1' },
-        log: { info: () => {} },
+        log: { info: () => {}, error: () => {} },
       }),
     ).rejects.toMatchObject({ code: 'UNAUTHENTICATED' });
   });
@@ -55,13 +68,37 @@ describe('password.routes edge outcomes', () => {
     const handler = app.getHandler();
     await expect(
       handler({
+        id: 'REQ-unit',
         body: { currentPassword: 'abcdef', newPassword: 'ghijkl' },
         principal: { orgId: 'o1', userId: 'u1' },
-        log: { info: () => {} },
+        log: { info: () => {}, error: () => {} },
       }),
     ).rejects.toMatchObject({
       code: 'PASSWORD_POLICY_VIOLATION',
       details: { violations: [] },
     });
+  });
+
+  it('audits invalid_current_password as failed before throwing', async () => {
+    changeOwnPassword.mockResolvedValue({ outcome: 'invalid_current_password' });
+    recordAuditEvent.mockClear();
+    const app = createFakeApp();
+    await passwordRoutes(/** @type {any} */ (app));
+    const handler = app.getHandler();
+    await expect(
+      handler({
+        id: 'REQ-unit',
+        body: { currentPassword: 'abcdef', newPassword: 'ghijkl' },
+        principal: { orgId: 'o1', userId: 'u1' },
+        log: { info: () => {}, error: () => {} },
+      }),
+    ).rejects.toMatchObject({ code: 'INVALID_CURRENT_PASSWORD' });
+    expect(recordAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'user.password_changed',
+        result: 'failed',
+      }),
+      expect.anything(),
+    );
   });
 });

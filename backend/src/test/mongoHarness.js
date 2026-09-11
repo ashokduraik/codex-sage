@@ -88,11 +88,12 @@ export function createMongoHarness(options = {}) {
 
     /**
      * Deletes all documents from registered model collections (isolation).
+     * Uses the native collection API so append-only model middleware cannot block cleanup.
      * @returns {Promise<void>}
      */
     async afterEach() {
       for (const model of models) {
-        await model.deleteMany({});
+        await model.collection.deleteMany({});
       }
     },
 

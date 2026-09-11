@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { buildApp } from './http/app.js';
+import { AUDIT_MODELS } from './modules/audit/index.js';
 import { AUTH_MODELS } from './modules/auth/index.js';
 import { assertRolePermissionsInCatalog } from './modules/authorization/index.js';
 import { IDENTITY_MODELS, runBootstrapSeed } from './modules/identity/index.js';
@@ -55,7 +56,7 @@ async function start() {
 
   if (!config.env.isProduction) {
     try {
-      await syncSchemaIndexes([...IDENTITY_MODELS, ...AUTH_MODELS]);
+      await syncSchemaIndexes([...IDENTITY_MODELS, ...AUTH_MODELS, ...AUDIT_MODELS]);
     } catch (err) {
       shutdownLog.error(
         { errName: err instanceof Error ? err.name : 'Error' },

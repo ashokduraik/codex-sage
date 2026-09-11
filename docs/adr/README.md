@@ -18,6 +18,7 @@
 | [0013](./0013-admin-mediated-password-reset.md) | Admin-mediated password reset (no public token flow) | Accepted |
 | [0014](./0014-cross-tenant-404.md) | Cross-tenant resource misses return 404 | Accepted |
 | [0015](./0015-global-route-authorization.md) | Global route authorization via config declaration | Accepted |
+| [0016](./0016-audit-write-best-effort.md) | Audit writes are always best-effort | Accepted |
 
 One decision = one ADR. Accepted ADRs are immutable; supersede with a new number rather
 than rewriting history.

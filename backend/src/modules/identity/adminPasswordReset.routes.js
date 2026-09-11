@@ -4,6 +4,10 @@
  */
 import { z } from 'zod';
 import { ApiError } from '../../platform/errors.js';
+import {
+  buildAuditContextFromRequest,
+  recordAuditEvent,
+} from '../audit/index.js';
 import { adminSetPassword } from '../auth/password.service.js';
 import { PASSWORD_MIN_LENGTH } from '../auth/passwordPolicy.js';
 
@@ -49,6 +53,7 @@ export async function adminPasswordResetRoutes(app) {
         });
       }
 
+      const auditBase = buildAuditContextFromRequest(request);
       const result = await adminSetPassword(
         {
           orgId: principal.orgId,
@@ -70,6 +75,20 @@ export async function adminPasswordResetRoutes(app) {
       if (result.outcome !== 'password_changed' || !result.passwordUpdatedAt) {
         throw ApiError.fromCode('INTERNAL_ERROR');
       }
+
+      await recordAuditEvent(
+        {
+          ...auditBase,
+          orgId: principal.orgId,
+          actorUserId: principal.userId,
+          action: 'user.password_set_by_admin',
+          resourceType: 'user',
+          resourceId: String(result.userId ?? targetUserId),
+          result: 'success',
+          context: { reason: 'admin_set', sessionsRevoked: true },
+        },
+        { log: request.log },
+      );
 
       return {
         userId: result.userId,

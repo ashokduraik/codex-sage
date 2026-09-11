@@ -7,6 +7,7 @@ import { API_BASE_PATH, buildApp } from '../../http/app.js';
 import { createMongoHarness } from '../../test/mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../test/appConfig.js';
 import { registerErrorHandler } from '../../platform/errors.js';
+import { AUDIT_MODELS } from '../audit/index.js';
 import { AUTH_MODELS } from '../auth/index.js';
 import { hashPassword } from '../auth/passwordHasher.js';
 import { createAuthenticatePreHandler } from '../auth/authenticate.preHandler.js';
@@ -29,7 +30,7 @@ import { ALL_PERMISSION_KEYS, PERMISSION_GROUPS } from './permissionCatalog.js';
 import { invalidateRole } from './roleCache.js';
 
 const harness = createMongoHarness({
-  models: [...IDENTITY_MODELS, ...AUTH_MODELS],
+  models: [...IDENTITY_MODELS, ...AUTH_MODELS, ...AUDIT_MODELS],
   uri: TEST_APP_CONFIG.mongo.uri,
 });
 

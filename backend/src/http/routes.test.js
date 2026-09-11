@@ -12,5 +12,9 @@ describe('registerRoutes', () => {
         await app.ready();
         expect(app.hasRoute({ method: 'GET', url: `${API_BASE_PATH}/health` })).toBe(true);
         expect(app.hasRoute({ method: 'GET', url: `${API_BASE_PATH}/readiness` })).toBe(true);
+        expect(app.hasRoute({ method: 'GET', url: `${API_BASE_PATH}/audit-events` })).toBe(true);
+        expect(
+            app.hasRoute({ method: 'GET', url: `${API_BASE_PATH}/audit-events/:auditEventId` }),
+        ).toBe(true);
     });
 });

@@ -5,6 +5,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { API_BASE_PATH, buildApp } from '../../http/app.js';
 import { createMongoHarness } from '../../test/mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../test/appConfig.js';
+import { AUDIT_MODELS } from '../audit/index.js';
 import { AUTH_MODELS } from './index.js';
 import {
   DEFAULT_ADMIN_EMAIL,
@@ -23,7 +24,7 @@ import { Session } from './session.model.js';
 import { hashPassword } from './passwordHasher.js';
 
 const harness = createMongoHarness({
-  models: [...IDENTITY_MODELS, ...AUTH_MODELS],
+  models: [...IDENTITY_MODELS, ...AUTH_MODELS, ...AUDIT_MODELS],
   uri: TEST_APP_CONFIG.mongo.uri,
 });
 

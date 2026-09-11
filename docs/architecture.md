@@ -402,7 +402,7 @@ SSE events the UI handles: `status`, `delta` (token text), `clarification`, `evi
 |---------|--------|
 | Rate limit | `@fastify/rate-limit` per route class; `429` |
 | Idempotency | `Idempotency-Key` on upload, retry, sync, chat create, admin creates |
-| Audit | append-only `AuditEvent`; no secrets, no raw source, no full chat |
+| Audit | append-only `AuditEvent`; curated `<domain>.<verb>` action catalog; best-effort writer (ADR 0016); no secrets, no raw source, no full chat |
 | Notifications | in-app only in this slice (knowledge/sync/attention) |
 | Usage | recorded `UsageEvent` / rollups only |
 | Retention | scheduled worker; default keep last 3 ready source versions (see solution §12.3) |
