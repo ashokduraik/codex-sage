@@ -57,17 +57,16 @@ describe('refreshAccessToken', () => {
     expect(init.headers[CSRF_HEADER_NAME]).toBe('csrf-test');
   });
 
-  it('omits the CSRF header when the cookie is missing', async () => {
+  it('fails locally without fetching when the csrf cookie is missing', async () => {
     document.cookie = 'csrfToken=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/';
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      headers: { get: () => null },
-      json: async () => ({ accessToken: 'tok' }),
-    });
+    const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
-    await refreshAccessToken();
-    expect(fetchMock.mock.calls[0][1].headers[CSRF_HEADER_NAME]).toBeUndefined();
+    await expect(refreshAccessToken()).rejects.toMatchObject({
+      code: 'UNAUTHENTICATED',
+      status: 401,
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(getAccessToken()).toBeNull();
   });
 
   it('shares one in-flight refresh across concurrent callers', async () => {

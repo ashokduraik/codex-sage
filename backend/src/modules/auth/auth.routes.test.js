@@ -136,6 +136,15 @@ describe('auth.routes', () => {
       payload: { email: DEFAULT_ADMIN_EMAIL, password: DEFAULT_ADMIN_PASSWORD },
     });
     const jar1 = cookieJarFromResponse(login);
+    expect(jar1.jar._csrf).toBeTruthy();
+    expect(jar1.csrfToken).toBeTruthy();
+    const setCookie = login.headers['set-cookie'];
+    const cookieList = Array.isArray(setCookie) ? setCookie : [setCookie];
+    const csrfReadable = cookieList.find((entry) => String(entry).startsWith(`${CSRF_COOKIE_NAME}=`));
+    expect(csrfReadable).toMatch(/Path=\//i);
+    expect(csrfReadable).not.toMatch(/Path=\/api\/v1\/auth/i);
+    const csrfSecret = cookieList.find((entry) => String(entry).startsWith('_csrf='));
+    expect(csrfSecret).toMatch(/Max-Age=86400/i);
 
     const refresh1 = await app.inject({
       method: 'POST',
@@ -169,6 +178,17 @@ describe('auth.routes', () => {
     });
     expect(newestFails.statusCode).toBe(401);
     expect(newestFails.json().error.code).toBe('SESSION_EXPIRED');
+  });
+
+  it('returns SESSION_EXPIRED when refresh is called without a CSRF secret cookie', async () => {
+    await runBootstrapSeed(createMockLog());
+    app = await readyApp();
+    const res = await app.inject({
+      method: 'POST',
+      url: `${API_BASE_PATH}/auth/refresh`,
+    });
+    expect(res.statusCode).toBe(401);
+    expect(res.json().error.code).toBe('SESSION_EXPIRED');
   });
 
   it('logout returns 204 and invalidates access via sid check; unknown refresh still 204', async () => {

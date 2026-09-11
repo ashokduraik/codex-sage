@@ -1,99 +1,167 @@
 import { Loader2, Lock, LogIn, Mail } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate } from 'react-router-dom';
-import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 import AuthLayout from '@/features/auth/AuthLayout';
 import { useAuth } from '@/features/auth/AuthContext';
+import { correlationFromUnknown, messageFromUnknown } from '@/features/auth/authErrors';
 import { safeReturnTo } from '@/features/auth/authReturnTo';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
+
 /**
- * Resolve a user-facing message from an unknown thrown value.
- * @param err - Caught error value.
- * @param fallback - Localized fallback when no message is present.
- * @returns Error message string.
+ * Reads a one-shot notice reason from the current URL search string.
+ * @returns {'session_expired' | 'password_changed' | null}
  */
-function messageFromUnknown(err, fallback) {
-    if (err instanceof Error && err.message) {
-        return err.message;
-    }
-    return fallback;
+function loginNoticeReason() {
+  const reason = new URLSearchParams(window.location.search).get('reason');
+  if (reason === 'session_expired' || reason === 'password_changed') {
+    return reason;
+  }
+  return null;
 }
+
 /**
- * Email/password sign-in page.
+ * Email/password sign-in page against the real backend.
  * @returns Login form UI.
  */
 export default function LoginPage() {
-    const { t } = useTranslation();
-    const auth = useAuth();
-    const navigate = useNavigate();
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [error, setError] = useState('');
-    const [loading, setLoading] = useState(false);
-    const returnTo = safeReturnTo();
-    /**
-     * Submit email/password credentials and navigate to `returnTo` on success.
-     * @param event - Form submit event.
-     */
-    async function handleSubmit(event) {
-        event.preventDefault();
-        setError('');
-        setLoading(true);
-        try {
-            await auth.login(email, password);
-            navigate(returnTo);
-        }
-        catch (err) {
-            const message = messageFromUnknown(err, t('auth.invalidCredentials'));
-            setError(message);
-            toast.error(message);
-        }
-        finally {
-            setLoading(false);
-        }
+  const { t } = useTranslation();
+  const auth = useAuth();
+  const navigate = useNavigate();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [correlationId, setCorrelationId] = useState('');
+  const [loading, setLoading] = useState(false);
+  const returnTo = safeReturnTo();
+  const noticeReason = loginNoticeReason();
+
+  /**
+   * Submit email/password credentials and navigate on success.
+   * @param event - Form submit event.
+   */
+  async function handleSubmit(event) {
+    event.preventDefault();
+    setError('');
+    setCorrelationId('');
+    setLoading(true);
+    try {
+      const user = await auth.login(email, password);
+      if (user?.mustChangePassword) {
+        navigate('/change-password', { replace: true });
+        return;
+      }
+      navigate(returnTo, { replace: true });
+    } catch (err) {
+      setError(messageFromUnknown(err, t('auth.invalidCredentials')));
+      setCorrelationId(correlationFromUnknown(err));
+    } finally {
+      setLoading(false);
     }
-    const registerHref = returnTo !== '/'
-        ? `/register?returnTo=${encodeURIComponent(returnTo)}`
-        : '/register';
-    return (<AuthLayout icon={LogIn} title={t('auth.welcomeBack')} subtitle={t('auth.loginSubtitle')} footer={<>
-          {t('auth.dontHaveAccount')}{' '}
-          <Link to={registerHref} className="text-primary font-medium hover:underline">
-            {t('auth.createOne')}
-          </Link>
-        </>}>
-      {error && (<div role="alert" className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
-          {error}
-        </div>)}
+  }
+
+  return (
+    <AuthLayout
+      icon={LogIn}
+      title={t('auth.welcomeBack')}
+      subtitle={t('auth.loginSubtitle')}
+      footer={
+        <>
+          <span className="block">{t('auth.accountsByAdmin')}</span>
+          <span className="mt-1 block">{t('auth.contactAdminForPassword')}</span>
+        </>
+      }
+    >
+      {noticeReason === 'session_expired' && (
+        <div
+          role="status"
+          className="mb-4 rounded-lg bg-muted p-3 text-sm text-foreground"
+        >
+          {t('auth.sessionExpired')}
+        </div>
+      )}
+      {noticeReason === 'password_changed' && (
+        <div
+          role="status"
+          className="mb-4 rounded-lg bg-muted p-3 text-sm text-foreground"
+        >
+          {t('auth.passwordChangedSignInAgain')}
+        </div>
+      )}
+      {error && (
+        <div
+          role="alert"
+          className="mb-4 rounded-lg bg-destructive/10 p-3 text-sm text-destructive"
+        >
+          <p>{error}</p>
+          {correlationId ? (
+            <p className="mt-1 text-xs opacity-80">
+              {t('auth.correlationReference', { id: correlationId })}
+            </p>
+          ) : null}
+        </div>
+      )}
 
       <form onSubmit={(event) => void handleSubmit(event)} className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="email">{t('auth.email')}</Label>
           <div className="relative">
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true"/>
-            <Input id="email" type="email" autoComplete="email" autoFocus placeholder={t('auth.emailPlaceholder')} value={email} onChange={(event) => setEmail(event.target.value)} className="pl-10 h-12" required disabled={loading}/>
+            <Mail
+              className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <Input
+              id="email"
+              type="email"
+              autoComplete="email"
+              autoFocus
+              placeholder={t('auth.emailPlaceholder')}
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              className="h-12 pl-10"
+              required
+              disabled={loading}
+            />
           </div>
         </div>
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="password">{t('auth.password')}</Label>
-            <Link to="/forgot-password" className="text-xs text-primary hover:underline">
-              {t('auth.forgotPassword')}
-            </Link>
-          </div>
+          <Label htmlFor="password">{t('auth.password')}</Label>
           <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true"/>
-            <Input id="password" type="password" autoComplete="current-password" placeholder={t('auth.passwordPlaceholder')} value={password} onChange={(event) => setPassword(event.target.value)} className="pl-10 h-12" required disabled={loading}/>
+            <Lock
+              className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <Input
+              id="password"
+              type="password"
+              autoComplete="current-password"
+              placeholder={t('auth.passwordPlaceholder')}
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              className="h-12 pl-10"
+              required
+              disabled={loading}
+            />
           </div>
         </div>
-        <Button type="submit" className="w-full h-12 font-medium" disabled={loading} aria-busy={loading}>
-          {loading ? (<>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin"/>
+        <Button
+          type="submit"
+          className="h-12 w-full font-medium"
+          disabled={loading}
+          aria-busy={loading}
+        >
+          {loading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               {t('auth.loggingIn')}
-            </>) : (t('auth.logIn'))}
+            </>
+          ) : (
+            t('auth.logIn')
+          )}
         </Button>
       </form>
-    </AuthLayout>);
+    </AuthLayout>
+  );
 }

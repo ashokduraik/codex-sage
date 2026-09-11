@@ -19,9 +19,11 @@ import {
 import { createAuthenticatePreHandler } from '../modules/auth/authenticate.preHandler.js';
 import { createAuthService } from '../modules/auth/auth.service.js';
 import {
+  CSRF_SECRET_COOKIE_NAME,
   JWT_AUDIENCE,
   JWT_ISSUER,
   JWT_ACCESS_TOKEN_TTL_SECONDS,
+  JWT_REFRESH_TOKEN_TTL_SECONDS,
 } from '../modules/auth/tokenService.js';
 import {
   assertAllRoutesDeclareAccess,
@@ -118,12 +120,15 @@ export function buildApp(config = loadConfig()) {
     },
   });
   void app.register(csrf, {
+    // Keep the httpOnly secret aligned with the refresh cookie TTL (not a session cookie).
+    cookieKey: CSRF_SECRET_COOKIE_NAME,
     cookieOpts: {
       signed: false,
       httpOnly: true,
       sameSite: 'strict',
       path: `${API_BASE_PATH}/auth`,
       secure: config.env.isProduction,
+      maxAge: JWT_REFRESH_TOKEN_TTL_SECONDS,
     },
     getToken: (request) => {
       const header = request.headers[CSRF_HEADER_NAME];

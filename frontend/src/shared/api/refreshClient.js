@@ -47,13 +47,22 @@ export function readCsrfTokenFromCookie() {
  */
 async function performRefresh() {
   const csrfToken = readCsrfTokenFromCookie();
+  // No readable CSRF cookie ⇒ no prior login (or cookies cleared). Skip the network call
+  // so boot does not trip `Missing csrf secret` on a public page load.
+  if (!csrfToken) {
+    clearSession();
+    throw new ApiError({
+      status: 401,
+      code: 'UNAUTHENTICATED',
+      message: i18n.t('errors.codes.UNAUTHENTICATED'),
+    });
+  }
+
   /** @type {Record<string, string>} */
   const headers = {
     Accept: 'application/json',
+    [CSRF_HEADER_NAME]: csrfToken,
   };
-  if (csrfToken) {
-    headers[CSRF_HEADER_NAME] = csrfToken;
-  }
 
   let response;
   try {

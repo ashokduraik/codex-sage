@@ -7,14 +7,16 @@ import { resolveEffectivePermissions } from '../authorization/permissionResolver
 import { findMembership } from '../identity/membership.repository.js';
 import { findUserById } from '../identity/user.repository.js';
 import {
+  CSRF_COOKIE_NAME,
+  CSRF_READABLE_COOKIE_PATH,
+  CSRF_SECRET_COOKIE_NAME,
   JWT_ACCESS_TOKEN_TTL_SECONDS,
   JWT_REFRESH_TOKEN_TTL_SECONDS,
   REFRESH_COOKIE_NAME,
   REFRESH_COOKIE_PATH,
 } from './tokenService.js';
 
-/** Readable CSRF cookie the browser echoes as `X-CSRF-Token` (D14). */
-export const CSRF_COOKIE_NAME = 'csrfToken';
+export { CSRF_COOKIE_NAME, CSRF_SECRET_COOKIE_NAME, CSRF_READABLE_COOKIE_PATH };
 
 const loginBodySchema = z.object({
   // Accept product emails including `admin@localhost` (zod's email() rejects .localhost).
@@ -44,13 +46,27 @@ function refreshCookieOptions(isProduction) {
 }
 
 /**
+ * Cookie options for the httpOnly CSRF secret (`_csrf`).
+ * @param {boolean} isProduction Whether Secure should be set.
+ * @returns {object}
+ */
+function csrfSecretCookieOptions(isProduction) {
+  return {
+    path: REFRESH_COOKIE_PATH,
+    httpOnly: true,
+    sameSite: 'strict',
+    secure: isProduction,
+  };
+}
+
+/**
  * Cookie options for the readable CSRF double-submit cookie.
  * @param {boolean} isProduction Whether Secure should be set.
  * @returns {object}
  */
 function csrfCookieOptions(isProduction) {
   return {
-    path: REFRESH_COOKIE_PATH,
+    path: CSRF_READABLE_COOKIE_PATH,
     httpOnly: false,
     sameSite: 'strict',
     secure: isProduction,
@@ -65,6 +81,12 @@ function csrfCookieOptions(isProduction) {
 function clearAuthCookies(reply, isProduction) {
   reply.clearCookie(REFRESH_COOKIE_NAME, refreshCookieOptions(isProduction));
   reply.clearCookie(CSRF_COOKIE_NAME, csrfCookieOptions(isProduction));
+  // Also clear any pre-fix readable CSRF cookie that used the auth path.
+  reply.clearCookie(CSRF_COOKIE_NAME, {
+    ...csrfCookieOptions(isProduction),
+    path: REFRESH_COOKIE_PATH,
+  });
+  reply.clearCookie(CSRF_SECRET_COOKIE_NAME, csrfSecretCookieOptions(isProduction));
 }
 
 /**
@@ -78,7 +100,15 @@ function setAuthCookies(reply, refreshToken, isProduction) {
     ...refreshCookieOptions(isProduction),
     maxAge: JWT_REFRESH_TOKEN_TTL_SECONDS,
   });
-  const csrfToken = reply.generateCsrf();
+  // generateCsrf() skips Set-Cookie when the request already has `_csrf`; drop it so the
+  // secret is re-issued with maxAge aligned to the refresh cookie.
+  if (reply.request?.cookies) {
+    delete reply.request.cookies[CSRF_SECRET_COOKIE_NAME];
+  }
+  const csrfToken = reply.generateCsrf({
+    ...csrfSecretCookieOptions(isProduction),
+    maxAge: JWT_REFRESH_TOKEN_TTL_SECONDS,
+  });
   reply.setCookie(CSRF_COOKIE_NAME, csrfToken, {
     ...csrfCookieOptions(isProduction),
     maxAge: JWT_REFRESH_TOKEN_TTL_SECONDS,

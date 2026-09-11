@@ -1,68 +1,156 @@
 import { cleanup, render, screen } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppRoutes } from '@/app/routes';
-import { AuthProvider, AUTH_STORAGE_KEY } from '@/features/auth/AuthContext';
-import ForgotPasswordPage from '@/features/auth/ForgotPasswordPage';
+import { AuthProvider } from '@/features/auth/AuthContext';
 import LoginPage from '@/features/auth/LoginPage';
-import RegisterPage from '@/features/auth/RegisterPage';
-import ResetPasswordPage from '@/features/auth/ResetPasswordPage';
+import { CURRENT_USER_QUERY_KEY } from '@/features/auth/api/authKeys.js';
+import { resetApiSessionForTests } from '@/shared/api/apiSession.js';
+import { resetRefreshClientForTests } from '@/shared/api/refreshClient.js';
 import '@/shared/i18n';
 import { AppDataProvider } from '@/shared/mock-data';
+import {
+  buildTestAuthUser,
+  clearAuthSession,
+  seedAuthSession,
+} from '@/test/renderWithProviders';
+
 afterEach(() => {
-    cleanup();
-    localStorage.clear();
+  cleanup();
+  clearAuthSession();
+  vi.unstubAllGlobals();
+  resetRefreshClientForTests();
 });
+
 /**
- * Renders a page under a memory router with auth + app data providers.
- * @param element - Element to render.
+ * @param {object} options Response fields.
+ * @returns {object}
  */
-function renderPage(element) {
-    cleanup();
-    return render(<MemoryRouter>
-      <AuthProvider>
-        <AppDataProvider>{element}</AppDataProvider>
-      </AuthProvider>
-    </MemoryRouter>);
+function jsonResponse({ status = 200, body }) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    headers: { get: () => null },
+    async json() {
+      return body;
+    },
+    async text() {
+      return body === undefined ? '' : JSON.stringify(body);
+    },
+    clone() {
+      return jsonResponse({ status, body });
+    },
+  };
 }
+
+/**
+ * Renders routes under query + auth providers.
+ * @param {string} path Initial path.
+ * @param {object | null} [user] Seeded user.
+ */
+function renderRoutes(path, user = null) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  if (user) {
+    seedAuthSession(user.email, user);
+    queryClient.setQueryData(CURRENT_USER_QUERY_KEY, user);
+  }
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={[path]}>
+        <AuthProvider>
+          <AppDataProvider>
+            <AppRoutes />
+          </AppDataProvider>
+        </AuthProvider>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+
 describe('auth pages', () => {
-    it('renders localized titles', () => {
-        renderPage(<LoginPage />);
-        expect(screen.getByRole('heading', { name: 'Welcome back' })).toBeTruthy();
-        renderPage(<RegisterPage />);
-        expect(screen.getByRole('heading', { name: 'Create your account' })).toBeTruthy();
-        renderPage(<ForgotPasswordPage />);
-        expect(screen.getByRole('heading', { name: 'Reset password' })).toBeTruthy();
-        renderPage(<ResetPasswordPage />);
-        expect(screen.getByRole('heading', { name: 'Invalid reset link' })).toBeTruthy();
-    });
+  beforeEach(() => {
+    clearAuthSession();
+    resetRefreshClientForTests();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        jsonResponse({
+          status: 401,
+          body: { error: { code: 'UNAUTHENTICATED', message: 'no' } },
+        }),
+      ),
+    );
+  });
+
+  it('renders the login title', async () => {
+    render(
+      <QueryClientProvider
+        client={
+          new QueryClient({
+            defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+          })
+        }
+      >
+        <MemoryRouter>
+          <AuthProvider>
+            <AppDataProvider>
+              <LoginPage />
+            </AppDataProvider>
+          </AuthProvider>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByRole('heading', { name: 'Welcome back' })).toBeTruthy();
+  });
 });
+
 describe('AppRoutes', () => {
-    it('shows login for protected routes when unauthenticated', async () => {
-        localStorage.removeItem(AUTH_STORAGE_KEY);
-        render(<MemoryRouter initialEntries={['/']}>
-        <AuthProvider>
-          <AppDataProvider>
-            <AppRoutes />
-          </AppDataProvider>
-        </AuthProvider>
-      </MemoryRouter>);
-        expect(await screen.findByRole('heading', { name: 'Welcome back' })).toBeTruthy();
-    });
-    it('renders home when authenticated', async () => {
-        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({
-            id: 'u1',
-            email: 'you@acme.io',
-            full_name: 'You',
-            role: 'admin',
-        }));
-        render(<MemoryRouter initialEntries={['/']}>
-        <AuthProvider>
-          <AppDataProvider>
-            <AppRoutes />
-          </AppDataProvider>
-        </AuthProvider>
-      </MemoryRouter>);
-        expect(await screen.findByRole('heading', { name: 'Understand your software system.' })).toBeTruthy();
-    });
+  beforeEach(() => {
+    clearAuthSession();
+    resetApiSessionForTests();
+    resetRefreshClientForTests();
+  });
+
+  it('shows login for protected routes when unauthenticated', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        jsonResponse({
+          status: 401,
+          body: { error: { code: 'UNAUTHENTICATED', message: 'no' } },
+        }),
+      ),
+    );
+    renderRoutes('/');
+    expect(await screen.findByRole('heading', { name: 'Welcome back' })).toBeTruthy();
+  });
+
+  it('renders home when authenticated', async () => {
+    const user = buildTestAuthUser('you@acme.io');
+    renderRoutes('/', user);
+    expect(
+      await screen.findByRole('heading', { name: 'Understand your software system.' }),
+    ).toBeTruthy();
+  });
+
+  it('renders not-found for removed auth routes', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        jsonResponse({
+          status: 401,
+          body: { error: { code: 'UNAUTHENTICATED', message: 'no' } },
+        }),
+      ),
+    );
+    for (const path of ['/register', '/forgot-password', '/reset-password']) {
+      cleanup();
+      clearAuthSession();
+      renderRoutes(path);
+      expect(await screen.findByText('Page not found')).toBeTruthy();
+    }
+  });
 });

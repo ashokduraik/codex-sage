@@ -16,6 +16,18 @@ export const JWT_AUDIENCE = 'codex-sage-api';
 export const REFRESH_COOKIE_NAME = 'refreshToken';
 /** Cookie path limited to auth routes (D14). */
 export const REFRESH_COOKIE_PATH = '/api/v1/auth';
+/** Readable CSRF cookie the browser echoes as `X-CSRF-Token` (D14). */
+export const CSRF_COOKIE_NAME = 'csrfToken';
+/**
+ * httpOnly CSRF secret cookie written by `@fastify/csrf-protection`.
+ * Path-limited like the refresh cookie; not readable by SPA JavaScript.
+ */
+export const CSRF_SECRET_COOKIE_NAME = '_csrf';
+/**
+ * Path for the readable double-submit cookie so `document.cookie` can read it from any
+ * SPA route (`Path=/api/v1/auth` is invisible to pages outside that prefix).
+ */
+export const CSRF_READABLE_COOKIE_PATH = '/';
 
 /**
  * @typedef {object} AccessTokenClaims

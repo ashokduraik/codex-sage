@@ -21,6 +21,9 @@ export {
   JWT_AUDIENCE,
   REFRESH_COOKIE_NAME,
   REFRESH_COOKIE_PATH,
+  CSRF_COOKIE_NAME,
+  CSRF_SECRET_COOKIE_NAME,
+  CSRF_READABLE_COOKIE_PATH,
 } from './tokenService.js';
 export { Session, SESSION_REVOKED_REASONS } from './session.model.js';
 export {
@@ -36,7 +39,7 @@ export {
 } from './session.repository.js';
 export { createAuthService } from './auth.service.js';
 export { createAuthenticatePreHandler } from './authenticate.preHandler.js';
-export { authRoutes, CSRF_COOKIE_NAME } from './auth.routes.js';
+export { authRoutes } from './auth.routes.js';
 export { passwordRoutes } from './password.routes.js';
 export {
   PASSWORD_MIN_LENGTH,

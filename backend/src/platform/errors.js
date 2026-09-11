@@ -64,6 +64,19 @@ export function canSendJsonError(reply) {
 }
 
 /**
+ * Fastify CSRF plugin error codes that mean the browser session cannot refresh safely.
+ * @param {unknown} error Thrown value.
+ * @returns {boolean}
+ */
+function isCsrfProtectionError(error) {
+  if (typeof error !== 'object' || error === null) {
+    return false;
+  }
+  const code = /** @type {{ code?: unknown }} */ (error).code;
+  return code === 'FST_CSRF_MISSING_SECRET' || code === 'FST_CSRF_INVALID_TOKEN';
+}
+
+/**
  * Resolves a thrown value to a catalog code and whether the code was unknown.
  * @param {unknown} error Thrown value.
  * @returns {{ code: string, unknownCode: boolean }}
@@ -74,6 +87,11 @@ function resolveErrorCode(error) {
       return { code: error.code, unknownCode: false };
     }
     return { code: 'INTERNAL_ERROR', unknownCode: true };
+  }
+
+  // Missing/invalid double-submit → treat as expired session (re-login), not validation.
+  if (isCsrfProtectionError(error)) {
+    return { code: 'SESSION_EXPIRED', unknownCode: false };
   }
 
   const statusFromError =

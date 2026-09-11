@@ -200,6 +200,22 @@ describe('registerErrorHandler (integration via buildApp)', () => {
     });
   });
 
+  it('maps CSRF protection failures to SESSION_EXPIRED', async () => {
+    app = buildApp(TEST_APP_CONFIG);
+    app.get('/csrf-fail', { config: { routeAccess: 'public' } }, async () => {
+      const err = Object.assign(new Error('Missing csrf secret'), {
+        statusCode: 403,
+        code: 'FST_CSRF_MISSING_SECRET',
+      });
+      throw err;
+    });
+    const res = await app.inject({ method: 'GET', url: '/csrf-fail' });
+    expect(res.statusCode).toBe(401);
+    expect(res.json()).toMatchObject({
+      error: { code: 'SESSION_EXPIRED', class: 'authorization' },
+    });
+  });
+
   it('serves INTERNAL_ERROR for an ApiError code missing from the catalog', async () => {
     app = buildApp(TEST_APP_CONFIG);
     app.get('/unknown-code', { config: { routeAccess: 'public' } }, async () => {

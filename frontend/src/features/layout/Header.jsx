@@ -1,4 +1,4 @@
-import { Bell, ChevronDown, FolderKanban, LogOut, Search, Settings, User as UserIcon, } from 'lucide-react';
+import { Bell, ChevronDown, FolderKanban, KeyRound, LogOut, Search, Settings, User as UserIcon, } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -151,7 +151,7 @@ export default function Header({ onMenu }) {
         <DropdownMenuTrigger asChild>
           <button type="button" className="flex items-center gap-2 rounded-lg p-1 hover:bg-muted">
             <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
-              {(user?.full_name || user?.email || 'U')[0]?.toUpperCase()}
+              {(user?.displayName || user?.email || 'U')[0]?.toUpperCase()}
             </div>
             <ChevronDown className="hidden h-3.5 w-3.5 text-muted-foreground sm:block"/>
           </button>
@@ -160,7 +160,7 @@ export default function Header({ onMenu }) {
           <DropdownMenuLabel className="font-normal">
             <div className="flex flex-col">
               <span className="text-sm font-medium">
-                {user?.full_name || t('header.account')}
+                {user?.displayName || t('header.account')}
               </span>
               <span className="truncate text-xs text-muted-foreground">
                 {user?.email}
@@ -168,6 +168,9 @@ export default function Header({ onMenu }) {
             </div>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => navigate('/change-password')}>
+            <KeyRound className="mr-2 h-4 w-4"/> {t('header.changePassword')}
+          </DropdownMenuItem>
           <DropdownMenuItem onClick={() => navigate('/admin')}>
             <UserIcon className="mr-2 h-4 w-4"/> {t('common.profile')}
           </DropdownMenuItem>
@@ -175,7 +178,7 @@ export default function Header({ onMenu }) {
             <Settings className="mr-2 h-4 w-4"/> {t('common.settings')}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => logout()} className="text-destructive focus:text-destructive">
+          <DropdownMenuItem onClick={() => void logout()} className="text-destructive focus:text-destructive">
             <LogOut className="mr-2 h-4 w-4"/> {t('header.signOut')}
           </DropdownMenuItem>
         </DropdownMenuContent>
