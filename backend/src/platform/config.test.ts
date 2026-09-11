@@ -6,20 +6,29 @@ import {
   parsePort,
 } from './config';
 
+/** Minimal valid env for loadConfig tests. */
+const VALID_ENV = {
+  MONGODB_URI: 'mongodb://127.0.0.1:27017/codex_sage?replicaSet=rs0',
+} as const;
+
 describe('loadConfig', () => {
-  it('uses defaults when env is empty', () => {
-    const cfg = loadConfig({});
-    expect(cfg.host).toBe('0.0.0.0');
-    expect(cfg.port).toBe(3000);
-    expect(cfg.nodeEnv).toBe('development');
-    expect(cfg.logger).toBe(true);
-    expect(cfg.appRunningPlatform).toBe('standalone');
-    expect(cfg.logLevel).toBe('info');
-    expect(cfg.noConsoleLog).toBe(false);
+  it('uses defaults when optional env variables are absent', () => {
+    const cfg = loadConfig({ ...VALID_ENV });
+    expect(cfg.server.host).toBe('0.0.0.0');
+    expect(cfg.server.port).toBe(3000);
+    expect(cfg.env.nodeEnv).toBe('development');
+    expect(cfg.env.isProduction).toBe(false);
+    expect(cfg.env.isTest).toBe(false);
+    expect(cfg.logging.logger).toBe(true);
+    expect(cfg.env.appRunningPlatform).toBe('standalone');
+    expect(cfg.logging.level).toBe('info');
+    expect(cfg.logging.noConsoleLog).toBe(false);
+    expect(cfg.mongo.uri).toBe(VALID_ENV.MONGODB_URI);
   });
 
   it('reads overrides from env', () => {
     const cfg = loadConfig({
+      ...VALID_ENV,
       API_HOST: '127.0.0.1',
       API_PORT: '8080',
       NODE_ENV: 'production',
@@ -27,34 +36,84 @@ describe('loadConfig', () => {
       LOG_LEVEL: 'warning',
       NO_CONSOLE_LOG: 'true',
     });
-    expect(cfg.host).toBe('127.0.0.1');
-    expect(cfg.port).toBe(8080);
-    expect(cfg.nodeEnv).toBe('production');
-    expect(cfg.logger).toBe(true);
-    expect(cfg.appRunningPlatform).toBe('container');
-    expect(cfg.logLevel).toBe('warning');
-    expect(cfg.noConsoleLog).toBe(true);
+    expect(cfg.server.host).toBe('127.0.0.1');
+    expect(cfg.server.port).toBe(8080);
+    expect(cfg.env.nodeEnv).toBe('production');
+    expect(cfg.env.isProduction).toBe(true);
+    expect(cfg.logging.logger).toBe(true);
+    expect(cfg.env.appRunningPlatform).toBe('container');
+    expect(cfg.logging.level).toBe('warning');
+    expect(cfg.logging.noConsoleLog).toBe(true);
   });
 
-  it('disables the logger and sets nodeEnv=test under NODE_ENV=test', () => {
-    const cfg = loadConfig({ NODE_ENV: 'test' });
-    expect(cfg.logger).toBe(false);
-    expect(cfg.nodeEnv).toBe('test');
+  it('disables the logger and sets isTest under NODE_ENV=test', () => {
+    const cfg = loadConfig({ ...VALID_ENV, NODE_ENV: 'test' });
+    expect(cfg.logging.logger).toBe(false);
+    expect(cfg.env.nodeEnv).toBe('test');
+    expect(cfg.env.isTest).toBe(true);
   });
 
-  it('falls back to process.env by default', () => {
-    const cfg = loadConfig();
-    expect(typeof cfg.port).toBe('number');
+  it('throws when MONGODB_URI is missing and names the variable', () => {
+    expect(() => loadConfig({})).toThrow(/MONGODB_URI/);
+  });
+
+  it('throws listing all invalid variables when several are wrong at once', () => {
+    expect(() =>
+      loadConfig({
+        API_HOST: '   ',
+        API_PORT: 'abc',
+        MONGODB_URI: '',
+      }),
+    ).toThrow(
+      /Invalid configuration:\nAPI_HOST:.*\nAPI_PORT:.*\nMONGODB_URI:/s,
+    );
+  });
+
+  it('rejects a non-numeric or out-of-range API_PORT', () => {
+    expect(() => loadConfig({ ...VALID_ENV, API_PORT: 'abc' })).toThrow(/API_PORT/);
+    expect(() => loadConfig({ ...VALID_ENV, API_PORT: '0' })).toThrow(/API_PORT/);
+    expect(() => loadConfig({ ...VALID_ENV, API_PORT: '70000' })).toThrow(/API_PORT/);
+  });
+
+  it('does not put the MONGODB_URI value in the thrown message', () => {
+    const secret = 'mongodb://user:s3cret@host/db?replicaSet=rs0';
+    try {
+      loadConfig({ API_HOST: '   ', MONGODB_URI: secret });
+      expect.unreachable('expected loadConfig to throw');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      expect(message).not.toContain(secret);
+      expect(message).not.toContain('s3cret');
+      expect(message).toContain('API_HOST');
+    }
+  });
+
+  it('does not expose pool size, socket timeout, API_BASE_PATH, or shutdown timeout', () => {
+    const cfg = loadConfig({ ...VALID_ENV });
+    const serialized = JSON.stringify(cfg);
+    expect(serialized).not.toMatch(/pool|SOCKET|API_BASE_PATH|SHUTDOWN/i);
+    expect(cfg).not.toHaveProperty('poolSize');
+    expect(Object.keys(cfg)).toEqual(['env', 'server', 'logging', 'mongo']);
+  });
+
+  it('falls back to process.env by default when MONGODB_URI is set', () => {
+    const previous = process.env.MONGODB_URI;
+    process.env.MONGODB_URI = VALID_ENV.MONGODB_URI;
+    try {
+      const cfg = loadConfig();
+      expect(typeof cfg.server.port).toBe('number');
+      expect(cfg.mongo.uri.length).toBeGreaterThan(0);
+    } finally {
+      if (previous === undefined) {
+        delete process.env.MONGODB_URI;
+      } else {
+        process.env.MONGODB_URI = previous;
+      }
+    }
   });
 
   it('throws when API_HOST is blank', () => {
-    expect(() => loadConfig({ API_HOST: '   ' })).toThrow(/API_HOST/);
-  });
-
-  it('throws when API_PORT is invalid', () => {
-    expect(() => loadConfig({ API_PORT: 'abc' })).toThrow(/API_PORT/);
-    expect(() => loadConfig({ API_PORT: '0' })).toThrow(/API_PORT/);
-    expect(() => loadConfig({ API_PORT: '70000' })).toThrow(/API_PORT/);
+    expect(() => loadConfig({ ...VALID_ENV, API_HOST: '   ' })).toThrow(/API_HOST/);
   });
 });
 
@@ -89,5 +148,9 @@ describe('parsePort', () => {
 
   it('parses a valid port', () => {
     expect(parsePort('4000')).toBe(4000);
+  });
+
+  it('throws for invalid ports', () => {
+    expect(() => parsePort('abc')).toThrow(/API_PORT/);
   });
 });

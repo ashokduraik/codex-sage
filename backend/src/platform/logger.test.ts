@@ -2,18 +2,32 @@ import { describe, it, expect, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { buildLoggerOptions, registerRequestLogging, toPinoLevel } from './logger';
 import type { AppConfig } from './config';
+import { TEST_APP_CONFIG } from '../test/appConfig';
 
-/** Minimal config fixture for testing logger options only. */
-function cfg(overrides: Partial<AppConfig> = {}): AppConfig {
+/**
+ * Minimal config fixture for testing logger options only.
+ * @param overrides - Nested partial overrides for env/logging groups.
+ */
+function cfg(overrides: {
+  env?: Partial<AppConfig['env']>;
+  logging?: Partial<AppConfig['logging']>;
+} = {}): AppConfig {
   return {
-    host: '0.0.0.0',
-    port: 3000,
-    nodeEnv: 'development',
-    logger: true,
-    appRunningPlatform: 'container',
-    logLevel: 'info',
-    noConsoleLog: false,
-    ...overrides,
+    ...TEST_APP_CONFIG,
+    env: {
+      ...TEST_APP_CONFIG.env,
+      nodeEnv: 'development',
+      isTest: false,
+      appRunningPlatform: 'container',
+      ...overrides.env,
+    },
+    logging: {
+      ...TEST_APP_CONFIG.logging,
+      logger: true,
+      level: 'info',
+      noConsoleLog: false,
+      ...overrides.logging,
+    },
   };
 }
 
@@ -28,23 +42,30 @@ describe('toPinoLevel', () => {
 
 describe('buildLoggerOptions', () => {
   it('returns false when logger is disabled', () => {
-    expect(buildLoggerOptions(cfg({ logger: false }))).toBe(false);
+    expect(buildLoggerOptions(cfg({ logging: { logger: false } }))).toBe(false);
   });
 
   it('uses LOG_LEVEL for container console-only logging', () => {
-    const opts = buildLoggerOptions(cfg({ logLevel: 'debug' })) as Record<string, unknown>;
+    const opts = buildLoggerOptions(
+      cfg({ logging: { level: 'debug' } }),
+    ) as Record<string, unknown>;
     expect(opts.level).toBe('debug');
     expect(opts.transport).toBeUndefined();
   });
 
   it('maps warning level to Pino warn', () => {
-    const opts = buildLoggerOptions(cfg({ logLevel: 'warning' })) as Record<string, unknown>;
+    const opts = buildLoggerOptions(
+      cfg({ logging: { level: 'warning' } }),
+    ) as Record<string, unknown>;
     expect(opts.level).toBe('warn');
   });
 
   it('ignores noConsoleLog in container mode', () => {
     const opts = buildLoggerOptions(
-      cfg({ appRunningPlatform: 'container', noConsoleLog: true }),
+      cfg({
+        env: { appRunningPlatform: 'container' },
+        logging: { noConsoleLog: true },
+      }),
     ) as Record<string, unknown>;
     expect(opts.transport).toBeUndefined();
     expect(opts.level).toBe('info');
@@ -52,7 +73,10 @@ describe('buildLoggerOptions', () => {
 
   it('adds pino-roll transport in standalone mode', () => {
     const opts = buildLoggerOptions(
-      cfg({ appRunningPlatform: 'standalone', noConsoleLog: false }),
+      cfg({
+        env: { appRunningPlatform: 'standalone' },
+        logging: { noConsoleLog: false },
+      }),
     ) as {
       level: string;
       transport: { targets: Array<{ target: string }> };
@@ -67,7 +91,10 @@ describe('buildLoggerOptions', () => {
 
   it('omits console target when standalone and noConsoleLog', () => {
     const opts = buildLoggerOptions(
-      cfg({ appRunningPlatform: 'standalone', noConsoleLog: true }),
+      cfg({
+        env: { appRunningPlatform: 'standalone' },
+        logging: { noConsoleLog: true },
+      }),
     ) as {
       transport: { targets: Array<{ target: string }> };
     };
@@ -77,7 +104,9 @@ describe('buildLoggerOptions', () => {
   });
 
   it('level formatter returns label string instead of a numeric code', () => {
-    const opts = buildLoggerOptions(cfg({ appRunningPlatform: 'container' })) as {
+    const opts = buildLoggerOptions(
+      cfg({ env: { appRunningPlatform: 'container' } }),
+    ) as {
       formatters: { level: (label: string) => { level: string } };
     };
     expect(opts.formatters.level('info')).toEqual({ level: 'info' });
@@ -85,7 +114,9 @@ describe('buildLoggerOptions', () => {
   });
 
   it('bindings formatter strips pid and retains hostname', () => {
-    const opts = buildLoggerOptions(cfg({ appRunningPlatform: 'container' })) as {
+    const opts = buildLoggerOptions(
+      cfg({ env: { appRunningPlatform: 'container' } }),
+    ) as {
       formatters: { bindings: (b: Record<string, unknown>) => Record<string, unknown> };
     };
     const result = opts.formatters.bindings({ pid: 1234, hostname: 'my-host' });
@@ -94,7 +125,9 @@ describe('buildLoggerOptions', () => {
   });
 
   it('timestamp produces an ISO 8601 string field', () => {
-    const opts = buildLoggerOptions(cfg({ appRunningPlatform: 'container' })) as {
+    const opts = buildLoggerOptions(
+      cfg({ env: { appRunningPlatform: 'container' } }),
+    ) as {
       timestamp: () => string;
     };
     const raw = opts.timestamp();

@@ -67,11 +67,11 @@ function baseLoggerFields(level: string): Record<string, unknown> {
  * @returns A Fastify-compatible logger option.
  */
 export function buildLoggerOptions(config: AppConfig): LoggerOption {
-  if (!config.logger) return false;
+  if (!config.logging.logger) return false;
 
-  const level = toPinoLevel(config.logLevel);
-  const isContainer = config.appRunningPlatform === 'container';
-  const wantConsole = isContainer || !config.noConsoleLog;
+  const level = toPinoLevel(config.logging.level);
+  const isContainer = config.env.appRunningPlatform === 'container';
+  const wantConsole = isContainer || !config.logging.noConsoleLog;
   const wantFile = !isContainer;
 
   if (!wantFile) {

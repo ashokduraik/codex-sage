@@ -17,6 +17,21 @@ export default tseslint.config(
         'error',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
       ],
+      // Application config must be loaded only via platform/config.ts.
+      'no-restricted-properties': [
+        'error',
+        {
+          object: 'process',
+          property: 'env',
+          message: 'Read environment variables only in src/platform/config.ts',
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/platform/config.ts', 'src/**/*.test.ts'],
+    rules: {
+      'no-restricted-properties': 'off',
     },
   },
 );

@@ -7,8 +7,8 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts'],
-      // index.ts is the process entrypoint (starts the server); excluded from coverage.
-      exclude: ['src/index.ts', 'src/**/*.test.ts'],
+      // Process entrypoints that bind listen / signal handlers at import time.
+      exclude: ['src/index.ts', 'src/worker/index.ts', 'src/**/*.test.ts'],
       thresholds: { lines: 80, branches: 80, functions: 80, statements: 80 },
       reporter: ['text', 'lcov'],
     },
