@@ -1,13 +1,13 @@
 ---
-description: Install latest stable npm deps; ask before pinning older on conflict
+description: Install latest stable, actively maintained npm deps; ask before downgrade
 alwaysApply: true
 ---
 
-# Dependency versions — latest stable, confirm before downgrade
+# Dependency versions — latest stable + actively maintained
 
-When adding or upgrading dependencies, **default to the latest stable release**. Do not
-guess compatibility, pin conservatively, or pick an older version without explicit user
-confirmation (see `no-assumptions.mdc`).
+When adding or upgrading dependencies, **default to the latest stable release** that is
+**actively maintained**. Do not guess compatibility, pin conservatively, or pick an older
+version without explicit user confirmation (see `no-assumptions.mdc`).
 
 ## Scope
 
@@ -15,11 +15,43 @@ confirmation (see `no-assumptions.mdc`).
 |-----------|----------|----------|-----------------|
 | npm (JS/TS) | `package.json` (root and/or `frontend/`, `backend/`) | `package-lock.json` | `npm install <pkg>@latest` |
 
+## Pre-install checks (required for every new or upgraded package)
+
+**Before** running `npm install`, verify **both** of the following. Do not install until both pass.
+
+### 1. Latest stable version
+
+```bash
+npm view <pkg> version
+npm view <pkg> time
+npm view <pkg> deprecated
+```
+
+- Use the version returned by `npm view <pkg> version` (latest stable on the default dist-tag).
+- Skip prereleases (`alpha`, `beta`, `rc`, `next`, `canary`) unless the user explicitly asks.
+- If `deprecated` is set, **do not install** — find a maintained replacement or ask the user.
+
+### 2. Actively maintained
+
+A package is actively maintained only if **all** of these hold:
+
+| Check | Pass criteria |
+|-------|----------------|
+| Not deprecated | `npm view <pkg> deprecated` is empty / undefined |
+| Recent publish | Latest release on npm within the **last 12 months** (`time` for that version) |
+| Upstream alive | Linked GitHub/GitLab repo (from `npm view <pkg> repository`) has commits or releases in the **last 12 months**, or the npm org clearly still ships updates |
+
+If any check fails (abandoned, last publish > 12 months ago, deprecated, no reachable upstream activity):
+
+1. **Stop** — do not install.
+2. **Report** package name, last publish date, deprecation message (if any), and a maintained alternative if one exists.
+3. **Ask the user** whether to pick an alternative, waive the rule for that package, or drop the dependency.
+
 ## Default workflow
 
-1. **Look up** the current latest stable version (registry / `npm view`).
-2. **Install latest stable** — do not pin to an older major/minor/patch unless the user asked.
-3. **Record** the resolved version in the manifest and lockfile; run `npm install` as needed.
+1. Run the **pre-install checks** above for each package.
+2. **Install latest stable** of packages that passed — do not pin older majors/minors/patches unless the user asked.
+3. **Record** the resolved version in the manifest and lockfile.
 4. **Verify** with typecheck, lint, and relevant tests after the upgrade.
 
 ## When latest is incompatible

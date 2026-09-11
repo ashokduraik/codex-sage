@@ -39,6 +39,7 @@ export default defineConfig({
         'src/vite-env.d.ts',
         'src/**/*.test.{ts,tsx}',
         'src/test/**',
+        'src/shared/ui/**',
       ],
       thresholds: { lines: 80, branches: 80, functions: 80, statements: 80 },
       reporter: ['text', 'lcov'],

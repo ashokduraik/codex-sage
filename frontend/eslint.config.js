@@ -6,7 +6,7 @@ import tseslint from 'typescript-eslint';
 
 /** ESLint flat config for the standalone React frontend package. */
 export default tseslint.config(
-  { ignores: ['dist/**', 'coverage/**', 'node_modules/**'] },
+  { ignores: ['dist/**', 'coverage/**', 'node_modules/**', 'src/shared/ui/**'] },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   {

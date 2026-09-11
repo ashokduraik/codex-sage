@@ -1,10 +1,4 @@
-import type { ReactElement } from 'react';
-
 /**
- * Root application component for the tooling base scaffold.
- *
- * @returns Placeholder heading until product shell features are added.
+ * Re-exports the app entry so existing imports and App.test keep working.
  */
-export function App(): ReactElement {
-  return <h1>Codex Sage</h1>;
-}
+export { App, default } from '@/app/App';
