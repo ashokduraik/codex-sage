@@ -17,6 +17,7 @@ export const PUBLIC_ROUTE_PATHS = Object.freeze([
  * @property {'public' | 'authenticated'} [routeAccess]
  * @property {string[]} [requiredPermissions]
  * @property {'all' | 'any'} [permissionMode]
+ * @property {unknown} [file] Set by `@fastify/static` for served asset routes.
  */
 
 /**
@@ -52,6 +53,11 @@ export function isPublicAllowlistedPath(normalizedPath) {
  * @returns {'public' | 'authenticated' | 'permissions' | 'undeclared'}
  */
 export function classifyRouteAccess(config, normalizedPath) {
+  // Static SPA / asset routes from `@fastify/static` carry `config.file`.
+  if (config?.file !== undefined) {
+    return 'public';
+  }
+
   const required = config?.requiredPermissions;
   const hasRequired = Array.isArray(required) && required.length > 0;
   const routeAccess = config?.routeAccess;

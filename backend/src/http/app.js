@@ -31,6 +31,11 @@ import {
 import { registerIdempotency } from '../platform/idempotency/index.js';
 import { registerRoutes } from './routes.js';
 import { healthRoutes } from '../modules/health/health.routes.js';
+import {
+  registerStaticAssets,
+  resolveProductionDistRoot,
+  tryServeSpaIndex,
+} from './static-spa.js';
 
 /** Versioned API route prefix — product contract, not an env var. */
 export const API_BASE_PATH = '/api/v1';
@@ -126,11 +131,21 @@ export function buildApp(config = loadConfig()) {
     },
   });
 
-  registerErrorHandler(app);
+  const frontendDistRoot = resolveProductionDistRoot({
+    isProduction: config.env.isProduction,
+    frontendDistRoot: config.frontendDistRoot,
+  });
+
+  registerErrorHandler(app, {
+    trySpaFallback: frontendDistRoot ? tryServeSpaIndex : undefined,
+  });
   registerIdempotency(app);
   // Unversioned infra aliases (same handlers as under API_BASE_PATH).
   void app.register(healthRoutes);
   void app.register(registerRoutes, { prefix: API_BASE_PATH });
+
+  // Production: serve hashed assets; SPA fallback is wired via the not-found handler above.
+  registerStaticAssets(app, frontendDistRoot);
 
   app.addHook('onReady', async () => {
     assertAllRoutesDeclareAccess(app);

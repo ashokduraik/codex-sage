@@ -29,6 +29,7 @@ describe('routeDeclarationAudit', () => {
     expect(classifyRouteAccess({ requiredPermissions: ['org.view'] }, '/x')).toBe(
       'permissions',
     );
+    expect(classifyRouteAccess({ file: 'index.html' }, '/')).toBe('public');
     expect(classifyRouteAccess({}, '/secret')).toBe('undeclared');
   });
 

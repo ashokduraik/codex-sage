@@ -148,14 +148,26 @@ export function buildErrorEnvelope(error, reference) {
 /**
  * Registers a global error handler and a 404 handler on the Fastify instance.
  * @param {import('fastify').FastifyInstance} app Fastify application instance.
+ * @param {{
+ *   trySpaFallback?: (
+ *     request: import('fastify').FastifyRequest,
+ *     reply: import('fastify').FastifyReply,
+ *   ) => unknown,
+ * }} [options] Optional SPA fallback; return a reply to short-circuit the JSON 404.
  */
-export function registerErrorHandler(app) {
+export function registerErrorHandler(app, options = {}) {
   app.setNotFoundHandler(
     {
       // Not-found runs through preHandlers; keep it public so RBAC does not turn 404 into 403.
       config: { routeAccess: 'public' },
     },
     (request, reply) => {
+      if (typeof options.trySpaFallback === 'function') {
+        const spaResult = options.trySpaFallback(request, reply);
+        if (spaResult !== undefined) {
+          return spaResult;
+        }
+      }
       const entry = ERROR_CATALOG.NOT_FOUND;
       return reply.status(entry.httpStatus).send({
         error: {

@@ -19,6 +19,8 @@
 | [0014](./0014-cross-tenant-404.md) | Cross-tenant resource misses return 404 | Accepted |
 | [0015](./0015-global-route-authorization.md) | Global route authorization via config declaration | Accepted |
 | [0016](./0016-audit-write-best-effort.md) | Audit writes are always best-effort | Accepted |
+| [0017](./0017-frontend-server-state-http-transport.md) | Frontend server-state and HTTP transport | Accepted |
+| [0018](./0018-spa-served-from-fastify-static.md) | SPA served from Fastify static (same process) | Accepted |
 
 One decision = one ADR. Accepted ADRs are immutable; supersede with a new number rather
 than rewriting history.

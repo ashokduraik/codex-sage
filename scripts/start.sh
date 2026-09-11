@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Run production: backend (node src/index.js) and frontend (vite preview).
-# Frontend requires a prior npm run build. Prefixed logs; Ctrl-C / TERM cleanly stops both.
+# Production-like run: one Fastify process serves /api/v1 and the built SPA.
+# Requires a prior frontend build (`npm run build` from the repo root or frontend/).
+# Prefixed logs; Ctrl-C / TERM cleanly stops the API.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -8,13 +9,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib/common.sh"
 
 FRONTEND_DIST="${REPO_ROOT}/frontend/dist"
-if [ ! -d "${FRONTEND_DIST}" ]; then
-  logError "frontend/dist is missing. Run: npm run build"
+FRONTEND_INDEX="${FRONTEND_DIST}/index.html"
+if [ ! -f "${FRONTEND_INDEX}" ]; then
+  logError "frontend/dist/index.html is missing. Run: npm run build"
   exit 1
 fi
 
 BACKEND_PID=""
-FRONTEND_PID=""
 SHUTTING_DOWN=0
 
 cleanup() {
@@ -24,9 +25,7 @@ cleanup() {
   SHUTTING_DOWN=1
   trap - INT TERM EXIT
   killTree "${BACKEND_PID}"
-  killTree "${FRONTEND_PID}"
   wait "${BACKEND_PID}" 2>/dev/null || true
-  wait "${FRONTEND_PID}" 2>/dev/null || true
 }
 
 onSignal() {
@@ -38,7 +37,7 @@ onSignal() {
 trap onSignal INT TERM
 trap cleanup EXIT
 
-logInfo "Starting production servers (backend npm start, frontend vite preview)..."
+logInfo "Starting production API (serves /api/v1 and frontend/dist)..."
 
 (
   cd "${REPO_ROOT}/backend"
@@ -46,47 +45,16 @@ logInfo "Starting production servers (backend npm start, frontend vite preview).
 ) &
 BACKEND_PID=$!
 
-(
-  cd "${REPO_ROOT}/frontend"
-  npm run preview 2>&1 | prefixStream "frontend"
-) &
-FRONTEND_PID=$!
-
 BACKEND_STATUS=0
-FRONTEND_STATUS=0
-
-while true; do
-  if ! kill -0 "${BACKEND_PID}" 2>/dev/null; then
-    set +e
-    wait "${BACKEND_PID}"
-    BACKEND_STATUS=$?
-    set -e
-    killTree "${FRONTEND_PID}"
-    set +e
-    wait "${FRONTEND_PID}"
-    FRONTEND_STATUS=$?
-    set -e
-    break
-  fi
-  if ! kill -0 "${FRONTEND_PID}" 2>/dev/null; then
-    set +e
-    wait "${FRONTEND_PID}"
-    FRONTEND_STATUS=$?
-    set -e
-    killTree "${BACKEND_PID}"
-    set +e
-    wait "${BACKEND_PID}"
-    BACKEND_STATUS=$?
-    set -e
-    break
-  fi
-  sleep 1
-done
+set +e
+wait "${BACKEND_PID}"
+BACKEND_STATUS=$?
+set -e
 
 SHUTTING_DOWN=1
 trap - INT TERM EXIT
 
-if [ "${BACKEND_STATUS}" -ne 0 ] || [ "${FRONTEND_STATUS}" -ne 0 ]; then
-  logError "A process exited with an error (backend=${BACKEND_STATUS}, frontend=${FRONTEND_STATUS})."
+if [ "${BACKEND_STATUS}" -ne 0 ]; then
+  logError "Backend exited with an error (status=${BACKEND_STATUS})."
   exit 1
 fi

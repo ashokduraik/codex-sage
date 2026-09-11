@@ -50,7 +50,10 @@ jobs, logging) are recorded under [`docs/adr/`](./adr/README.md) — especially
 
 Three participants. Concurrency in this slice is **async I/O inside each Node process**,
 plus a **dedicated worker process** for heavy ingest/index work. There is no separate
-CodeGraph daemon and no Node `worker_threads` yet.
+CodeGraph daemon and no Node `worker_threads` yet. In production the **browser talks to
+one Fastify process** that serves both `/api/v1` and the built SPA (`frontend/dist` via
+`@fastify/static`); there is no separate frontend Node server. Local development still
+runs Vite as a separate HMR process that proxies `/api` to the API.
 
 **Deploy topology (API):** multiple hosts, each running the API under **PM2 cluster mode**
 (several Node workers per host). All workers share the same MongoDB replica set. Cross-request
@@ -62,10 +65,11 @@ load balancer / edge if operators need them.
 ```text
 ┌─────────────────────────────────────────────────────────────────┐
 │  Browser (React)                                                │
-│  Talks only to the API. Never to Ollama, MongoDB, CodeGraph,    │
-│  or the worker.                                                 │
+│  Talks only to the API host (JSON/SSE under /api/v1; SPA assets │
+│  from the same origin in production). Never to Ollama, MongoDB, │
+│  CodeGraph, or the worker.                                      │
 └────────────────────────────┬────────────────────────────────────┘
-                             │ HTTPS  /api/v1
+                             │ HTTPS  /api/v1  (+ static SPA in prod)
                              │ JSON (CRUD)  ·  SSE (chat)
                              │ (optional LB / edge rate limits)
                              ▼
@@ -74,6 +78,7 @@ load balancer / edge if operators need them.
 │                                                                 │
 │  Fast path: JWT, RBAC, CRUD, enqueue a job, open an SSE stream  │
 │  Chat: run the LangGraph workflow in this same process          │
+│  Production: also serves `frontend/dist` (SPA + hashed assets)  │
 │  Reads: CodeGraph (read-only) + MongoDB + Ollama over HTTP      │
 │                                                                 │
 │  Does not poll jobs, unpack source trees, or rebuild the index. │
@@ -387,7 +392,7 @@ Mechanisms below match the accepted stack ADRs
 
 | From | To | Mechanism | Carries |
 |------|----|-----------|---------|
-| React | Fastify | HTTPS JSON; chat uses SSE | CRUD, job status, SSE events |
+| React | Fastify | Same-origin HTTPS JSON (`/api/v1`); chat uses SSE; production also loads the SPA from this host | CRUD, job status, SSE events, static UI |
 | Fastify | MongoDB | Mongoose | Domain docs, text search, jobs, chat, audit/usage |
 | Fastify | GridFS | MongoDB GridFS | Accepted source/doc bytes |
 | Fastify | LangGraph | in-process library | Chat state machine; the route handler still owns SSE |

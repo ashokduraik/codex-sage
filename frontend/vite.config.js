@@ -29,7 +29,7 @@ export default defineConfig({
     setupFiles: ['src/test/setup.js'],
     // Pin VITE_ env vars so tests are independent of the developer's local .env file.
     env: {
-      VITE_API_BASE_URL: '/api',
+      VITE_API_BASE_URL: '/api/v1',
     },
     coverage: {
       provider: 'v8',

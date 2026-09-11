@@ -1,4 +1,7 @@
 import { describe, it, expect, afterEach, vi, beforeEach } from 'vitest';
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { API_BASE_PATH, buildApp, CORRELATION_ID_HEADER } from './app.js';
 import { TEST_APP_CONFIG } from '../test/appConfig.js';
 import { MONGO_UNAVAILABLE_CODE } from '../platform/mongo.js';
@@ -122,20 +125,31 @@ describe('buildApp', () => {
         expect(res.headers['access-control-allow-origin']).toBe('http://localhost:5173');
     });
     it('skips CORS registration in production', async () => {
-        app = buildApp({
-            ...TEST_APP_CONFIG,
-            env: { ...TEST_APP_CONFIG.env, isProduction: true, nodeEnv: 'production' },
-        });
-        await app.ready();
-        const res = await app.inject({
-            method: 'OPTIONS',
-            url: `${API_BASE_PATH}/health`,
-            headers: {
-                origin: 'http://localhost:5173',
-                'access-control-request-method': 'GET',
-            },
-        });
-        expect(res.headers['access-control-allow-origin']).toBeUndefined();
+        const distRoot = mkdtempSync(path.join(tmpdir(), 'codex-sage-cors-spa-'));
+        writeFileSync(
+            path.join(distRoot, 'index.html'),
+            '<!doctype html><html><body>spa</body></html>\n',
+            'utf8',
+        );
+        try {
+            app = buildApp({
+                ...TEST_APP_CONFIG,
+                env: { ...TEST_APP_CONFIG.env, isProduction: true, nodeEnv: 'production' },
+                frontendDistRoot: distRoot,
+            });
+            await app.ready();
+            const res = await app.inject({
+                method: 'OPTIONS',
+                url: `${API_BASE_PATH}/health`,
+                headers: {
+                    origin: 'http://localhost:5173',
+                    'access-control-request-method': 'GET',
+                },
+            });
+            expect(res.headers['access-control-allow-origin']).toBeUndefined();
+        } finally {
+            rmSync(distRoot, { recursive: true, force: true });
+        }
     });
     it('registers request logging hooks when logger is enabled', async () => {
         app = buildApp({
