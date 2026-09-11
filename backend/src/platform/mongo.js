@@ -91,7 +91,8 @@ export async function connectMongo(config, log = defaultLog) {
     const summary = describeMongoUri(config.mongo.uri);
     attachConnectionListeners(log);
     mongoose.set('bufferCommands', false);
-    mongoose.set('autoIndex', !config.env.isProduction);
+    // Indexes are declared on schemas and synced explicitly in development / tests.
+    mongoose.set('autoIndex', false);
     try {
         await mongoose.connect(config.mongo.uri, {
             maxPoolSize: MONGODB_MAX_POOL_SIZE,

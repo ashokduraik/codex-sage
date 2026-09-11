@@ -20,9 +20,11 @@ organization impossible while leaving that same email free in another organizati
 `organizations` uses the base schema but **opts out** of the tenant `orgId` plugin (its `_id`
 *is* the org id).
 
-A controlled `npm run bootstrap` command in `backend/` creates the first organization, its four
-built-in roles, and its first administrator. Running it twice against the same database changes
-nothing and exits `0`. There is still no HTTP route and no login — Phase 07 adds those.
+On every API process startup (after Mongo connects, before listen), an idempotent seed runs:
+it checks for the default organization, the four built-in roles, the first administrator, and
+the admin membership; any missing row is created from **named constants in code** (no
+`BOOTSTRAP_*` env vars). A second startup changes nothing. There is still no HTTP route and no
+login — Phase 07 adds those. There is **no** `npm run bootstrap` CLI.
 
 ## 2. Why this phase is here
 
@@ -44,8 +46,10 @@ the only way any authenticated test or manual run of Phase 07 onward can exist a
 - Repositories for each, organization-scoped by construction.
 - The built-in role set (`org_admin`, `project_admin`, `member`, `viewer`) and the storage rule
   that separates built-in roles from custom roles.
-- A bootstrap seed command under `backend/` — idempotent, transactional, non-interactive-safe.
-- `backend/.env.example` additions mirrored into `backend/.env`.
+- An automatic, idempotent, transactional startup seed in the API process — check-then-create
+  missing rows from named constants; clean structured logs (`info` one summary, `debug` per step).
+- Confirm `LOG_LEVEL` remains documented in `backend/.env.example` (already present from Phase 01);
+  no new bootstrap env keys.
 
 ### Out of scope (owner phase)
 
@@ -55,6 +59,8 @@ the only way any authenticated test or manual run of Phase 07 onward can exist a
 - Audit events for identity changes — **Phase 10**.
 - Admin user/role/membership HTTP APIs — **Phase 11**.
 - `ProjectMember` (the project ACL overlay) — **Phase 18**.
+- A standalone CLI bootstrap command — **not in this product path**; startup seed replaces it.
+- Worker-process seeding — API startup only.
 
 ## 4. Design
 
@@ -63,6 +69,8 @@ the only way any authenticated test or manual run of Phase 07 onward can exist a
 One module, `src/modules/identity/`, following the repo's `model + repository + tests` shape with
 a single public surface (`index.js`). Nothing outside the module imports a model file directly;
 later phases consume the repositories. Routes arrive in Phase 11 and live in the same module.
+The seed lives in the same module (e.g. `bootstrapSeed.js`) and is invoked from the API entry
+(`src/index.js`) after `connectMongo` and before `listen`.
 
 ### 4.2 Row status versus domain lifecycle
 
@@ -106,48 +114,85 @@ a user belongs to exactly one organization in the MVP, so the unique index on
 fact; the repository treats the `Membership` document as authoritative for roles and the user's
 `orgId` as the tenant key.
 
-### 4.5 Bootstrap seed
+### 4.5 Bootstrap seed (automatic on API startup)
 
-Invoked as `npm run bootstrap` in `backend/` (an `tsx` entry at `src/cli/bootstrap.js`), it loads
-the same validated config as the API, connects to Mongo, runs inside a transaction (available per
-decision D5), and disconnects. It is a command, not a route: there is no public signup (D6), and
-no HTTP surface may ever create an organization from an unauthenticated request.
+Runs inside the API boot sequence only — not on the worker, not as a CLI, not as an HTTP route.
+There is no public signup (D6), and no HTTP surface may ever create an organization from an
+unauthenticated request.
+
+**Default identity values** are **named constants** next to the seed module (not env, not
+`AppConfig` — `.cursor/rules/env-config.mdc`). Locked defaults:
+
+| Constant | Value | Purpose |
+|---|---|---|
+| `DEFAULT_ORG_NAME` | `Default Organization` | Display name of the first organization |
+| `DEFAULT_ORG_SLUG` | `default` | Tenant handle, lowercase `[a-z0-9-]{2,64}` |
+| `DEFAULT_ADMIN_EMAIL` | `admin@localhost` | First administrator's email |
+| `DEFAULT_ADMIN_NAME` | `Administrator` | Display name |
+
+`result` is `created` if any row was inserted this run, else `already_present`. A second run
+does **not** repair membership `roleIds` or update existing timestamps.
 
 ```text
-1. read BOOTSTRAP_ORG_NAME, BOOTSTRAP_ORG_SLUG, BOOTSTRAP_ADMIN_EMAIL from validated config
-2. start session + transaction
-3. upsert organization by slug        → created | already present
-4. upsert the four built-in roles     → created | already present
-5. upsert admin user by (orgId,email) → created with userStatus 'invited'
-6. upsert membership (admin → org_admin role)
-7. commit; print a one-line summary with ids, no credentials
+API start → connectMongo → runBootstrapSeed(log) → buildApp → listen
+
+1. start session + transaction
+2. find organization by DEFAULT_ORG_SLUG (status A)
+   → missing: create; present: reuse
+3. for each built-in role key: find by (orgId, builtInKey)
+   → missing: create; present: reuse
+4. find admin user by (orgId, DEFAULT_ADMIN_EMAIL)
+   → missing: create with userStatus 'invited', no passwordHash
+   → present: reuse
+5. find membership by (orgId, adminUserId)
+   → missing: create with org_admin roleId
+   → present: reuse (ensure org_admin is among roleIds if seed owns that invariant)
+6. commit
+7. always log one clear info success line (created | already_present)
 ```
 
 **Idempotency** is enforced at three levels, not by a "does it exist" read alone:
 
-1. Every step is an upsert keyed on the same tenant-unique index used in §5, so two concurrent
-   runs cannot both insert.
-2. A duplicate-key error on any step is treated as "already bootstrapped", not as a failure.
+1. Every create step is an upsert keyed on the same tenant-unique index used in §5, so two
+   concurrent API processes cannot both insert conflicting rows.
+2. A duplicate-key error on any step is treated as "already present", not as a failure.
 3. The whole run is one transaction, so a crash midway leaves no half-created organization.
 
-Re-running prints `already bootstrapped` and exits `0`. There is no `--force`; undoing a bootstrap
-is a deliberate database operation, not a CLI flag.
+There is no `--force` and no env override; undoing a bootstrap is a deliberate database
+operation. Changing default identity later is a code change to the named constants (or a later
+admin API), not an env flip.
 
-### 4.6 Delivering the first password without logging it
+### 4.6 Logging (clean, level-aware)
+
+Seed logging uses the same structured logger / `LOG_LEVEL` as the rest of the API
+(Phase 01 / ADR 0005). Rules:
+
+| Level | What the seed emits |
+|---|---|
+| `info` | **Exactly one** success line every startup after the seed finishes, always — whether rows were created or already present. Message is clear and operator-readable (e.g. `bootstrap seed succeeded`). Fields: `result` (`created` \| `already_present`), `orgId`, `slug`, `adminUserId`, `adminUserStatus`, `builtInRoles` (keys only). **No** email, display name, password, or env values. |
+| `debug` | Optional **per-step** lines (org check/create, each role, user, membership) for local diagnosis. Still no credentials or PII beyond ids/slug already in the info summary. |
+| `warning` / `error` | Only on real problems; seed failure uses `BOOTSTRAP_FAILED` and fails the API process (exit non-zero) so the service does not listen half-bootstrapped. |
+
+At `LOG_LEVEL=info` (default in `.env.example`) the console stays clean: one seed success line
+plus normal boot lines (mongo connected, listening). At `LOG_LEVEL=debug` the same success
+line appears, plus the step-by-step seed trail.
+
+### 4.7 Delivering the first password without logging it
 
 Phase 06 does not hash passwords — argon2 belongs to Phase 07 and pulling it forward would break
 the phase boundary. The seeded administrator is therefore created with `passwordHash: undefined`
-and `userStatus: 'invited'`; they cannot log in until Phase 07 extends the same command with a
-`set-password` step. Open question 1 asks whether that split is acceptable.
+and `userStatus: 'invited'`; they cannot log in until Phase 07 extends the startup seed (or a
+Phase 07-owned path) with a set-password step. Open question 1 asks whether that split is
+acceptable.
 
 When that step lands, these rules apply to it and are stated here so the seed is designed for
 them now:
 
-- The password is read from `BOOTSTRAP_ADMIN_PASSWORD` (validated config) or, when absent, from
-  an interactive stdin prompt with echo disabled. **Never** from a CLI argument — `argv` is
-  visible in `ps` output and shell history.
+- Phase 07 decides how the first password is supplied (this phase adds **no**
+  `BOOTSTRAP_ADMIN_PASSWORD` env key). **Never** from a CLI argument — `argv` is visible in
+  `ps` output and shell history.
 - It is hashed immediately; the plaintext is never assigned to a logger field, never included in
-  the summary line, never written to a file, and is dropped from the config object after use.
+  the info success line, never written to a file, and is dropped from memory after use.
 - The config loader's "invalid variables" message (Phase 01 §4.1) prints variable names only, so
   a malformed password cannot leak through a startup error.
 - `passwordUpdatedAt` is set so Phase 08 can show reset status, and the operator is told to change
@@ -223,57 +268,57 @@ Indexes: unique `{ orgId: 1, userId: 1 }` partial `status: 'A'`;
 
 ## 6. API contract — PROPOSED (needs approval before implementation)
 
-**No HTTP route ships in this phase.** The organization/user/role endpoints in solution §8.4 are
-owned by [Phase 11](./phase-11-admin-identity-apis.md), and `POST /organizations` stays a
-bootstrap-only path that is never exposed to an unauthenticated caller (decision D6). The
-contract below is the command-line surface.
+**No HTTP route and no CLI ships in this phase.** The organization/user/role endpoints in
+solution §8.4 are owned by [Phase 11](./phase-11-admin-identity-apis.md), and
+`POST /organizations` stays a bootstrap/system path that is never exposed to an
+unauthenticated caller (decision D6). The contract below is the **startup seed** surface.
 
-### `npm run bootstrap`
+### Startup seed (`runBootstrapSeed`)
 
-- **Auth:** operating-system access to the server and the configured `MONGODB_URI`. No token.
-- **Success output (stdout, once, no credentials):**
+- **Auth:** none — runs inside the API process after a successful Mongo connect.
+- **Trigger:** every API boot; worker does not run it.
+- **Success (always, one `info` log, no credentials / no email):**
 
 ```json
 {
+  "msg": "bootstrap seed succeeded",
   "result": "created",
   "orgId": "6710c0a1f2b34c5d6e7f8091",
-  "slug": "acme",
+  "slug": "default",
   "adminUserId": "6710c0a1f2b34c5d6e7f8092",
   "adminUserStatus": "invited",
   "builtInRoles": ["org_admin", "project_admin", "member", "viewer"]
 }
 ```
 
-- **Second run:** identical body with `"result": "already_bootstrapped"`, exit code `0`.
-- **Failure:** exit code `1` plus one line using the platform envelope from
-  `backend/src/platform/errors.js`, so the seed and the API speak the same language:
+- **When rows already exist:** same shape with `"result": "already_present"`; process continues
+  to listen (exit remains normal).
+- **Failure:** process exits `1` before listen; one error log using the platform envelope from
+  `backend/src/platform/errors.js`:
 
 ```json
-{ "error": { "code": "BOOTSTRAP_CONFIG_INVALID", "message": "Bootstrap variables are missing or invalid.", "details": { "variables": ["BOOTSTRAP_ADMIN_EMAIL"] } }}
+{ "error": { "code": "BOOTSTRAP_FAILED", "message": "Bootstrap seed failed.", "details": {} } }
 ```
 
-New codes registered in the Phase 02 catalog: `BOOTSTRAP_CONFIG_INVALID` (user, 400-class,
-`user_action_required`) and `BOOTSTRAP_FAILED` (system, 500-class, `permanent`). `details` lists
-variable **names** only — never values.
+New code registered in the Phase 02 catalog: `BOOTSTRAP_FAILED` (system, 500-class,
+`permanent`). There is **no** `BOOTSTRAP_CONFIG_INVALID` — identity defaults are constants, not
+env. Log fields never include emails, passwords, or `.env` values.
 
 ## 7. Configuration & environment variables
 
-Add to `backend/.env.example` **and** mirror the same keys into `backend/.env`
-(`.cursor/rules/env-example-sync.mdc`). These are per-install identity values, not tunables
-(`.cursor/rules/env-config.mdc`). Never print `.env` contents in chat, logs, or a test
-snapshot.
+**No `BOOTSTRAP_*` variables.** Seed identity is named constants in the identity module
+(`.cursor/rules/env-config.mdc`). Do not add them to `backend/.env.example` or `backend/.env`.
+
+Logging already has a level option (Phase 01) — keep it documented; no change required beyond
+confirming the seed respects it:
 
 | Variable | Example | Required | Purpose |
 |---|---|---|---|
-| `BOOTSTRAP_ORG_NAME` | `Acme Corporation` | only for the seed | Display name of the first organization |
-| `BOOTSTRAP_ORG_SLUG` | `acme` | only for the seed | Tenant handle, lowercase |
-| `BOOTSTRAP_ADMIN_EMAIL` | `admin@acme.test` | only for the seed | First administrator's email |
-| `BOOTSTRAP_ADMIN_NAME` | `Acme Administrator` | no (defaults to the email local part) | Display name |
+| `LOG_LEVEL` | `info` | no (default `info`) | `debug` \| `info` \| `warning` \| `error` — controls seed verbosity (`info` = one success line; `debug` = success + per-step) |
 
-`BOOTSTRAP_ADMIN_PASSWORD` is **not** added here — it belongs to the Phase 07 step that can hash
-it. These four are optional for the API and worker processes and are only required when the
-bootstrap command runs, so the Phase 01 loader must not fail a normal startup when they are
-absent.
+`BOOTSTRAP_ADMIN_PASSWORD` is **not** added here — password delivery belongs to Phase 07 and
+must not reintroduce bootstrap identity env keys unless a later ADR explicitly overrides this
+decision.
 
 ## 8. Files to create or change
 
@@ -284,18 +329,17 @@ absent.
 | `backend/src/modules/identity/role.model.js` | **New:** Role schema, built-in guard |
 | `backend/src/modules/identity/membership.model.js` | **New:** Membership schema |
 | `backend/src/modules/identity/builtInRoles.js` | **New:** The four built-in role keys and descriptions |
+| `backend/src/modules/identity/bootstrapDefaults.js` | **New:** Named constants for default org/admin identity |
 | `backend/src/modules/identity/organization.repository.js` | **New:** Slug lookup, create, soft delete |
 | `backend/src/modules/identity/user.repository.js` | **New:** Org-scoped find/create/list/soft delete |
 | `backend/src/modules/identity/role.repository.js` | **New:** Org-scoped role reads and built-in seeding |
 | `backend/src/modules/identity/membership.repository.js` | **New:** Org-scoped membership reads and writes |
-| `backend/src/modules/identity/index.js` | **New:** Public surface of the module |
+| `backend/src/modules/identity/bootstrapSeed.js` | **New:** Idempotent transactional check-then-create seed |
+| `backend/src/modules/identity/index.js` | **New:** Public surface of the module (incl. seed export) |
 | `backend/src/modules/identity/*.test.js` | **New:** Colocated tests for every file above |
-| `backend/src/cli/bootstrap.js` | **New:** Idempotent transactional seed command |
-| `backend/src/cli/bootstrap.test.js` | **New:** First run, second run, concurrent run, failure |
-| `backend/src/platform/errorCatalog.js` | Register `BOOTSTRAP_CONFIG_INVALID`, `BOOTSTRAP_FAILED` |
-| `backend/src/platform/config.js` | Add the optional `bootstrap` config group |
-| `backend/package.json` | Add the `bootstrap` script |
-| `backend/.env.example` / `backend/.env` | Document and mirror the four variables |
+| `backend/src/index.js` | Call `runBootstrapSeed` after `connectMongo`, before `listen` |
+| `backend/src/platform/errorCatalog.js` | Register `BOOTSTRAP_FAILED` |
+| `backend/.env.example` | Confirm `LOG_LEVEL` is documented; **do not** add `BOOTSTRAP_*` |
 
 ## 9. Tests (≥ 80% line and branch)
 
@@ -309,6 +353,8 @@ absent.
 - `it('rejects a rename of a built-in role')` and the same for a permission edit.
 - `it('rejects a soft delete of a built-in role')`.
 - `it('throws when a repository call is made without an orgId')`.
+- `it('emits exactly one info success log and no debug logs when log level is info')`.
+- `it('emits per-step debug logs when log level is debug')`.
 
 ### Integration (real Mongo via the Phase 03 harness)
 
@@ -319,18 +365,18 @@ absent.
 - `it('returns a keyset page ordered by _id descending')` for the user list.
 - `it('finds a membership only within its own organization')` — a cross-tenant read by a valid
   `userId` with the wrong `orgId` returns null, not the document.
-- `it('creates organization, four roles, admin user and membership on first bootstrap')`.
-- `it('changes nothing and exits 0 on a second bootstrap')` — asserts unchanged `updatedAt`.
-- `it('creates exactly one organization when two bootstraps run concurrently')`.
+- `it('creates organization, four roles, admin user and membership on first seed')`.
+- `it('changes nothing on a second seed and reports already_present')` — asserts unchanged
+  `updatedAt`.
+- `it('creates exactly one organization when two seeds run concurrently')`.
 - `it('leaves no organization behind when the membership insert fails')` — transaction rollback.
 
 ### Unhappy paths that must be covered
 
-- Bootstrap with a missing `BOOTSTRAP_ADMIN_EMAIL` → exit `1`, `BOOTSTRAP_CONFIG_INVALID`, and
-  the message names the variable without printing any value.
-- Bootstrap with an invalid slug (`Acme Corp!`) → rejected before any write.
-- Bootstrap against an unreachable Mongo → `BOOTSTRAP_FAILED`, exit `1`, no partial writes.
-- No test and no code path logs `BOOTSTRAP_ADMIN_*` values — assert the captured log output.
+- Seed with a broken / unreachable Mongo connection mid-transaction → `BOOTSTRAP_FAILED`,
+  API boot aborts before listen, no partial writes.
+- Captured logs never include `DEFAULT_ADMIN_EMAIL`, passwords, or `.env` values — assert
+  against the info (and debug) output.
 
 ## 10. Definition of Done
 
@@ -342,12 +388,14 @@ absent.
       the tenant plugin.
 - [ ] The four built-in roles are seeded per organization and cannot be renamed, re-permissioned,
       or soft-deleted through a repository call.
-- [ ] `npm run bootstrap` creates the first organization and admin; a second run is a no-op that
-      exits `0`.
-- [ ] No route, script, or test can create an organization from an unauthenticated HTTP request.
-- [ ] `BOOTSTRAP_*` variables are in `backend/.env.example` and mirrored into `backend/.env`.
-- [ ] No credential, password, or `.env` value appears in any log line, stdout summary, or test
-      fixture.
+- [ ] API startup runs the seed automatically; a second startup is a no-op that still logs one
+      clear `info` success with `result: already_present`.
+- [ ] No CLI bootstrap script; no `BOOTSTRAP_*` env keys.
+- [ ] At `LOG_LEVEL=info`, seed emits one success line; at `debug`, that line plus per-step
+      detail. `LOG_LEVEL` remains documented in `backend/.env.example`.
+- [ ] No route or test can create an organization from an unauthenticated HTTP request.
+- [ ] No credential, password, email, or `.env` value appears in any seed log line or test
+      fixture assertion of logs.
 - [ ] `npm run lint`, and `npm test` pass; coverage ≥ 80% line and branch for
       every file this phase touched.
 
@@ -357,11 +405,13 @@ absent.
   collections, their indexes, and the `status` versus `userStatus` rule.
 - `docs/architecture.md` §3 already lists "Orgs, users, roles, memberships" under MongoDB —
   confirm the field names match and adjust wording only if they differ.
-- Record an ADR in `docs/adr/` for **bootstrap-only tenant creation**: context (D6, no public
-  signup), decision (CLI seed, no HTTP path), consequences (operator access is required to
-  onboard a tenant), alternatives (invite-only signup endpoint, platform-admin API).
-- Add a short "First run" section to `backend/README` or the root README describing
-  `npm run bootstrap` — referencing variable names only.
+- Record an ADR in `docs/adr/` for **startup bootstrap seed (no public signup)**: context (D6),
+  decision (API startup check-then-create from named constants; no CLI; no `BOOTSTRAP_*` env;
+  no unauthenticated HTTP create), consequences (first tenant appears automatically; changing
+  defaults is a code change; multi-tenant onboarding still needs a later path), alternatives
+  (CLI seed with env vars, invite-only signup endpoint, platform-admin API).
+- Add a short "First run" section to `backend/README` or the root README: start the API; seed
+  runs automatically; point at `LOG_LEVEL` for verbosity — no bootstrap env variable names.
 
 ## 12. Risks & open questions
 
@@ -371,19 +421,21 @@ Ask the user; do not assume (`.cursor/rules/no-assumptions.mdc`).
    `userStatus: 'invited'` with no `passwordHash` until [Phase 07](./phase-07-authentication.md)
    adds hashing. Is that acceptable, or should the argon2 hasher be pulled into this phase so the
    bootstrap produces a usable login in one step?
-2. **Second and subsequent organizations.** The bootstrap command creates one tenant. How is
-   tenant number two onboarded — re-running the command with different variables, or a
-   platform-administrator API that this plan has not scoped anywhere?
-3. **Role assignment cardinality.** `Membership.roleIds` is an array. Should a user be allowed to
+2. **Default constant values.** Proposed: org `Default Organization` / slug `default`, admin
+   `admin@localhost` / `Administrator`. Confirm or supply the exact strings to hardcode.
+3. **Second and subsequent organizations.** The startup seed creates one tenant from constants.
+   How is tenant number two onboarded — a platform-administrator API that this plan has not
+   scoped anywhere?
+4. **Role assignment cardinality.** `Membership.roleIds` is an array. Should a user be allowed to
    hold several roles at once (union of permissions), or exactly one role, which would simplify
    [Phase 09](./phase-09-rbac-engine.md) and the Phase 15 admin UI?
-4. **Built-in role permissions at read time.** Resolving built-ins from code (§4.3) means the
+5. **Built-in role permissions at read time.** Resolving built-ins from code (§4.3) means the
    admin UI cannot edit them and a code change silently changes every tenant's effective access.
    Is that the intent, or should built-ins be materialized per organization at seed time and
    migrated explicitly?
-5. **Organization `config`.** Which settings belong there in this phase (retention defaults, rate
+6. **Organization `config`.** Which settings belong there in this phase (retention defaults, rate
    limits, password policy), and which stay in environment configuration until the phase that
    needs them?
-6. **Email uniqueness scope.** Uniqueness is per organization, so the same person can exist as
+7. **Email uniqueness scope.** Uniqueness is per organization, so the same person can exist as
    two users in two tenants with separate passwords. Confirm that is intended rather than a single
    global identity.

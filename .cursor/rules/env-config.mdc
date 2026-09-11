@@ -11,9 +11,10 @@ constants** next to the module that uses them. Do not add an env var "just in ca
 
 ## Belongs in `.env`
 
-Secrets, connection strings, bind host/port, `NODE_ENV`, log level, bootstrap identity,
-encryption keys, and flags that must differ between environments (for example allowing
-private hosts in local development only).
+Secrets, connection strings, bind host/port, `NODE_ENV`, log level, encryption keys, and
+flags that must differ between environments (for example allowing private hosts in local
+development only). Bootstrap organization/admin identity is **not** env — use named constants
+(ADR 0011).
 
 ## Belongs in constants (not env, not `AppConfig`)
 

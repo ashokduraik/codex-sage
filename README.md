@@ -17,6 +17,14 @@ npm run setup   # check Node, bootstrap .env files, install deps
 npm run dev     # backend API on :3000 + frontend Vite (proxies /api → :3000)
 ```
 
+### First run (backend)
+
+With Mongo reachable and `MONGODB_URI` set, starting the API connects, syncs indexes in
+non-production, and runs an idempotent bootstrap seed (default organization, built-in roles,
+invited admin). One `info` log line reports `bootstrap seed succeeded` with
+`result: created | already_present`. Use `LOG_LEVEL=debug` for per-step seed detail. There is
+no `npm run bootstrap` CLI and no `BOOTSTRAP_*` env vars (see ADR 0011).
+
 ## Commands
 
 All root commands operate on **both** `backend/` and `frontend/`.

@@ -48,8 +48,8 @@ invalidate.
   non-active users, and decorates `request.principal`.
 - Uniform failure responses that do not reveal whether an email exists, is invited, or is
   disabled.
-- Extending the Phase 06 seed script so the bootstrap administrator can be given a password
-  (see Phase 06 §12 question 1).
+- Extending the Phase 06 **startup seed** (`runBootstrapSeed`) so the bootstrap administrator
+  can be given a password (see Phase 06 §12 question 1). There is no CLI bootstrap command.
 - Log redaction entries for `password`, `newPassword`, `accessToken`, `refreshToken`,
   `passwordHash` and the `authorization` and `cookie` headers.
 
@@ -290,7 +290,9 @@ a value, and never log it.
 | Variable | Example | Required | Purpose |
 |---|---|---|---|
 | `JWT_ACCESS_TOKEN_SECRET` | `<generated 32+ byte value>` | **yes** | Signing key for access tokens |
-| `BOOTSTRAP_ADMIN_PASSWORD` | `<generated>` | only for the seed | First admin password; hashed by this phase |
+
+How the first admin password is supplied is decided in this phase (extend `runBootstrapSeed`);
+do **not** reintroduce `BOOTSTRAP_*` identity env keys unless a new ADR overrides ADR 0011.
 
 Config validation must reject a missing or short `JWT_ACCESS_TOKEN_SECRET` and must not print
 the value in the error message (Phase 01 §4.1 already requires this).
@@ -315,7 +317,7 @@ constant names and the JWT timings below are the recommended defaults.
 | Path | Purpose |
 |---|---|
 | `backend/package.json` | Add `argon2`, `@fastify/jwt`, `@fastify/cookie`, `@fastify/csrf-protection` after the `dependency-versions.mdc` pre-install checks |
-| `backend/src/platform/config.js` | Add `auth.jwtAccessTokenSecret` (and optional bootstrap password) |
+| `backend/src/platform/config.js` | Add `auth.jwtAccessTokenSecret` |
 | `backend/src/platform/config.test.js` | **Extend:** missing secret, short secret |
 | `backend/src/platform/logger.js` | **Extend:** redaction paths for credentials and tokens |
 | `backend/src/platform/logger.test.js` | **Extend:** assert redaction of each path |
@@ -335,8 +337,8 @@ constant names and the JWT timings below are the recommended defaults.
 | `backend/src/modules/auth/index.js` | **New:** public surface (`authenticate`, principal type) |
 | `backend/src/http/routes.js` | Register `authRoutes` |
 | `backend/src/http/app.js` | Register `@fastify/jwt`, `@fastify/cookie`, `@fastify/csrf-protection`; declare the `principal` request decorator |
-| `backend/src/cli/bootstrap.js` | **Extend (Phase 06 file):** optional password for the first admin |
-| `backend/.env.example` / `backend/.env` | Document and mirror `JWT_ACCESS_TOKEN_SECRET` and `BOOTSTRAP_ADMIN_PASSWORD` |
+| `backend/src/modules/identity/bootstrapSeed.js` | **Extend (Phase 06):** set first-admin password when this phase defines supply |
+| `backend/.env.example` / `backend/.env` | Document and mirror `JWT_ACCESS_TOKEN_SECRET` |
 
 ## 9. Tests (≥ 80% line and branch)
 
@@ -389,9 +391,9 @@ constant names and the JWT timings below are the recommended defaults.
 - [ ] The auth service returns typed outcomes at the single call site Phase 10 will audit.
 - [ ] Log redaction covers password, token, hash and `authorization` / `cookie` headers, with a
       test proving it.
-- [ ] `JWT_ACCESS_TOKEN_SECRET` (and `BOOTSTRAP_ADMIN_PASSWORD` for the seed) are documented in
-      `backend/.env.example` and mirrored in `backend/.env`, with no real value committed.
-      Argon2 costs and JWT lifetimes are constants, not env vars.
+- [ ] `JWT_ACCESS_TOKEN_SECRET` is documented in `backend/.env.example` and mirrored in
+      `backend/.env`, with no real value committed. Argon2 costs and JWT lifetimes are
+      constants, not env vars. Do not add `BOOTSTRAP_*` identity env keys (ADR 0011).
 - [ ] `argon2`, `@fastify/jwt`, `@fastify/cookie` and `@fastify/csrf-protection` installed at
       latest stable after the pre-install checks (D14).
 - [ ] `npm run lint` and `npm test` pass; coverage ≥ 80% line and branch.

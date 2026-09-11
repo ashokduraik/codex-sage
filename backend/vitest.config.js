@@ -4,6 +4,8 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['src/**/*.test.js'],
+    // Shared external Mongo test DB — parallel files would race on deleteMany.
+    fileParallelism: false,
     coverage: {
       provider: 'v8',
       include: ['src/**/*.js'],

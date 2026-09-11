@@ -67,7 +67,7 @@ describe('connectMongo / disconnectMongo', () => {
         mockConnection().readyState = 1;
         await connectMongo(TEST_APP_CONFIG, log);
         expect(mongoose.set).toHaveBeenCalledWith('bufferCommands', false);
-        expect(mongoose.set).toHaveBeenCalledWith('autoIndex', true);
+        expect(mongoose.set).toHaveBeenCalledWith('autoIndex', false);
         expect(mongoose.connect).toHaveBeenCalledWith(TEST_APP_CONFIG.mongo.uri, expect.objectContaining({ maxPoolSize: MONGODB_MAX_POOL_SIZE }));
         expect(log.info).toHaveBeenCalledWith(expect.objectContaining({ database: 'codex_sage_test', poolSize: MONGODB_MAX_POOL_SIZE }), 'mongo connected');
         const logged = JSON.stringify(log.info.mock.calls);

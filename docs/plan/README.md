@@ -63,7 +63,7 @@ phase. Anything not listed here and not in the source documents above is an open
 | D10 | CI (GitHub Actions: lint + tests + coverage gate) is wired in the final phase (63), together with the Playwright E2E suite |
 | D11 | Containerisation, deployment, and production infrastructure are **out of scope** for this plan. Target is a working local development environment with tests |
 | D12 | Automated end-to-end tests come **last** (phase 63). Every earlier phase still ships unit + integration tests at ≥ 80% line and branch coverage |
-| D13 | `.env` holds only values that must differ per environment (secrets, URIs, bind address, log level, bootstrap identity, encryption keys, env-specific flags). Driver tunables, page sizes, cache TTLs, retry/backoff, algorithm parameters, and route prefixes are named constants — not env vars (`.cursor/rules/env-config.mdc`) |
+| D13 | `.env` holds only values that must differ per environment (secrets, URIs, bind address, log level, encryption keys, env-specific flags). Bootstrap org/admin identity is named constants in code (ADR 0011). Driver tunables, page sizes, cache TTLs, retry/backoff, algorithm parameters, and route prefixes are named constants — not env vars (`.cursor/rules/env-config.mdc`) |
 | D14 | Refresh token is an **httpOnly** cookie (`SameSite=Strict`, `Path` limited to `/api/v1/auth`). Access token stays in memory. Refresh and logout send a CSRF double-submit header. Packages: `@fastify/cookie`, `@fastify/csrf-protection` |
 | D15 | Password reset is **admin-mediated only**. There is no public forgot/reset-token flow. An administrator with `users.manage` sets a new password in the request body; the secret is never returned. The user receives it out of band. Signed-in `POST /auth/password/change` stays |
 | D16 | Integration tests use the **same external MongoDB 8 replica set** as development, with a **separate database name** (`codex_sage_test`). `mongodb-memory-server` is not used |
@@ -152,8 +152,8 @@ Taken from `AGENTS.md` and `.cursor/rules/`. Repeated here so a phase document d
 ### Configuration
 
 - `.env` holds only values that **must differ per environment** (secrets, connection strings,
-  bind host/port, `NODE_ENV`, log level, bootstrap identity, encryption keys, env-specific
-  flags). See `.cursor/rules/env-config.mdc`.
+  bind host/port, `NODE_ENV`, log level, encryption keys, env-specific flags). Bootstrap
+  org/admin identity is named constants (ADR 0011). See `.cursor/rules/env-config.mdc`.
 - Driver tunables, page sizes, timeouts, cache TTLs, retry/backoff, algorithm parameters, and
   route prefixes are **named constants** in the module that uses them. Do not add an env var
   "just in case". Create a constant only when the code reads it.

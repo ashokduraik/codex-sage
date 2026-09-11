@@ -97,6 +97,12 @@ export const ERROR_CATALOG = Object.freeze({
     retryability: 'user_action_required',
     message: 'Pagination cursor is invalid.',
   }),
+  BOOTSTRAP_FAILED: Object.freeze({
+    class: 'system',
+    httpStatus: 500,
+    retryability: 'permanent',
+    message: 'Bootstrap seed failed.',
+  }),
   KNOWLEDGE_UNAVAILABLE: Object.freeze({
     class: 'knowledge',
     httpStatus: 503,
