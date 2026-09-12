@@ -147,7 +147,9 @@ API process
   Tools Node actually runs: explore_code, search_documents, read file/doc slices, abstain
 
 Worker process
-  Claim jobs, heartbeat, reclaim stuck jobs (expired heartbeat)
+  Claim jobs (`findOneAndUpdate` pending→running), heartbeat lease refresh, reclaim
+  stuck jobs (lease sweeper), graceful drain on shutdown
+  Per-project writer serialization via `project_job_locks` (ADR 0022)
   One knowledge/sync job at a time per project
   Ingest stages S0–S6 (see §5)
   Scheduled git sync (default every 30 minutes)
@@ -157,7 +159,10 @@ MongoDB
   (`projectAccessMode`: all | selected | none), sessions (refresh-token families),
   projects (`lifecycleStatus`, `knowledgeHealth`, `sourceConfig`, `counts`, `settings`;
   soft-delete via `status: 'A'|'D'`), project_members (per-project ACL overlay)  Source versions/files, document sections (text index), knowledge metadata
-  Jobs and job events (`jobs` / `job_events`; Phase 20 read APIs; worker claim in Phase 21 — ADR 0004)
+  Jobs and job events (`jobs` / `job_events`; Phase 20 read APIs; Phase 21 worker claim —
+  ADR 0004)
+  Project job locks (`project_job_locks`; one live `project_writer` lock per project —
+  ADR 0022)
   Conversations, messages, clarifications, summaries
   Audit, in-app notifications, usage, idempotency keys
   GridFS: accepted source/doc bytes (not node_modules, not images)

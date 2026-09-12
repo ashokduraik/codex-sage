@@ -33,6 +33,8 @@ export const JOB_TYPE_VALUES = Object.freeze([
   'ingest',
   'reingest',
   'repo_sync',
+  /** Phase 21 verification handler; domain handlers replace real work later. */
+  'worker_smoke',
 ]);
 
 /** Failure classification for retry policy (Phase 21/22). */

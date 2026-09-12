@@ -131,7 +131,7 @@ is visibility only; lifecycle is `jobStatus` (`pending` \| `running` \| `complet
 `completed_with_warnings` \| `failed` \| `retrying` \| `cancelled`). Failed jobs stay
 `status: 'A'` and remain readable.
 
-Fields: `projectId`, `jobType` (`ingest` \| `reingest` \| `repo_sync`, …), `jobStatus`,
+Fields: `projectId`, `jobType` (`ingest` \| `reingest` \| `repo_sync` \| `worker_smoke`, …), `jobStatus`,
 `sourceVersionId`, `correlationId`, worker lease fields (`workerId`, `attempt`,
 `maxAttempts`, `heartbeatAt`, `leaseExpiresAt`, `scheduledAt`), `failureClass` /
 `failureCode`, `currentStage`, `stageCheckpoint`
@@ -145,8 +145,9 @@ Indexes (partial `status: 'A'`): `{ orgId, projectId, createdAt: -1, _id: -1 }` 
 keyset), `{ orgId, projectId, jobStatus }` (dashboard), `{ status, jobStatus, jobType,
 scheduledAt }` (claim), `{ status, jobStatus, leaseExpiresAt }` (sweep).
 
-Internal `createPendingJob` inserts `pending` + a `job.enqueued` event. Claim/retry/cancel
-belong to later phases.
+Internal `createPendingJob` inserts `pending` + a `job.enqueued` event. Phase 21 claims,
+heartbeats, sweeps expired leases, and serializes exclusive writers via
+`project_job_locks`. Cancel/retry HTTP control is Phase 22.
 
 ### `job_events`
 
@@ -154,6 +155,14 @@ Append-only history for a job (Phase 20). Fields: `projectId`, `jobId`, `eventCo
 `severity` (`info` \| `warning` \| `error`), `message` (user language, capped; never
 truncated), `data` (structured allowlisted keys), `correlationId`, plus base fields.
 Index (partial `status: 'A'`): `{ orgId, jobId, createdAt: 1 }`.
+
+### `project_job_locks`
+
+Job-level per-project writer lock (Phase 21; ADR 0022). Fields: `projectId`, `jobId`,
+`workerId`, `lockScope` (`project_writer`), `acquiredAt`, `expiresAt`, plus base fields
+including row `status` (`A` \| `D`). Soft-delete releases the unique key for the next
+writer. Indexes: unique `{ orgId, projectId, lockScope }` partial `status: 'A'`;
+`{ expiresAt: 1 }` for expired-lock takeover.
 
 ## Bootstrap seed
 
