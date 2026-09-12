@@ -7,6 +7,7 @@ import { labelForJobStage } from './jobStageCatalog.js';
 /** @type {Readonly<Record<string, string>>} */
 export const JOB_EVENT_MESSAGES = Object.freeze({
   'source.received': 'Source received',
+  'source.validated': 'Source validated',
   'source.exclusions_applied': 'Exclusions applied',
   'files.identified': 'Project files identified',
   'docs.analyzed': 'Documentation analyzed',
@@ -18,6 +19,15 @@ export const JOB_EVENT_MESSAGES = Object.freeze({
 });
 
 /**
+ * Formats a non-negative integer with en-US grouping.
+ * @param {number} value Count.
+ * @returns {string}
+ */
+function formatCount(value) {
+  return Math.max(0, Math.floor(value)).toLocaleString('en-US');
+}
+
+/**
  * Renders a catalogue message for an event code.
  * Unknown codes fall back to a safe generic phrase (never raw diagnostics).
  * @param {string} eventCode Stable event code.
@@ -25,6 +35,10 @@ export const JOB_EVENT_MESSAGES = Object.freeze({
  *   jobType?: string,
  *   fromStage?: string | null,
  *   skippedPathCount?: number,
+ *   excludedPaths?: number,
+ *   filesTotal?: number,
+ *   filesProcessed?: number,
+ *   filesFailed?: number,
  * }} [context] Optional render context (counts/labels only).
  * @returns {string}
  */
@@ -33,13 +47,28 @@ export function renderJobEventMessage(eventCode, context = {}) {
     const label = labelForJobStage(context.jobType ?? 'ingest', context.fromStage);
     return `Retry requested; resuming from ${label.toLowerCase()}`;
   }
-  if (
-    eventCode === 'source.exclusions_applied' &&
-    typeof context.skippedPathCount === 'number' &&
-    Number.isFinite(context.skippedPathCount)
-  ) {
-    const count = Math.max(0, Math.floor(context.skippedPathCount));
-    return `Exclusions applied (${count.toLocaleString('en-US')} paths skipped)`;
+  if (eventCode === 'source.validated' && typeof context.filesTotal === 'number') {
+    return `Source validated (${formatCount(context.filesTotal)} files)`;
+  }
+  if (eventCode === 'files.identified' && typeof context.filesProcessed === 'number') {
+    const processed = formatCount(context.filesProcessed);
+    const failed =
+      typeof context.filesFailed === 'number' ? Math.max(0, Math.floor(context.filesFailed)) : 0;
+    if (failed > 0) {
+      return `Project files identified (${processed} files, ${formatCount(failed)} failed)`;
+    }
+    return `Project files identified (${processed} files)`;
+  }
+  if (eventCode === 'source.exclusions_applied') {
+    const count =
+      typeof context.excludedPaths === 'number'
+        ? context.excludedPaths
+        : typeof context.skippedPathCount === 'number'
+          ? context.skippedPathCount
+          : null;
+    if (typeof count === 'number' && Number.isFinite(count)) {
+      return `Exclusions applied (${formatCount(count)} paths)`;
+    }
   }
   return JOB_EVENT_MESSAGES[eventCode] ?? 'Processing update';
 }

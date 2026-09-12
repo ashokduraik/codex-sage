@@ -547,6 +547,52 @@ export async function saveJobCheckpoint(input) {
 }
 
 /**
+ * Persists progress counters for the owning worker while the job is running.
+ * @param {{
+ *   jobId: import('mongoose').Types.ObjectId | string,
+ *   workerId: string,
+ *   progressCounters: {
+ *     itemsProcessed: number,
+ *     itemsFailed: number,
+ *     warningCount: number,
+ *     excludedCount: number,
+ *   },
+ *   currentStage?: string | null,
+ *   partialSuccess?: boolean,
+ * }} input Progress fields.
+ * @returns {Promise<boolean>}
+ */
+export async function saveJobProgress(input) {
+  /** @type {Record<string, unknown>} */
+  const setFields = {
+    progressCounters: {
+      itemsProcessed: Math.max(0, Math.floor(input.progressCounters.itemsProcessed ?? 0)),
+      itemsFailed: Math.max(0, Math.floor(input.progressCounters.itemsFailed ?? 0)),
+      warningCount: Math.max(0, Math.floor(input.progressCounters.warningCount ?? 0)),
+      excludedCount: Math.max(0, Math.floor(input.progressCounters.excludedCount ?? 0)),
+    },
+  };
+  if (input.currentStage !== undefined) {
+    setFields.currentStage = input.currentStage;
+  }
+  if (typeof input.partialSuccess === 'boolean') {
+    setFields.partialSuccess = input.partialSuccess;
+  }
+
+  const result = await Job.updateOne(
+    {
+      _id: new mongoose.Types.ObjectId(String(input.jobId)),
+      status: ROW_STATUS_ACTIVE,
+      jobStatus: 'running',
+      workerId: input.workerId,
+    },
+    [{ $set: { ...setFields, updatedAt: '$$NOW' } }],
+    { updatePipeline: true },
+  ).exec();
+  return result.matchedCount > 0;
+}
+
+/**
  * Schedules the job's next occurrence (for recurring handlers) after completion.
  * Creates nothing — callers enqueue a new pending job via jobs module when needed.
  * This helper only updates scheduledAt on a still-running job before finish if desired;

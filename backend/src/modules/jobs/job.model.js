@@ -169,6 +169,10 @@ jobSchema.index(
   { partialFilterExpression: { status: ROW_STATUS_ACTIVE } },
 );
 jobSchema.index(
+  { orgId: 1, projectId: 1, jobStatus: 1, currentStage: 1 },
+  { partialFilterExpression: { status: ROW_STATUS_ACTIVE } },
+);
+jobSchema.index(
   { status: 1, jobStatus: 1, jobType: 1, scheduledAt: 1 },
   { partialFilterExpression: { status: ROW_STATUS_ACTIVE } },
 );

@@ -232,14 +232,14 @@ API     JWT + permission (upload / connect)
         │  (async)
         ▼
 Worker  Atomically claim job  pending → running
-        S0  validate upload (re-check recorded metadata / empty set)
-        S1  reconcile GridFS vs SourceFile rows (missing/corrupt → fileState;
+        S0  validate_upload (re-check recorded metadata / empty set)
+        S1  store_files — reconcile GridFS vs SourceFile rows (missing/corrupt → fileState;
             API already wrote accepted bytes in Phase 24 — not a second full store)
-        S2  record exclusions (size, leftover ignores)
-        S3  recreate workspace; split docs into searchable sections
-        S4  CodeGraph write (full index or in-place sync); validate
-        S5  publish KnowledgeVersion (ready | partially_available | failed)
-        S6  finish job + project lifecycle
+        S2  exclude_apply — record exclusions (size, leftover ignores)
+        S3  materialize_docs — recreate workspace; split docs into searchable sections
+        S4  codegraph_update — CodeGraph write (full index or in-place sync); validate
+        S5  knowledge_publish — publish KnowledgeVersion (ready | partially_available | failed)
+        S6  finalize — finish job + project lifecycle
 ```
 
 Any file excluded from the graph forces knowledge health **`partially_available`**.

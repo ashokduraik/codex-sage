@@ -170,7 +170,8 @@ Fields: `projectId`, `jobType` (`ingest` \| `reingest` \| `repo_sync` \| `worker
 APIs.
 
 Indexes (partial `status: 'A'`): `{ orgId, projectId, createdAt: -1, _id: -1 }` (list
-keyset), `{ orgId, projectId, jobStatus }` (dashboard), `{ status, jobStatus, jobType,
+keyset), `{ orgId, projectId, jobStatus }` (dashboard), `{ orgId, projectId, jobStatus,
+currentStage }` (stage filter), `{ status, jobStatus, jobType,
 scheduledAt }` (claim), `{ status, jobStatus, leaseExpiresAt }` (sweep).
 
 Internal `createPendingJob` inserts `pending` + a `job.enqueued` event. Phase 21 claims,

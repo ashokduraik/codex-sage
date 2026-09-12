@@ -16,6 +16,7 @@ import {
   requeueJobTemporaryFailure,
   resolveNextDueAt,
   saveJobCheckpoint,
+  saveJobProgress,
 } from './jobClaim.js';
 import { heartbeatInFlightJob } from './jobHeartbeat.js';
 import { sweepExpiredLeases } from './leaseSweeper.js';
@@ -222,7 +223,11 @@ export function startWorkerRuntime(options) {
           },
           /**
            * Persists stage checkpoint for resume.
-           * @param {{ lastCompletedStage: string, cursor?: unknown }} checkpoint Checkpoint body.
+           * @param {{
+           *   lastCompletedStage: string,
+           *   cursor?: unknown,
+           *   currentStage?: string | null,
+           * }} checkpoint Checkpoint body.
            */
           async saveCheckpoint(checkpoint) {
             if (abortController.signal.aborted) {
@@ -231,8 +236,41 @@ export function startWorkerRuntime(options) {
             await saveJobCheckpoint({
               jobId,
               workerId,
-              checkpoint,
-              currentStage: checkpoint.lastCompletedStage,
+              checkpoint: {
+                lastCompletedStage: checkpoint.lastCompletedStage,
+                ...(Object.prototype.hasOwnProperty.call(checkpoint, 'cursor')
+                  ? { cursor: checkpoint.cursor }
+                  : {}),
+              },
+              currentStage: checkpoint.currentStage ?? checkpoint.lastCompletedStage,
+            });
+          },
+          /**
+           * Flushes progress counters for the UI while the job is running.
+           * @param {{
+           *   itemsProcessed: number,
+           *   itemsFailed: number,
+           *   warningCount: number,
+           *   excludedCount: number,
+           *   currentStage?: string | null,
+           *   partialSuccess?: boolean,
+           * }} progress Progress payload.
+           */
+          async saveProgress(progress) {
+            if (abortController.signal.aborted) {
+              return;
+            }
+            await saveJobProgress({
+              jobId,
+              workerId,
+              progressCounters: {
+                itemsProcessed: progress.itemsProcessed,
+                itemsFailed: progress.itemsFailed,
+                warningCount: progress.warningCount,
+                excludedCount: progress.excludedCount,
+              },
+              currentStage: progress.currentStage,
+              partialSuccess: progress.partialSuccess,
             });
           },
           /**

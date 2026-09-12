@@ -7,6 +7,8 @@ import { loadConfig } from '../platform/config.js';
 import { connectMongo, disconnectMongo } from '../platform/mongo.js';
 import { syncSchemaIndexes } from '../platform/data/index.js';
 import { JOB_MODELS } from '../modules/jobs/index.js';
+import { SOURCE_MODELS } from '../modules/sources/index.js';
+import { DOCUMENT_MODELS } from '../modules/documents/index.js';
 import { registerProcessHandlers } from '../platform/processHandlers.js';
 import {
   attachShutdownSignals,
@@ -14,6 +16,7 @@ import {
 } from '../platform/shutdown.js';
 import { clearJobHandlersForTests, registerJobHandler } from './handlerRegistry.js';
 import { workerSmokeHandlerRegistration } from './handlers/workerSmokeHandler.js';
+import { ingestHandlerRegistration } from '../modules/ingest/index.js';
 import { ProjectJobLock } from './projectJobLock.model.js';
 import { buildWorkerId, startWorkerRuntime } from './workerRuntime.js';
 import {
@@ -24,7 +27,11 @@ import {
 export { WORKER_HEARTBEAT_INTERVAL_MS };
 
 /** Models whose indexes the worker syncs in non-production. */
-export const WORKER_MODELS = Object.freeze([...JOB_MODELS, ProjectJobLock]);
+export const WORKER_MODELS = Object.freeze([
+  ...JOB_MODELS,
+  ...SOURCE_MODELS,
+  ProjectJobLock,
+]);
 
 /**
  * Boots the worker: process handlers → config → Mongo → handlers → runtime → shutdown.
@@ -80,6 +87,7 @@ export async function startWorker(deps = {}) {
   const register = deps.registerJobHandler ?? registerJobHandler;
   if (!deps.skipDefaultHandlers) {
     register(workerSmokeHandlerRegistration);
+    register(ingestHandlerRegistration);
   }
   if (typeof deps.registerExtraHandlers === 'function') {
     deps.registerExtraHandlers(register);

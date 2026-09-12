@@ -191,7 +191,7 @@ describe('startWorker', () => {
       clearHandlersForTests: true,
       registerExtraHandlers: (register) => {
         register({
-          type: 'ingest',
+          type: 'repo_sync',
           exclusiveScope: 'project',
           run: async () => ({ result: 'completed' }),
         });

@@ -17,6 +17,7 @@ import {
   releaseJobOnShutdown,
   resolveNextDueAt,
   saveJobCheckpoint,
+  saveJobProgress,
 } from './jobClaim.js';
 import { ProjectJobLock } from './projectJobLock.model.js';
 import { createJobLogger, buildJobLogBindings } from './workerLogger.js';
@@ -128,6 +129,25 @@ describe('jobClaim helpers', () => {
     const fresh = await Job.findById(job._id);
     expect(fresh.stageCheckpoint.lastCompletedStage).toBe('a');
     expect(fresh.stageCheckpoint.cursor).toEqual({ page: 1 });
+
+    const progressSaved = await saveJobProgress({
+      jobId: job._id,
+      workerId: 'w-cp',
+      progressCounters: {
+        itemsProcessed: 12,
+        itemsFailed: 1,
+        warningCount: 1,
+        excludedCount: 3,
+      },
+      currentStage: 'store_files',
+      partialSuccess: true,
+    });
+    expect(progressSaved).toBe(true);
+    const withProgress = await Job.findById(job._id);
+    expect(withProgress.progressCounters.itemsProcessed).toBe(12);
+    expect(withProgress.progressCounters.excludedCount).toBe(3);
+    expect(withProgress.partialSuccess).toBe(true);
+    expect(withProgress.currentStage).toBe('store_files');
 
     expect(resolveNextDueAt(new Date('2030-01-01T00:00:00.000Z')).toISOString()).toBe(
       '2030-01-01T00:00:00.000Z',

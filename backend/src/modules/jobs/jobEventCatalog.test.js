@@ -30,7 +30,16 @@ describe('jobEventCatalog', () => {
 
     expect(
       renderJobEventMessage('source.exclusions_applied', { skippedPathCount: 1203 }),
-    ).toBe('Exclusions applied (1,203 paths skipped)');
+    ).toBe('Exclusions applied (1,203 paths)');
+    expect(
+      renderJobEventMessage('source.validated', { filesTotal: 42 }),
+    ).toBe('Source validated (42 files)');
+    expect(
+      renderJobEventMessage('files.identified', { filesProcessed: 4812, filesFailed: 0 }),
+    ).toBe('Project files identified (4,812 files)');
+    expect(
+      renderJobEventMessage('files.identified', { filesProcessed: 4812, filesFailed: 9 }),
+    ).toBe('Project files identified (4,812 files, 9 failed)');
   });
 
   it('falls back safely for unknown codes', () => {

@@ -13,6 +13,12 @@ export {
 } from './exclusions/index.js';
 
 export {
+  normalizeArchivePath,
+  isUnsafeArchivePath,
+  assertSafeArchivePath,
+} from './exclusions/pathSafety.js';
+
+export {
   GRIDFS_SOURCE_BUCKET,
   UPLOAD_HASH_ALGORITHM,
   MULTIPART_MAX_FILES,
@@ -23,6 +29,8 @@ export {
   SOURCE_FILE_KIND_VALUES,
   SOURCE_FILE_STATE_VALUES,
   SOURCE_FILE_STATE_STORED,
+  SOURCE_FILE_STATE_MISSING,
+  SOURCE_FILE_STATE_CORRUPT,
 } from './sources.constants.js';
 
 export { SourceVersion } from './sourceVersion.model.js';
@@ -31,6 +39,9 @@ export {
   getSourceFilesBucket,
   buildSourceGridFsFilename,
   markGridFsFilesOrphaned,
+  findSourceGridFsFileById,
+  listSourceGridFsFilesForVersion,
+  openSourceGridFsDownloadStream,
   clearSourceFilesBucket,
 } from './gridfs.js';
 export {

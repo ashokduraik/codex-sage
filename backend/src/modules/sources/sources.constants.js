@@ -39,3 +39,9 @@ export const SOURCE_FILE_STATE_VALUES = Object.freeze([
 
 /** Default fileState after a successful GridFS write. */
 export const SOURCE_FILE_STATE_STORED = 'stored';
+
+/** FileState when the GridFS object is missing. */
+export const SOURCE_FILE_STATE_MISSING = 'missing';
+
+/** FileState when length or sha256 does not match. */
+export const SOURCE_FILE_STATE_CORRUPT = 'corrupt';

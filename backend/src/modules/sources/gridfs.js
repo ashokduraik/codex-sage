@@ -54,6 +54,71 @@ export async function markGridFsFilesOrphaned(gridFsIds, connection = mongoose.c
 }
 
 /**
+ * Reads GridFS file metadata by id for ingest reconciliation.
+ * @param {import('mongoose').Types.ObjectId | string} gridFsId File id.
+ * @param {import('mongoose').Connection} [connection] Connection.
+ * @returns {Promise<{ length: number, sha256: string | null } | null>}
+ */
+export async function findSourceGridFsFileById(gridFsId, connection = mongoose.connection) {
+  const db = connection.db;
+  if (!db) {
+    return null;
+  }
+  const id =
+    gridFsId instanceof mongoose.Types.ObjectId
+      ? gridFsId
+      : new mongoose.Types.ObjectId(String(gridFsId));
+  const doc = await db.collection(`${GRIDFS_SOURCE_BUCKET}.files`).findOne({ _id: id });
+  if (!doc) {
+    return null;
+  }
+  return {
+    length: typeof doc.length === 'number' ? doc.length : 0,
+    sha256:
+      doc.metadata && typeof doc.metadata.sha256 === 'string' ? doc.metadata.sha256 : null,
+  };
+}
+
+/**
+ * Lists GridFS files for a source version by filename prefix.
+ * @param {{
+ *   orgId: string,
+ *   projectId: string,
+ *   sourceVersionId: string,
+ * }} scope Scope strings.
+ * @param {import('mongoose').Connection} [connection] Connection.
+ * @returns {Promise<Array<{ _id: import('mongoose').Types.ObjectId, filename: string }>>}
+ */
+export async function listSourceGridFsFilesForVersion(scope, connection = mongoose.connection) {
+  const db = connection.db;
+  if (!db) {
+    return [];
+  }
+  const prefix = `${scope.orgId}/${scope.projectId}/${scope.sourceVersionId}/`;
+  const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const docs = await db
+    .collection(`${GRIDFS_SOURCE_BUCKET}.files`)
+    .find({ filename: { $regex: `^${escaped}` } })
+    .toArray();
+  return docs.map((doc) => ({ _id: doc._id, filename: doc.filename }));
+}
+
+/**
+ * Opens a readable download stream for a stored GridFS source object.
+ * @param {import('mongoose').Types.ObjectId | string} gridFsId File id.
+ * @param {import('mongoose').Connection} [connection] Connection.
+ * @returns {import('mongodb').GridFSBucketReadStream}
+ */
+export function openSourceGridFsDownloadStream(gridFsId, connection = mongoose.connection) {
+  const bucket = getSourceFilesBucket(connection);
+  const id =
+    gridFsId instanceof mongoose.Types.ObjectId
+      ? gridFsId
+      : new mongoose.Types.ObjectId(String(gridFsId));
+  return bucket.openDownloadStream(id);
+}
+
+/**
  * Deletes all documents in the source GridFS bucket (test cleanup only).
  * @param {import('mongoose').Connection} [connection] Connection.
  * @returns {Promise<void>}
