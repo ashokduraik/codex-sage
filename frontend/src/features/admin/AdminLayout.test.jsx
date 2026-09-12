@@ -1,26 +1,55 @@
 import { cleanup, screen } from '@testing-library/react';
 import { Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { clearAuthSession, renderWithProviders, seedAuthSession, } from '@/test/renderWithProviders';
+import {
+  clearAuthSession,
+  renderWithProviders,
+  seedAuthSession,
+} from '@/test/renderWithProviders';
 import AdminLayout from './AdminLayout';
+
 afterEach(() => {
-    cleanup();
+  cleanup();
 });
+
 beforeEach(() => {
-    clearAuthSession();
-    localStorage.clear();
-    seedAuthSession();
+  clearAuthSession();
+  localStorage.clear();
 });
+
 describe('AdminLayout', () => {
-    it('renders admin nav and outlet child content', () => {
-        renderWithProviders(<Routes>
-        <Route path="/admin" element={<AdminLayout />}>
-          <Route path="users" element={<div>Users outlet child</div>}/>
-        </Route>
-      </Routes>, { route: '/admin/users' });
-        expect(screen.getByText('Administration')).toBeTruthy();
-        expect(screen.getAllByText('Users').length).toBeGreaterThan(0);
-        expect(screen.getAllByText('Roles & Permissions').length).toBeGreaterThan(0);
-        expect(screen.getByText('Users outlet child')).toBeTruthy();
+  it('renders admin nav and outlet child content', () => {
+    seedAuthSession('you@acme.io', {
+      permissions: ['audit.view', 'users.manage'],
     });
+    renderWithProviders(
+      <Routes>
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route path="users" element={<div>Users outlet child</div>} />
+        </Route>
+      </Routes>,
+      { route: '/admin/users' },
+    );
+    expect(screen.getByText('Administration')).toBeTruthy();
+    expect(screen.getAllByText('Users').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Roles & Permissions').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Audit').length).toBeGreaterThan(0);
+    expect(screen.getByText('Users outlet child')).toBeTruthy();
+  });
+
+  it('hides the Audit tab when the caller lacks audit.view', () => {
+    seedAuthSession('you@acme.io', {
+      permissions: ['users.manage'],
+    });
+    renderWithProviders(
+      <Routes>
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route path="users" element={<div>Users outlet child</div>} />
+        </Route>
+      </Routes>,
+      { route: '/admin/users' },
+    );
+    expect(screen.getAllByText('Users').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Audit')).toBeNull();
+  });
 });
