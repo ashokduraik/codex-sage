@@ -25,6 +25,7 @@
 | [0020](./0020-inaccessible-project-404.md) | Inaccessible same-org projects return 404 | Accepted |
 | [0021](./0021-project-acl-version-cache.md) | Project ACL cache invalidated via organization.aclVersion | Accepted |
 | [0022](./0022-project-job-locks.md) | Per-project job serialization via lease-based lock collection | Accepted |
+| [0023](./0023-job-retry-same-document.md) | Retry reuses the same Job document; reingest creates a new one | Accepted |
 
 One decision = one ADR. Accepted ADRs are immutable; supersede with a new number rather
 than rewriting history.

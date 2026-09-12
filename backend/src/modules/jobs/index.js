@@ -13,21 +13,53 @@ export {
   JOB_TYPE_VALUES,
   FAILURE_CLASS_VALUES,
 } from './jobs.constants.js';
+export {
+  ACTIVE_JOB_STATUSES,
+  JOB_CANCEL_GRACE_MS,
+  JOB_MAX_USER_RETRIES,
+} from './jobControl.constants.js';
 export { Job } from './job.model.js';
 export { JobEvent } from './jobEvent.model.js';
 export {
   appendJobEvent,
   assertJobEventMessageLength,
+  beginUserRetry,
+  cancelQueuedJob,
   clampJobListLimit,
+  findActiveJobForProject,
   findJobById,
   insertPendingJob,
   isKnownJobStatus,
   listEventsForJob,
   listJobsByProject,
+  promoteRetryingJobToPending,
+  requestRunningJobCancel,
 } from './jobs.repository.js';
 export { createPendingJob, getJobById, listProjectJobs } from './jobs.service.js';
+export { cancelJob, retryJob } from './jobControl.service.js';
 export { mapJobEventToDto, mapJobToDetailDto, mapJobToListDto } from './jobs.types.js';
 export { jobRoutes } from './jobs.routes.js';
+export { jobControlRoutes } from './jobControl.routes.js';
+export {
+  ALLOWED_JOB_TRANSITIONS,
+  assertJobTransition,
+  isAllowedJobTransition,
+} from './jobTransitions.js';
+export {
+  INGEST_STAGE_DEFINITIONS,
+  JOB_STAGE_CATALOG,
+  labelForJobStage,
+  listStagesForJobType,
+} from './jobStageCatalog.js';
+export {
+  JOB_EVENT_MESSAGES,
+  messageContainsAbsolutePath,
+  messageContainsObjectIdShape,
+  messageContainsRawErrorFragment,
+  renderJobEventMessage,
+} from './jobEventCatalog.js';
+export { describeRetryAvailability, resolveJobRetryMode } from './jobRetryMode.js';
+export { deriveKnowledgeAvailability, projectJobProgress } from './jobProgress.js';
 
 import { Job } from './job.model.js';
 import { JobEvent } from './jobEvent.model.js';

@@ -1,11 +1,12 @@
 /**
- * Job HTTP read routes under `/api/v1`.
+ * Job HTTP read and control routes under `/api/v1`.
  */
 import { z } from 'zod';
 import { requireProjectPermission } from '../../http/preHandlers/requireProjectPermission.js';
 import { ApiError } from '../../platform/errors.js';
 import { JOB_STATUS_VALUES } from './jobs.constants.js';
 import { getJobById, listProjectJobs } from './jobs.service.js';
+import { jobControlRoutes } from './jobControl.routes.js';
 
 const listQuerySchema = z.object({
   cursor: z.string().min(1).optional(),
@@ -39,10 +40,12 @@ function zodDetails(error) {
 }
 
 /**
- * Registers job read routes under `/api/v1`.
+ * Registers job read and control routes under `/api/v1`.
  * @param {import('fastify').FastifyInstance} app Fastify app.
  */
 export async function jobRoutes(app) {
+  await jobControlRoutes(app);
+
   app.get(
     '/projects/:projectId/jobs',
     {

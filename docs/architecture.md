@@ -220,11 +220,12 @@ UI  POST ZIP/files  or  connect repo + branch
         │
         ▼
 API     JWT + permission (upload / connect)
-        Validate zip (integrity, zip-slip, allowlist)
+        Validate zip (integrity, zip-slip, allowlist) via the exclusions engine
+          (Phase 23: inspectZip + summarizeInspection; ruleset id exclusions.v1)
         Stream entries: skip junk BEFORE writing GridFS
           skip: node_modules/, .git/, dist/, build/, coverage/, images, …
+          accept_excluded_from_graph: allowlisted files > 1 MiB (stored, not graphed)
           nothing useful left → 400, ask for a cleaner upload
-        Files > 1 MiB: stored, marked excluded from the code graph
         Insert SourceVersion, SourceFile rows, Job(pending)
         Return 202 { sourceVersionId, jobId }
 
@@ -251,8 +252,11 @@ running). Auth/network failure **before** the graph is touched leaves current Q&
 usable. Same `commitSha` → no-op. Changed SHA → new `SourceVersion`, same index path
 as re-upload. Manual `POST .../repositories/sync` enqueues the same job.
 
-Failed jobs are kept. Retry resumes from a checkpoint; it must not start a second writer
-on the same project. A sweeper requeues or fails jobs whose heartbeat expired.
+Failed jobs are kept. Retry resumes from a checkpoint (or re-runs the full pipeline from
+`validate_upload` against stored bytes when a full rebuild is required) and reuses the same
+Job document; it must not start a second writer on the same project. Cancel is cooperative:
+pending/retrying jobs cancel immediately, running jobs set `cancelRequestedAt` and stop at the
+next stage boundary. A sweeper requeues or fails jobs whose heartbeat expired.
 
 ---
 

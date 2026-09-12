@@ -35,6 +35,8 @@ describe('audit.actions', () => {
         'project.delete',
         'project.member_added',
         'project.member_removed',
+        'job.retry',
+        'job.cancel',
       ]),
     );
     expect(AUDIT_ACTIONS).toHaveLength(Object.keys(AUDIT_ACTION_RESOURCE_TYPES).length);
@@ -53,5 +55,7 @@ describe('audit.actions', () => {
     expect(resourceTypeForAction('membership.update')).toBe('membership');
     expect(resourceTypeForAction('authz.denied')).toBe('route');
     expect(resourceTypeForAction('project.create')).toBe('project');
+    expect(resourceTypeForAction('job.retry')).toBe('job');
+    expect(resourceTypeForAction('job.cancel')).toBe('job');
   });
 });

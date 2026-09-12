@@ -24,12 +24,17 @@ import {
 import {
   appendJobEvent,
   assertJobEventMessageLength,
+  beginUserRetry,
+  cancelQueuedJob,
   clampJobListLimit,
+  findActiveJobForProject,
   findJobById,
   insertPendingJob,
   isKnownJobStatus,
   listEventsForJob,
   listJobsByProject,
+  promoteRetryingJobToPending,
+  requestRunningJobCancel,
 } from './jobs.repository.js';
 
 const harness = createMongoHarness({
@@ -244,5 +249,81 @@ describe('jobs.repository', () => {
         cursor: encodeCursor({ t: 'not-a-date', i: new mongoose.Types.ObjectId().toHexString() }),
       }),
     ).rejects.toMatchObject({ code: 'INVALID_CURSOR' });
+  });
+
+  it('supports active-job lookup, cancel, and user retry updates', async () => {
+    const orgId = new mongoose.Types.ObjectId();
+    const projectId = new mongoose.Types.ObjectId();
+    const actor = new mongoose.Types.ObjectId();
+    const { job } = await insertPendingJob({
+      orgId,
+      projectId,
+      jobType: 'ingest',
+      createdBy: actor,
+    });
+
+    expect(await findActiveJobForProject(orgId, projectId)).toBeTruthy();
+
+    const cancelled = await cancelQueuedJob({
+      orgId,
+      jobId: String(job._id),
+      actorUserId: actor,
+    });
+    expect(cancelled.jobStatus).toBe('cancelled');
+    expect(await findActiveJobForProject(orgId, projectId)).toBeNull();
+
+    const { job: runningJob } = await insertPendingJob({
+      orgId,
+      projectId,
+      jobType: 'ingest',
+    });
+    await Job.updateOne(
+      { _id: runningJob._id },
+      { $set: { jobStatus: 'running', workerId: 'w1' } },
+    );
+    const requested = await requestRunningJobCancel({
+      orgId,
+      jobId: String(runningJob._id),
+      actorUserId: actor,
+    });
+    expect(requested.cancelRequestedAt).toBeInstanceOf(Date);
+    expect(requested.cancelRequestedBy).toEqual(actor);
+    expect(requested.jobStatus).toBe('running');
+
+    const { job: failedJob } = await insertPendingJob({
+      orgId,
+      projectId,
+      jobType: 'ingest',
+    });
+    await Job.updateOne(
+      { _id: failedJob._id },
+      {
+        $set: {
+          jobStatus: 'failed',
+          failureClass: 'temporary',
+          currentStage: 'codegraph_update',
+          stageCheckpoint: { lastCompletedStage: 'materialize_docs', updatedAt: new Date() },
+        },
+      },
+    );
+    const retried = await beginUserRetry({
+      orgId,
+      jobId: String(failedJob._id),
+      actorUserId: actor,
+      mode: 'full',
+      clearCheckpoint: true,
+    });
+    expect(retried.jobStatus).toBe('retrying');
+    expect(retried.retryCount).toBe(1);
+    expect(retried.lastRetryMode).toBe('full');
+    expect(retried.stageCheckpoint).toBeNull();
+    expect(retried.currentStage).toBeNull();
+
+    const promoted = await promoteRetryingJobToPending({
+      orgId,
+      jobId: String(failedJob._id),
+      actorUserId: actor,
+    });
+    expect(promoted.jobStatus).toBe('pending');
   });
 });

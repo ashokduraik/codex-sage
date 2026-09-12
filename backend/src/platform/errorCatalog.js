@@ -220,6 +220,28 @@ export const ERROR_CATALOG = Object.freeze({
     message: 'The requested lifecycle transition is not allowed.',
     allowDetails: true,
   }),
+  INVALID_JOB_TRANSITION: Object.freeze({
+    class: 'user',
+    httpStatus: 409,
+    retryability: 'user_action_required',
+    message: 'The requested job status transition is not allowed.',
+    allowDetails: true,
+  }),
+  JOB_NOT_RETRYABLE: Object.freeze({
+    class: 'user',
+    httpStatus: 409,
+    retryability: 'user_action_required',
+    message:
+      'This upload cannot be retried. Fix the source and upload the project again.',
+    allowDetails: true,
+  }),
+  JOB_RETRY_LIMIT_EXCEEDED: Object.freeze({
+    class: 'user',
+    httpStatus: 409,
+    retryability: 'user_action_required',
+    message: 'This job has reached the maximum number of user-initiated retries.',
+    allowDetails: true,
+  }),
   UNKNOWN_SETTING: Object.freeze({
     class: 'user',
     httpStatus: 400,
@@ -244,6 +266,37 @@ export const ERROR_CATALOG = Object.freeze({
     httpStatus: 503,
     retryability: 'temporary',
     message: 'Context accounting is temporarily unavailable.',
+  }),
+  SOURCE_ZIP_SLIP: Object.freeze({
+    class: 'source',
+    httpStatus: 400,
+    retryability: 'user_action_required',
+    message: 'The archive contains unsafe paths and cannot be accepted.',
+  }),
+  SOURCE_ZIP_INTEGRITY: Object.freeze({
+    class: 'source',
+    httpStatus: 400,
+    retryability: 'user_action_required',
+    message: 'The archive is truncated, corrupted, or cannot be read safely.',
+  }),
+  SOURCE_ARCHIVE_TOO_LARGE: Object.freeze({
+    class: 'source',
+    httpStatus: 400,
+    retryability: 'user_action_required',
+    message: 'The archive exceeds the maximum allowed size or entry count.',
+  }),
+  SOURCE_VERSION_EMPTY_AFTER_EXCLUSIONS: Object.freeze({
+    class: 'source',
+    httpStatus: 400,
+    retryability: 'user_action_required',
+    message:
+      'No usable files remained after exclusions. Remove ignored paths and re-upload.',
+  }),
+  SOURCE_UNKNOWN_EXCLUSION_RULESET: Object.freeze({
+    class: 'source',
+    httpStatus: 500,
+    retryability: 'permanent',
+    message: 'The recorded exclusion ruleset is unknown and cannot be applied.',
   }),
 });
 

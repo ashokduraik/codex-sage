@@ -63,6 +63,34 @@ describe('ERROR_CATALOG', () => {
     expect(ERROR_CATALOG.IDEMPOTENCY_IN_FLIGHT.retryability).toBe('temporary');
     expect(ERROR_CATALOG.IDEMPOTENCY_CONFLICT).toBeUndefined();
   });
+
+  it('registers Phase 23 source upload validation codes', () => {
+    expect(ERROR_CATALOG.SOURCE_ZIP_SLIP).toMatchObject({
+      class: 'source',
+      httpStatus: 400,
+      retryability: 'user_action_required',
+    });
+    expect(ERROR_CATALOG.SOURCE_ZIP_INTEGRITY).toMatchObject({
+      class: 'source',
+      httpStatus: 400,
+      retryability: 'user_action_required',
+    });
+    expect(ERROR_CATALOG.SOURCE_ARCHIVE_TOO_LARGE).toMatchObject({
+      class: 'source',
+      httpStatus: 400,
+      retryability: 'user_action_required',
+    });
+    expect(ERROR_CATALOG.SOURCE_VERSION_EMPTY_AFTER_EXCLUSIONS).toMatchObject({
+      class: 'source',
+      httpStatus: 400,
+      retryability: 'user_action_required',
+    });
+    expect(ERROR_CATALOG.SOURCE_UNKNOWN_EXCLUSION_RULESET).toMatchObject({
+      class: 'source',
+      httpStatus: 500,
+      retryability: 'permanent',
+    });
+  });
 });
 
 describe('getCatalogEntry / isKnownErrorCode', () => {

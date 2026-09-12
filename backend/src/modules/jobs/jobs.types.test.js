@@ -73,6 +73,12 @@ describe('jobs.types', () => {
     expect(dto.events).toHaveLength(1);
     expect(dto.events[0].eventCode).toBe('job.enqueued');
     expect(dto).not.toHaveProperty('workerId');
+    expect(dto.stages).toEqual(expect.any(Array));
+    expect(dto.stages.length).toBeGreaterThan(0);
+    expect(dto).toHaveProperty('percent');
+    expect(dto).toHaveProperty('retry');
+    expect(dto).toHaveProperty('cancellation');
+    expect(dto).toHaveProperty('knowledgeAvailability');
   });
 
   it('maps string dates and empty counters on list DTO', () => {

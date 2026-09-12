@@ -133,6 +133,11 @@ export async function insertPendingJob(input, options = {}) {
     },
     partialSuccess: false,
     cancelRequestedAt: null,
+    cancelRequestedBy: null,
+    retryRequestedAt: null,
+    retryRequestedBy: null,
+    retryCount: 0,
+    lastRetryMode: null,
     startedAt: null,
     completedAt: null,
   });
@@ -294,4 +299,182 @@ export async function appendJobEvent(input, options = {}) {
     await event.save();
   }
   return event;
+}
+
+/**
+ * Finds the newest active writer job for a project (pending, retrying, or running).
+ * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
+ * @param {import('mongoose').Types.ObjectId | string} projectId Project id.
+ * @returns {Promise<import('mongoose').Document | null>}
+ */
+export async function findActiveJobForProject(orgId, projectId) {
+  assertOrgId(orgId);
+  if (!mongoose.isValidObjectId(String(projectId))) {
+    return null;
+  }
+  return Job.findOne({
+    orgId,
+    projectId: new mongoose.Types.ObjectId(String(projectId)),
+    status: ROW_STATUS_ACTIVE,
+    jobStatus: { $in: ['pending', 'retrying', 'running'] },
+  })
+    .sort({ updatedAt: -1, _id: -1 })
+    .exec();
+}
+
+/**
+ * Immediately cancels a pending or retrying job.
+ * @param {{
+ *   orgId: import('mongoose').Types.ObjectId | string,
+ *   jobId: string,
+ *   actorUserId: import('mongoose').Types.ObjectId | string,
+ *   expectedStatuses?: string[],
+ * }} input Cancel inputs.
+ * @returns {Promise<import('mongoose').Document | null>}
+ */
+export async function cancelQueuedJob(input) {
+  assertOrgId(input.orgId);
+  if (!mongoose.isValidObjectId(input.jobId)) {
+    return null;
+  }
+  const expectedStatuses = input.expectedStatuses ?? ['pending', 'retrying'];
+  return Job.findOneAndUpdate(
+    {
+      _id: new mongoose.Types.ObjectId(String(input.jobId)),
+      orgId: input.orgId,
+      status: ROW_STATUS_ACTIVE,
+      jobStatus: { $in: expectedStatuses },
+    },
+    {
+      $set: {
+        jobStatus: 'cancelled',
+        completedAt: new Date(),
+        updatedBy: input.actorUserId,
+        workerId: null,
+        heartbeatAt: null,
+        leaseExpiresAt: null,
+      },
+    },
+    { returnDocument: 'after' },
+  ).exec();
+}
+
+/**
+ * Requests cancellation of a running job (cooperative; worker confirms later).
+ * @param {{
+ *   orgId: import('mongoose').Types.ObjectId | string,
+ *   jobId: string,
+ *   actorUserId: import('mongoose').Types.ObjectId | string,
+ * }} input Cancel-request inputs.
+ * @returns {Promise<import('mongoose').Document | null>}
+ */
+export async function requestRunningJobCancel(input) {
+  assertOrgId(input.orgId);
+  if (!mongoose.isValidObjectId(input.jobId)) {
+    return null;
+  }
+  const now = new Date();
+  return Job.findOneAndUpdate(
+    {
+      _id: new mongoose.Types.ObjectId(String(input.jobId)),
+      orgId: input.orgId,
+      status: ROW_STATUS_ACTIVE,
+      jobStatus: 'running',
+      cancelRequestedAt: null,
+    },
+    {
+      $set: {
+        cancelRequestedAt: now,
+        cancelRequestedBy: input.actorUserId,
+        updatedBy: input.actorUserId,
+      },
+    },
+    { returnDocument: 'after' },
+  ).exec();
+}
+
+/**
+ * Begins a user-initiated retry: failed|cancelled → retrying with metadata.
+ * @param {{
+ *   orgId: import('mongoose').Types.ObjectId | string,
+ *   jobId: string,
+ *   actorUserId: import('mongoose').Types.ObjectId | string,
+ *   mode: 'resume' | 'full',
+ *   clearCheckpoint: boolean,
+ * }} input Retry inputs.
+ * @returns {Promise<import('mongoose').Document | null>}
+ */
+export async function beginUserRetry(input) {
+  assertOrgId(input.orgId);
+  if (!mongoose.isValidObjectId(input.jobId)) {
+    return null;
+  }
+  const now = new Date();
+  /** @type {Record<string, unknown>} */
+  const $set = {
+    jobStatus: 'retrying',
+    retryRequestedAt: now,
+    retryRequestedBy: input.actorUserId,
+    lastRetryMode: input.mode,
+    scheduledAt: now,
+    attempt: 0,
+    completedAt: null,
+    failureClass: null,
+    failureCode: null,
+    cancelRequestedAt: null,
+    cancelRequestedBy: null,
+    updatedBy: input.actorUserId,
+    workerId: null,
+    heartbeatAt: null,
+    leaseExpiresAt: null,
+  };
+  if (input.clearCheckpoint) {
+    $set.stageCheckpoint = null;
+    $set.currentStage = null;
+  }
+  return Job.findOneAndUpdate(
+    {
+      _id: new mongoose.Types.ObjectId(String(input.jobId)),
+      orgId: input.orgId,
+      status: ROW_STATUS_ACTIVE,
+      jobStatus: { $in: ['failed', 'cancelled'] },
+    },
+    {
+      $set,
+      $inc: { retryCount: 1 },
+    },
+    { returnDocument: 'after' },
+  ).exec();
+}
+
+/**
+ * Promotes a retrying job to pending so the worker can claim it.
+ * @param {{
+ *   orgId: import('mongoose').Types.ObjectId | string,
+ *   jobId: string,
+ *   actorUserId: import('mongoose').Types.ObjectId | string,
+ * }} input Promote inputs.
+ * @returns {Promise<import('mongoose').Document | null>}
+ */
+export async function promoteRetryingJobToPending(input) {
+  assertOrgId(input.orgId);
+  if (!mongoose.isValidObjectId(input.jobId)) {
+    return null;
+  }
+  return Job.findOneAndUpdate(
+    {
+      _id: new mongoose.Types.ObjectId(String(input.jobId)),
+      orgId: input.orgId,
+      status: ROW_STATUS_ACTIVE,
+      jobStatus: 'retrying',
+    },
+    {
+      $set: {
+        jobStatus: 'pending',
+        updatedBy: input.actorUserId,
+        scheduledAt: new Date(),
+      },
+    },
+    { returnDocument: 'after' },
+  ).exec();
 }

@@ -127,6 +127,29 @@ const jobSchema = createBaseSchema({
     type: Date,
     default: null,
   },
+  cancelRequestedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    default: null,
+  },
+  retryRequestedAt: {
+    type: Date,
+    default: null,
+  },
+  retryRequestedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    default: null,
+  },
+  retryCount: {
+    type: Number,
+    required: true,
+    default: 0,
+    min: 0,
+  },
+  lastRetryMode: {
+    type: String,
+    enum: ['resume', 'full', null],
+    default: null,
+  },
   startedAt: {
     type: Date,
     default: null,

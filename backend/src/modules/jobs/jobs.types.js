@@ -1,6 +1,7 @@
 /**
  * Job DTO helpers — list vs detail shapes for the read APIs.
  */
+import { projectJobProgress } from './jobProgress.js';
 
 /**
  * Formats a date as ISO-8601, or null when missing.
@@ -113,6 +114,7 @@ export function mapJobToListDto(job) {
  * @returns {object}
  */
 export function mapJobToDetailDto(job, events = []) {
+  const progress = projectJobProgress(job, events);
   return {
     ...mapJobToListDto(job),
     projectId: String(job.projectId),
@@ -120,5 +122,15 @@ export function mapJobToDetailDto(job, events = []) {
     stageCheckpoint: mapStageCheckpoint(job.stageCheckpoint),
     correlationId: job.correlationId ?? null,
     events: events.map(mapJobEventToDto),
+    durationMs: progress.durationMs,
+    percent: progress.percent,
+    itemsProcessed: progress.itemsProcessed,
+    itemsFailed: progress.itemsFailed,
+    stages: progress.stages,
+    warnings: progress.warnings,
+    errors: progress.errors,
+    retry: progress.retry,
+    cancellation: progress.cancellation,
+    knowledgeAvailability: progress.knowledgeAvailability,
   };
 }

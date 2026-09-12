@@ -351,7 +351,7 @@ Two different operations:
 
 | Action | API intent | When to use | Behavior |
 |--------|------------|-------------|----------|
-| **Retry failed** | `POST .../jobs/:jobId/retry` | Last job failed / partial; bytes already stored | Resume recoverable document stages or rebuild the graph; no new `sourceVersion` |
+| **Retry failed** | `POST .../jobs/:jobId/retry` | Last job failed / partial; bytes already stored | Resume from checkpoint when safe, or full re-run from `validate_upload` against stored GridFS bytes; same Job, no new `sourceVersion` |
 | **Re-ingest version** | `POST .../sources/:sourceVersionId/reingest` | Index rules changed; rebuild from GridFS | New job on the same source bytes; regenerate document sections and current graph |
 | **Replace source (re-upload)** | new upload | User sends a new ZIP/files | **New** `sourceVersion`; diff by path+sha256 vs previous ready version (§4.8) |
 
