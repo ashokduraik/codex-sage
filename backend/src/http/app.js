@@ -9,6 +9,7 @@ import cors from '@fastify/cors';
 import cookie from '@fastify/cookie';
 import csrf from '@fastify/csrf-protection';
 import fjwt from '@fastify/jwt';
+import multipart from '@fastify/multipart';
 import { loadConfig } from '../platform/config.js';
 import {
   buildLoggerOptions,
@@ -36,6 +37,11 @@ import {
 } from '../modules/authorization/index.js';
 import { registerIdempotency } from '../platform/idempotency/index.js';
 import { configureProjectAclCache } from '../modules/projectMembers/index.js';
+import { UPLOAD_MAX_ARCHIVE_BYTES } from '../modules/sources/exclusions/exclusions.constants.js';
+import {
+  MULTIPART_MAX_FILES,
+  consumeSourceArchivePreHandler,
+} from '../modules/sources/index.js';
 import { registerRoutes } from './routes.js';
 import { healthRoutes } from '../modules/health/health.routes.js';
 import {
@@ -182,6 +188,16 @@ export function buildApp(config = loadConfig(), options = {}) {
   registerErrorHandler(app, {
     trySpaFallback: frontendDistRoot ? tryServeSpaIndex : undefined,
   });
+
+  void app.register(multipart, {
+    limits: {
+      fileSize: UPLOAD_MAX_ARCHIVE_BYTES,
+      files: MULTIPART_MAX_FILES,
+    },
+  });
+  app.decorateRequest('sourceUpload', null);
+  // Must run before Phase 12 idempotency so request.body carries archiveSha256.
+  app.addHook('preHandler', consumeSourceArchivePreHandler);
   registerIdempotency(app);
   // Unversioned infra aliases (same handlers as under API_BASE_PATH).
   void app.register(healthRoutes);

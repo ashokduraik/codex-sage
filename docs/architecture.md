@@ -232,8 +232,9 @@ API     JWT + permission (upload / connect)
         │  (async)
         ▼
 Worker  Atomically claim job  pending → running
-        S0  validate upload
-        S1  store files in GridFS + SourceFile rows
+        S0  validate upload (re-check recorded metadata / empty set)
+        S1  reconcile GridFS vs SourceFile rows (missing/corrupt → fileState;
+            API already wrote accepted bytes in Phase 24 — not a second full store)
         S2  record exclusions (size, leftover ignores)
         S3  recreate workspace; split docs into searchable sections
         S4  CodeGraph write (full index or in-place sync); validate

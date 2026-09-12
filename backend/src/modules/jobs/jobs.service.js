@@ -24,10 +24,11 @@ import { mapJobToDetailDto, mapJobToListDto } from './jobs.types.js';
  *   maxAttempts?: number,
  *   scheduledAt?: Date,
  * }} input Create fields.
+ * @param {{ session?: import('mongoose').ClientSession }} [options] Optional Mongo session.
  * @returns {Promise<{ jobId: string, eventId: string }>}
  */
-export async function createPendingJob(input) {
-  const { job, event } = await insertPendingJob(input);
+export async function createPendingJob(input, options = {}) {
+  const { job, event } = await insertPendingJob(input, options);
   return {
     jobId: String(job._id),
     eventId: String(event._id),

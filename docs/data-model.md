@@ -124,6 +124,34 @@ Indexes (partial `status: 'A'`): `{ orgId: 1, updatedAt: -1, _id: -1 }` (list ke
 Lifecycle transitions are enforced by `transitionLifecycle` (API vs worker source; worker +
 `knowledgeVersionId` required for `knowledge_ready` / `partially_available`).
 
+### `sourceVersions`
+
+Tenant- and project-scoped upload/repository snapshot (Phase 24). Fields: `projectId`,
+`origin` (`upload` \| `repository`), `exclusionRulesetId` (e.g. `exclusions.v1`),
+`versionLifecycle` (`received` \| `failed` \| `accepted` — domain; not row `status`),
+`jobId` (pending ingest job), `fileCounts` (`accepted`, `skipped`, `excludedFromGraph`),
+plus base fields. Skipped paths are counted only here — they are never stored as
+`sourceFiles` or GridFS objects.
+
+Index (partial `status: 'A'`): `{ orgId, projectId, createdAt: -1 }`.
+
+### `sourceFiles`
+
+One accepted path within a `sourceVersion` (Phase 24). Fields: `projectId`,
+`sourceVersionId`, `path` (normalized relative), `sha256`, `byteLength`,
+`kind` (`code` \| `config` \| `doc`), `gridFsId`, `excludedFromGraph`,
+`exclusionReason` (e.g. `file_too_large`), `fileState` (`stored` \| `missing` \|
+`corrupt`), `orphanedAt`, plus base fields.
+
+Unique index (partial `status: 'A'`): `{ orgId, projectId, sourceVersionId, path }`.
+
+### GridFS bucket `sourceFiles`
+
+Accepted source/doc bytes only (ADR 0003). Filename =
+`{orgId}/{projectId}/{sourceVersionId}/{normalizedPath}`. File `metadata`:
+`{ orgId, projectId, sourceVersionId, path, sha256 }` (optional `orphanedAt` after a
+failed write). GridFS files are not soft-deleted via row `status`; purge is a later ADR.
+
 ### `jobs`
 
 Tenant- and project-scoped background work (Phase 20; ADR 0004). Row `status` (`A` \| `D`)

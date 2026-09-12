@@ -1,5 +1,5 @@
 /**
- * Public surface of the sources module (Phase 23 exclusions; persistence in Phase 24).
+ * Public surface of the sources module (exclusions + upload persistence).
  */
 export {
   EXCLUSION_RULESET_ID,
@@ -11,3 +11,43 @@ export {
   summarizeInspection,
   assertKnownExclusionRulesetId,
 } from './exclusions/index.js';
+
+export {
+  GRIDFS_SOURCE_BUCKET,
+  UPLOAD_HASH_ALGORITHM,
+  MULTIPART_MAX_FILES,
+  ARCHIVE_FIELD_NAME,
+  SOURCE_ORIGIN_UPLOAD,
+  VERSION_LIFECYCLE_VALUES,
+  VERSION_LIFECYCLE_RECEIVED,
+  SOURCE_FILE_KIND_VALUES,
+  SOURCE_FILE_STATE_VALUES,
+  SOURCE_FILE_STATE_STORED,
+} from './sources.constants.js';
+
+export { SourceVersion } from './sourceVersion.model.js';
+export { SourceFile } from './sourceFile.model.js';
+export {
+  getSourceFilesBucket,
+  buildSourceGridFsFilename,
+  markGridFsFilesOrphaned,
+  clearSourceFilesBucket,
+} from './gridfs.js';
+export {
+  insertSourceVersion,
+  insertSourceFiles,
+  setSourceVersionJobId,
+  countSourceVersions,
+  listSourceFilesForVersion,
+  findSourceVersionById,
+} from './sources.repository.js';
+export { kindForSourcePath } from './sourceFileKind.js';
+export { consumeSourceArchivePreHandler } from './consumeSourceArchive.js';
+export { persistSourceUpload, storeAcceptedZipEntries } from './upload.service.js';
+export { sourceUploadRoutes } from './upload.routes.js';
+
+import { SourceFile } from './sourceFile.model.js';
+import { SourceVersion } from './sourceVersion.model.js';
+
+/** Models whose indexes are synced on development API startup / test harness. */
+export const SOURCE_MODELS = Object.freeze([SourceVersion, SourceFile]);

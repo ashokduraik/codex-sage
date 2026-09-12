@@ -37,6 +37,7 @@ describe('audit.actions', () => {
         'project.member_removed',
         'job.retry',
         'job.cancel',
+        'source.upload',
       ]),
     );
     expect(AUDIT_ACTIONS).toHaveLength(Object.keys(AUDIT_ACTION_RESOURCE_TYPES).length);
@@ -46,6 +47,7 @@ describe('audit.actions', () => {
     expect(isKnownAuditAction('user.password_changed')).toBe(true);
     expect(isKnownAuditAction('user.create')).toBe(true);
     expect(isKnownAuditAction('project.create')).toBe(true);
+    expect(isKnownAuditAction('source.upload')).toBe(true);
     expect(isKnownAuditAction('not.a.real.action')).toBe(false);
   });
 
@@ -57,5 +59,6 @@ describe('audit.actions', () => {
     expect(resourceTypeForAction('project.create')).toBe('project');
     expect(resourceTypeForAction('job.retry')).toBe('job');
     expect(resourceTypeForAction('job.cancel')).toBe('job');
+    expect(resourceTypeForAction('source.upload')).toBe('source');
   });
 });

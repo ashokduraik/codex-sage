@@ -305,7 +305,9 @@ Pipeline stages (each writes a `JobEvent`; job stores `currentStage` + checkpoin
 
 ```text
 S0 validate_upload
-S1 store_files          (GridFS + SourceFile rows)
+S1 store_files          (reconcile GridFS vs SourceFile; API already stores accepted
+                         bytes on upload — Phase 24 — so S1 is integrity/orphan repair,
+                         not a second full write of the archive)
 S2 exclude_apply
 S3 materialize_docs     (encrypted workspace + Mongo document sections/FTS)
 S4 codegraph_update     (full index or worker-controlled in-place sync)
