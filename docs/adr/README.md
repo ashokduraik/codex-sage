@@ -22,6 +22,8 @@
 | [0017](./0017-frontend-server-state-http-transport.md) | Frontend server-state and HTTP transport | Accepted |
 | [0018](./0018-spa-served-from-fastify-static.md) | SPA served from Fastify static (same process) | Accepted |
 | [0019](./0019-frontend-session-boot-and-lifetime.md) | Frontend session boot and lifetime | Accepted |
+| [0020](./0020-inaccessible-project-404.md) | Inaccessible same-org projects return 404 | Accepted |
+| [0021](./0021-project-acl-version-cache.md) | Project ACL cache invalidated via organization.aclVersion | Accepted |
 
 One decision = one ADR. Accepted ADRs are immutable; supersede with a new number rather
 than rewriting history.

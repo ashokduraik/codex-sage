@@ -4,6 +4,10 @@
 import { ApiError } from '../../platform/errors.js';
 import { recordAuditEvent } from '../audit/index.js';
 import {
+  ensureCreatorProjectMember,
+  resolveAccessibleProjectFilter,
+} from '../projectMembers/index.js';
+import {
   assertLifecycleTransitionAllowed,
   assertKnowledgeHealthAllowed,
   initialLifecycleAfterCreate,
@@ -163,12 +167,19 @@ export async function createProject(input) {
     { log: input.log },
   );
 
+  await ensureCreatorProjectMember({
+    orgId: input.orgId,
+    projectId: String(transitioned._id),
+    userId: input.actorUserId,
+  });
+
   return mapProjectToDto(transitioned, { detail: true });
 }
 
 /**
- * Lists projects for an organization.
+ * Lists projects visible to the caller under project ACL.
  * @param {string} orgId Tenant id.
+ * @param {string} userId Caller user id.
  * @param {{
  *   q?: string,
  *   includeArchived?: boolean,
@@ -177,8 +188,16 @@ export async function createProject(input) {
  * }} [filters] List filters.
  * @returns {Promise<{ items: object[], pageInfo: object }>}
  */
-export async function listProjects(orgId, filters = {}) {
-  const page = await listProjectsInRepo(orgId, filters);
+export async function listProjects(orgId, userId, filters = {}) {
+  const access = await resolveAccessibleProjectFilter(orgId, userId);
+  /** @type {Parameters<typeof listProjectsInRepo>[1]} */
+  const repoFilters = { ...filters };
+  if (access.mode === 'none') {
+    repoFilters.emptyResult = true;
+  } else if (access.mode === 'selected') {
+    repoFilters.projectIds = access.projectIds;
+  }
+  const page = await listProjectsInRepo(orgId, repoFilters);
   return {
     items: page.items.map((project) => mapProjectToDto(project)),
     pageInfo: page.pageInfo,

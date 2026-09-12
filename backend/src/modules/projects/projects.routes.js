@@ -3,6 +3,7 @@
  */
 import { z } from 'zod';
 import { ApiError } from '../../platform/errors.js';
+import { requireProjectPermission } from '../../http/preHandlers/requireProjectPermission.js';
 import { buildAuditContextFromRequest } from '../audit/index.js';
 import {
   archiveProject,
@@ -145,25 +146,31 @@ export async function projectRoutes(app) {
           details: [{ path: 'limit', message: 'limit must be a positive integer' }],
         });
       }
-      return listProjects(request.principal.orgId, parsed.data);
+      return listProjects(request.principal.orgId, request.principal.userId, parsed.data);
     },
   );
 
   app.get(
     '/projects/:projectId',
-    { config: { requiredPermissions: ['projects.view'] } },
+    {
+      config: { routeAccess: 'authenticated' },
+      preHandler: requireProjectPermission('projects.view'),
+    },
     async (request) => {
       const params = projectIdParamsSchema.safeParse(request.params ?? {});
       if (!params.success) {
         throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
       }
-      return getProject(request.principal.orgId, params.data.projectId);
+      return getProject(request.projectScope.orgId, request.projectScope.projectId);
     },
   );
 
   app.patch(
     '/projects/:projectId',
-    { config: { requiredPermissions: ['projects.update'] } },
+    {
+      config: { routeAccess: 'authenticated' },
+      preHandler: requireProjectPermission('projects.update'),
+    },
     async (request) => {
       const params = projectIdParamsSchema.safeParse(request.params ?? {});
       if (!params.success) {
@@ -176,7 +183,7 @@ export async function projectRoutes(app) {
       const ctx = serviceContext(request);
       return updateProject({
         ...ctx,
-        projectId: params.data.projectId,
+        projectId: request.projectScope.projectId,
         name: parsed.data.name,
         description: parsed.data.description,
       });
@@ -185,19 +192,25 @@ export async function projectRoutes(app) {
 
   app.get(
     '/projects/:projectId/settings',
-    { config: { requiredPermissions: ['settings.manage'] } },
+    {
+      config: { routeAccess: 'authenticated' },
+      preHandler: requireProjectPermission('settings.manage'),
+    },
     async (request) => {
       const params = projectIdParamsSchema.safeParse(request.params ?? {});
       if (!params.success) {
         throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
       }
-      return getProjectSettings(request.principal.orgId, params.data.projectId);
+      return getProjectSettings(request.projectScope.orgId, request.projectScope.projectId);
     },
   );
 
   app.patch(
     '/projects/:projectId/settings',
-    { config: { requiredPermissions: ['settings.manage'] } },
+    {
+      config: { routeAccess: 'authenticated' },
+      preHandler: requireProjectPermission('settings.manage'),
+    },
     async (request) => {
       const params = projectIdParamsSchema.safeParse(request.params ?? {});
       if (!params.success) {
@@ -210,7 +223,7 @@ export async function projectRoutes(app) {
       const ctx = serviceContext(request);
       return patchProjectSettings({
         ...ctx,
-        projectId: params.data.projectId,
+        projectId: request.projectScope.projectId,
         settings: parsed.data.settings,
       });
     },
@@ -218,52 +231,67 @@ export async function projectRoutes(app) {
 
   app.post(
     '/projects/:projectId/archive',
-    { config: { requiredPermissions: ['projects.update'] } },
+    {
+      config: { routeAccess: 'authenticated' },
+      preHandler: requireProjectPermission('projects.update'),
+    },
     async (request) => {
       const params = projectIdParamsSchema.safeParse(request.params ?? {});
       if (!params.success) {
         throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
       }
       const ctx = serviceContext(request);
-      return archiveProject({ ...ctx, projectId: params.data.projectId });
+      return archiveProject({ ...ctx, projectId: request.projectScope.projectId });
     },
   );
 
   app.post(
     '/projects/:projectId/restore',
-    { config: { requiredPermissions: ['projects.update'] } },
+    {
+      config: { routeAccess: 'authenticated' },
+      preHandler: requireProjectPermission('projects.update'),
+    },
     async (request) => {
       const params = projectIdParamsSchema.safeParse(request.params ?? {});
       if (!params.success) {
         throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
       }
       const ctx = serviceContext(request);
-      return restoreProject({ ...ctx, projectId: params.data.projectId });
+      return restoreProject({ ...ctx, projectId: request.projectScope.projectId });
     },
   );
 
   app.get(
     '/projects/:projectId/deletion-preview',
-    { config: { requiredPermissions: ['projects.delete'] } },
+    {
+      config: { routeAccess: 'authenticated' },
+      preHandler: requireProjectPermission('projects.delete'),
+    },
     async (request) => {
       const params = projectIdParamsSchema.safeParse(request.params ?? {});
       if (!params.success) {
         throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
       }
-      return getDeletionPreview(request.principal.orgId, params.data.projectId);
+      return getDeletionPreview(
+        request.projectScope.orgId,
+        request.projectScope.projectId,
+      );
     },
   );
 
   app.delete(
     '/projects/:projectId',
-    { config: { requiredPermissions: ['projects.delete'] } },
+    {
+      config: { routeAccess: 'authenticated' },
+      preHandler: requireProjectPermission('projects.delete'),
+    },
     async (request, reply) => {
       const params = projectIdParamsSchema.safeParse(request.params ?? {});
       if (!params.success) {
         throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
       }
       const ctx = serviceContext(request);
-      await deleteProject({ ...ctx, projectId: params.data.projectId });
+      await deleteProject({ ...ctx, projectId: request.projectScope.projectId });
       return reply.code(204).send();
     },
   );

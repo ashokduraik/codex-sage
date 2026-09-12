@@ -34,6 +34,10 @@ vi.mock('./role.repository.js', () => ({
   updateRole: vi.fn(),
 }));
 
+vi.mock('../projectMembers/bumpProjectAclVersion.js', () => ({
+  bumpProjectAclVersion: vi.fn(async () => {}),
+}));
+
 import { isRoleReferencedByActiveMembership } from './membership.repository.js';
 import {
   createRole as createRoleInRepo,

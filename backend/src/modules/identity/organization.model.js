@@ -36,6 +36,13 @@ const organizationSchema = createBaseSchema(
       type: mongoose.Schema.Types.Mixed,
       default: () => ({}),
     },
+    /** Bumped when RBAC / project ACL inputs change; project ACL cache keys on this. */
+    aclVersion: {
+      type: Number,
+      required: true,
+      default: 0,
+      min: 0,
+    },
   },
   { tenantScoped: false },
 );

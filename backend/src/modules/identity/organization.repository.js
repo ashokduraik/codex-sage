@@ -73,3 +73,22 @@ export async function softDeleteOrganization(organizationId, options = {}) {
     { updatedBy: options.updatedBy ?? null },
   );
 }
+
+/**
+ * Increments organization.aclVersion (project ACL cache invalidation).
+ * @param {import('mongoose').Types.ObjectId | string} organizationId Organization _id.
+ * @param {{ session?: import('mongoose').ClientSession }} [options] Optional session.
+ * @returns {Promise<number | null>} Next aclVersion, or null when org missing.
+ */
+export async function bumpOrganizationAclVersion(organizationId, options = {}) {
+  const query = Organization.findOneAndUpdate(
+    { _id: organizationId },
+    { $inc: { aclVersion: 1 } },
+    { returnDocument: 'after' },
+  );
+  if (options.session) {
+    query.session(options.session);
+  }
+  const updated = await query.exec();
+  return updated ? updated.aclVersion : null;
+}

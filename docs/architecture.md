@@ -134,7 +134,8 @@ API process
      load session by sid — must be active/not revoked; org never taken from path/query/body)
   Global authorize preHandler (ADR 0015): routeAccess public | authenticated | requiredPermissions
     → resolve effective permissions from roles (org-scoped; built-ins from code catalog)
-  Then project membership on project routes (Phase 18 inserts after permissions)
+  Project routes (ADR 0020): routeAccess authenticated → requireProjectPermission
+    → resolveProjectPermissions (org ∪ ProjectMember overlay; 404 when not visible)
   Chat: LangGraph + SSE
   Before every model call: token budgeter
   Tools Node actually runs: explore_code, search_documents, read file/doc slices, abstain
@@ -146,10 +147,10 @@ Worker process
   Scheduled git sync (default every 30 minutes)
 
 MongoDB
-  Orgs, users, roles, memberships, sessions (refresh-token families), projects
-  (`lifecycleStatus`, `knowledgeHealth`, `sourceConfig`, `counts`, `settings`; soft-delete
-  via `status: 'A'|'D'`)
-  Source versions/files, document sections (text index), knowledge metadata
+  Orgs (`aclVersion` for project ACL cache), users, roles, memberships
+  (`projectAccessMode`: all | selected | none), sessions (refresh-token families),
+  projects (`lifecycleStatus`, `knowledgeHealth`, `sourceConfig`, `counts`, `settings`;
+  soft-delete via `status: 'A'|'D'`), project_members (per-project ACL overlay)  Source versions/files, document sections (text index), knowledge metadata
   Jobs and job events
   Conversations, messages, clarifications, summaries
   Audit, in-app notifications, usage, idempotency keys

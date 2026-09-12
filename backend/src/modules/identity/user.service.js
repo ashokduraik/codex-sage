@@ -5,6 +5,7 @@ import mongoose from 'mongoose';
 import { ApiError } from '../../platform/errors.js';
 import { recordAuditEvent } from '../audit/index.js';
 import { revokeAllSessionsForUser } from '../auth/session.repository.js';
+import { bumpProjectAclVersion } from '../projectMembers/bumpProjectAclVersion.js';
 import { mapUserToDto } from './identity.mappers.js';
 import { wouldRemoveLastAdmin } from './lastAdminGuard.js';
 import { assertRolesExistInOrg } from './membership.service.js';
@@ -97,6 +98,8 @@ export async function createUser(input) {
     if (!createdUser) {
       throw ApiError.fromCode('INTERNAL_ERROR');
     }
+
+    await bumpProjectAclVersion(input.orgId);
 
     await recordAuditEvent(
       {
@@ -206,6 +209,7 @@ export async function updateUserDetails(input) {
     await replaceMembershipRoleIds(input.orgId, input.targetUserId, nextRoleIds, {
       updatedBy: input.actorUserId,
     });
+    await bumpProjectAclVersion(input.orgId);
     await recordAuditEvent(
       {
         orgId: input.orgId,
@@ -454,6 +458,8 @@ export async function removeUser(input) {
   } finally {
     await mongoSession.endSession();
   }
+
+  await bumpProjectAclVersion(input.orgId);
 
   await recordAuditEvent(
     {

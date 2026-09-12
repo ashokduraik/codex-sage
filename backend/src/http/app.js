@@ -31,6 +31,7 @@ import {
   installRouteDeclarationCollector,
 } from '../modules/authorization/index.js';
 import { registerIdempotency } from '../platform/idempotency/index.js';
+import { configureProjectAclCache } from '../modules/projectMembers/index.js';
 import { registerRoutes } from './routes.js';
 import { healthRoutes } from '../modules/health/health.routes.js';
 import {
@@ -55,6 +56,8 @@ export const CSRF_HEADER_NAME = 'x-csrf-token';
  * @returns {import('fastify').FastifyInstance} A configured, ready-to-listen Fastify instance.
  */
 export function buildApp(config = loadConfig()) {
+  configureProjectAclCache(config.env);
+
   const app = Fastify({
     logger: buildLoggerOptions(config),
     disableRequestLogging: true,

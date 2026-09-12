@@ -3,6 +3,7 @@
  */
 import { ApiError } from '../../platform/errors.js';
 import { recordAuditEvent } from '../audit/index.js';
+import { bumpProjectAclVersion } from '../projectMembers/bumpProjectAclVersion.js';
 import { mapUserToDto } from './identity.mappers.js';
 import { wouldRemoveLastAdmin } from './lastAdminGuard.js';
 import {
@@ -74,6 +75,8 @@ export async function replaceUserRoles(input) {
   if (!updated) {
     throw ApiError.fromCode('NOT_FOUND', { message: 'Membership not found.' });
   }
+
+  await bumpProjectAclVersion(input.orgId);
 
   await recordAuditEvent(
     {

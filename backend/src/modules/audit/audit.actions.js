@@ -30,6 +30,8 @@ export const AUDIT_ACTION_RESOURCE_TYPES = Object.freeze({
   'project.archive': 'project',
   'project.restore': 'project',
   'project.delete': 'project',
+  'project.member_added': 'project',
+  'project.member_removed': 'project',
 });
 
 /** Frozen list of known action strings. */

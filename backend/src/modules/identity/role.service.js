@@ -5,6 +5,7 @@ import { ApiError } from '../../platform/errors.js';
 import { isKnownPermissionKey } from '../authorization/permissionCatalog.js';
 import { invalidateRole } from '../authorization/roleCache.js';
 import { recordAuditEvent } from '../audit/index.js';
+import { bumpProjectAclVersion } from '../projectMembers/bumpProjectAclVersion.js';
 import { mapRoleToDto } from './identity.mappers.js';
 import { isRoleReferencedByActiveMembership } from './membership.repository.js';
 import {
@@ -121,6 +122,7 @@ export async function updateRole(input) {
   if (!updated.isBuiltIn) {
     invalidateRole(String(input.orgId), String(input.roleId));
   }
+  await bumpProjectAclVersion(input.orgId);
 
   await recordAuditEvent(
     {
@@ -174,6 +176,7 @@ export async function softDeleteRole(input) {
     updatedBy: input.actorUserId,
   });
   invalidateRole(String(input.orgId), String(input.roleId));
+  await bumpProjectAclVersion(input.orgId);
 
   await recordAuditEvent(
     {

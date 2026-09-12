@@ -27,6 +27,7 @@ export async function findMembership(orgId, userId, options = {}) {
  * @param {{
  *   userId: import('mongoose').Types.ObjectId | string,
  *   roleIds: Array<import('mongoose').Types.ObjectId | string>,
+ *   projectAccessMode?: 'all' | 'selected' | 'none',
  *   createdBy?: import('mongoose').Types.ObjectId | null,
  *   updatedBy?: import('mongoose').Types.ObjectId | null,
  * }} input Membership fields.
@@ -41,6 +42,7 @@ export async function createMembership(orgId, input, options = {}) {
         orgId,
         userId: input.userId,
         roleIds: input.roleIds,
+        projectAccessMode: input.projectAccessMode ?? 'selected',
         createdBy: input.createdBy ?? null,
         updatedBy: input.updatedBy ?? null,
       },
@@ -48,6 +50,41 @@ export async function createMembership(orgId, input, options = {}) {
     options.session ? { session: options.session } : undefined,
   );
   return doc;
+}
+
+/**
+ * Sets projectAccessMode on an active membership.
+ * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
+ * @param {import('mongoose').Types.ObjectId | string} userId Member user id.
+ * @param {'all' | 'selected' | 'none'} projectAccessMode Next access mode.
+ * @param {{
+ *   updatedBy?: import('mongoose').Types.ObjectId | string | null,
+ *   session?: import('mongoose').ClientSession,
+ * }} [options] Actor and session.
+ * @returns {Promise<import('mongoose').Document | null>}
+ */
+export async function updateMembershipProjectAccessMode(
+  orgId,
+  userId,
+  projectAccessMode,
+  options = {},
+) {
+  assertOrgId(orgId);
+  const query = Membership.findOneAndUpdate(
+    { orgId, userId },
+    {
+      $set: {
+        projectAccessMode,
+        updatedBy: options.updatedBy ?? null,
+        updatedAt: new Date(),
+      },
+    },
+    { returnDocument: 'after' },
+  );
+  if (options.session) {
+    query.session(options.session);
+  }
+  return query.exec();
 }
 
 /**

@@ -33,6 +33,8 @@ describe('audit.actions', () => {
         'project.archive',
         'project.restore',
         'project.delete',
+        'project.member_added',
+        'project.member_removed',
       ]),
     );
     expect(AUDIT_ACTIONS).toHaveLength(Object.keys(AUDIT_ACTION_RESOURCE_TYPES).length);

@@ -21,6 +21,7 @@ import {
   runBootstrapSeed,
 } from '../identity/index.js';
 import { PROJECT_MODELS, Project } from './index.js';
+import { PROJECT_MEMBER_MODELS } from '../projectMembers/index.js';
 
 const harness = createMongoHarness({
   models: [
@@ -29,6 +30,7 @@ const harness = createMongoHarness({
     ...AUDIT_MODELS,
     ...IDEMPOTENCY_MODELS,
     ...PROJECT_MODELS,
+    ...PROJECT_MEMBER_MODELS,
   ],
   uri: TEST_APP_CONFIG.mongo.uri,
 });

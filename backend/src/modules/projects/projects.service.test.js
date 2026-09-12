@@ -7,6 +7,15 @@ import { createMongoHarness } from '../../test/mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../test/appConfig.js';
 import { AUDIT_MODELS, listAuditEvents } from '../audit/index.js';
 import {
+  IDENTITY_MODELS,
+  createMembership,
+  createOrganization,
+  createUser,
+  findBuiltInRole,
+  ensureBuiltInRoles,
+} from '../identity/index.js';
+import { PROJECT_MEMBER_MODELS } from '../projectMembers/index.js';
+import {
   archiveProject,
   createProject,
   deleteProject,
@@ -23,7 +32,7 @@ import { Project } from './projects.model.js';
 import { findProjectById } from './projects.repository.js';
 
 const harness = createMongoHarness({
-  models: [Project, ...AUDIT_MODELS],
+  models: [Project, ...AUDIT_MODELS, ...IDENTITY_MODELS, ...PROJECT_MEMBER_MODELS],
   uri: TEST_APP_CONFIG.mongo.uri,
 });
 
@@ -32,6 +41,27 @@ const harness = createMongoHarness({
  */
 function mockLog() {
   return { error: () => {} };
+}
+
+/**
+ * Seeds an org admin-like actor with projectAccessMode all.
+ * @returns {Promise<{ orgId: mongoose.Types.ObjectId, actor: mongoose.Types.ObjectId }>}
+ */
+async function seedActorWithAllProjects() {
+  const org = await createOrganization({ name: 'Svc Org', slug: `svc-${Date.now()}` });
+  await ensureBuiltInRoles(org._id);
+  const orgAdmin = await findBuiltInRole(org._id, 'org_admin');
+  const actor = await createUser(org._id, {
+    email: `actor-${Date.now()}@example.com`,
+    displayName: 'Actor',
+    userStatus: 'active',
+  });
+  await createMembership(org._id, {
+    userId: actor._id,
+    roleIds: [orgAdmin._id],
+    projectAccessMode: 'all',
+  });
+  return { orgId: org._id, actor: actor._id };
 }
 
 describe('projects.service', () => {
@@ -48,8 +78,7 @@ describe('projects.service', () => {
   });
 
   it('creates upload and repository projects with audit', async () => {
-    const orgId = new mongoose.Types.ObjectId();
-    const actor = new mongoose.Types.ObjectId();
+    const { orgId, actor } = await seedActorWithAllProjects();
 
     const upload = await createProject({
       orgId: String(orgId),
@@ -77,8 +106,7 @@ describe('projects.service', () => {
   });
 
   it('archives, restores, and soft-deletes with audit', async () => {
-    const orgId = new mongoose.Types.ObjectId();
-    const actor = new mongoose.Types.ObjectId();
+    const { orgId, actor } = await seedActorWithAllProjects();
     const created = await createProject({
       orgId: String(orgId),
       actorUserId: String(actor),
@@ -139,8 +167,7 @@ describe('projects.service', () => {
   });
 
   it('updates metadata and rejects unknown settings', async () => {
-    const orgId = new mongoose.Types.ObjectId();
-    const actor = new mongoose.Types.ObjectId();
+    const { orgId, actor } = await seedActorWithAllProjects();
     const created = await createProject({
       orgId: String(orgId),
       actorUserId: String(actor),
@@ -176,8 +203,7 @@ describe('projects.service', () => {
   });
 
   it('rejects worker-only transitions from api and loses races once', async () => {
-    const orgId = new mongoose.Types.ObjectId();
-    const actor = new mongoose.Types.ObjectId();
+    const { orgId, actor } = await seedActorWithAllProjects();
     const created = await createProject({
       orgId: String(orgId),
       actorUserId: String(actor),
@@ -213,8 +239,7 @@ describe('projects.service', () => {
   });
 
   it('covers get/list/settings and not-found paths', async () => {
-    const orgId = new mongoose.Types.ObjectId();
-    const actor = new mongoose.Types.ObjectId();
+    const { orgId, actor } = await seedActorWithAllProjects();
     const missing = new mongoose.Types.ObjectId().toHexString();
 
     await expect(getProject(String(orgId), missing)).rejects.toMatchObject({
@@ -280,7 +305,7 @@ describe('projects.service', () => {
       log: mockLog(),
     });
 
-    const listed = await listProjects(String(orgId), { q: 'Listed', limit: 10 });
+    const listed = await listProjects(String(orgId), String(actor), { q: 'Listed', limit: 10 });
     expect(listed.items.some((row) => row.id === created.id)).toBe(true);
 
     const settings = await getProjectSettings(String(orgId), created.id);

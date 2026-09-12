@@ -47,6 +47,10 @@ vi.mock('./user.repository.js', () => ({
   updateUser: vi.fn(),
 }));
 
+vi.mock('../projectMembers/bumpProjectAclVersion.js', () => ({
+  bumpProjectAclVersion: vi.fn(async () => {}),
+}));
+
 vi.mock('mongoose', () => ({
   default: {
     startSession: vi.fn(async () => ({

@@ -24,6 +24,10 @@ vi.mock('../audit/index.js', () => ({
   }),
 }));
 
+vi.mock('../../http/preHandlers/requireProjectPermission.js', () => ({
+  requireProjectPermission: () => async () => undefined,
+}));
+
 import { projectRoutes } from './projects.routes.js';
 
 /**
@@ -66,11 +70,19 @@ function createFakeApp() {
 }
 
 /**
- * @returns {{ principal: object, log: object, body?: unknown, query?: unknown, params?: unknown }}
+ * @returns {{
+ *   principal: object,
+ *   projectScope: object,
+ *   log: object,
+ *   body?: unknown,
+ *   query?: unknown,
+ *   params?: unknown,
+ * }}
  */
 function baseRequest() {
   return {
     principal: { orgId: 'o1', userId: 'u1' },
+    projectScope: { orgId: 'o1', projectId: 'p1', userId: 'u1', permissions: [] },
     log: { error: () => {} },
     body: {},
     query: {},
@@ -155,10 +167,14 @@ describe('projects.routes unit edges', () => {
       ...baseRequest(),
       query: { includeArchived: 'true', q: 'atlas' },
     });
-    expect(listProjects).toHaveBeenCalledWith('o1', expect.objectContaining({
-      includeArchived: true,
-      q: 'atlas',
-    }));
+    expect(listProjects).toHaveBeenCalledWith(
+      'o1',
+      'u1',
+      expect.objectContaining({
+        includeArchived: true,
+        q: 'atlas',
+      }),
+    );
 
     await expect(
       app.handlers.get('GET /projects')({

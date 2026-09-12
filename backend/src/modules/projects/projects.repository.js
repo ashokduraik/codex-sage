@@ -118,14 +118,16 @@ export async function findProjectById(orgId, projectId, options = {}) {
 }
 
 /**
- * Lists active projects with optional name search and archived filter.
+ * Lists active projects with optional name search, archived filter, and ACL id filter.
  * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
  * @param {{
  *   q?: string,
  *   includeArchived?: boolean,
  *   cursor?: string,
  *   limit?: number,
- * }} [filters] List filters.
+ *   projectIds?: string[] | null,
+ *   emptyResult?: boolean,
+ * }} [filters] List filters. `projectIds` restricts to those ids; `emptyResult` short-circuits.
  * @returns {Promise<{
  *   items: import('mongoose').Document[],
  *   pageInfo: { nextCursor: string | null, hasMore: boolean },
@@ -133,9 +135,23 @@ export async function findProjectById(orgId, projectId, options = {}) {
  */
 export async function listProjects(orgId, filters = {}) {
   assertOrgId(orgId);
+  if (filters.emptyResult) {
+    return { items: [], pageInfo: { nextCursor: null, hasMore: false } };
+  }
   const limit = clampProjectsListLimit(filters.limit);
   /** @type {Record<string, unknown>} */
   const query = { orgId, status: ROW_STATUS_ACTIVE };
+
+  if (Array.isArray(filters.projectIds)) {
+    if (filters.projectIds.length === 0) {
+      return { items: [], pageInfo: { nextCursor: null, hasMore: false } };
+    }
+    query._id = {
+      $in: filters.projectIds
+        .filter((id) => mongoose.isValidObjectId(id))
+        .map((id) => new mongoose.Types.ObjectId(String(id))),
+    };
+  }
 
   if (!filters.includeArchived) {
     query.lifecycleStatus = { $ne: 'archived' };

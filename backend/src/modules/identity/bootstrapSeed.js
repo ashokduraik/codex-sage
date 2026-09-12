@@ -154,6 +154,7 @@ export async function runBootstrapSeed(log) {
             {
               userId: adminUser._id,
               roleIds: [orgAdmin._id],
+              projectAccessMode: 'all',
               createdBy: null,
               updatedBy: null,
             },
@@ -169,7 +170,18 @@ export async function runBootstrapSeed(log) {
           debug({ step: 'membership', outcome: 'already_present' }, 'bootstrap seed step');
         }
       } else {
-        debug({ step: 'membership', outcome: 'already_present' }, 'bootstrap seed step');
+        if (membership.projectAccessMode !== 'all') {
+          membership.projectAccessMode = 'all';
+          membership.updatedBy = null;
+          await membership.save({ session });
+          insertedAny = true;
+          debug(
+            { step: 'membership', outcome: 'project_access_mode_all' },
+            'bootstrap seed step',
+          );
+        } else {
+          debug({ step: 'membership', outcome: 'already_present' }, 'bootstrap seed step');
+        }
       }
 
       if (!membership) {

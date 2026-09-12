@@ -35,6 +35,10 @@ vi.mock('./user.repository.js', () => ({
   })),
 }));
 
+vi.mock('../projectMembers/bumpProjectAclVersion.js', () => ({
+  bumpProjectAclVersion: vi.fn(async () => {}),
+}));
+
 import { recordAuditEvent } from '../audit/index.js';
 import { wouldRemoveLastAdmin } from './lastAdminGuard.js';
 import { replaceUserRoles } from './membership.service.js';

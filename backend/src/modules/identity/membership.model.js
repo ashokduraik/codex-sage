@@ -4,6 +4,9 @@
 import mongoose from 'mongoose';
 import { createBaseSchema, ROW_STATUS_ACTIVE } from '../../platform/data/index.js';
 
+/** How org membership maps onto project visibility (backend §8). */
+export const PROJECT_ACCESS_MODE_VALUES = Object.freeze(['all', 'selected', 'none']);
+
 const membershipSchema = createBaseSchema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -22,6 +25,12 @@ const membershipSchema = createBaseSchema({
       },
       message: 'roleIds must contain at least one role',
     },
+  },
+  projectAccessMode: {
+    type: String,
+    enum: PROJECT_ACCESS_MODE_VALUES,
+    required: true,
+    default: 'selected',
   },
 });
 

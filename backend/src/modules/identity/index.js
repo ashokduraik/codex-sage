@@ -12,12 +12,13 @@ export {
 export { Organization, SLUG_PATTERN } from './organization.model.js';
 export { User, USER_STATUS_VALUES } from './user.model.js';
 export { Role } from './role.model.js';
-export { Membership } from './membership.model.js';
+export { Membership, PROJECT_ACCESS_MODE_VALUES } from './membership.model.js';
 export {
   findOrganizationBySlug,
   findOrganizationById,
   createOrganization,
   softDeleteOrganization,
+  bumpOrganizationAclVersion,
 } from './organization.repository.js';
 export {
   findUserByEmail,
@@ -57,6 +58,7 @@ export {
   softDeleteMembership,
   replaceMembershipRoleIds,
   isRoleReferencedByActiveMembership,
+  updateMembershipProjectAccessMode,
 } from './membership.repository.js';
 export { runBootstrapSeed } from './bootstrapSeed.js';
 

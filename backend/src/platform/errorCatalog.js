@@ -36,6 +36,30 @@ export const ERROR_CATALOG = Object.freeze({
     retryability: 'user_action_required',
     message: 'Route not found.',
   }),
+  PROJECT_NOT_FOUND: Object.freeze({
+    class: 'user',
+    httpStatus: 404,
+    retryability: 'user_action_required',
+    message: 'Project not found.',
+  }),
+  USER_NOT_FOUND: Object.freeze({
+    class: 'user',
+    httpStatus: 404,
+    retryability: 'user_action_required',
+    message: 'User not found.',
+  }),
+  ROLE_NOT_FOUND: Object.freeze({
+    class: 'user',
+    httpStatus: 404,
+    retryability: 'user_action_required',
+    message: 'Role not found.',
+  }),
+  MEMBER_NOT_FOUND: Object.freeze({
+    class: 'user',
+    httpStatus: 404,
+    retryability: 'user_action_required',
+    message: 'Project member not found.',
+  }),
   UNAUTHENTICATED: Object.freeze({
     class: 'authorization',
     httpStatus: 401,
