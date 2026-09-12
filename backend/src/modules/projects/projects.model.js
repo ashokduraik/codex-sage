@@ -125,10 +125,18 @@ const projectSchema = createBaseSchema({
     type: Date,
     default: null,
   },
+  lastAccessedAt: {
+    type: Date,
+    default: null,
+  },
 });
 
 projectSchema.index(
   { orgId: 1, updatedAt: -1, _id: -1 },
+  { partialFilterExpression: { status: ROW_STATUS_ACTIVE } },
+);
+projectSchema.index(
+  { orgId: 1, lastAccessedAt: -1, _id: -1 },
   { partialFilterExpression: { status: ROW_STATUS_ACTIVE } },
 );
 projectSchema.index(

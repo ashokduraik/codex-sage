@@ -46,7 +46,13 @@ being measured. The process layout below is the intended topology.
 Stack choices for this topology (Fastify, MongoDB replica set, Mongoose/GridFS, Mongo
 jobs, logging) are recorded under [`docs/adr/`](./adr/README.md) — especially
 [0001](./adr/0001-mongodb-replica-set.md), [0002](./adr/0002-fastify-api-v1.md),
-[0003](./adr/0003-mongoose-and-gridfs.md), and [0004](./adr/0004-mongo-jobs-no-redis.md).
+[0003](./adr/0003-mongoose-and-gridfs.md), [0004](./adr/0004-mongo-jobs-no-redis.md),
+and [0005](./adr/0005-pino-logging.md).
+
+**Logging shape:** Pino JSON lines use level **labels** (`info` / `warn` / …), ISO-8601
+`time`, and omit `pid` / `hostname`. Standalone mode writes console + rotating
+`backend/logs/api.log` on the **main thread** (not a worker transport) so those
+formatters apply to every sink. Request-scoped lines bind `method` and path-only `url`.
 
 Three participants. Concurrency in this slice is **async I/O inside each Node process**,
 plus a **dedicated worker process** for heavy ingest/index work. There is no separate

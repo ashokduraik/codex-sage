@@ -64,10 +64,18 @@ export function clearAuthSession() {
  * @returns Testing Library render result
  */
 export function renderWithProviders(ui, options = {}) {
-  const { route = '/', withAuth = true, authUser, ...renderOptions } = options;
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
+  const {
+    route = '/',
+    withAuth = true,
+    authUser,
+    queryClient: providedQueryClient,
+    ...renderOptions
+  } = options;
+  const queryClient =
+    providedQueryClient ??
+    new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
 
   const resolvedUser = authUser !== undefined ? authUser : seededAuthUser;
   if (resolvedUser) {

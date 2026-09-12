@@ -22,6 +22,7 @@ describe('mapProjectToDto', () => {
     const dto = mapProjectToDto(base);
     expect(dto.id).toBe(base._id);
     expect(dto.lifecycleStatus).toBe('awaiting_source');
+    expect(dto.lastAccessedAt).toBeNull();
     expect(dto.archivedAt).toBeUndefined();
     expect(dto.settings).toBeUndefined();
   });
@@ -30,6 +31,7 @@ describe('mapProjectToDto', () => {
     const dto = mapProjectToDto(
       {
         ...base,
+        lastAccessedAt: new Date('2026-09-11T11:00:00.000Z'),
         archivedAt: new Date('2026-09-11T10:00:00.000Z'),
         currentKnowledgeVersionId: '6650f1a2c3d4e5f601020399',
         settings: { a: 1 },
@@ -43,6 +45,7 @@ describe('mapProjectToDto', () => {
       },
       { detail: true },
     );
+    expect(dto.lastAccessedAt).toBe('2026-09-11T11:00:00.000Z');
     expect(dto.archivedAt).toBe('2026-09-11T10:00:00.000Z');
     expect(dto.currentKnowledgeVersionId).toBe('6650f1a2c3d4e5f601020399');
     expect(dto.settings).toEqual({ a: 1 });

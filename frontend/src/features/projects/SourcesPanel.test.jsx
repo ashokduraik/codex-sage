@@ -1,6 +1,11 @@
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { Route, Routes } from 'react-router-dom';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+vi.mock('@/features/projects/api/projectsApi.js', async () => {
+  const fixtures = await import('./test/projectApiFixtures.js');
+  return fixtures.defaultProjectsApiMock;
+});
+
 import { clearAuthSession, renderWithProviders, seedAuthSession, } from '@/test/renderWithProviders';
 import ProjectDetailPage from './ProjectDetailPage';
 import SourcesPanel from './SourcesPanel';
@@ -13,13 +18,13 @@ beforeEach(() => {
     seedAuthSession();
 });
 describe('SourcesPanel', () => {
-    it('renders repository source details for Atlas', () => {
+    it('renders repository source details for Atlas', async () => {
         renderWithProviders(<Routes>
         <Route path="/projects/:id" element={<ProjectDetailPage />}>
           <Route path="sources" element={<SourcesPanel />}/>
         </Route>
       </Routes>, { route: '/projects/prj_atlas/sources' });
-        expect(screen.getByRole('heading', { name: 'Sources' })).toBeTruthy();
+        expect(await screen.findByRole('heading', { name: 'Sources' })).toBeTruthy();
         expect(screen.getByText('acme/atlas-commerce')).toBeTruthy();
         expect(screen.getByRole('button', { name: /Re-test connection/i })).toBeTruthy();
         expect(screen.getByRole('button', { name: /Add source/i })).toBeTruthy();
@@ -30,7 +35,7 @@ describe('SourcesPanel', () => {
           <Route path="sources" element={<SourcesPanel />}/>
         </Route>
       </Routes>, { route: '/projects/prj_atlas/sources' });
-        fireEvent.click(screen.getByRole('button', { name: /Re-test connection/i }));
+        fireEvent.click(await screen.findByRole('button', { name: /Re-test connection/i }));
         expect(screen.getByText('Testing connection…')).toBeTruthy();
         await waitFor(() => {
             expect(screen.getByText('Connection verified.')).toBeTruthy();
@@ -42,7 +47,7 @@ describe('SourcesPanel', () => {
           <Route path="sources" element={<SourcesPanel />}/>
         </Route>
       </Routes>, { route: '/projects/prj_atlas/sources' });
-        fireEvent.click(screen.getByRole('button', { name: /Replace credentials/i }));
+        fireEvent.click(await screen.findByRole('button', { name: /Replace credentials/i }));
         expect(await screen.findByRole('heading', { name: /Replace credentials/i })).toBeTruthy();
         fireEvent.change(screen.getByLabelText(/Access token/i), {
             target: { value: 'ghp_replacement_token' },
@@ -58,7 +63,7 @@ describe('SourcesPanel', () => {
           <Route path="sources" element={<SourcesPanel />}/>
         </Route>
       </Routes>, { route: '/projects/prj_atlas/sources' });
-        fireEvent.click(screen.getByRole('button', { name: /Revoke \/ disconnect/i }));
+        fireEvent.click(await screen.findByRole('button', { name: /Revoke \/ disconnect/i }));
         expect(await screen.findByText(/Revoke repository credentials/i)).toBeTruthy();
         const confirmButtons = screen.getAllByRole('button', { name: /^Revoke$/i });
         fireEvent.click(confirmButtons[confirmButtons.length - 1]);
@@ -72,7 +77,7 @@ describe('SourcesPanel', () => {
           <Route path="sources" element={<SourcesPanel />}/>
         </Route>
       </Routes>, { route: '/projects/prj_atlas/sources' });
-        fireEvent.click(screen.getByRole('button', { name: /Add source/i }));
+        fireEvent.click(await screen.findByRole('button', { name: /Add source/i }));
         expect(await screen.findByRole('heading', { name: 'Connect repository' })).toBeTruthy();
     });
 });

@@ -56,7 +56,8 @@ function needsClarification(question, project) {
  */
 export default function ChatWorkspace() {
     const { t } = useTranslation();
-    const { project, activeConvId, setActiveConvId } = useOutletContext();
+    const { project: apiProject, mockProject, activeConvId, setActiveConvId } = useOutletContext();
+    const project = mockProject ?? apiProject;
     const { getConversation, createConversation, askQuestion, editUserMessage, getConversations, } = useAppData();
     const [searchParams, setSearchParams] = useSearchParams();
     const [showHistory, setShowHistory] = useState(false);

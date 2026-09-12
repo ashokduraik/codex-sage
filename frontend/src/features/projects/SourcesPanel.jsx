@@ -32,7 +32,8 @@ function SourceRow({ label, value, mono }) {
  */
 export default function SourcesPanel() {
     const { t } = useTranslation();
-    const { project } = useOutletContext();
+    const { project: apiProject, mockProject } = useOutletContext();
+    const project = mockProject ?? apiProject;
     const { updateProject, logAudit } = useAppData();
     const source = (project.source || { type: 'upload', origin: 'Upload' });
     const repoLabel = source.type === 'repo' ? source.fullName || project.name : project.name;

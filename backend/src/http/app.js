@@ -10,7 +10,11 @@ import cookie from '@fastify/cookie';
 import csrf from '@fastify/csrf-protection';
 import fjwt from '@fastify/jwt';
 import { loadConfig } from '../platform/config.js';
-import { buildLoggerOptions, registerRequestLogging } from '../platform/logger.js';
+import {
+  buildLoggerOptions,
+  createRequestChildLogger,
+  registerRequestLogging,
+} from '../platform/logger.js';
 import { registerErrorHandler } from '../platform/errors.js';
 import {
   generateCorrelationId,
@@ -48,23 +52,54 @@ export const CORRELATION_ID_HEADER = 'X-Correlation-Id';
 export const CSRF_HEADER_NAME = 'x-csrf-token';
 
 /**
+ * Resolves Fastify logger options from config and an optional pre-built instance.
+ * @param {object} config Application configuration.
+ * @param {{ loggerInstance?: import('pino').Logger | false }} [options]
+ * @returns {{
+ *   loggerOption: { logger: object | false } | { loggerInstance: import('pino').Logger },
+ *   loggingEnabled: boolean,
+ * }}
+ */
+function resolveFastifyLoggerConfig(config, options = {}) {
+  if (Object.prototype.hasOwnProperty.call(options, 'loggerInstance')) {
+    if (options.loggerInstance === false || options.loggerInstance == null) {
+      return { loggerOption: { logger: false }, loggingEnabled: false };
+    }
+    return {
+      loggerOption: { loggerInstance: options.loggerInstance },
+      loggingEnabled: true,
+    };
+  }
+  const logger = buildLoggerOptions(config);
+  return {
+    loggerOption: { logger },
+    loggingEnabled: logger !== false,
+  };
+}
+
+/**
  * Builds and configures the Fastify application instance.
  * Registers platform concerns (error handling, structured logging, CORS) and
  * domain routes. Does not start listening — call `.listen()` on the returned
  * instance (see `index.js`).
  * @param {object} [config] Application configuration; defaults to reading from environment.
+ * @param {{ loggerInstance?: import('pino').Logger | false }} [options] Optional pre-built
+ *   Pino instance from {@link createAppLogger} (standalone file + console).
  * @returns {import('fastify').FastifyInstance} A configured, ready-to-listen Fastify instance.
  */
-export function buildApp(config = loadConfig()) {
+export function buildApp(config = loadConfig(), options = {}) {
   configureProjectAclCache(config.env);
 
+  const { loggerOption, loggingEnabled } = resolveFastifyLoggerConfig(config, options);
+
   const app = Fastify({
-    logger: buildLoggerOptions(config),
+    ...loggerOption,
     disableRequestLogging: true,
     genReqId: () => generateCorrelationId(),
+    ...(loggingEnabled ? { childLoggerFactory: createRequestChildLogger } : {}),
   });
 
-  if (config.logging.logger) {
+  if (loggingEnabled) {
     registerRequestLogging(app);
   }
 

@@ -24,6 +24,7 @@ import {
   getProjectSettings,
   listProjects,
   patchProjectSettings,
+  recordProjectAccess,
   restoreProject,
   transitionLifecycle,
   updateProject,
@@ -200,6 +201,14 @@ describe('projects.service', () => {
         log: mockLog(),
       }),
     ).rejects.toMatchObject({ code: 'UNKNOWN_SETTING' });
+
+    const accessed = await recordProjectAccess(String(orgId), created.id);
+    expect(accessed.lastAccessedAt).toBeTruthy();
+    await expect(
+      recordProjectAccess(String(orgId), new mongoose.Types.ObjectId().toHexString()),
+    ).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+    });
   });
 
   it('rejects worker-only transitions from api and loses races once', async () => {

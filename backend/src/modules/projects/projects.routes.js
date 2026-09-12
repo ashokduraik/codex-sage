@@ -14,6 +14,7 @@ import {
   getProjectSettings,
   listProjects,
   patchProjectSettings,
+  recordProjectAccess,
   restoreProject,
   updateProject,
 } from './projects.service.js';
@@ -46,6 +47,7 @@ const listQuerySchema = z.object({
   q: z.string().optional(),
   cursor: z.string().min(1).optional(),
   limit: z.coerce.number().int().optional(),
+  sort: z.enum(['updatedAt', 'lastAccessedAt']).optional(),
   includeArchived: z
     .union([z.boolean(), z.enum(['true', 'false'])])
     .optional()
@@ -162,6 +164,24 @@ export async function projectRoutes(app) {
         throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
       }
       return getProject(request.projectScope.orgId, request.projectScope.projectId);
+    },
+  );
+
+  app.post(
+    '/projects/:projectId/access',
+    {
+      config: { routeAccess: 'authenticated' },
+      preHandler: requireProjectPermission('projects.view'),
+    },
+    async (request) => {
+      const params = projectIdParamsSchema.safeParse(request.params ?? {});
+      if (!params.success) {
+        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+      }
+      return recordProjectAccess(
+        request.projectScope.orgId,
+        request.projectScope.projectId,
+      );
     },
   );
 

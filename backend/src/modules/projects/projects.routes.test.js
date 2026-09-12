@@ -291,6 +291,22 @@ describe('projects.routes', () => {
     });
     expect(emptySettings.statusCode).toBe(200);
 
+    const accessRes = await app.inject({
+      method: 'POST',
+      url: `${API_BASE_PATH}/projects/${ids[0]}/access`,
+      headers,
+    });
+    expect(accessRes.statusCode).toBe(200);
+    expect(accessRes.json().lastAccessedAt).toBeTruthy();
+
+    const recentList = await app.inject({
+      method: 'GET',
+      url: `${API_BASE_PATH}/projects?sort=lastAccessedAt&limit=5`,
+      headers,
+    });
+    expect(recentList.statusCode).toBe(200);
+    expect(recentList.json().items[0].id).toBe(ids[0]);
+
     const preview = await app.inject({
       method: 'GET',
       url: `${API_BASE_PATH}/projects/${ids[1]}/deletion-preview`,

@@ -1,6 +1,12 @@
 import { cleanup, fireEvent, screen } from '@testing-library/react';
 import { Route, Routes } from 'react-router-dom';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('@/features/projects/api/projectsApi.js', async () => {
+  const fixtures = await import('@/features/projects/test/projectApiFixtures.js');
+  return fixtures.defaultProjectsApiMock;
+});
+
 import { clearAuthSession, renderWithProviders, seedAuthSession, } from '@/test/renderWithProviders';
 import ProjectDetailPage from '@/features/projects/ProjectDetailPage';
 import SearchPanel from './SearchPanel';
@@ -13,13 +19,13 @@ beforeEach(() => {
     seedAuthSession();
 });
 describe('SearchPanel', () => {
-    it('filters knowledge results as the query changes', () => {
+    it('filters knowledge results as the query changes', async () => {
         renderWithProviders(<Routes>
         <Route path="/projects/:id" element={<ProjectDetailPage />}>
           <Route path="search" element={<SearchPanel />}/>
         </Route>
       </Routes>, { route: '/projects/prj_atlas/search' });
-        expect(screen.getByRole('heading', { name: 'Search' })).toBeTruthy();
+        expect(await screen.findByRole('heading', { name: 'Search' })).toBeTruthy();
         expect(screen.getByText('Search this project')).toBeTruthy();
         fireEvent.change(screen.getByPlaceholderText('Search knowledge…'), {
             target: { value: 'Stripe' },
@@ -27,23 +33,25 @@ describe('SearchPanel', () => {
         expect(screen.getByText('Stripe payment intent')).toBeTruthy();
         expect(screen.queryByText('Search this project')).toBeNull();
     });
-    it('shows empty results for unmatched queries', () => {
+    it('shows empty results for unmatched queries', async () => {
         renderWithProviders(<Routes>
         <Route path="/projects/:id" element={<ProjectDetailPage />}>
           <Route path="search" element={<SearchPanel />}/>
         </Route>
       </Routes>, { route: '/projects/prj_atlas/search' });
+        expect(await screen.findByPlaceholderText('Search knowledge…')).toBeTruthy();
         fireEvent.change(screen.getByPlaceholderText('Search knowledge…'), {
             target: { value: 'zzzz-no-match' },
         });
         expect(screen.getByText('No results')).toBeTruthy();
     });
-    it('filters results by knowledge type chip', () => {
+    it('filters results by knowledge type chip', async () => {
         renderWithProviders(<Routes>
         <Route path="/projects/:id" element={<ProjectDetailPage />}>
           <Route path="search" element={<SearchPanel />}/>
         </Route>
       </Routes>, { route: '/projects/prj_atlas/search' });
+        expect(await screen.findByPlaceholderText('Search knowledge…')).toBeTruthy();
         fireEvent.change(screen.getByPlaceholderText('Search knowledge…'), {
             target: { value: 'Stripe' },
         });

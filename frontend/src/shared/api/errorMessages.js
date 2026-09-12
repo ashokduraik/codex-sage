@@ -79,6 +79,14 @@ export const ERROR_CODE_MESSAGES = Object.freeze({
     i18nKey: 'errors.codes.UNKNOWN_PERMISSION',
     category: 'validation',
   }),
+  PROJECT_NAME_TAKEN: Object.freeze({
+    i18nKey: 'errors.codes.PROJECT_NAME_TAKEN',
+    category: 'validation',
+  }),
+  INVALID_STATE_TRANSITION: Object.freeze({
+    i18nKey: 'errors.codes.INVALID_STATE_TRANSITION',
+    category: 'validation',
+  }),
   CONFLICT: Object.freeze({
     i18nKey: 'errors.codes.CONFLICT',
     category: 'validation',

@@ -1,7 +1,33 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const listProjects = vi.fn(async (options = {}) => ({
+  items: options.q
+    ? [{ id: 'prj_atlas', name: 'Atlas Commerce', description: '', lifecycleStatus: 'knowledge_ready', knowledgeHealth: 'ready', sourceConfig: { sourceType: 'repository' }, counts: { sourceVersions: 0, files: 0, excludedFiles: 0, conversations: 0 }, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' }]
+    : [
+        { id: 'prj_atlas', name: 'Atlas Commerce', description: '', lifecycleStatus: 'knowledge_ready', knowledgeHealth: 'ready', sourceConfig: { sourceType: 'repository' }, counts: { sourceVersions: 0, files: 0, excludedFiles: 0, conversations: 0 }, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' },
+        { id: 'prj_orion', name: 'Orion Analytics', description: '', lifecycleStatus: 'awaiting_source', knowledgeHealth: 'none', sourceConfig: { sourceType: 'upload' }, counts: { sourceVersions: 0, files: 0, excludedFiles: 0, conversations: 0 }, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' },
+      ],
+  pageInfo: { nextCursor: null, hasMore: false },
+}));
+const getProject = vi.fn(async (id) => {
+  const fixtures = await import('@/features/projects/test/projectApiFixtures.js');
+  return fixtures.resolveTestProject(id);
+});
+vi.mock('@/features/projects/api/projectsApi.js', () => ({
+  listProjects: (...args) => listProjects(...args),
+  getProject: (...args) => getProject(...args),
+  createProject: vi.fn(),
+  archiveProject: vi.fn(),
+  restoreProject: vi.fn(),
+  deleteProject: vi.fn(),
+  patchProject: vi.fn(),
+  getProjectDeletionPreview: vi.fn(),
+  recordProjectAccess: vi.fn(async (id) => getProject(id)),
+}));
+
 import { AuthProvider } from '@/features/auth/AuthContext';
 import { CURRENT_USER_QUERY_KEY } from '@/features/auth/api/authKeys.js';
 import AppShell from '@/features/layout/AppShell';
@@ -81,10 +107,10 @@ describe('Sidebar', () => {
     expect(screen.getByLabelText('Expand')).toBeTruthy();
   });
 
-  it('shows the current project when the path matches a project', () => {
+  it('shows the current project when the path matches a project', async () => {
     renderLayout(<Sidebar collapsed={false} onToggle={() => undefined} />, '/projects/prj_atlas');
-    expect(screen.getByText('Current project')).toBeTruthy();
-    expect(screen.getAllByText('Atlas Commerce').length).toBeGreaterThan(0);
+    expect(await screen.findByText('Current project')).toBeTruthy();
+    expect(await screen.findByText('Atlas Commerce')).toBeTruthy();
   });
 });
 
@@ -140,12 +166,12 @@ describe('Header', () => {
     expect(opened).toBe(true);
   });
 
-  it('filters projects in the search dropdown', () => {
+  it('filters projects in the search dropdown', async () => {
     renderLayout(<Header />);
     const input = screen.getByPlaceholderText('Search projects…');
     fireEvent.focus(input);
     fireEvent.change(input, { target: { value: 'Atlas' } });
-    expect(screen.getByText('Atlas Commerce')).toBeTruthy();
+    expect(await screen.findByText('Atlas Commerce')).toBeTruthy();
   });
 });
 

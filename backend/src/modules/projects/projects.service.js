@@ -18,6 +18,7 @@ import {
   findProjectById,
   listProjects as listProjectsInRepo,
   softDeleteProject,
+  touchProjectLastAccessedAt,
   updateProjectMetadata,
   updateProjectSettings,
 } from './projects.repository.js';
@@ -185,6 +186,7 @@ export async function createProject(input) {
  *   includeArchived?: boolean,
  *   cursor?: string,
  *   limit?: number,
+ *   sort?: 'updatedAt' | 'lastAccessedAt',
  * }} [filters] List filters.
  * @returns {Promise<{ items: object[], pageInfo: object }>}
  */
@@ -216,6 +218,20 @@ export async function getProject(orgId, projectId) {
     throw ApiError.fromCode('NOT_FOUND', { message: 'Project not found.' });
   }
   return mapProjectToDto(project, { detail: true });
+}
+
+/**
+ * Records that a project was opened (org-scoped lastAccessedAt bump).
+ * @param {string} orgId Tenant id.
+ * @param {string} projectId Project id.
+ * @returns {Promise<object>} Updated project detail DTO.
+ */
+export async function recordProjectAccess(orgId, projectId) {
+  const updated = await touchProjectLastAccessedAt(orgId, projectId);
+  if (!updated) {
+    throw ApiError.fromCode('NOT_FOUND', { message: 'Project not found.' });
+  }
+  return mapProjectToDto(updated, { detail: true });
 }
 
 /**

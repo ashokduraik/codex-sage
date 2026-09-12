@@ -62,6 +62,7 @@ export function mapProjectToDto(project, options = {}) {
       excludedFiles: counts.excludedFiles ?? 0,
       conversations: counts.conversations ?? 0,
     },
+    lastAccessedAt: toIsoOrNull(project.lastAccessedAt),
     createdBy: project.createdBy ? String(project.createdBy) : null,
     createdAt: toIsoOrEmpty(project.createdAt),
     updatedAt: toIsoOrEmpty(project.updatedAt),

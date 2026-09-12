@@ -11,7 +11,8 @@ import { cn } from '@/shared/lib/utils';
  */
 export default function KnowledgeExplorer() {
     const { t } = useTranslation();
-    const { project } = useOutletContext();
+    const { project: apiProject, mockProject } = useOutletContext();
+    const project = mockProject ?? apiProject;
     const tree = project.knowledgeTree || [];
     const [expanded, setExpanded] = useState(() => Object.fromEntries(tree.map((node) => [node.label, true])));
     if (tree.length === 0) {

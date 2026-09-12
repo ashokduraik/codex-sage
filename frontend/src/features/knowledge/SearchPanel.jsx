@@ -86,7 +86,8 @@ function buildIndex(project) {
  */
 export default function SearchPanel() {
     const { t } = useTranslation();
-    const { project } = useOutletContext();
+    const { project: apiProject, mockProject } = useOutletContext();
+    const project = mockProject ?? apiProject;
     const [query, setQuery] = useState('');
     const [type, setType] = useState('all');
     const index = useMemo(() => buildIndex(project), [project]);

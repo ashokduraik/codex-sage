@@ -8,3 +8,21 @@ export { default as ProjectOverview } from './ProjectOverview';
 export { default as ProjectDetailPage } from './ProjectDetailPage';
 export { default as ProjectPickerPage } from './ProjectPickerPage';
 export { default as ProjectsPage } from './ProjectsPage';
+export { ProjectDeleteDialog } from './ProjectDeleteDialog.jsx';
+export {
+  mapLifecycleStatus,
+  mapKnowledgeHealth,
+  isProjectAskable,
+  isProjectArchived,
+} from './projectStatusMap.js';
+export { useProjects, flattenProjectPages } from './hooks/useProjects.js';
+export { useProject } from './hooks/useProject.js';
+export {
+  useCreateProject,
+  useArchiveProject,
+  useRestoreProject,
+  useDeleteProject,
+  usePatchProject,
+} from './hooks/useProjectMutations.js';
+export { useProjectDeletionPreview } from './hooks/useProjectDeletionPreview.js';
+export { useRecordProjectAccess } from './hooks/useRecordProjectAccess.js';

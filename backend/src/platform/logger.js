@@ -1,5 +1,7 @@
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import pino from 'pino';
+import createRollStream from 'pino-roll';
 import { allowsErrorDetails } from './errorCatalog.js';
 
 /** Rotate when the active log file reaches 5 MB. */
@@ -130,14 +132,19 @@ export function shouldIncludeStack(config, logLevelLabel = 'error') {
 
 /**
  * Shared Pino formatters, serializers, redact, and timestamp.
+ * Main-thread encoding (no worker transport) so level labels and ISO time apply
+ * to console and rotating file alike.
+ *
  * @param {string} level Pino level string.
  * @param {{ env: { isProduction: boolean }, logging: { level: string } }} config App config.
- * @returns {object} Base logger option fields (without transport/stream).
+ * @returns {object} Base logger option fields (without stream).
  */
 function baseLoggerFields(level, config) {
   const includeStack = shouldIncludeStack(config);
   return {
     level,
+    // Drop default pid/hostname — not useful in local or single-product deploys.
+    base: undefined,
     redact: {
       paths: LOG_REDACT_PATHS,
       censor: '[redacted]',
@@ -149,10 +156,8 @@ function baseLoggerFields(level, config) {
     formatters: {
       /** Emit the level name ("info") instead of the numeric Pino severity code (30). */
       level: (label) => ({ level: label }),
-      /** Remove pid; keep hostname so logs are still traceable across machines. */
-      bindings: (bindings) => ({
-        hostname: bindings['hostname'],
-      }),
+      /** Ensure pid/hostname stay absent even if a caller reintroduces base bindings. */
+      bindings: () => ({}),
     },
     /** Emit ISO 8601 wall-clock time instead of epoch milliseconds. */
     timestamp: () => `,"time":"${new Date().toISOString()}"`,
@@ -160,12 +165,12 @@ function baseLoggerFields(level, config) {
 }
 
 /**
- * Builds the Fastify/Pino logger option from the current application config.
+ * Builds sync Fastify/Pino logger options (stdout / default destination only).
+ * Rotating file output requires {@link createAppLogger} — worker transports cannot
+ * carry custom level/time formatters.
  *
  * - Returns `false` when logging is disabled (e.g. during tests).
- * - `container`: console (stdout) only; `NO_CONSOLE_LOG` is ignored.
- * - `standalone`: rotating file under `backend/logs/api.log` (5 MB, max 10 files),
- *   plus console unless `noConsoleLog` is true.
+ * - Suitable for tests and as a fallback when no pre-built logger instance is passed.
  *
  * @param {object} config The application configuration.
  * @returns {object | false} A Fastify-compatible logger option.
@@ -174,45 +179,79 @@ export function buildLoggerOptions(config) {
   if (!config.logging.logger) {
     return false;
   }
+  return baseLoggerFields(toPinoLevel(config.logging.level), config);
+}
+
+/**
+ * Creates a ready-to-use Pino logger for the API process.
+ *
+ * - Returns `false` when logging is disabled.
+ * - `container`: stdout only (`NO_CONSOLE_LOG` ignored).
+ * - `standalone`: rotating file under `backend/logs/api.log` (5 MB, max 10 files),
+ *   plus stdout unless `noConsoleLog` is true.
+ *
+ * Uses main-thread streams (not worker transport) so level labels and ISO timestamps
+ * appear on every line.
+ *
+ * @param {object} config The application configuration.
+ * @returns {Promise<import('pino').Logger | false>}
+ */
+export async function createAppLogger(config) {
+  if (!config.logging.logger) {
+    return false;
+  }
   const level = toPinoLevel(config.logging.level);
+  const base = baseLoggerFields(level, config);
   const isContainer = config.env.appRunningPlatform === 'container';
   const wantConsole = isContainer || !config.logging.noConsoleLog;
   const wantFile = !isContainer;
-  const base = baseLoggerFields(level, config);
 
   if (!wantFile) {
-    return base;
+    return pino(base);
   }
 
-  // File path without extension: pino-roll appends `.log` via `extension`.
   const fileBase = join(LOG_DIR, LOG_FILE_NAME.replace(/\.log$/i, ''));
-  const targets = [];
-  if (wantConsole) {
-    targets.push({
-      target: 'pino/file',
-      level,
-      options: { destination: 1 },
-    });
-  }
-  targets.push({
-    target: 'pino-roll',
-    level,
-    options: {
-      file: fileBase,
-      extension: '.log',
-      size: '5m',
-      mkdir: true,
-      limit: { count: LOG_BACKUP_COUNT },
-    },
+  const fileStream = await createRollStream({
+    file: fileBase,
+    extension: '.log',
+    size: '5m',
+    mkdir: true,
+    limit: { count: LOG_BACKUP_COUNT },
   });
-  // Transport runs in a worker — custom formatters/timestamp are not allowed;
-  // redact + serializers still apply on the main thread before shipping.
-  return {
-    level,
-    redact: base.redact,
-    serializers: base.serializers,
-    transport: { targets },
-  };
+
+  /** @type {import('pino').StreamEntry[]} */
+  const streams = [];
+  if (wantConsole) {
+    streams.push({ level, stream: process.stdout });
+  }
+  streams.push({ level, stream: fileStream });
+
+  if (streams.length === 1) {
+    return pino(base, streams[0].stream);
+  }
+  return pino(base, pino.multistream(streams));
+}
+
+/**
+ * Fastify child-logger factory: bind reqId (from Fastify), method, and path-only url.
+ *
+ * @param {import('pino').Logger} logger Parent logger.
+ * @param {Record<string, unknown>} bindings Default Fastify bindings (includes reqId).
+ * @param {object} opts Child logger options from Fastify.
+ * @param {{ method?: string, url?: string }} rawReq Node IncomingMessage.
+ * @returns {import('pino').Logger}
+ */
+export function createRequestChildLogger(logger, bindings, opts, rawReq) {
+  const urlPath =
+    typeof rawReq?.url === 'string' ? rawReq.url.split('?')[0] : undefined;
+  return logger.child(
+    {
+      ...bindings,
+      method: rawReq?.method,
+      url: urlPath,
+    },
+    opts,
+  );
 }
 
 /**

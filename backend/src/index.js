@@ -9,6 +9,7 @@ import { PROJECT_MEMBER_MODELS } from './modules/projectMembers/index.js';
 import { loadConfig } from './platform/config.js';
 import { syncSchemaIndexes } from './platform/data/index.js';
 import { IDEMPOTENCY_MODELS } from './platform/idempotency/index.js';
+import { createAppLogger } from './platform/logger.js';
 import { connectMongo, disconnectMongo } from './platform/mongo.js';
 import { registerProcessHandlers } from './platform/processHandlers.js';
 import {
@@ -95,7 +96,8 @@ async function start() {
     process.exit(1);
   }
 
-  const app = buildApp(config);
+  const loggerInstance = await createAppLogger(config);
+  const app = buildApp(config, { loggerInstance });
   registerShutdownHook('close-http', async () => {
     await app.close();
   });

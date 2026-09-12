@@ -165,4 +165,49 @@ describe('buildApp', () => {
         const res = await app.inject({ method: 'GET', url: `${API_BASE_PATH}/health` });
         expect(res.statusCode).toBe(200);
     });
+
+    it('accepts a pre-built loggerInstance and binds method/url on request.log', async () => {
+        const lines = [];
+        const { buildLoggerOptions } = await import('../platform/logger.js');
+        const pino = (await import('pino')).default;
+        const opts = buildLoggerOptions({
+            ...TEST_APP_CONFIG,
+            env: { ...TEST_APP_CONFIG.env, appRunningPlatform: 'container', isTest: false },
+            logging: { logger: true, level: 'info', noConsoleLog: false },
+        });
+        const loggerInstance = pino(opts, {
+            write(chunk) {
+                lines.push(String(chunk));
+            },
+        });
+        app = buildApp(
+            {
+                ...TEST_APP_CONFIG,
+                logging: { ...TEST_APP_CONFIG.logging, logger: true, level: 'info' },
+            },
+            { loggerInstance },
+        );
+        app.get(
+          '/__log-probe',
+          { config: { routeAccess: 'public' } },
+          async (request) => {
+            request.log.info({ probe: true }, 'probe log');
+            return { ok: true };
+          },
+        );
+        await app.ready();
+        const res = await app.inject({ method: 'GET', url: '/__log-probe?secret=1' });
+        expect(res.statusCode).toBe(200);
+        const probeLine = lines.map((line) => JSON.parse(line)).find((row) => row.msg === 'probe log');
+        expect(probeLine).toMatchObject({
+            level: 'info',
+            method: 'GET',
+            url: '/__log-probe',
+            probe: true,
+        });
+        expect(probeLine.url).not.toContain('secret');
+        expect(probeLine.pid).toBeUndefined();
+        expect(probeLine.hostname).toBeUndefined();
+        expect(probeLine.time).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    });
 });

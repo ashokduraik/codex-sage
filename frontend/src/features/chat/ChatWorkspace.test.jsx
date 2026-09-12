@@ -1,6 +1,12 @@
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('@/features/projects/api/projectsApi.js', async () => {
+  const fixtures = await import('@/features/projects/test/projectApiFixtures.js');
+  return fixtures.defaultProjectsApiMock;
+});
+
 import { clearAuthSession, renderWithProviders, seedAuthSession, } from '@/test/renderWithProviders';
 import ProjectDetailPage from '@/features/projects/ProjectDetailPage';
 import ChatWorkspace from './ChatWorkspace';

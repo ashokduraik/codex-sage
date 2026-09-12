@@ -7,6 +7,7 @@ vi.mock('./projects.service.js', () => ({
   createProject: vi.fn(async () => ({ id: 'p1' })),
   listProjects: vi.fn(async () => ({ items: [], pageInfo: { nextCursor: null, hasMore: false } })),
   getProject: vi.fn(async () => ({ id: 'p1' })),
+  recordProjectAccess: vi.fn(async () => ({ id: 'p1', lastAccessedAt: '2026-01-01T00:00:00.000Z' })),
   updateProject: vi.fn(async () => ({ id: 'p1' })),
   getProjectSettings: vi.fn(async () => ({ settings: {} })),
   patchProjectSettings: vi.fn(async () => ({ settings: {} })),
@@ -144,6 +145,7 @@ describe('projects.routes unit edges', () => {
 
     for (const key of [
       'GET /projects/:projectId/settings',
+      'POST /projects/:projectId/access',
       'POST /projects/:projectId/archive',
       'POST /projects/:projectId/restore',
       'GET /projects/:projectId/deletion-preview',
@@ -162,10 +164,12 @@ describe('projects.routes unit edges', () => {
   it('accepts includeArchived query coercion', async () => {
     const app = createFakeApp();
     await projectRoutes(/** @type {any} */ (app));
-    const { listProjects, getProjectSettings } = await import('./projects.service.js');
+    const { listProjects, getProjectSettings, recordProjectAccess } = await import(
+      './projects.service.js'
+    );
     await app.handlers.get('GET /projects')({
       ...baseRequest(),
-      query: { includeArchived: 'true', q: 'atlas' },
+      query: { includeArchived: 'true', q: 'atlas', sort: 'lastAccessedAt' },
     });
     expect(listProjects).toHaveBeenCalledWith(
       'o1',
@@ -173,6 +177,7 @@ describe('projects.routes unit edges', () => {
       expect.objectContaining({
         includeArchived: true,
         q: 'atlas',
+        sort: 'lastAccessedAt',
       }),
     );
 
@@ -188,6 +193,12 @@ describe('projects.routes unit edges', () => {
       params: { projectId: 'p1' },
     });
     expect(getProjectSettings).toHaveBeenCalledWith('o1', 'p1');
+
+    await app.handlers.get('POST /projects/:projectId/access')({
+      ...baseRequest(),
+      params: { projectId: 'p1' },
+    });
+    expect(recordProjectAccess).toHaveBeenCalledWith('o1', 'p1');
 
     await expect(
       app.handlers.get('PATCH /projects/:projectId/settings')({

@@ -1,34 +1,93 @@
-import { cleanup, screen } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { clearAuthSession, renderWithProviders, seedAuthSession, } from '@/test/renderWithProviders';
+/**
+ * ProjectPickerPage lists non-archived API projects.
+ */
+import { cleanup, fireEvent, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ApiError } from '@/shared/api';
+import {
+  clearAuthSession,
+  renderWithProviders,
+  seedAuthSession,
+} from '@/test/renderWithProviders';
+
+vi.mock('@/features/projects/api/projectsApi.js', () => ({
+  listProjects: vi.fn(),
+  getProject: vi.fn(),
+  createProject: vi.fn(),
+  archiveProject: vi.fn(),
+  restoreProject: vi.fn(),
+  deleteProject: vi.fn(),
+  patchProject: vi.fn(),
+  getProjectDeletionPreview: vi.fn(),
+  recordProjectAccess: vi.fn(),
+}));
+
+import { listProjects } from '@/features/projects/api/projectsApi.js';
 import ProjectPickerPage from './ProjectPickerPage';
+
 afterEach(() => {
-    cleanup();
+  cleanup();
+  vi.clearAllMocks();
 });
+
 beforeEach(() => {
-    clearAuthSession();
-    localStorage.clear();
-    seedAuthSession();
+  clearAuthSession();
+  localStorage.clear();
+  seedAuthSession();
+  listProjects.mockResolvedValue({
+    items: [
+      {
+        id: 'p1',
+        name: 'Atlas Commerce',
+        description: 'Checkout',
+        lifecycleStatus: 'knowledge_ready',
+        knowledgeHealth: 'ready',
+        sourceConfig: { sourceType: 'upload' },
+        counts: { sourceVersions: 0, files: 0, excludedFiles: 0, conversations: 0 },
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      },
+    ],
+    pageInfo: { nextCursor: null, hasMore: false },
+  });
 });
+
 describe('ProjectPickerPage', () => {
-    it('lists projects for chat destination', () => {
-        renderWithProviders(<ProjectPickerPage tab="chat"/>);
-        expect(screen.getByRole('heading', { name: 'Chat' })).toBeTruthy();
-        expect(screen.getByText('Atlas Commerce')).toBeTruthy();
-        expect(screen.getByRole('link', { name: /Atlas Commerce/i }).getAttribute('href')).toBe('/projects/prj_atlas/chat');
+  it('lists accessible non-archived projects', async () => {
+    renderWithProviders(<ProjectPickerPage tab="chat" />);
+    expect(await screen.findByText('Atlas Commerce')).toBeTruthy();
+    expect(listProjects).toHaveBeenCalledWith(
+      expect.objectContaining({ includeArchived: false }),
+    );
+  });
+
+  it('shows empty state when there are no projects', async () => {
+    listProjects.mockResolvedValue({
+      items: [],
+      pageInfo: { nextCursor: null, hasMore: false },
     });
-    it('lists projects for knowledge destination', () => {
-        renderWithProviders(<ProjectPickerPage tab="knowledge"/>);
-        expect(screen.getByRole('heading', { name: 'Knowledge' })).toBeTruthy();
-        expect(screen
-            .getByRole('link', { name: /Orion Analytics/i })
-            .getAttribute('href')).toBe('/projects/prj_orion/knowledge');
+    renderWithProviders(<ProjectPickerPage tab="knowledge" />);
+    expect(await screen.findByText(/No projects yet/i)).toBeTruthy();
+  });
+
+  it('shows list error with retry', async () => {
+    listProjects.mockRejectedValue(
+      new ApiError({
+        status: 500,
+        code: 'INTERNAL_ERROR',
+        message: 'list failed',
+        correlationId: 'corr-pick',
+      }),
+    );
+    renderWithProviders(<ProjectPickerPage tab="search" />);
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('list failed');
+    expect(alert.textContent).toContain('corr-pick');
+    listProjects.mockResolvedValue({
+      items: [],
+      pageInfo: { nextCursor: null, hasMore: false },
     });
-    it('lists projects for search destination', () => {
-        renderWithProviders(<ProjectPickerPage tab="search"/>);
-        expect(screen.getByRole('heading', { name: 'Search' })).toBeTruthy();
-        expect(screen
-            .getByRole('link', { name: /Helios Gateway/i })
-            .getAttribute('href')).toBe('/projects/prj_helios/search');
-    });
+    fireEvent.click(screen.getByRole('button', { name: /Retry/i }));
+    expect(await screen.findByText(/No projects yet/i)).toBeTruthy();
+  });
 });

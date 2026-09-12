@@ -18,6 +18,12 @@ export const PROJECTS_LIST_DEFAULT_LIMIT = 20;
 /** Hard cap on `limit` query parameter. */
 export const PROJECTS_LIST_MAX_LIMIT = 100;
 
+/** Allowed list sort fields. */
+export const PROJECTS_LIST_SORT_VALUES = Object.freeze(['updatedAt', 'lastAccessedAt']);
+
+/** Epoch used when encoding a null lastAccessedAt into a keyset cursor. */
+const NULL_LAST_ACCESSED_CURSOR_ISO = '1970-01-01T00:00:00.000Z';
+
 /**
  * Clamps a requested page size into the allowed range.
  * @param {unknown} limit Raw limit.
@@ -35,13 +41,26 @@ export function clampProjectsListLimit(limit) {
 }
 
 /**
- * Builds a keyset filter for updatedAt/_id descending pages.
+ * Normalizes list sort to a known field (default updatedAt).
+ * @param {unknown} sort Raw sort.
+ * @returns {'updatedAt' | 'lastAccessedAt'}
+ */
+export function resolveProjectsListSort(sort) {
+  if (sort === 'lastAccessedAt') {
+    return 'lastAccessedAt';
+  }
+  return 'updatedAt';
+}
+
+/**
+ * Builds a keyset filter for a timestamp/_id descending page.
  * @param {{ t: string, i: string }} cursor Decoded cursor.
+ * @param {'updatedAt' | 'lastAccessedAt'} sortField Sort field.
  * @returns {object}
  */
-function keysetAfterFilter(cursor) {
-  const updatedAt = new Date(cursor.t);
-  if (Number.isNaN(updatedAt.getTime())) {
+function keysetAfterFilter(cursor, sortField) {
+  const stamp = new Date(cursor.t);
+  if (Number.isNaN(stamp.getTime())) {
     throw ApiError.fromCode('VALIDATION_ERROR', {
       details: [{ path: 'cursor', message: 'cursor timestamp is invalid' }],
     });
@@ -52,9 +71,40 @@ function keysetAfterFilter(cursor) {
     });
   }
   const id = new mongoose.Types.ObjectId(cursor.i);
+  if (sortField === 'lastAccessedAt') {
+    // Null lastAccessedAt sorts last under descending order.
+    if (cursor.t === NULL_LAST_ACCESSED_CURSOR_ISO) {
+      return {
+        $and: [{ lastAccessedAt: null }, { _id: { $lt: id } }],
+      };
+    }
+    return {
+      $or: [
+        { lastAccessedAt: { $lt: stamp, $ne: null } },
+        { lastAccessedAt: stamp, _id: { $lt: id } },
+        { lastAccessedAt: null },
+      ],
+    };
+  }
   return {
-    $or: [{ updatedAt: { $lt: updatedAt } }, { updatedAt, _id: { $lt: id } }],
+    $or: [{ updatedAt: { $lt: stamp } }, { updatedAt: stamp, _id: { $lt: id } }],
   };
+}
+
+/**
+ * Encodes the sort timestamp for the next cursor.
+ * @param {import('mongoose').Document} row Project row.
+ * @param {'updatedAt' | 'lastAccessedAt'} sortField Sort field.
+ * @returns {string}
+ */
+function cursorTimestampForRow(row, sortField) {
+  if (sortField === 'lastAccessedAt') {
+    if (row.lastAccessedAt instanceof Date) {
+      return row.lastAccessedAt.toISOString();
+    }
+    return NULL_LAST_ACCESSED_CURSOR_ISO;
+  }
+  return row.updatedAt.toISOString();
 }
 
 /**
@@ -81,6 +131,7 @@ export async function createProject(orgId, input, options = {}) {
         lifecycleStatus: 'creating',
         lifecycleStatusChangedAt: now,
         knowledgeHealth: 'none',
+        lastAccessedAt: null,
         sourceConfig: { sourceType: input.sourceType },
         counts: {
           sourceVersions: 0,
@@ -125,6 +176,7 @@ export async function findProjectById(orgId, projectId, options = {}) {
  *   includeArchived?: boolean,
  *   cursor?: string,
  *   limit?: number,
+ *   sort?: 'updatedAt' | 'lastAccessedAt',
  *   projectIds?: string[] | null,
  *   emptyResult?: boolean,
  * }} [filters] List filters. `projectIds` restricts to those ids; `emptyResult` short-circuits.
@@ -139,6 +191,7 @@ export async function listProjects(orgId, filters = {}) {
     return { items: [], pageInfo: { nextCursor: null, hasMore: false } };
   }
   const limit = clampProjectsListLimit(filters.limit);
+  const sortField = resolveProjectsListSort(filters.sort);
   /** @type {Record<string, unknown>} */
   const query = { orgId, status: ROW_STATUS_ACTIVE };
 
@@ -164,11 +217,13 @@ export async function listProjects(orgId, filters = {}) {
 
   if (filters.cursor) {
     const decoded = decodeCursor(filters.cursor);
-    Object.assign(query, keysetAfterFilter(decoded));
+    Object.assign(query, keysetAfterFilter(decoded, sortField));
   }
 
+  /** @type {Record<string, 1 | -1>} */
+  const sort = { [sortField]: -1, _id: -1 };
   const rows = await Project.find(query)
-    .sort({ updatedAt: -1, _id: -1 })
+    .sort(sort)
     .limit(limit + 1)
     .exec();
 
@@ -178,11 +233,30 @@ export async function listProjects(orgId, filters = {}) {
   if (hasMore && items.length > 0) {
     const last = items[items.length - 1];
     nextCursor = encodeCursor({
-      t: last.updatedAt.toISOString(),
+      t: cursorTimestampForRow(last, sortField),
       i: String(last._id),
     });
   }
   return { items, pageInfo: { nextCursor, hasMore } };
+}
+
+/**
+ * Sets lastAccessedAt to now without changing updatedAt semantics beyond mongoose defaults.
+ * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
+ * @param {string} projectId Project id.
+ * @returns {Promise<import('mongoose').Document | null>}
+ */
+export async function touchProjectLastAccessedAt(orgId, projectId) {
+  assertOrgId(orgId);
+  if (!mongoose.isValidObjectId(projectId)) {
+    return null;
+  }
+  const now = new Date();
+  return Project.findOneAndUpdate(
+    { _id: projectId, orgId, status: ROW_STATUS_ACTIVE },
+    { $set: { lastAccessedAt: now } },
+    { returnDocument: 'after' },
+  ).exec();
 }
 
 /**

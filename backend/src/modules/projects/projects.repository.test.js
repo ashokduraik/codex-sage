@@ -15,6 +15,8 @@ import {
   softDeleteProject,
   updateProjectMetadata,
   updateProjectSettings,
+  touchProjectLastAccessedAt,
+  resolveProjectsListSort,
   PROJECTS_LIST_DEFAULT_LIMIT,
   PROJECTS_LIST_MAX_LIMIT,
 } from './projects.repository.js';
@@ -38,11 +40,14 @@ describe('projects.repository', () => {
     await harness.afterAll();
   });
 
-  it('clamps list limits', () => {
+  it('clamps list limits and resolves sort', () => {
     expect(clampProjectsListLimit(undefined)).toBe(PROJECTS_LIST_DEFAULT_LIMIT);
     expect(clampProjectsListLimit(0)).toBe(PROJECTS_LIST_DEFAULT_LIMIT);
     expect(clampProjectsListLimit(999)).toBe(PROJECTS_LIST_MAX_LIMIT);
     expect(clampProjectsListLimit(7)).toBe(7);
+    expect(resolveProjectsListSort(undefined)).toBe('updatedAt');
+    expect(resolveProjectsListSort('lastAccessedAt')).toBe('lastAccessedAt');
+    expect(resolveProjectsListSort('nope')).toBe('updatedAt');
   });
 
   it('scopes finds by orgId and allows duplicate names', async () => {
@@ -158,6 +163,7 @@ describe('projects.repository', () => {
     const orgId = new mongoose.Types.ObjectId();
     expect(await updateProjectMetadata(orgId, 'bad', { name: 'x' })).toBeNull();
     expect(await updateProjectSettings(orgId, 'bad', { settings: {} })).toBeNull();
+    expect(await touchProjectLastAccessedAt(orgId, 'bad')).toBeNull();
     expect(
       await conditionalLifecycleUpdate(orgId, 'bad', {
         from: 'creating',
@@ -183,5 +189,49 @@ describe('projects.repository', () => {
       updatedBy: String(actor),
     });
     expect(described?.description).toBe('only desc');
+  });
+
+  it('touches lastAccessedAt and sorts by it with nulls last', async () => {
+    const orgId = new mongoose.Types.ObjectId();
+    const actor = new mongoose.Types.ObjectId();
+    const untouched = await createProject(orgId, {
+      name: 'Untouched',
+      sourceType: 'upload',
+      createdBy: actor,
+    });
+    untouched.lifecycleStatus = 'awaiting_source';
+    await untouched.save();
+
+    const older = await createProject(orgId, {
+      name: 'OlderAccess',
+      sourceType: 'upload',
+      createdBy: actor,
+    });
+    older.lifecycleStatus = 'awaiting_source';
+    older.lastAccessedAt = new Date('2026-01-01T00:00:00.000Z');
+    await older.save();
+
+    const newer = await createProject(orgId, {
+      name: 'NewerAccess',
+      sourceType: 'upload',
+      createdBy: actor,
+    });
+    newer.lifecycleStatus = 'awaiting_source';
+    await newer.save();
+
+    const touched = await touchProjectLastAccessedAt(orgId, String(newer._id));
+    expect(touched?.lastAccessedAt).toBeInstanceOf(Date);
+
+    const page1 = await listProjects(orgId, { sort: 'lastAccessedAt', limit: 2 });
+    expect(page1.items.map((row) => row.name)).toEqual(['NewerAccess', 'OlderAccess']);
+    expect(page1.pageInfo.hasMore).toBe(true);
+
+    const page2 = await listProjects(orgId, {
+      sort: 'lastAccessedAt',
+      limit: 2,
+      cursor: page1.pageInfo.nextCursor,
+    });
+    expect(page2.items.map((row) => row.name)).toEqual(['Untouched']);
+    expect(page2.pageInfo.hasMore).toBe(false);
   });
 });

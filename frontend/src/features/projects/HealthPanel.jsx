@@ -10,7 +10,8 @@ import { Button } from '@/shared/ui/button';
  */
 export default function HealthPanel() {
     const { t } = useTranslation();
-    const { project } = useOutletContext();
+    const { project: apiProject, mockProject } = useOutletContext();
+    const project = mockProject ?? apiProject;
     const partial = project.partial;
     const ready = project.knowledgeStatus === 'Ready';
     const checks = [

@@ -69,7 +69,8 @@ const ROWS = [
  */
 export default function ChangesPanel() {
     const { t } = useTranslation();
-    const { project } = useOutletContext();
+    const { project: apiProject, mockProject } = useOutletContext();
+    const project = mockProject ?? apiProject;
     const [openConflict, setOpenConflict] = useState(0);
     if (project.knowledgeTree?.length === 0) {
         return (<div className="h-full overflow-y-auto scrollbar-thin">
