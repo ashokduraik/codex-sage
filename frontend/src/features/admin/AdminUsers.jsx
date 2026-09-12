@@ -1,215 +1,916 @@
-import { useState } from 'react';
-import { Plus, Search, MoreHorizontal, KeyRound, Trash2, UserCog, Ban, CheckCircle2, } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  Ban,
+  CheckCircle2,
+  KeyRound,
+  Loader2,
+  MoreHorizontal,
+  Plus,
+  Search,
+  Trash2,
+  UserCog,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Button } from '@/shared/ui/button';
-import { Input } from '@/shared/ui/input';
-import { Label } from '@/shared/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, } from '@/shared/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, } from '@/shared/ui/dialog';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, } from '@/shared/ui/dropdown-menu';
-import { Badge } from '@/shared/ui/badge';
+import { useAuth } from '@/features/auth/AuthContext';
+import {
+  correlationFromError,
+  hasPermission,
+  messageFromError,
+} from '@/features/admin/adminErrors.js';
+import { useRoles } from '@/features/admin/api/useRoles.js';
+import { useUsers } from '@/features/admin/api/useUsers.js';
+import {
+  useCreateUser,
+  useRemoveUser,
+  useResetUserPassword,
+  useSetUserStatus,
+  useUpdateUserRoles,
+} from '@/features/admin/api/useUserMutations.js';
+import { InlineErrorAlert } from '@/features/admin/InlineErrorAlert.jsx';
+import { RoleMultiSelect } from '@/features/admin/RoleMultiSelect.jsx';
 import { formatRelative } from '@/shared/lib/format';
 import { cn } from '@/shared/lib/utils';
-import { useAppData } from '@/shared/mock-data';
-const ROLES = ['Admin', 'Editor', 'Viewer'];
+import { Badge } from '@/shared/ui/badge';
+import { Button } from '@/shared/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/shared/ui/dialog';
+import { Input } from '@/shared/ui/input';
+import { Label } from '@/shared/ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '@/shared/ui/popover';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/shared/ui/select';
+
+/** Debounce delay before search text reaches the query key. */
+const USER_SEARCH_DEBOUNCE_MS = 300;
+
 /**
- * Admin users management with create, role change, and password reset.
+ * Admin users management against the real identity APIs.
  *
- * @returns Admin users page
+ * @returns Admin users page.
  */
 export default function AdminUsers() {
-    const { t } = useTranslation();
-    const { users, updateUser, createUser, removeUser, logAudit } = useAppData();
-    const [query, setQuery] = useState('');
-    const [createOpen, setCreateOpen] = useState(false);
-    const [resetTarget, setResetTarget] = useState(null);
-    const [newUser, setNewUser] = useState({
-        name: '',
-        email: '',
-        role: 'Viewer',
+  const { t } = useTranslation();
+  const { user: currentUser } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const canManageUsers = hasPermission(currentUser?.permissions, 'users.manage');
+  const canManageRoles = hasPermission(currentUser?.permissions, 'roles.manage');
+
+  const urlQ = searchParams.get('q') ?? '';
+  const userStatus = searchParams.get('userStatus') ?? '';
+  const roleId = searchParams.get('roleId') ?? '';
+  const cursor = searchParams.get('cursor') ?? '';
+
+  const [searchDraft, setSearchDraft] = useState(() => searchParams.get('q') ?? '');
+  const [createOpen, setCreateOpen] = useState(false);
+  const [resetTarget, setResetTarget] = useState(null);
+  const [removeTarget, setRemoveTarget] = useState(null);
+  const [rolesEditTarget, setRolesEditTarget] = useState(null);
+  const [createForm, setCreateForm] = useState({
+    displayName: '',
+    email: '',
+    roleIds: /** @type {string[]} */ ([]),
+  });
+  const [editRoleIds, setEditRoleIds] = useState(/** @type {string[]} */ ([]));
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordCompleted, setPasswordCompleted] = useState(false);
+
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      const next = searchDraft.trim();
+      if (next === urlQ) {
+        return;
+      }
+      const params = new URLSearchParams(searchParams);
+      if (next) {
+        params.set('q', next);
+      } else {
+        params.delete('q');
+      }
+      params.delete('cursor');
+      setSearchParams(params, { replace: true });
+    }, USER_SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(handle);
+  }, [searchDraft, urlQ, searchParams, setSearchParams]);
+
+  const usersQuery = useUsers({
+    q: urlQ || undefined,
+    userStatus: userStatus || undefined,
+    roleId: roleId || undefined,
+    cursor: cursor || undefined,
+    enabled: canManageUsers,
+  });
+
+  const rolesQuery = useRoles({ enabled: canManageRoles });
+  const roles = rolesQuery.data ?? [];
+
+  const createMutation = useCreateUser();
+  const updateRolesMutation = useUpdateUserRoles();
+  const statusMutation = useSetUserStatus();
+  const removeMutation = useRemoveUser();
+  const resetMutation = useResetUserPassword();
+
+  const users = usersQuery.data?.items ?? [];
+  const nextCursor = usersQuery.data?.pageInfo?.nextCursor ?? null;
+  const hasMore = Boolean(usersQuery.data?.pageInfo?.hasMore && nextCursor);
+
+  const listErrorMessage = usersQuery.isError
+    ? messageFromError(usersQuery.error, t('errors.unexpected'))
+    : '';
+  const listCorrelationId = usersQuery.isError
+    ? correlationFromError(usersQuery.error)
+    : '';
+
+  /**
+   * Updates a filter query param and clears the cursor.
+   * @param {string} key Param name.
+   * @param {string} value Param value (empty clears).
+   */
+  function setFilterParam(key, value) {
+    const params = new URLSearchParams(searchParams);
+    if (value) {
+      params.set(key, value);
+    } else {
+      params.delete(key);
+    }
+    params.delete('cursor');
+    setSearchParams(params, { replace: true });
+  }
+
+  /**
+   * Advances to the next keyset page.
+   */
+  function goNextPage() {
+    if (!nextCursor) {
+      return;
+    }
+    const params = new URLSearchParams(searchParams);
+    params.set('cursor', nextCursor);
+    setSearchParams(params, { replace: true });
+  }
+
+  /**
+   * Returns to the first page (clears cursor).
+   */
+  function goFirstPage() {
+    const params = new URLSearchParams(searchParams);
+    params.delete('cursor');
+    setSearchParams(params, { replace: true });
+  }
+
+  /**
+   * Whether a row-scoped mutation is in flight for this user.
+   * @param {string} userId User id.
+   * @returns {boolean}
+   */
+  function isRowBusy(userId) {
+    const statusVars = statusMutation.variables;
+    const rolesVars = updateRolesMutation.variables;
+    const removeVars = removeMutation.variables;
+    return (
+      (statusMutation.isPending && statusVars?.userId === userId) ||
+      (updateRolesMutation.isPending && rolesVars?.userId === userId) ||
+      (removeMutation.isPending && removeVars?.userId === userId)
+    );
+  }
+
+  const createBusy = createMutation.isPending;
+  const resetBusy = resetMutation.isPending;
+  const removeBusy = removeMutation.isPending;
+  const rolesEditBusy = updateRolesMutation.isPending;
+
+  const createError = createMutation.isError
+    ? messageFromError(createMutation.error, t('errors.unexpected'))
+    : '';
+  const createCorrelation = createMutation.isError
+    ? correlationFromError(createMutation.error)
+    : '';
+
+  const resetError = resetMutation.isError
+    ? messageFromError(resetMutation.error, t('errors.unexpected'))
+    : '';
+  const resetCorrelation = resetMutation.isError
+    ? correlationFromError(resetMutation.error)
+    : '';
+
+  const removeError = removeMutation.isError
+    ? messageFromError(removeMutation.error, t('errors.unexpected'))
+    : '';
+  const removeCorrelation = removeMutation.isError
+    ? correlationFromError(removeMutation.error)
+    : '';
+
+  const rolesEditError = updateRolesMutation.isError
+    ? messageFromError(updateRolesMutation.error, t('errors.unexpected'))
+    : '';
+  const rolesEditCorrelation = updateRolesMutation.isError
+    ? correlationFromError(updateRolesMutation.error)
+    : '';
+
+  const rowActionError = useMemo(() => {
+    if (statusMutation.isError) {
+      return {
+        message: messageFromError(statusMutation.error, t('errors.unexpected')),
+        correlationId: correlationFromError(statusMutation.error),
+        userId: statusMutation.variables?.userId,
+      };
+    }
+    return null;
+  }, [statusMutation.isError, statusMutation.error, statusMutation.variables, t]);
+
+  /**
+   * Opens the create dialog with a clean form.
+   */
+  function openCreateDialog() {
+    createMutation.reset();
+    setCreateForm({
+      displayName: '',
+      email: '',
+      roleIds: roles[0] ? [String(roles[0].id)] : [],
     });
-    const filtered = users.filter((user) => !query ||
-        `${user.name}${user.email}`.toLowerCase().includes(query.toLowerCase()));
-    /**
-     * Create a user from the dialog form.
-     */
-    const submitCreate = () => {
-        if (!newUser.name.trim() || !newUser.email.trim())
-            return;
-        createUser(newUser);
-        setCreateOpen(false);
-        setNewUser({ name: '', email: '', role: 'Viewer' });
-        toast.success(t('admin.userCreated'));
-    };
-    /**
-     * Log an admin password reset for the selected user.
-     */
-    const resetPassword = () => {
-        if (!resetTarget)
-            return;
-        logAudit('Reset user password', resetTarget.name);
-        toast.success(t('admin.resetLinkSent'));
-        setResetTarget(null);
-    };
-    return (<div className="h-full overflow-y-auto scrollbar-thin">
+    setCreateOpen(true);
+  }
+
+  /**
+   * Submits create-user.
+   */
+  async function submitCreate() {
+    if (!createForm.displayName.trim() || !createForm.email.trim() || !createForm.roleIds.length) {
+      return;
+    }
+    try {
+      await createMutation.mutateAsync({
+        email: createForm.email.trim(),
+        displayName: createForm.displayName.trim(),
+        roleIds: createForm.roleIds,
+        idempotencyKey: crypto.randomUUID(),
+      });
+      setCreateOpen(false);
+      toast.success(t('admin.userCreated'));
+    } catch {
+      // Inline alert renders mutation error.
+    }
+  }
+
+  /**
+   * Opens the edit-roles dialog for a user.
+   * @param {object} targetUser User row.
+   */
+  function openRolesEditor(targetUser) {
+    updateRolesMutation.reset();
+    setRolesEditTarget(targetUser);
+    setEditRoleIds((targetUser.roles ?? []).map((role) => String(role.id)));
+  }
+
+  /**
+   * Saves multi-role assignment.
+   */
+  async function submitRolesEdit() {
+    if (!rolesEditTarget || editRoleIds.length < 1) {
+      return;
+    }
+    const selectedRoles = roles.filter((role) => editRoleIds.includes(String(role.id)));
+    try {
+      await updateRolesMutation.mutateAsync({
+        userId: rolesEditTarget.id,
+        roleIds: editRoleIds,
+        roles: selectedRoles.map((role) => ({
+          id: String(role.id),
+          name: role.name,
+          isBuiltIn: Boolean(role.isBuiltIn),
+        })),
+      });
+      setRolesEditTarget(null);
+      toast.success(t('admin.rolesUpdated'));
+    } catch {
+      // Inline alert.
+    }
+  }
+
+  /**
+   * Activates or deactivates a user.
+   * @param {object} targetUser User row.
+   */
+  async function toggleUserStatus(targetUser) {
+    statusMutation.reset();
+    const action = targetUser.userStatus === 'active' ? 'deactivate' : 'activate';
+    try {
+      await statusMutation.mutateAsync({ userId: targetUser.id, action });
+      toast.success(
+        action === 'deactivate' ? t('admin.userDeactivated') : t('admin.userActivated'),
+      );
+    } catch {
+      // Row alert.
+    }
+  }
+
+  /**
+   * Confirms soft-remove.
+   */
+  async function confirmRemove() {
+    if (!removeTarget) {
+      return;
+    }
+    try {
+      await removeMutation.mutateAsync({ userId: removeTarget.id });
+      setRemoveTarget(null);
+      toast.success(t('admin.userRemoved'));
+    } catch {
+      // Inline alert.
+    }
+  }
+
+  /**
+   * Submits administrator password set.
+   */
+  async function submitPasswordReset() {
+    if (!resetTarget || !newPassword || newPassword !== confirmPassword) {
+      return;
+    }
+    try {
+      const result = await resetMutation.mutateAsync({
+        userId: resetTarget.id,
+        newPassword,
+        idempotencyKey: crypto.randomUUID(),
+      });
+      setNewPassword('');
+      setConfirmPassword('');
+      if (result?.passwordResetStatus === 'completed') {
+        setPasswordCompleted(true);
+      }
+    } catch {
+      // Inline alert.
+    }
+  }
+
+  /**
+   * Opens the set-password dialog.
+   * @param {object} targetUser User row.
+   */
+  function openResetDialog(targetUser) {
+    resetMutation.reset();
+    setPasswordCompleted(false);
+    setNewPassword('');
+    setConfirmPassword('');
+    setResetTarget(targetUser);
+  }
+
+  if (!canManageUsers) {
+    return (
+      <div className="h-full overflow-y-auto scrollbar-thin">
+        <div className="mx-auto max-w-5xl px-6 py-8">
+          <p role="alert" className="text-sm text-destructive">
+            {t('errors.codes.FORBIDDEN')}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-full overflow-y-auto scrollbar-thin">
       <div className="mx-auto max-w-5xl px-6 py-8">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="font-display text-xl font-medium">
-              {t('admin.usersTitle')}
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              {t('admin.usersSubtitle')}
-            </p>
+            <h1 className="font-display text-xl font-medium">{t('admin.usersTitle')}</h1>
+            <p className="text-sm text-muted-foreground">{t('admin.usersSubtitle')}</p>
           </div>
-          <Button onClick={() => setCreateOpen(true)} className="bg-brand text-brand-foreground hover:bg-brand/90">
-            <Plus className="mr-2 h-4 w-4" aria-hidden="true"/>
+          <Button
+            onClick={openCreateDialog}
+            className="bg-brand text-brand-foreground hover:bg-brand/90"
+            disabled={!canManageUsers}
+          >
+            <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
             {t('admin.inviteUser')}
           </Button>
         </div>
 
-        <div className="relative mt-4 max-w-sm">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true"/>
-          <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('admin.searchUsers')} className="pl-8"/>
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+          <div className="relative w-full max-w-sm">
+            <Search
+              className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <Input
+              value={searchDraft}
+              onChange={(event) => setSearchDraft(event.target.value)}
+              placeholder={t('admin.searchUsers')}
+              className="pl-8"
+              aria-label={t('admin.searchUsers')}
+            />
+          </div>
+          <Select
+            value={userStatus || 'all'}
+            onValueChange={(value) => setFilterParam('userStatus', value === 'all' ? '' : value)}
+          >
+            <SelectTrigger className="w-full sm:w-40" aria-label={t('admin.filterStatus')}>
+              <SelectValue placeholder={t('admin.filterStatus')} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t('admin.filterStatusAll')}</SelectItem>
+              <SelectItem value="active">{t('admin.userStatus.active')}</SelectItem>
+              <SelectItem value="invited">{t('admin.userStatus.invited')}</SelectItem>
+              <SelectItem value="disabled">{t('admin.userStatus.disabled')}</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select
+            value={roleId || 'all'}
+            onValueChange={(value) => setFilterParam('roleId', value === 'all' ? '' : value)}
+          >
+            <SelectTrigger className="w-full sm:w-48" aria-label={t('admin.filterRole')}>
+              <SelectValue placeholder={t('admin.filterRole')} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t('admin.filterRoleAll')}</SelectItem>
+              {roles.map((role) => (
+                <SelectItem key={role.id} value={String(role.id)}>
+                  {role.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
+        {listErrorMessage ? (
+          <div
+            role="alert"
+            className="mt-4 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"
+          >
+            <p>{listErrorMessage}</p>
+            {listCorrelationId ? (
+              <p className="mt-1 text-xs opacity-80">
+                {t('errors.correlationId', { id: listCorrelationId })}
+              </p>
+            ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="mt-2"
+              onClick={() => void usersQuery.refetch()}
+            >
+              {t('common.retry')}
+            </Button>
+          </div>
+        ) : null}
+
+        {rowActionError ? (
+          <div className="mt-3">
+            <InlineErrorAlert
+              message={rowActionError.message}
+              correlationId={rowActionError.correlationId}
+            />
+          </div>
+        ) : null}
+
         <div className="mt-4 overflow-hidden rounded-lg border border-border bg-card">
-          <div className="grid grid-cols-[1.5fr_1fr_1fr_1.5fr_1fr_40px] gap-2 border-b border-border bg-muted/50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <div className="hidden gap-2 border-b border-border bg-muted/50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground md:grid md:grid-cols-[1.5fr_1.2fr_0.8fr_1fr_40px]">
             <span>{t('admin.name')}</span>
-            <span>{t('admin.role')}</span>
+            <span>{t('admin.rolesColumn')}</span>
             <span>{t('admin.status')}</span>
-            <span>{t('admin.projectAccess')}</span>
             <span>{t('admin.lastActivity')}</span>
             <span />
           </div>
-          {filtered.map((user) => (<div key={user.id} className="grid grid-cols-[1.5fr_1fr_1fr_1.5fr_1fr_40px] items-center gap-2 border-b border-border px-4 py-2.5 text-sm last:border-0">
-              <div className="min-w-0">
-                <div className="truncate font-medium">{user.name}</div>
-                <div className="truncate text-xs text-muted-foreground">
-                  {user.email}
+
+          {usersQuery.isPending && !usersQuery.data ? (
+            <div className="flex items-center gap-2 px-4 py-8 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              {t('common.loading')}
+            </div>
+          ) : null}
+
+          {!usersQuery.isPending && !usersQuery.isError && users.length === 0 ? (
+            <p className="px-4 py-8 text-sm text-muted-foreground" role="status">
+              {t('admin.usersEmpty')}
+            </p>
+          ) : null}
+
+          {users.map((rowUser) => {
+            const busy = isRowBusy(rowUser.id);
+            const roleNames = (rowUser.roles ?? []).map((role) => role.name).join(', ');
+            return (
+              <div
+                key={rowUser.id}
+                className="grid grid-cols-1 gap-2 border-b border-border px-4 py-3 text-sm last:border-0 md:grid-cols-[1.5fr_1.2fr_0.8fr_1fr_40px] md:items-center md:py-2.5"
+              >
+                <div className="min-w-0">
+                  <div className="truncate font-medium">{rowUser.displayName}</div>
+                  <div className="truncate text-xs text-muted-foreground">{rowUser.email}</div>
                 </div>
+                <div className="min-w-0">
+                  <span className="md:hidden text-xs font-semibold uppercase text-muted-foreground">
+                    {t('admin.rolesColumn')}
+                  </span>
+                  <div className="flex flex-wrap gap-1">
+                    {(rowUser.roles ?? []).length === 0 ? (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    ) : (
+                      (rowUser.roles ?? []).map((role) => (
+                        <Badge key={role.id} variant="secondary" className="text-[10px]">
+                          {role.name}
+                        </Badge>
+                      ))
+                    )}
+                  </div>
+                  <span className="sr-only">{roleNames}</span>
+                </div>
+                <div>
+                  <span
+                    className={cn(
+                      'inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-xs',
+                      rowUser.userStatus === 'active'
+                        ? 'bg-emerald-100 text-emerald-700'
+                        : 'bg-muted text-muted-foreground',
+                    )}
+                  >
+                    {rowUser.userStatus === 'active' ? (
+                      <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
+                    ) : (
+                      <Ban className="h-3 w-3" aria-hidden="true" />
+                    )}{' '}
+                    {t(`admin.userStatus.${rowUser.userStatus}`, {
+                      defaultValue: String(rowUser.userStatus),
+                    })}
+                    {busy && statusMutation.variables?.userId === rowUser.id ? (
+                      <Loader2 className="ml-1 h-3 w-3 animate-spin" aria-hidden="true" />
+                    ) : null}
+                  </span>
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  {formatRelative(rowUser.lastLoginAt)}
+                </span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:bg-muted disabled:opacity-50"
+                      aria-label={t('common.actions')}
+                      disabled={busy}
+                      aria-busy={busy}
+                    >
+                      {busy ? (
+                        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                      ) : (
+                        <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+                      )}
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="w-48 space-y-1 p-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="w-full justify-start"
+                      disabled={busy}
+                      onClick={() => openRolesEditor(rowUser)}
+                    >
+                      <UserCog className="mr-2 h-4 w-4" aria-hidden="true" />
+                      {t('admin.editRoles')}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="w-full justify-start"
+                      disabled={busy}
+                      onClick={() => void toggleUserStatus(rowUser)}
+                    >
+                      <UserCog className="mr-2 h-4 w-4" aria-hidden="true" />
+                      {rowUser.userStatus === 'active'
+                        ? t('admin.deactivate')
+                        : t('admin.activate')}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="w-full justify-start"
+                      disabled={busy}
+                      onClick={() => openResetDialog(rowUser)}
+                    >
+                      <KeyRound className="mr-2 h-4 w-4" aria-hidden="true" />
+                      {t('admin.resetPassword')}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="w-full justify-start text-destructive hover:text-destructive"
+                      disabled={busy}
+                      onClick={() => {
+                        removeMutation.reset();
+                        setRemoveTarget(rowUser);
+                      }}
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />
+                      {t('admin.removeUser')}
+                    </Button>
+                  </PopoverContent>
+                </Popover>
               </div>
-              <Select value={String(user.role)} onValueChange={(role) => updateUser(user.id, { role })}>
-                <SelectTrigger className="h-8 w-full text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {ROLES.map((role) => (<SelectItem key={role} value={role}>
-                      {role}
-                    </SelectItem>))}
-                </SelectContent>
-              </Select>
-              <span className={cn('inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-xs', user.status === 'Active'
-                ? 'bg-emerald-100 text-emerald-700'
-                : 'bg-muted text-muted-foreground')}>
-                {user.status === 'Active' ? (<CheckCircle2 className="h-3 w-3" aria-hidden="true"/>) : (<Ban className="h-3 w-3" aria-hidden="true"/>)}{' '}
-                {t(`status.${user.status}`, { defaultValue: String(user.status) })}
-              </span>
-              <div className="flex flex-wrap gap-1">
-                {user.projects.length === 0 ? (<span className="text-xs text-muted-foreground">—</span>) : (user.projects.map((projectName) => (<Badge key={projectName} variant="secondary" className="text-[10px]">
-                      {projectName}
-                    </Badge>)))}
-              </div>
-              <span className="text-xs text-muted-foreground">
-                {formatRelative(user.lastActivity)}
-              </span>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button type="button" className="flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:bg-muted" aria-label={t('common.actions')}>
-                    <MoreHorizontal className="h-4 w-4" aria-hidden="true"/>
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => updateUser(user.id, {
-                status: user.status === 'Active' ? 'Inactive' : 'Active',
-            })}>
-                    <UserCog className="mr-2 h-4 w-4" aria-hidden="true"/>
-                    {user.status === 'Active'
-                ? t('admin.deactivate')
-                : t('admin.activate')}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setResetTarget(user)}>
-                    <KeyRound className="mr-2 h-4 w-4" aria-hidden="true"/>
-                    {t('admin.resetPassword')}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => removeUser(user.id)}>
-                    <Trash2 className="mr-2 h-4 w-4" aria-hidden="true"/>
-                    {t('admin.removeUser')}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>))}
+            );
+          })}
+        </div>
+
+        <div className="mt-3 flex items-center justify-between gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={!cursor || usersQuery.isFetching}
+            onClick={goFirstPage}
+          >
+            {t('admin.paginationFirst')}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={!hasMore || usersQuery.isFetching}
+            onClick={goNextPage}
+            aria-busy={usersQuery.isFetching && Boolean(cursor)}
+          >
+            {usersQuery.isFetching && cursor ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+            ) : null}
+            {t('admin.paginationNext')}
+          </Button>
         </div>
       </div>
 
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+      <Dialog
+        open={createOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setCreateOpen(false);
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{t('admin.createUserTitle')}</DialogTitle>
-            <DialogDescription>
-              {t('admin.createUserDescription')}
-            </DialogDescription>
+            <DialogDescription>{t('admin.createUserDescription')}</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1.5">
-              <Label htmlFor="n-name">{t('auth.fullName')}</Label>
-              <Input id="n-name" value={newUser.name} onChange={(event) => setNewUser({ ...newUser, name: event.target.value })}/>
+              <Label htmlFor="admin-create-name">{t('auth.fullName')}</Label>
+              <Input
+                id="admin-create-name"
+                value={createForm.displayName}
+                disabled={createBusy}
+                onChange={(event) => {
+                  createMutation.reset();
+                  setCreateForm({ ...createForm, displayName: event.target.value });
+                }}
+              />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="n-email">{t('admin.email')}</Label>
-              <Input id="n-email" type="email" value={newUser.email} onChange={(event) => setNewUser({ ...newUser, email: event.target.value })}/>
+              <Label htmlFor="admin-create-email">{t('admin.email')}</Label>
+              <Input
+                id="admin-create-email"
+                type="email"
+                value={createForm.email}
+                disabled={createBusy}
+                onChange={(event) => {
+                  createMutation.reset();
+                  setCreateForm({ ...createForm, email: event.target.value });
+                }}
+              />
             </div>
             <div className="space-y-1.5">
-              <Label>{t('admin.role')}</Label>
-              <Select value={newUser.role} onValueChange={(role) => setNewUser({
-            ...newUser,
-            role: role,
-        })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {ROLES.map((role) => (<SelectItem key={role} value={role}>
-                      {role}
-                    </SelectItem>))}
-                </SelectContent>
-              </Select>
+              <Label>{t('admin.rolesColumn')}</Label>
+              <RoleMultiSelect
+                roles={roles}
+                selectedRoleIds={createForm.roleIds}
+                disabled={createBusy}
+                idPrefix="create-role"
+                onChange={(roleIds) => {
+                  createMutation.reset();
+                  setCreateForm({ ...createForm, roleIds });
+                }}
+              />
             </div>
+            <InlineErrorAlert message={createError} correlationId={createCorrelation} />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateOpen(false)}>
+            <Button
+              variant="outline"
+              disabled={createBusy}
+              onClick={() => setCreateOpen(false)}
+            >
               {t('common.cancel')}
             </Button>
-            <Button onClick={submitCreate} disabled={!newUser.name.trim() || !newUser.email.trim()}>
+            <Button
+              onClick={() => void submitCreate()}
+              disabled={
+                createBusy ||
+                !createForm.displayName.trim() ||
+                !createForm.email.trim() ||
+                createForm.roleIds.length < 1
+              }
+              aria-busy={createBusy}
+            >
+              {createBusy ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+              ) : null}
               {t('admin.inviteUser')}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!resetTarget} onOpenChange={(open) => {
-            if (!open)
-                setResetTarget(null);
-        }}>
+      <Dialog
+        open={Boolean(rolesEditTarget)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRolesEditTarget(null);
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>
-              {t('admin.resetPasswordFor', { name: resetTarget?.name })}
+              {t('admin.editRolesFor', { name: rolesEditTarget?.displayName })}
             </DialogTitle>
-            <DialogDescription>
-              {t('admin.resetPasswordDescription', {
-            email: resetTarget?.email,
-        })}
-            </DialogDescription>
+            <DialogDescription>{t('admin.editRolesDescription')}</DialogDescription>
           </DialogHeader>
+          <RoleMultiSelect
+            roles={roles}
+            selectedRoleIds={editRoleIds}
+            disabled={rolesEditBusy}
+            idPrefix="edit-role"
+            onChange={(next) => {
+              updateRolesMutation.reset();
+              setEditRoleIds(next);
+            }}
+          />
+          <InlineErrorAlert message={rolesEditError} correlationId={rolesEditCorrelation} />
           <DialogFooter>
-            <Button variant="outline" onClick={() => setResetTarget(null)}>
+            <Button
+              variant="outline"
+              disabled={rolesEditBusy}
+              onClick={() => setRolesEditTarget(null)}
+            >
               {t('common.cancel')}
             </Button>
-            <Button onClick={resetPassword}>{t('auth.sendResetLink')}</Button>
+            <Button
+              onClick={() => void submitRolesEdit()}
+              disabled={rolesEditBusy || editRoleIds.length < 1}
+              aria-busy={rolesEditBusy}
+            >
+              {rolesEditBusy ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+              ) : null}
+              {t('common.save')}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>);
+
+      <Dialog
+        open={Boolean(removeTarget)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRemoveTarget(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {t('admin.removeUserTitle', { name: removeTarget?.displayName })}
+            </DialogTitle>
+            <DialogDescription>{t('admin.removeUserConsequences')}</DialogDescription>
+          </DialogHeader>
+          <InlineErrorAlert message={removeError} correlationId={removeCorrelation} />
+          <DialogFooter>
+            <Button
+              variant="outline"
+              disabled={removeBusy}
+              onClick={() => setRemoveTarget(null)}
+            >
+              {t('common.cancel')}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => void confirmRemove()}
+              disabled={removeBusy}
+              aria-busy={removeBusy}
+            >
+              {removeBusy ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+              ) : null}
+              {t('admin.confirmRemove')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(resetTarget)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setResetTarget(null);
+            setPasswordCompleted(false);
+            setNewPassword('');
+            setConfirmPassword('');
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {t('admin.resetPasswordFor', { name: resetTarget?.displayName })}
+            </DialogTitle>
+            <DialogDescription>{t('admin.resetPasswordOutOfBand')}</DialogDescription>
+          </DialogHeader>
+          {passwordCompleted ? (
+            <p role="status" className="text-sm text-foreground">
+              {t('admin.passwordResetCompleted')}
+            </p>
+          ) : (
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="admin-new-password">{t('admin.newPassword')}</Label>
+                <Input
+                  id="admin-new-password"
+                  type="password"
+                  autoComplete="new-password"
+                  value={newPassword}
+                  disabled={resetBusy}
+                  onChange={(event) => {
+                    resetMutation.reset();
+                    setNewPassword(event.target.value);
+                  }}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="admin-confirm-password">{t('admin.confirmNewPassword')}</Label>
+                <Input
+                  id="admin-confirm-password"
+                  type="password"
+                  autoComplete="new-password"
+                  value={confirmPassword}
+                  disabled={resetBusy}
+                  onChange={(event) => {
+                    resetMutation.reset();
+                    setConfirmPassword(event.target.value);
+                  }}
+                />
+              </div>
+              {newPassword && confirmPassword && newPassword !== confirmPassword ? (
+                <p role="alert" className="text-sm text-destructive">
+                  {t('auth.passwordMismatch')}
+                </p>
+              ) : null}
+              <InlineErrorAlert message={resetError} correlationId={resetCorrelation} />
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              disabled={resetBusy}
+              onClick={() => {
+                setResetTarget(null);
+                setPasswordCompleted(false);
+              }}
+            >
+              {passwordCompleted ? t('common.close') : t('common.cancel')}
+            </Button>
+            {!passwordCompleted ? (
+              <Button
+                onClick={() => void submitPasswordReset()}
+                disabled={
+                  resetBusy ||
+                  !newPassword ||
+                  !confirmPassword ||
+                  newPassword !== confirmPassword
+                }
+                aria-busy={resetBusy}
+              >
+                {resetBusy ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                ) : null}
+                {t('admin.setPassword')}
+              </Button>
+            ) : null}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
 }
