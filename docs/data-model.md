@@ -124,6 +124,37 @@ Indexes (partial `status: 'A'`): `{ orgId: 1, updatedAt: -1, _id: -1 }` (list ke
 Lifecycle transitions are enforced by `transitionLifecycle` (API vs worker source; worker +
 `knowledgeVersionId` required for `knowledge_ready` / `partially_available`).
 
+### `jobs`
+
+Tenant- and project-scoped background work (Phase 20; ADR 0004). Row `status` (`A` \| `D`)
+is visibility only; lifecycle is `jobStatus` (`pending` \| `running` \| `completed` \|
+`completed_with_warnings` \| `failed` \| `retrying` \| `cancelled`). Failed jobs stay
+`status: 'A'` and remain readable.
+
+Fields: `projectId`, `jobType` (`ingest` \| `reingest` \| `repo_sync`, …), `jobStatus`,
+`sourceVersionId`, `correlationId`, worker lease fields (`workerId`, `attempt`,
+`maxAttempts`, `heartbeatAt`, `leaseExpiresAt`, `scheduledAt`), `failureClass` /
+`failureCode`, `currentStage`, `stageCheckpoint`
+(`{ lastCompletedStage, cursor?, updatedAt }` — resume after `lastCompletedStage`; no
+`completedStages[]`), `progressCounters` (`itemsProcessed`, `itemsFailed`,
+`warningCount`, `excludedCount`), `partialSuccess`, `cancelRequestedAt`, `startedAt`,
+`completedAt`, plus base fields. `workerId` is operational and is **not** returned on read
+APIs.
+
+Indexes (partial `status: 'A'`): `{ orgId, projectId, createdAt: -1, _id: -1 }` (list
+keyset), `{ orgId, projectId, jobStatus }` (dashboard), `{ status, jobStatus, jobType,
+scheduledAt }` (claim), `{ status, jobStatus, leaseExpiresAt }` (sweep).
+
+Internal `createPendingJob` inserts `pending` + a `job.enqueued` event. Claim/retry/cancel
+belong to later phases.
+
+### `job_events`
+
+Append-only history for a job (Phase 20). Fields: `projectId`, `jobId`, `eventCode`,
+`severity` (`info` \| `warning` \| `error`), `message` (user language, capped; never
+truncated), `data` (structured allowlisted keys), `correlationId`, plus base fields.
+Index (partial `status: 'A'`): `{ orgId, jobId, createdAt: 1 }`.
+
 ## Bootstrap seed
 
 On API startup the process ensures the default organization, four built-in roles, admin

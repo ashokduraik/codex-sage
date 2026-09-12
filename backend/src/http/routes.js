@@ -6,6 +6,7 @@ import { permissionsRoutes } from '../modules/authorization/permissions.routes.j
 import { auditRoutes } from '../modules/audit/index.js';
 import { projectRoutes } from '../modules/projects/index.js';
 import { projectMemberRoutes } from '../modules/projectMembers/index.js';
+import { jobRoutes } from '../modules/jobs/index.js';
 
 /**
  * Fastify plugin that registers every domain route module.
@@ -21,4 +22,5 @@ export async function registerRoutes(app) {
   await app.register(auditRoutes);
   await app.register(projectRoutes);
   await app.register(projectMemberRoutes);
+  await app.register(jobRoutes);
 }

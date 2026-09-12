@@ -6,6 +6,7 @@ import { assertRolePermissionsInCatalog } from './modules/authorization/index.js
 import { IDENTITY_MODELS, runBootstrapSeed } from './modules/identity/index.js';
 import { PROJECT_MODELS } from './modules/projects/index.js';
 import { PROJECT_MEMBER_MODELS } from './modules/projectMembers/index.js';
+import { JOB_MODELS } from './modules/jobs/index.js';
 import { loadConfig } from './platform/config.js';
 import { syncSchemaIndexes } from './platform/data/index.js';
 import { IDEMPOTENCY_MODELS } from './platform/idempotency/index.js';
@@ -67,6 +68,7 @@ async function start() {
         ...IDEMPOTENCY_MODELS,
         ...PROJECT_MODELS,
         ...PROJECT_MEMBER_MODELS,
+        ...JOB_MODELS,
       ]);
     } catch (err) {
       shutdownLog.error(

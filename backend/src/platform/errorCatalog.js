@@ -42,6 +42,12 @@ export const ERROR_CATALOG = Object.freeze({
     retryability: 'user_action_required',
     message: 'Project not found.',
   }),
+  JOB_NOT_FOUND: Object.freeze({
+    class: 'user',
+    httpStatus: 404,
+    retryability: 'user_action_required',
+    message: 'Job not found.',
+  }),
   USER_NOT_FOUND: Object.freeze({
     class: 'user',
     httpStatus: 404,

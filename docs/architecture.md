@@ -157,7 +157,7 @@ MongoDB
   (`projectAccessMode`: all | selected | none), sessions (refresh-token families),
   projects (`lifecycleStatus`, `knowledgeHealth`, `sourceConfig`, `counts`, `settings`;
   soft-delete via `status: 'A'|'D'`), project_members (per-project ACL overlay)  Source versions/files, document sections (text index), knowledge metadata
-  Jobs and job events
+  Jobs and job events (`jobs` / `job_events`; Phase 20 read APIs; worker claim in Phase 21 — ADR 0004)
   Conversations, messages, clarifications, summaries
   Audit, in-app notifications, usage, idempotency keys
   GridFS: accepted source/doc bytes (not node_modules, not images)
