@@ -102,6 +102,28 @@ Tenant-scoped platform rows for `Idempotency-Key` replay across PM2 workers and 
 (hard expiry of non–user-facing rows). Soft-delete (`status: 'D'`) releases an in-flight claim
 when the owner request fails.
 
+### `projects`
+
+Tenant-scoped (Phase 17). Fields: `name` (1–120), `description` (≤ 2000), `lifecycleStatus`
+(`creating` \| `awaiting_source` \| `connecting_repository` \| `source_received` \|
+`processing` \| `knowledge_ready` \| `updating` \| `failed` \| `partially_available` \|
+`archived`), `preArchiveLifecycleStatus`, `lifecycleStatusReasonCode`,
+`lifecycleStatusChangedAt`, `knowledgeHealth` (`none` \| `updating` \| `ready` \| `partial` \|
+`stale` \| `failed`), `currentKnowledgeVersionId`, `sourceConfig`
+(`sourceType`: `upload` \| `repository`, optional connection/version refs), `settings`
+(key registry starts empty), `counts` (`sourceVersions`, `files`, `excludedFiles`,
+`conversations` — written only by owning phases), `archivedAt`, plus base fields.
+
+Names are **not** unique within an org (duplicates allowed). Soft-delete sets `status: 'D'`
+and leaves `lifecycleStatus` unchanged. Archive stores `preArchiveLifecycleStatus` and sets
+`archivedAt`; restore returns to that prior state.
+
+Indexes (partial `status: 'A'`): `{ orgId: 1, updatedAt: -1, _id: -1 }` (list keyset),
+`{ orgId: 1, lifecycleStatus: 1 }` (dashboard grouping).
+
+Lifecycle transitions are enforced by `transitionLifecycle` (API vs worker source; worker +
+`knowledgeVersionId` required for `knowledge_ready` / `partially_available`).
+
 ## Bootstrap seed
 
 On API startup the process ensures the default organization, four built-in roles, admin

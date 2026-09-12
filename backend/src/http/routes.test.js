@@ -16,5 +16,13 @@ describe('registerRoutes', () => {
         expect(
             app.hasRoute({ method: 'GET', url: `${API_BASE_PATH}/audit-events/:auditEventId` }),
         ).toBe(true);
+        expect(app.hasRoute({ method: 'POST', url: `${API_BASE_PATH}/projects` })).toBe(true);
+        expect(app.hasRoute({ method: 'GET', url: `${API_BASE_PATH}/projects` })).toBe(true);
+        expect(
+            app.hasRoute({ method: 'GET', url: `${API_BASE_PATH}/projects/:projectId` }),
+        ).toBe(true);
+        expect(
+            app.hasRoute({ method: 'DELETE', url: `${API_BASE_PATH}/projects/:projectId` }),
+        ).toBe(true);
     });
 });

@@ -183,6 +183,20 @@ export const ERROR_CATALOG = Object.freeze({
     retryability: 'user_action_required',
     message: 'Pagination cursor is invalid.',
   }),
+  INVALID_STATE_TRANSITION: Object.freeze({
+    class: 'user',
+    httpStatus: 409,
+    retryability: 'user_action_required',
+    message: 'The requested lifecycle transition is not allowed.',
+    allowDetails: true,
+  }),
+  UNKNOWN_SETTING: Object.freeze({
+    class: 'user',
+    httpStatus: 400,
+    retryability: 'user_action_required',
+    message: 'One or more setting keys are not registered.',
+    allowDetails: true,
+  }),
   BOOTSTRAP_FAILED: Object.freeze({
     class: 'system',
     httpStatus: 500,

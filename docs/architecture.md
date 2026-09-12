@@ -147,6 +147,8 @@ Worker process
 
 MongoDB
   Orgs, users, roles, memberships, sessions (refresh-token families), projects
+  (`lifecycleStatus`, `knowledgeHealth`, `sourceConfig`, `counts`, `settings`; soft-delete
+  via `status: 'A'|'D'`)
   Source versions/files, document sections (text index), knowledge metadata
   Jobs and job events
   Conversations, messages, clarifications, summaries

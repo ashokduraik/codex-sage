@@ -3,7 +3,7 @@
  * Later phases add entries in the same change that introduces their routes.
  */
 
-/** @typedef {'user' | 'role' | 'membership' | 'route'} AuditResourceType */
+/** @typedef {'user' | 'role' | 'membership' | 'route' | 'project'} AuditResourceType */
 
 /**
  * Map of known `<domain>.<verb>` actions to their paired resourceType.
@@ -24,6 +24,12 @@ export const AUDIT_ACTION_RESOURCE_TYPES = Object.freeze({
   'role.remove': 'role',
   'membership.update': 'membership',
   'authz.denied': 'route',
+  'project.create': 'project',
+  'project.update': 'project',
+  'project.settings_changed': 'project',
+  'project.archive': 'project',
+  'project.restore': 'project',
+  'project.delete': 'project',
 });
 
 /** Frozen list of known action strings. */

@@ -19,6 +19,12 @@ export const AUDIT_ACTIONS = Object.freeze([
   'role.remove',
   'membership.update',
   'authz.denied',
+  'project.create',
+  'project.update',
+  'project.settings_changed',
+  'project.archive',
+  'project.restore',
+  'project.delete',
 ]);
 
 /** Known resource types paired with catalog actions. */
@@ -27,4 +33,5 @@ export const AUDIT_RESOURCE_TYPES = Object.freeze([
   'role',
   'membership',
   'route',
+  'project',
 ]);

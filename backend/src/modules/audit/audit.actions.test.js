@@ -27,6 +27,12 @@ describe('audit.actions', () => {
         'role.remove',
         'membership.update',
         'authz.denied',
+        'project.create',
+        'project.update',
+        'project.settings_changed',
+        'project.archive',
+        'project.restore',
+        'project.delete',
       ]),
     );
     expect(AUDIT_ACTIONS).toHaveLength(Object.keys(AUDIT_ACTION_RESOURCE_TYPES).length);
@@ -35,6 +41,7 @@ describe('audit.actions', () => {
   it('recognizes known actions and rejects unknowns', () => {
     expect(isKnownAuditAction('user.password_changed')).toBe(true);
     expect(isKnownAuditAction('user.create')).toBe(true);
+    expect(isKnownAuditAction('project.create')).toBe(true);
     expect(isKnownAuditAction('not.a.real.action')).toBe(false);
   });
 
@@ -43,5 +50,6 @@ describe('audit.actions', () => {
     expect(resourceTypeForAction('role.create')).toBe('role');
     expect(resourceTypeForAction('membership.update')).toBe('membership');
     expect(resourceTypeForAction('authz.denied')).toBe('route');
+    expect(resourceTypeForAction('project.create')).toBe('project');
   });
 });

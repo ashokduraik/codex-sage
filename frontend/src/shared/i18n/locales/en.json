@@ -436,7 +436,8 @@
       "user": "User",
       "role": "Role",
       "membership": "Membership",
-      "route": "Route"
+      "route": "Route",
+      "project": "Project"
     },
     "auditActions": {
       "user.create": "User created",
@@ -452,7 +453,13 @@
       "role.update": "Role updated",
       "role.remove": "Role removed",
       "membership.update": "Membership updated",
-      "authz.denied": "Authorization denied"
+      "authz.denied": "Authorization denied",
+      "project.create": "Project created",
+      "project.update": "Project updated",
+      "project.settings_changed": "Project settings changed",
+      "project.archive": "Project archived",
+      "project.restore": "Project restored",
+      "project.delete": "Project deleted"
     },
     "usageTitle": "Usage",
     "usageSubtitle": "Real metrics only — questions, tokens, context, processing, and source volume.",
