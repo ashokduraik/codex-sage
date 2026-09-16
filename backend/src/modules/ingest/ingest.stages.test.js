@@ -37,11 +37,17 @@ describe('resolveStagesAfter', () => {
   });
 
   it('placeholder stages throw NOT_IMPLEMENTED as permanent', async () => {
-    const materialize = INGEST_STAGES.find((s) => s.name === 'materialize_docs');
-    await expect(materialize.run({})).rejects.toMatchObject({
+    const codegraph = INGEST_STAGES.find((s) => s.name === 'codegraph_update');
+    await expect(codegraph.run({})).rejects.toMatchObject({
       code: 'NOT_IMPLEMENTED',
       failureClass: 'permanent',
     });
+  });
+
+  it('wires materialize_docs to a real stage runner', () => {
+    const materialize = INGEST_STAGES.find((s) => s.name === 'materialize_docs');
+    expect(materialize).toBeDefined();
+    expect(typeof materialize.run).toBe('function');
   });
 });
 

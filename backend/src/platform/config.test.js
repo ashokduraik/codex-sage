@@ -4,6 +4,7 @@ import { loadConfig, parseAppRunningPlatform, parseLogLevel, parsePort, } from '
 const VALID_ENV = {
     MONGODB_URI: 'mongodb://127.0.0.1:27017/codex_sage?replicaSet=rs0',
     JWT_ACCESS_TOKEN_SECRET: 'test-jwt-access-token-secret-at-least-32-chars',
+    WORKSPACE_ROOT: '/tmp/codex-sage-workspace-test-config',
 };
 describe('loadConfig', () => {
     it('uses defaults when optional env variables are absent', () => {
@@ -19,6 +20,7 @@ describe('loadConfig', () => {
         expect(cfg.logging.noConsoleLog).toBe(false);
         expect(cfg.mongo.uri).toBe(VALID_ENV.MONGODB_URI);
         expect(cfg.auth.jwtAccessTokenSecret).toBe(VALID_ENV.JWT_ACCESS_TOKEN_SECRET);
+        expect(cfg.workspace.root).toBe(VALID_ENV.WORKSPACE_ROOT);
     });
     it('reads overrides from env', () => {
         const cfg = loadConfig({
@@ -45,6 +47,22 @@ describe('loadConfig', () => {
         expect(cfg.logging.logger).toBe(false);
         expect(cfg.env.nodeEnv).toBe('test');
         expect(cfg.env.isTest).toBe(true);
+    });
+    it('defaults WORKSPACE_ROOT under NODE_ENV=test when unset', () => {
+        const { WORKSPACE_ROOT: _omit, ...withoutRoot } = VALID_ENV;
+        const cfg = loadConfig({ ...withoutRoot, NODE_ENV: 'test' });
+        expect(cfg.workspace.root).toMatch(/codex-sage-workspace-test$/);
+    });
+    it('throws when WORKSPACE_ROOT is missing outside test', () => {
+        const { WORKSPACE_ROOT: _omit, ...withoutRoot } = VALID_ENV;
+        expect(() => loadConfig({ ...withoutRoot, NODE_ENV: 'development' })).toThrow(
+            /WORKSPACE_ROOT/,
+        );
+    });
+    it('throws when WORKSPACE_ROOT is not absolute', () => {
+        expect(() =>
+            loadConfig({ ...VALID_ENV, WORKSPACE_ROOT: 'relative/workspace' }),
+        ).toThrow(/WORKSPACE_ROOT/);
     });
     it('throws when MONGODB_URI is missing and names the variable', () => {
         expect(() => loadConfig({
@@ -111,7 +129,7 @@ describe('loadConfig', () => {
         const serialized = JSON.stringify(cfg);
         expect(serialized).not.toMatch(/pool|SOCKET|API_BASE_PATH|SHUTDOWN/i);
         expect(cfg).not.toHaveProperty('poolSize');
-        expect(Object.keys(cfg)).toEqual(['env', 'server', 'logging', 'mongo', 'auth']);
+        expect(Object.keys(cfg)).toEqual(['env', 'server', 'logging', 'mongo', 'auth', 'workspace']);
     });
     it('falls back to process.env by default when MONGODB_URI is set', () => {
         const previousUri = process.env.MONGODB_URI;

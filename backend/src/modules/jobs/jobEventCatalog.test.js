@@ -40,6 +40,15 @@ describe('jobEventCatalog', () => {
     expect(
       renderJobEventMessage('files.identified', { filesProcessed: 4812, filesFailed: 9 }),
     ).toBe('Project files identified (4,812 files, 9 failed)');
+    expect(
+      renderJobEventMessage('workspace.materialized', { pathsWritten: 1203 }),
+    ).toBe('Project files materialized (1,203 paths)');
+    expect(
+      renderJobEventMessage('docs.identified', {
+        documentationFiles: 4,
+        documentationSections: 18,
+      }),
+    ).toBe('Documentation identified (4 files, 18 sections)');
   });
 
   it('falls back safely for unknown codes', () => {

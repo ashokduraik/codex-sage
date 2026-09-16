@@ -67,3 +67,47 @@ export function buildExclusionsAppliedEvent(counts) {
     },
   };
 }
+
+/**
+ * Builds the S3 "project files materialized" event.
+ * @param {{ pathsWritten: number }} counts Honest path count written this run.
+ * @returns {{ eventCode: string, severity: string, message: string, data: object }}
+ */
+export function buildWorkspaceMaterializedEvent(counts) {
+  const pathsWritten = Math.max(0, Math.floor(counts.pathsWritten));
+  return {
+    eventCode: 'workspace.materialized',
+    severity: 'info',
+    message: renderJobEventMessage('workspace.materialized', { pathsWritten }),
+    data: { pathsWritten },
+  };
+}
+
+/**
+ * Builds the S3 "documentation identified" event.
+ * @param {{
+ *   documentationFiles: number,
+ *   documentationSections: number,
+ *   failedDocuments?: number,
+ * }} counts Honest documentation counts.
+ * @returns {{ eventCode: string, severity: string, message: string, data: object }}
+ */
+export function buildDocumentationIdentifiedEvent(counts) {
+  const documentationFiles = Math.max(0, Math.floor(counts.documentationFiles));
+  const documentationSections = Math.max(0, Math.floor(counts.documentationSections));
+  const failedDocuments = Math.max(0, Math.floor(counts.failedDocuments ?? 0));
+  return {
+    eventCode: 'docs.identified',
+    severity: failedDocuments > 0 ? 'warning' : 'info',
+    message: renderJobEventMessage('docs.identified', {
+      documentationFiles,
+      documentationSections,
+      failedDocuments,
+    }),
+    data: {
+      documentationFiles,
+      documentationSections,
+      failedDocuments,
+    },
+  };
+}

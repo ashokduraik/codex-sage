@@ -3,10 +3,12 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+  buildDocumentationIdentifiedEvent,
   buildExclusionsAppliedEvent,
   buildFilesIdentifiedEvent,
   buildSourceReceivedEvent,
   buildSourceValidatedEvent,
+  buildWorkspaceMaterializedEvent,
 } from './ingest.events.js';
 import {
   messageContainsAbsolutePath,
@@ -51,5 +53,25 @@ describe('ingest.events', () => {
       filesProcessed: 4812,
       filesFailed: 9,
     });
+  });
+
+  it('builds workspace materialized and documentation identified events', () => {
+    expect(buildWorkspaceMaterializedEvent({ pathsWritten: 42 }).message).toBe(
+      'Project files materialized (42 paths)',
+    );
+    expect(
+      buildDocumentationIdentifiedEvent({
+        documentationFiles: 3,
+        documentationSections: 12,
+        failedDocuments: 0,
+      }).message,
+    ).toBe('Documentation identified (3 files, 12 sections)');
+    expect(
+      buildDocumentationIdentifiedEvent({
+        documentationFiles: 3,
+        documentationSections: 12,
+        failedDocuments: 1,
+      }).message,
+    ).toBe('Documentation identified (3 files, 12 sections, 1 failed)');
   });
 });

@@ -30,6 +30,7 @@ export { WORKER_HEARTBEAT_INTERVAL_MS };
 export const WORKER_MODELS = Object.freeze([
   ...JOB_MODELS,
   ...SOURCE_MODELS,
+  ...DOCUMENT_MODELS,
   ProjectJobLock,
 ]);
 

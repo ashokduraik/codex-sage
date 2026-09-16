@@ -1,1 +1,4 @@
-Ingest test trees are created in-memory by ingest.handler.test.js (small, excluded-from-graph, and >1MiB cases).
+Ingest test trees:
+
+- In-memory seeds in `ingest.handler.test.js` cover S0–S3 (exclusions, resume, GridFS warnings).
+- `with-docs/` is a small on-disk tree (Markdown + code) for local inspection and future fixture loaders.

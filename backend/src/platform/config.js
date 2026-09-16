@@ -2,12 +2,17 @@
  * Application runtime configuration read from environment variables.
  * All `process.env` reads are centralised here — no scattered accesses elsewhere.
  */
+import os from 'node:os';
+import path from 'node:path';
 import { z } from 'zod';
 
 const LOG_LEVELS = new Set(['debug', 'info', 'warning', 'error']);
 
 /** Minimum length for JWT signing secrets (bytes of entropy guidance). */
 export const JWT_ACCESS_TOKEN_SECRET_MIN_LENGTH = 32;
+
+/** Default workspace root used only when NODE_ENV=test and WORKSPACE_ROOT is unset. */
+const TEST_DEFAULT_WORKSPACE_ROOT = path.join(os.tmpdir(), 'codex-sage-workspace-test');
 
 /** Non-empty hostname (after trim). */
 const hostSchema = z.string().trim().min(1, { error: 'must be a non-empty hostname' });
@@ -82,6 +87,28 @@ function collectFieldError(errors, variable, result) {
 }
 
 /**
+ * Resolves WORKSPACE_ROOT: required absolute path outside tests; test may default to tmp.
+ * @param {NodeJS.ProcessEnv | Record<string, string | undefined>} env Env map.
+ * @param {string} nodeEnv Resolved NODE_ENV.
+ * @param {string[]} errors Accumulator of validation errors.
+ * @returns {string | null} Absolute workspace root, or null when invalid.
+ */
+function parseWorkspaceRoot(env, nodeEnv, errors) {
+  const raw = typeof env.WORKSPACE_ROOT === 'string' ? env.WORKSPACE_ROOT.trim() : '';
+  const candidate =
+    raw || (nodeEnv === 'test' ? TEST_DEFAULT_WORKSPACE_ROOT : '');
+  if (!candidate) {
+    errors.push('WORKSPACE_ROOT: required absolute path to the encrypted workspace volume');
+    return null;
+  }
+  if (!path.isAbsolute(candidate)) {
+    errors.push('WORKSPACE_ROOT: must be an absolute filesystem path');
+    return null;
+  }
+  return path.resolve(candidate);
+}
+
+/**
  * Builds application configuration by reading environment variables.
  * Collects every validation error before throwing so operators see the full list.
  * Thrown messages name variables and expected formats but never include secret values.
@@ -99,10 +126,11 @@ export function loadConfig(env = process.env) {
   collectFieldError(errors, 'MONGODB_URI', mongoResult);
   const jwtResult = jwtSecretSchema.safeParse(env.JWT_ACCESS_TOKEN_SECRET ?? '');
   collectFieldError(errors, 'JWT_ACCESS_TOKEN_SECRET', jwtResult);
+  const nodeEnv = env.NODE_ENV ?? 'development';
+  const workspaceRoot = parseWorkspaceRoot(env, nodeEnv, errors);
   if (errors.length > 0) {
     throw new Error(`Invalid configuration:\n${errors.join('\n')}`);
   }
-  const nodeEnv = env.NODE_ENV ?? 'development';
   return {
     env: {
       nodeEnv,
@@ -124,6 +152,9 @@ export function loadConfig(env = process.env) {
     },
     auth: {
       jwtAccessTokenSecret: jwtResult.data,
+    },
+    workspace: {
+      root: workspaceRoot,
     },
   };
 }

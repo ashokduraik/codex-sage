@@ -8,6 +8,7 @@ import { PROJECT_MODELS } from './modules/projects/index.js';
 import { PROJECT_MEMBER_MODELS } from './modules/projectMembers/index.js';
 import { JOB_MODELS } from './modules/jobs/index.js';
 import { SOURCE_MODELS } from './modules/sources/index.js';
+import { DOCUMENT_MODELS } from './modules/documents/index.js';
 import { ProjectJobLock } from './worker/projectJobLock.model.js';
 import { loadConfig } from './platform/config.js';
 import { syncSchemaIndexes } from './platform/data/index.js';
@@ -72,6 +73,7 @@ async function start() {
         ...PROJECT_MEMBER_MODELS,
         ...JOB_MODELS,
         ...SOURCE_MODELS,
+        ...DOCUMENT_MODELS,
         ProjectJobLock,
       ]);
     } catch (err) {

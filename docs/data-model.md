@@ -145,6 +145,23 @@ One accepted path within a `sourceVersion` (Phase 24). Fields: `projectId`,
 
 Unique index (partial `status: 'A'`): `{ orgId, projectId, sourceVersionId, path }`.
 
+### `documentSections`
+
+Searchable documentation slices for a `sourceVersion` (Phase 26). Fields: `projectId`,
+`sourceVersionId`, `path` (normalized relative), `heading` (string or null), `startLine`,
+`endLine` (inclusive), `text` (plain searchable text, length-capped), `sectionIndex`
+(0-based order within the file), plus base fields.
+
+Indexes (partial `status: 'A'` where noted): unique
+`{ orgId, projectId, sourceVersionId, path, sectionIndex }`; list
+`{ orgId, projectId, sourceVersionId, status }`; MongoDB text index
+`document_sections_text` on `{ text, heading }` with weights `{ text: 10, heading: 5 }`
+(phase 38 query filters still scope by org/project/version/`status: 'A'`).
+
+Only `.md` / `.mdx` / `.txt` paths create rows; code files are materialized to the workspace
+but do not produce sections. Fresh S3 rematerialize soft-deletes prior active rows for the
+version before rewrite.
+
 ### GridFS bucket `sourceFiles`
 
 Accepted source/doc bytes only (ADR 0003). Filename =

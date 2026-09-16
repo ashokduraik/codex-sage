@@ -10,7 +10,12 @@ export default defineConfig({
       provider: 'v8',
       include: ['src/**/*.js'],
       // Process entrypoints that bind listen / signal handlers at import time.
-      exclude: ['src/index.js', 'src/worker/index.js', 'src/**/*.test.js'],
+      exclude: [
+        'src/index.js',
+        'src/worker/index.js',
+        'src/**/*.test.js',
+        'src/test/fixtures/**',
+      ],
       thresholds: { lines: 80, branches: 80, functions: 80, statements: 80 },
       reporter: ['text', 'lcov'],
     },

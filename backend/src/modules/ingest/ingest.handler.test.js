@@ -1,12 +1,16 @@
 /**
- * Integration tests for ingest S0–S2 against Mongo + GridFS.
+ * Integration tests for ingest S0–S3 against Mongo + GridFS.
  */
 import { createHash } from 'node:crypto';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import { Readable } from 'node:stream';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import mongoose from 'mongoose';
 import { createMongoHarness } from '../../test/mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../test/appConfig.js';
+import { DocumentSection, countSectionsForVersion, listSectionsForPath } from '../documents/index.js';
 import { Job } from '../jobs/job.model.js';
 import { JobEvent } from '../jobs/jobEvent.model.js';
 import { insertPendingJob, listEventsForJob } from '../jobs/jobs.repository.js';
@@ -22,11 +26,14 @@ import {
 import { GRIDFS_SOURCE_BUCKET } from '../sources/sources.constants.js';
 import { runIngestJob } from './ingest.handler.js';
 import { runStoreFilesStage, INGEST_MAX_FAILED_FILE_RATIO } from './stages/s1StoreFiles.js';
+import { runMaterializeDocsStage } from './stages/s3MaterializeDocs.js';
 import { buildIngestStageContext } from './ingest.context.js';
 import { loadSourceVersionForIngest } from './ingest.repository.js';
 
+let workspaceRoot;
+
 const harness = createMongoHarness({
-  models: [Job, JobEvent, SourceVersion, SourceFile],
+  models: [Job, JobEvent, SourceVersion, SourceFile, DocumentSection],
   uri: TEST_APP_CONFIG.mongo.uri,
 });
 
@@ -104,11 +111,16 @@ async function seedIngestFixture(options = {}) {
           : contentSha256,
       });
     }
+    const lower = spec.path.toLowerCase();
+    const kind =
+      lower.endsWith('.md') || lower.endsWith('.mdx') || lower.endsWith('.txt')
+        ? 'doc'
+        : 'code';
     storedFiles.push({
       path: spec.path,
       sha256: contentSha256,
       byteLength: content.length,
-      kind: spec.path.endsWith('.md') ? 'doc' : 'code',
+      kind,
       gridFsId,
       excludedFromGraph: spec.excludedFromGraph === true,
       exclusionReason: spec.exclusionReason ?? null,
@@ -224,24 +236,36 @@ function createWorkerContext(job, overrides = {}) {
   };
 }
 
-describe('ingest S0–S2 integration', () => {
+describe('ingest S0–S3 integration', () => {
   beforeAll(async () => {
+    workspaceRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-sage-ingest-'));
+    process.env.WORKSPACE_ROOT = workspaceRoot;
+    process.env.MONGODB_URI = TEST_APP_CONFIG.mongo.uri;
+    process.env.JWT_ACCESS_TOKEN_SECRET = TEST_APP_CONFIG.auth.jwtAccessTokenSecret;
+    process.env.NODE_ENV = 'test';
     await harness.beforeAll();
   }, 60_000);
 
   afterEach(async () => {
     await harness.afterEach();
     await clearSourceFilesBucket();
+    await fs.rm(workspaceRoot, { recursive: true, force: true });
+    await fs.mkdir(workspaceRoot, { recursive: true });
   });
 
   afterAll(async () => {
     await harness.afterAll();
+    await fs.rm(workspaceRoot, { recursive: true, force: true });
   });
 
-  it('runs S0→S2 then fails permanent at S3 placeholder with expected events and checkpoint', async () => {
+  it('runs S0→S3 then fails permanent at S4 placeholder with expected events and checkpoint', async () => {
     const seeded = await seedIngestFixture({
       files: [
         { path: 'src/a.js', content: Buffer.from('export const a = 1;\n') },
+        {
+          path: 'docs/guide.md',
+          content: Buffer.from('# Guide\nHello\n'),
+        },
         {
           path: 'big/data.js',
           content: Buffer.alloc(1_048_577, 0x61),
@@ -251,7 +275,6 @@ describe('ingest S0–S2 integration', () => {
       ],
     });
 
-    // Claim-like running state so saveCheckpoint/progress ownership matches.
     seeded.job.jobStatus = 'running';
     seeded.job.workerId = 'w-ingest-1';
     await seeded.job.save();
@@ -263,7 +286,7 @@ describe('ingest S0–S2 integration', () => {
     });
 
     const fresh = await Job.findById(seeded.job._id).lean();
-    expect(fresh.stageCheckpoint.lastCompletedStage).toBe('exclude_apply');
+    expect(fresh.stageCheckpoint.lastCompletedStage).toBe('materialize_docs');
     expect(fresh.progressCounters.itemsProcessed).toBeGreaterThan(0);
 
     const events = await listEventsForJob(seeded.orgId, seeded.job._id);
@@ -272,6 +295,210 @@ describe('ingest S0–S2 integration', () => {
     expect(messages.some((m) => m.startsWith('Source validated'))).toBe(true);
     expect(messages.some((m) => m.startsWith('Project files identified'))).toBe(true);
     expect(messages.some((m) => m.startsWith('Exclusions applied'))).toBe(true);
+    expect(messages.some((m) => m.startsWith('Project files materialized'))).toBe(true);
+    expect(messages.some((m) => m.startsWith('Documentation identified'))).toBe(true);
+
+    const diskGuide = path.join(
+      workspaceRoot,
+      String(seeded.orgId),
+      String(seeded.projectId),
+      'docs',
+      'guide.md',
+    );
+    expect(await fs.readFile(diskGuide, 'utf8')).toContain('# Guide');
+    const sections = await listSectionsForPath({
+      orgId: seeded.orgId,
+      projectId: seeded.projectId,
+      sourceVersionId: seeded.sourceVersionId,
+      path: 'docs/guide.md',
+    });
+    expect(sections.length).toBeGreaterThan(0);
+    expect(sections[0].heading).toBe('Guide');
+  });
+
+  it('materializes code without DocumentSection rows and completes with zero docs', async () => {
+    const seeded = await seedIngestFixture({
+      files: [{ path: 'src/only.js', content: Buffer.from('export const x = 1;\n') }],
+    });
+    seeded.job.jobStatus = 'running';
+    seeded.job.workerId = 'w-s3-code';
+    seeded.job.stageCheckpoint = {
+      lastCompletedStage: 'exclude_apply',
+      cursor: null,
+      updatedAt: new Date(),
+    };
+    await seeded.job.save();
+
+    const workerContext = createWorkerContext(seeded.job);
+    const version = await loadSourceVersionForIngest({
+      orgId: seeded.orgId,
+      projectId: seeded.projectId,
+      sourceVersionId: seeded.sourceVersionId,
+    });
+    const ctx = buildIngestStageContext({ workerContext, origin: 'upload' });
+    ctx.carry.sourceVersion = version;
+    ctx.carry.workspaceRoot = workspaceRoot;
+    ctx.checkpoint = { lastCompletedStage: 'exclude_apply', cursor: null };
+
+    const result = await runMaterializeDocsStage(ctx);
+    expect(result.outcome).toBe('completed');
+    expect(
+      await countSectionsForVersion({
+        orgId: seeded.orgId,
+        projectId: seeded.projectId,
+        sourceVersionId: seeded.sourceVersionId,
+      }),
+    ).toBe(0);
+    expect(ctx.carry.workspacePath).toBe(
+      path.join(workspaceRoot, String(seeded.orgId), String(seeded.projectId)),
+    );
+  });
+
+  it('resumes S3 from a path cursor without duplicating sections', async () => {
+    const seeded = await seedIngestFixture({
+      files: [
+        { path: 'a.js', content: Buffer.from('a') },
+        { path: 'docs/one.md', content: Buffer.from('# One\n') },
+        { path: 'docs/two.md', content: Buffer.from('# Two\n') },
+      ],
+    });
+    seeded.job.jobStatus = 'running';
+    seeded.job.workerId = 'w-s3-resume';
+    seeded.job.stageCheckpoint = {
+      lastCompletedStage: 'exclude_apply',
+      cursor: null,
+      updatedAt: new Date(),
+    };
+    await seeded.job.save();
+
+    const workerContext = createWorkerContext(seeded.job);
+    const version = await loadSourceVersionForIngest({
+      orgId: seeded.orgId,
+      projectId: seeded.projectId,
+      sourceVersionId: seeded.sourceVersionId,
+    });
+
+    const firstCtx = buildIngestStageContext({ workerContext, origin: 'upload' });
+    firstCtx.carry.sourceVersion = version;
+    firstCtx.carry.workspaceRoot = workspaceRoot;
+    firstCtx.checkpoint = { lastCompletedStage: 'exclude_apply', cursor: null };
+    let seen = 0;
+    firstCtx.isCancelRequested = async () => {
+      seen += 1;
+      return seen > 1;
+    };
+    await expect(runMaterializeDocsStage(firstCtx)).rejects.toMatchObject({
+      code: 'INGEST_ABORTED',
+    });
+    const mid = await Job.findById(seeded.job._id).lean();
+    expect(mid.stageCheckpoint.cursor?.path).toBeTruthy();
+
+    const secondJob = await Job.findById(seeded.job._id);
+    const secondCtx = buildIngestStageContext({
+      workerContext: createWorkerContext(secondJob),
+      origin: 'upload',
+    });
+    secondCtx.carry.sourceVersion = version;
+    secondCtx.carry.workspaceRoot = workspaceRoot;
+    secondCtx.checkpoint = {
+      lastCompletedStage: 'exclude_apply',
+      cursor: mid.stageCheckpoint.cursor,
+    };
+    const result = await runMaterializeDocsStage(secondCtx);
+    expect(result.outcome).toBe('completed');
+
+    const one = await listSectionsForPath({
+      orgId: seeded.orgId,
+      projectId: seeded.projectId,
+      sourceVersionId: seeded.sourceVersionId,
+      path: 'docs/one.md',
+    });
+    const two = await listSectionsForPath({
+      orgId: seeded.orgId,
+      projectId: seeded.projectId,
+      sourceVersionId: seeded.sourceVersionId,
+      path: 'docs/two.md',
+    });
+    expect(one).toHaveLength(1);
+    expect(two).toHaveLength(1);
+  });
+
+  it('soft-deletes prior sections on a fresh rematerialize of the same version', async () => {
+    const seeded = await seedIngestFixture({
+      files: [{ path: 'docs/a.md', content: Buffer.from('# First\n') }],
+    });
+    seeded.job.jobStatus = 'running';
+    seeded.job.workerId = 'w-s3-rerun';
+    seeded.job.stageCheckpoint = {
+      lastCompletedStage: 'exclude_apply',
+      cursor: null,
+      updatedAt: new Date(),
+    };
+    await seeded.job.save();
+
+    const workerContext = createWorkerContext(seeded.job);
+    const version = await loadSourceVersionForIngest({
+      orgId: seeded.orgId,
+      projectId: seeded.projectId,
+      sourceVersionId: seeded.sourceVersionId,
+    });
+    const ctx = buildIngestStageContext({ workerContext, origin: 'upload' });
+    ctx.carry.sourceVersion = version;
+    ctx.carry.workspaceRoot = workspaceRoot;
+    ctx.checkpoint = { lastCompletedStage: 'exclude_apply', cursor: null };
+    await runMaterializeDocsStage(ctx);
+
+    const ctx2 = buildIngestStageContext({ workerContext, origin: 'upload' });
+    ctx2.carry.sourceVersion = version;
+    ctx2.carry.workspaceRoot = workspaceRoot;
+    ctx2.checkpoint = { lastCompletedStage: 'exclude_apply', cursor: null };
+    await runMaterializeDocsStage(ctx2);
+
+    const active = await listSectionsForPath({
+      orgId: seeded.orgId,
+      projectId: seeded.projectId,
+      sourceVersionId: seeded.sourceVersionId,
+      path: 'docs/a.md',
+    });
+    expect(active).toHaveLength(1);
+    const deleted = await DocumentSection.countDocuments({
+      orgId: seeded.orgId,
+      sourceVersionId: seeded.sourceVersionId,
+      status: 'D',
+    });
+    expect(deleted).toBeGreaterThanOrEqual(1);
+  });
+
+  it('warns and continues when a GridFS object is missing', async () => {
+    const seeded = await seedIngestFixture({
+      files: [
+        { path: 'docs/ok.md', content: Buffer.from('# Ok\n') },
+        { path: 'docs/missing.md', content: Buffer.from('# Missing\n'), skipGridFs: true },
+      ],
+    });
+    seeded.job.jobStatus = 'running';
+    seeded.job.workerId = 'w-s3-missing';
+    seeded.job.stageCheckpoint = {
+      lastCompletedStage: 'exclude_apply',
+      cursor: null,
+      updatedAt: new Date(),
+    };
+    await seeded.job.save();
+
+    const workerContext = createWorkerContext(seeded.job);
+    const version = await loadSourceVersionForIngest({
+      orgId: seeded.orgId,
+      projectId: seeded.projectId,
+      sourceVersionId: seeded.sourceVersionId,
+    });
+    const ctx = buildIngestStageContext({ workerContext, origin: 'upload' });
+    ctx.carry.sourceVersion = version;
+    ctx.carry.workspaceRoot = workspaceRoot;
+    ctx.checkpoint = { lastCompletedStage: 'exclude_apply', cursor: null };
+
+    const result = await runMaterializeDocsStage(ctx);
+    expect(result.outcome).toBe('completed_with_warnings');
+    expect(result.warnings.some((w) => w.code === 'GRIDFS_READ_FAILED')).toBe(true);
   });
 
   it('resumes S1 from a path cursor without re-processing earlier files', async () => {
@@ -310,7 +537,6 @@ describe('ingest S0–S2 integration', () => {
 
     const result = await runStoreFilesStage(ctx);
     expect(result.outcome).toBe('completed');
-    // a.js restored from cursor + b.js + c.js
     expect(ctx.counters.filesProcessed).toBe(3);
   });
 
@@ -396,7 +622,6 @@ describe('ingest S0–S2 integration', () => {
         { path: 't.js', content: Buffer.from('t') },
       ],
     });
-    // 1/20 = 0.05 — ratio is ">" so exactly 5% continues
     seeded.job.jobStatus = 'running';
     seeded.job.workerId = 'w-corrupt';
     seeded.job.stageCheckpoint = {

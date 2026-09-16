@@ -1,6 +1,12 @@
 /** Shared AppConfig for HTTP route and platform unit tests. */
+import os from 'node:os';
+import path from 'node:path';
+
 export const TEST_JWT_ACCESS_TOKEN_SECRET =
   'test-jwt-access-token-secret-at-least-32-chars';
+
+/** Absolute workspace root for tests (override per suite with a unique temp dir when needed). */
+export const TEST_WORKSPACE_ROOT = path.join(os.tmpdir(), 'codex-sage-workspace-test');
 
 export const TEST_APP_CONFIG = {
   env: {
@@ -23,5 +29,8 @@ export const TEST_APP_CONFIG = {
   },
   auth: {
     jwtAccessTokenSecret: TEST_JWT_ACCESS_TOKEN_SECRET,
+  },
+  workspace: {
+    root: TEST_WORKSPACE_ROOT,
   },
 };

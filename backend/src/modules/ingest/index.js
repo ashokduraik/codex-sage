@@ -1,5 +1,5 @@
 /**
- * Public surface of the ingest module (Phase 25 worker stages S0–S2).
+ * Public surface of the ingest module (Phase 25–26 worker stages S0–S3).
  */
 export {
   INGEST_FILE_BATCH_SIZE,

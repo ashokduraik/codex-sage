@@ -10,6 +10,8 @@ export const JOB_EVENT_MESSAGES = Object.freeze({
   'source.validated': 'Source validated',
   'source.exclusions_applied': 'Exclusions applied',
   'files.identified': 'Project files identified',
+  'workspace.materialized': 'Project files materialized',
+  'docs.identified': 'Documentation identified',
   'docs.analyzed': 'Documentation analyzed',
   'structure.analyzed': 'Project structure analyzed',
   'knowledge.updated': 'Project knowledge updated',
@@ -39,6 +41,10 @@ function formatCount(value) {
  *   filesTotal?: number,
  *   filesProcessed?: number,
  *   filesFailed?: number,
+ *   pathsWritten?: number,
+ *   documentationFiles?: number,
+ *   documentationSections?: number,
+ *   failedDocuments?: number,
  * }} [context] Optional render context (counts/labels only).
  * @returns {string}
  */
@@ -69,6 +75,24 @@ export function renderJobEventMessage(eventCode, context = {}) {
     if (typeof count === 'number' && Number.isFinite(count)) {
       return `Exclusions applied (${formatCount(count)} paths)`;
     }
+  }
+  if (eventCode === 'workspace.materialized' && typeof context.pathsWritten === 'number') {
+    return `Project files materialized (${formatCount(context.pathsWritten)} paths)`;
+  }
+  if (eventCode === 'docs.identified' && typeof context.documentationFiles === 'number') {
+    const files = formatCount(context.documentationFiles);
+    const sections =
+      typeof context.documentationSections === 'number'
+        ? formatCount(context.documentationSections)
+        : '0';
+    const failed =
+      typeof context.failedDocuments === 'number'
+        ? Math.max(0, Math.floor(context.failedDocuments))
+        : 0;
+    if (failed > 0) {
+      return `Documentation identified (${files} files, ${sections} sections, ${formatCount(failed)} failed)`;
+    }
+    return `Documentation identified (${files} files, ${sections} sections)`;
   }
   return JOB_EVENT_MESSAGES[eventCode] ?? 'Processing update';
 }
