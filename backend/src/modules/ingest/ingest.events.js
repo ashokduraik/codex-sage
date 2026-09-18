@@ -111,3 +111,34 @@ export function buildDocumentationIdentifiedEvent(counts) {
     },
   };
 }
+
+/**
+ * Builds the S4 "project structure analyzed" event.
+ * @param {{ indexedFiles: number, skippedFiles?: number }} counts Honest index counts.
+ * @returns {{ eventCode: string, severity: string, message: string, data: object }}
+ */
+export function buildProjectStructureAnalyzedEvent(counts) {
+  const indexedFiles = Math.max(0, Math.floor(counts.indexedFiles));
+  const skippedFiles = Math.max(0, Math.floor(counts.skippedFiles ?? 0));
+  return {
+    eventCode: 'structure.analyzed',
+    severity: 'info',
+    message: renderJobEventMessage('structure.analyzed', { indexedFiles, skippedFiles }),
+    data: { indexedFiles, skippedFiles },
+  };
+}
+
+/**
+ * Builds the S4 "code relationships analyzed" event.
+ * @param {{ indexedFiles: number }} counts Honest index counts.
+ * @returns {{ eventCode: string, severity: string, message: string, data: object }}
+ */
+export function buildCodeRelationshipsAnalyzedEvent(counts) {
+  const indexedFiles = Math.max(0, Math.floor(counts.indexedFiles));
+  return {
+    eventCode: 'relationships.analyzed',
+    severity: 'info',
+    message: renderJobEventMessage('relationships.analyzed', { indexedFiles }),
+    data: { indexedFiles },
+  };
+}

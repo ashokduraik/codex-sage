@@ -18,6 +18,7 @@
     "start:worker": "node src/worker/index.js"
   },
   "dependencies": {
+    "@colbymchenry/codegraph": "^1.6.0",
     "@fastify/cookie": "^11.1.2",
     "@fastify/cors": "^11.3.0",
     "@fastify/csrf-protection": "^8.0.1",

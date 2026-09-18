@@ -3,9 +3,11 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+  buildCodeRelationshipsAnalyzedEvent,
   buildDocumentationIdentifiedEvent,
   buildExclusionsAppliedEvent,
   buildFilesIdentifiedEvent,
+  buildProjectStructureAnalyzedEvent,
   buildSourceReceivedEvent,
   buildSourceValidatedEvent,
   buildWorkspaceMaterializedEvent,
@@ -73,5 +75,22 @@ describe('ingest.events', () => {
         failedDocuments: 1,
       }).message,
     ).toBe('Documentation identified (3 files, 12 sections, 1 failed)');
+  });
+
+  it('builds S4 structure and relationships events with honest counts', () => {
+    expect(
+      buildProjectStructureAnalyzedEvent({ indexedFiles: 42, skippedFiles: 0 }).message,
+    ).toBe('Project structure analyzed (42 files)');
+    expect(
+      buildProjectStructureAnalyzedEvent({ indexedFiles: 42, skippedFiles: 3 }).message,
+    ).toBe('Project structure analyzed (42 files, 3 skipped)');
+    expect(buildCodeRelationshipsAnalyzedEvent({ indexedFiles: 42 }).message).toBe(
+      'Code relationships analyzed (42 files)',
+    );
+    expect(
+      messageContainsAbsolutePath(
+        buildProjectStructureAnalyzedEvent({ indexedFiles: 1 }).message,
+      ),
+    ).toBe(false);
   });
 });

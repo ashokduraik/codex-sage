@@ -49,6 +49,12 @@ describe('jobEventCatalog', () => {
         documentationSections: 18,
       }),
     ).toBe('Documentation identified (4 files, 18 sections)');
+    expect(
+      renderJobEventMessage('structure.analyzed', { indexedFiles: 4200, skippedFiles: 12 }),
+    ).toBe('Project structure analyzed (4,200 files, 12 skipped)');
+    expect(renderJobEventMessage('relationships.analyzed', { indexedFiles: 4200 })).toBe(
+      'Code relationships analyzed (4,200 files)',
+    );
   });
 
   it('falls back safely for unknown codes', () => {

@@ -279,7 +279,8 @@ Prefer also filtering on the client before upload; **server must still enforce**
 - Its documented hard 1 MiB file exclusion conflicts with complete coverage of some large source
   files. Accepted excluded files force `knowledgeHealth: partially_available`.
 - `.cjs` mapping and every accepted language/extension must pass an integration fixture before the
-  backend reports it as supported.
+  backend reports it as supported. The provisional fixture lives at
+  `backend/src/test/fixtures/codegraph/` (JS + `.cjs`); phase 05 expands coverage gates.
 - CodeGraph `buildContext(..., { maxNodes })` is node-bounded, not token-budget proof. Its output
   must pass through the backend context budgeter.
 - CodeGraph's own README reports larger residual context in long sessions. Never retain raw graph

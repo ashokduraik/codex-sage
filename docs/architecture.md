@@ -206,7 +206,8 @@ Client request
 
 Ollama sits behind a **bounded inference queue** so one chat cannot starve the machine.
 How many concurrent model calls are safe is an evaluation result, not a guessed constant.
-CodeGraph telemetry is off everywhere (`CODEGRAPH_TELEMETRY=0`).
+CodeGraph telemetry is off everywhere (set in-process by the CodeGraph adapter before
+library import: `CODEGRAPH_TELEMETRY=0` and `DO_NOT_TRACK=1` — not via `.env`).
 
 ---
 
@@ -237,7 +238,9 @@ Worker  Atomically claim job  pending → running
             API already wrote accepted bytes in Phase 24 — not a second full store)
         S2  exclude_apply — record exclusions (size, leftover ignores)
         S3  materialize_docs — recreate workspace; split docs into searchable sections
-        S4  codegraph_update — CodeGraph write (full index or in-place sync); validate
+        S4  codegraph_update — CodeGraph write under ADR 0022 project_job_locks **and**
+            an in-process adapter writer mutex; full `indexAll` or in-place `sync`; validate;
+            stash `graphIdentity` on the stage checkpoint cursor for S5
         S5  knowledge_publish — publish KnowledgeVersion (ready | partially_available | failed)
         S6  finalize — finish job + project lifecycle
 ```
@@ -368,8 +371,11 @@ We do not keep historical graphs to browse.
 
 ## 7. Indexing vs chat (same project)
 
-One CodeGraph **writer** per project. Chat/search/browse take a **read lease** only when
-health is `ready` or `partially_available` and no writer is active.
+One CodeGraph **writer** per project. Cross-job serialization uses `project_job_locks`
+(ADR 0022). Inside the worker (and later the API for read leases), the CodeGraph adapter
+also holds an in-process per-project writer mutex around `indexAll` / `sync`. Chat/search/browse
+take a **read lease** only when health is `ready` or `partially_available` and no writer
+is active.
 
 ```text
 t0  graph ready (source version N)

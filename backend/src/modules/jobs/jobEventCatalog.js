@@ -14,6 +14,7 @@ export const JOB_EVENT_MESSAGES = Object.freeze({
   'docs.identified': 'Documentation identified',
   'docs.analyzed': 'Documentation analyzed',
   'structure.analyzed': 'Project structure analyzed',
+  'relationships.analyzed': 'Code relationships analyzed',
   'knowledge.updated': 'Project knowledge updated',
   'job.retry_requested': 'Retry requested',
   'job.cancelled': 'Processing cancelled',
@@ -45,6 +46,8 @@ function formatCount(value) {
  *   documentationFiles?: number,
  *   documentationSections?: number,
  *   failedDocuments?: number,
+ *   indexedFiles?: number,
+ *   skippedFiles?: number,
  * }} [context] Optional render context (counts/labels only).
  * @returns {string}
  */
@@ -93,6 +96,18 @@ export function renderJobEventMessage(eventCode, context = {}) {
       return `Documentation identified (${files} files, ${sections} sections, ${formatCount(failed)} failed)`;
     }
     return `Documentation identified (${files} files, ${sections} sections)`;
+  }
+  if (eventCode === 'structure.analyzed' && typeof context.indexedFiles === 'number') {
+    const indexed = formatCount(context.indexedFiles);
+    const skipped =
+      typeof context.skippedFiles === 'number' ? Math.max(0, Math.floor(context.skippedFiles)) : 0;
+    if (skipped > 0) {
+      return `Project structure analyzed (${indexed} files, ${formatCount(skipped)} skipped)`;
+    }
+    return `Project structure analyzed (${indexed} files)`;
+  }
+  if (eventCode === 'relationships.analyzed' && typeof context.indexedFiles === 'number') {
+    return `Code relationships analyzed (${formatCount(context.indexedFiles)} files)`;
   }
   return JOB_EVENT_MESSAGES[eventCode] ?? 'Processing update';
 }
