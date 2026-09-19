@@ -27,7 +27,7 @@ describe('projectStatusMap', () => {
   it('maps every known knowledge-health code', () => {
     expect(Object.keys(KNOWLEDGE_HEALTH_MAP)).toHaveLength(6);
     expect(mapKnowledgeHealth('ready').tone).toBe('success');
-    expect(mapKnowledgeHealth('partial').tone).toBe('attention');
+    expect(mapKnowledgeHealth('partially_available').tone).toBe('attention');
     expect(mapKnowledgeHealth('stale').i18nKey).toBe('status.knowledgeHealth.stale');
   });
 
@@ -49,7 +49,10 @@ describe('projectStatusMap', () => {
       isProjectAskable({ lifecycleStatus: 'knowledge_ready', knowledgeHealth: 'ready' }),
     ).toBe(true);
     expect(
-      isProjectAskable({ lifecycleStatus: 'partially_available', knowledgeHealth: 'partial' }),
+      isProjectAskable({
+        lifecycleStatus: 'partially_available',
+        knowledgeHealth: 'partially_available',
+      }),
     ).toBe(true);
     expect(
       isProjectAskable({ lifecycleStatus: 'archived', knowledgeHealth: 'ready' }),

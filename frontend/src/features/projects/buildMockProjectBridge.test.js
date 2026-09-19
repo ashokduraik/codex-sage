@@ -64,4 +64,11 @@ describe('buildMockProjectBridge', () => {
     expect(repo.knowledgeStatus).toBe('Needs attention');
     expect(repo.partial).toBe(false);
   });
+
+  it('maps partially_available knowledgeHealth to Partially available', () => {
+    const bridged = buildMockProjectBridge(
+      apiProject({ knowledgeHealth: 'partially_available' }),
+    );
+    expect(bridged.knowledgeStatus).toBe('Partially available');
+  });
 });

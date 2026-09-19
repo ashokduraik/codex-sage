@@ -695,7 +695,7 @@
       "none": "No knowledge yet",
       "updating": "Updating",
       "ready": "Ready",
-      "partial": "Needs attention",
+      "partiallyAvailable": "Partially available",
       "stale": "Outdated",
       "failed": "Failed",
       "unknown": "Unknown health"

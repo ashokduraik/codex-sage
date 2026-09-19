@@ -38,6 +38,8 @@ describe('audit.actions', () => {
         'job.retry',
         'job.cancel',
         'source.upload',
+        'knowledge.completed',
+        'knowledge.failed',
       ]),
     );
     expect(AUDIT_ACTIONS).toHaveLength(Object.keys(AUDIT_ACTION_RESOURCE_TYPES).length);
@@ -60,5 +62,7 @@ describe('audit.actions', () => {
     expect(resourceTypeForAction('job.retry')).toBe('job');
     expect(resourceTypeForAction('job.cancel')).toBe('job');
     expect(resourceTypeForAction('source.upload')).toBe('source');
+    expect(resourceTypeForAction('knowledge.completed')).toBe('knowledge');
+    expect(resourceTypeForAction('knowledge.failed')).toBe('knowledge');
   });
 });

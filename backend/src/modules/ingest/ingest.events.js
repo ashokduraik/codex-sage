@@ -142,3 +142,42 @@ export function buildCodeRelationshipsAnalyzedEvent(counts) {
     data: { indexedFiles },
   };
 }
+
+/**
+ * Builds the S5 "project knowledge updated" event.
+ * @returns {{ eventCode: string, severity: string, message: string, data: object }}
+ */
+export function buildKnowledgeUpdatedEvent() {
+  return {
+    eventCode: 'knowledge.updated',
+    severity: 'info',
+    message: renderJobEventMessage('knowledge.updated'),
+    data: {},
+  };
+}
+
+/**
+ * Builds the S5 "knowledge validated" event.
+ * @returns {{ eventCode: string, severity: string, message: string, data: object }}
+ */
+export function buildKnowledgeValidatedEvent() {
+  return {
+    eventCode: 'knowledge.validated',
+    severity: 'info',
+    message: renderJobEventMessage('knowledge.validated'),
+    data: {},
+  };
+}
+
+/**
+ * Builds the S6 "Ready" event.
+ * @returns {{ eventCode: string, severity: string, message: string, data: object }}
+ */
+export function buildKnowledgeReadyEvent() {
+  return {
+    eventCode: 'knowledge.ready',
+    severity: 'info',
+    message: renderJobEventMessage('knowledge.ready'),
+    data: {},
+  };
+}

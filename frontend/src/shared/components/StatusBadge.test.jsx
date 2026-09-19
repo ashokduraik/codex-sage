@@ -41,7 +41,7 @@ describe('StatusBadge', () => {
         <KnowledgeHealthBadge code="ready" />
         <KnowledgeHealthBadge code="stale" />
         <KnowledgeHealthBadge code="failed" />
-        <KnowledgeHealthBadge code="partial" />
+        <KnowledgeHealthBadge code="partially_available" />
         <KnowledgeHealthBadge code="none" />
         <KnowledgeHealthBadge code="mystery" />
       </>,

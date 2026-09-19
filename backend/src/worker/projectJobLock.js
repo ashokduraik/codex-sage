@@ -172,3 +172,32 @@ export async function releaseProjectJobLock(input) {
   ).exec();
   return result.modifiedCount > 0 || result.matchedCount > 0;
 }
+
+/**
+ * Returns true when a live (unexpired) project writer lock exists for the project.
+ * Used by the Q&A gate — does not acquire or refresh a lock.
+ * @param {{
+ *   orgId: import('mongoose').Types.ObjectId | string,
+ *   projectId: import('mongoose').Types.ObjectId | string,
+ * }} input Project scope.
+ * @returns {Promise<boolean>}
+ */
+export async function hasActiveProjectWriterLock(input) {
+  if (
+    !mongoose.isValidObjectId(String(input.orgId)) ||
+    !mongoose.isValidObjectId(String(input.projectId))
+  ) {
+    return false;
+  }
+  const found = await ProjectJobLock.findOne({
+    orgId: new mongoose.Types.ObjectId(String(input.orgId)),
+    projectId: new mongoose.Types.ObjectId(String(input.projectId)),
+    lockScope: PROJECT_JOB_LOCK_SCOPE,
+    status: ROW_STATUS_ACTIVE,
+    $expr: { $gt: ['$expiresAt', '$$NOW'] },
+  })
+    .select({ _id: 1 })
+    .lean()
+    .exec();
+  return Boolean(found);
+}

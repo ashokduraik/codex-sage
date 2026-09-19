@@ -342,8 +342,8 @@ S6 finalize             (job + project lifecycle)
 ```text
 Example: in-place CodeGraph sync fails
   → Q&A remains disabled; accepted questions stay queued
-  → worker rematerializes the last successfully accepted source tree
-  → worker rebuilds and validates the current graph
+  → worker rematerializes this job’s accepted source tree (same ingest job)
+  → worker deletes .codegraph and full indexAll, then validates
   → success: publish ready/partial and resume unexpired queued questions
   → retries exhausted: graph failed; queued messages fail with retryable error
 ```

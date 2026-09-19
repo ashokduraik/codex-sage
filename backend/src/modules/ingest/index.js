@@ -10,6 +10,12 @@ export {
   createProgressFlusher,
 } from './ingest.counters.js';
 export { INGEST_STAGES, resolveStagesAfter } from './ingest.stages.js';
-export { INGEST_STAGE_TIMEOUT_MS, runIngestJob, ingestHandlerRegistration } from './ingest.handler.js';
+export {
+  INGEST_STAGE_TIMEOUT_MS,
+  runIngestJob,
+  enterIngestLifecycleAtJobStart,
+  markProjectKnowledgeFailed,
+  ingestHandlerRegistration,
+} from './ingest.handler.js';
 export { INGEST_MAX_FAILED_FILE_RATIO } from './stages/s1StoreFiles.js';
 export { buildIngestStageContext } from './ingest.context.js';

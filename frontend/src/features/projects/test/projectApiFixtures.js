@@ -21,7 +21,7 @@ export const ORION_API_PROJECT = {
   name: 'Orion Analytics',
   description: 'Analytics warehouse and reporting.',
   lifecycleStatus: 'partially_available',
-  knowledgeHealth: 'partial',
+  knowledgeHealth: 'partially_available',
   sourceConfig: { sourceType: 'upload' },
   counts: { sourceVersions: 1, files: 100, excludedFiles: 5, conversations: 0 },
   createdAt: '2026-01-01T00:00:00.000Z',

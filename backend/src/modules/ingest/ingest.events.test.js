@@ -11,6 +11,9 @@ import {
   buildSourceReceivedEvent,
   buildSourceValidatedEvent,
   buildWorkspaceMaterializedEvent,
+  buildKnowledgeUpdatedEvent,
+  buildKnowledgeValidatedEvent,
+  buildKnowledgeReadyEvent,
 } from './ingest.events.js';
 import {
   messageContainsAbsolutePath,
@@ -92,5 +95,11 @@ describe('ingest.events', () => {
         buildProjectStructureAnalyzedEvent({ indexedFiles: 1 }).message,
       ),
     ).toBe(false);
+  });
+
+  it('builds S5/S6 knowledge events', () => {
+    expect(buildKnowledgeUpdatedEvent().message).toBe('Project knowledge updated');
+    expect(buildKnowledgeValidatedEvent().message).toBe('Knowledge validated');
+    expect(buildKnowledgeReadyEvent().message).toBe('Ready');
   });
 });

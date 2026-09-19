@@ -9,6 +9,8 @@ import { syncSchemaIndexes } from '../platform/data/index.js';
 import { JOB_MODELS } from '../modules/jobs/index.js';
 import { SOURCE_MODELS } from '../modules/sources/index.js';
 import { DOCUMENT_MODELS } from '../modules/documents/index.js';
+import { PROJECT_MODELS } from '../modules/projects/index.js';
+import { KNOWLEDGE_MODELS } from '../modules/knowledge/index.js';
 import { registerProcessHandlers } from '../platform/processHandlers.js';
 import {
   attachShutdownSignals,
@@ -31,6 +33,8 @@ export const WORKER_MODELS = Object.freeze([
   ...JOB_MODELS,
   ...SOURCE_MODELS,
   ...DOCUMENT_MODELS,
+  ...PROJECT_MODELS,
+  ...KNOWLEDGE_MODELS,
   ProjectJobLock,
 ]);
 

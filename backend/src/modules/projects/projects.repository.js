@@ -324,6 +324,7 @@ export async function updateProjectSettings(orgId, projectId, input) {
  *   clearPreArchive?: boolean,
  *   archivedAt?: Date | null,
  *   currentKnowledgeVersionId?: string | null,
+ *   knowledgeHealth?: string | null,
  * }} transition Transition fields.
  * @returns {Promise<import('mongoose').Document | null>} Updated doc, or null when no match.
  */
@@ -354,6 +355,9 @@ export async function conditionalLifecycleUpdate(orgId, projectId, transition) {
     $set.currentKnowledgeVersionId = transition.currentKnowledgeVersionId
       ? new mongoose.Types.ObjectId(String(transition.currentKnowledgeVersionId))
       : null;
+  }
+  if (transition.knowledgeHealth !== undefined && transition.knowledgeHealth !== null) {
+    $set.knowledgeHealth = transition.knowledgeHealth;
   }
 
   return Project.findOneAndUpdate(

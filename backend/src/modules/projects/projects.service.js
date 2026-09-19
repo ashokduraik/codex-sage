@@ -53,6 +53,7 @@ export const DELETION_PREVIEW_CONSEQUENCES = Object.freeze([
  *   reasonCode?: string | null,
  *   actorUserId?: string | null,
  *   knowledgeVersionId?: string | null,
+ *   knowledgeHealth?: string | null,
  *   preArchiveLifecycleStatus?: string | null,
  *   clearPreArchive?: boolean,
  *   archivedAt?: Date | null,
@@ -68,6 +69,13 @@ export async function transitionLifecycle(input) {
     knowledgeVersionId: input.knowledgeVersionId,
   });
 
+  if (input.knowledgeHealth !== undefined && input.knowledgeHealth !== null) {
+    assertKnowledgeHealthAllowed({
+      lifecycleStatus: input.to,
+      knowledgeHealth: input.knowledgeHealth,
+    });
+  }
+
   const updated = await conditionalLifecycleUpdate(input.orgId, input.projectId, {
     from: input.from,
     to: input.to,
@@ -77,6 +85,7 @@ export async function transitionLifecycle(input) {
     clearPreArchive: input.clearPreArchive,
     archivedAt: input.archivedAt,
     currentKnowledgeVersionId: input.knowledgeVersionId,
+    knowledgeHealth: input.knowledgeHealth,
   });
 
   if (updated) {
@@ -95,6 +104,13 @@ export async function transitionLifecycle(input) {
     knowledgeVersionId: input.knowledgeVersionId,
   });
 
+  if (input.knowledgeHealth !== undefined && input.knowledgeHealth !== null) {
+    assertKnowledgeHealthAllowed({
+      lifecycleStatus: input.to,
+      knowledgeHealth: input.knowledgeHealth,
+    });
+  }
+
   const retried = await conditionalLifecycleUpdate(input.orgId, input.projectId, {
     from: current.lifecycleStatus,
     to: input.to,
@@ -104,6 +120,7 @@ export async function transitionLifecycle(input) {
     clearPreArchive: input.clearPreArchive,
     archivedAt: input.archivedAt,
     currentKnowledgeVersionId: input.knowledgeVersionId,
+    knowledgeHealth: input.knowledgeHealth,
   });
 
   if (!retried) {

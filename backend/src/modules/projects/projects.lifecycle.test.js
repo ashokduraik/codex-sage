@@ -107,27 +107,35 @@ describe('projects.lifecycle', () => {
     }
   });
 
-  it('rejects knowledgeHealth ready while lifecycle is pre-processing', () => {
+  it('rejects knowledgeHealth ready or partially_available while lifecycle is pre-processing', () => {
     for (const lifecycleStatus of [
       'creating',
       'awaiting_source',
       'connecting_repository',
       'source_received',
     ]) {
-      try {
-        assertKnowledgeHealthAllowed({ lifecycleStatus, knowledgeHealth: 'ready' });
-        expect.unreachable();
-      } catch (err) {
-        expect(err.code).toBe('INVALID_STATE_TRANSITION');
+      for (const knowledgeHealth of ['ready', 'partially_available']) {
+        try {
+          assertKnowledgeHealthAllowed({ lifecycleStatus, knowledgeHealth });
+          expect.unreachable();
+        } catch (err) {
+          expect(err.code).toBe('INVALID_STATE_TRANSITION');
+        }
       }
     }
   });
 
-  it('allows knowledgeHealth ready after processing has started', () => {
+  it('allows knowledgeHealth ready or partially_available after processing has started', () => {
     expect(() =>
       assertKnowledgeHealthAllowed({
         lifecycleStatus: 'processing',
         knowledgeHealth: 'ready',
+      }),
+    ).not.toThrow();
+    expect(() =>
+      assertKnowledgeHealthAllowed({
+        lifecycleStatus: 'processing',
+        knowledgeHealth: 'partially_available',
       }),
     ).not.toThrow();
   });

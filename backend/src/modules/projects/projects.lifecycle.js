@@ -140,8 +140,10 @@ export function assertLifecycleTransitionAllowed(input) {
  */
 export function assertKnowledgeHealthAllowed(input) {
   const { lifecycleStatus, knowledgeHealth } = input;
+  const blockedBeforeProcessing =
+    knowledgeHealth === 'ready' || knowledgeHealth === 'partially_available';
   if (
-    knowledgeHealth === 'ready' &&
+    blockedBeforeProcessing &&
     PRE_KNOWLEDGE_LIFECYCLE_STATUSES.includes(lifecycleStatus)
   ) {
     throw ApiError.fromCode('INVALID_STATE_TRANSITION', {

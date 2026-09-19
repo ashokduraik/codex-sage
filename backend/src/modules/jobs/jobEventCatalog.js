@@ -16,6 +16,8 @@ export const JOB_EVENT_MESSAGES = Object.freeze({
   'structure.analyzed': 'Project structure analyzed',
   'relationships.analyzed': 'Code relationships analyzed',
   'knowledge.updated': 'Project knowledge updated',
+  'knowledge.validated': 'Knowledge validated',
+  'knowledge.ready': 'Ready',
   'job.retry_requested': 'Retry requested',
   'job.cancelled': 'Processing cancelled',
   'job.enqueued': 'Processing is queued.',

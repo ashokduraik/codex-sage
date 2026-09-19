@@ -23,7 +23,7 @@ export const KNOWLEDGE_HEALTH_VALUES = Object.freeze([
   'none',
   'updating',
   'ready',
-  'partial',
+  'partially_available',
   'stale',
   'failed',
 ]);

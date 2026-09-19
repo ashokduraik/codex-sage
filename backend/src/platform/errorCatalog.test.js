@@ -38,6 +38,13 @@ describe('ERROR_CATALOG', () => {
 
   it('registers required temporary knowledge and accounting codes', () => {
     expect(ERROR_CATALOG.KNOWLEDGE_UNAVAILABLE.retryability).toBe('temporary');
+    expect(ERROR_CATALOG.KNOWLEDGE_UNAVAILABLE.message).toBe(
+      'Project knowledge is not available.',
+    );
+    expect(ERROR_CATALOG.KNOWLEDGE_UPDATING.retryability).toBe('temporary');
+    expect(ERROR_CATALOG.KNOWLEDGE_UPDATING.message).toBe(
+      'Project knowledge is being updated.',
+    );
     expect(ERROR_CATALOG.CONTEXT_ACCOUNTING_UNAVAILABLE.retryability).toBe('temporary');
     expect(ERROR_CATALOG[MONGO_UNAVAILABLE_CODE].httpStatus).toBe(503);
   });

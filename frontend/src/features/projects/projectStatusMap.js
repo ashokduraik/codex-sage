@@ -45,7 +45,10 @@ export const KNOWLEDGE_HEALTH_MAP = Object.freeze({
   none: Object.freeze({ i18nKey: 'status.knowledgeHealth.none', tone: 'neutral' }),
   updating: Object.freeze({ i18nKey: 'status.knowledgeHealth.updating', tone: 'progress' }),
   ready: Object.freeze({ i18nKey: 'status.knowledgeHealth.ready', tone: 'success' }),
-  partial: Object.freeze({ i18nKey: 'status.knowledgeHealth.partial', tone: 'attention' }),
+  partially_available: Object.freeze({
+    i18nKey: 'status.knowledgeHealth.partiallyAvailable',
+    tone: 'attention',
+  }),
   stale: Object.freeze({ i18nKey: 'status.knowledgeHealth.stale', tone: 'attention' }),
   failed: Object.freeze({ i18nKey: 'status.knowledgeHealth.failed', tone: 'danger' }),
 });
@@ -99,7 +102,9 @@ export function isProjectAskable(project) {
   if (project.lifecycleStatus === 'archived') {
     return false;
   }
-  return project.knowledgeHealth === 'ready' || project.knowledgeHealth === 'partial';
+  return (
+    project.knowledgeHealth === 'ready' || project.knowledgeHealth === 'partially_available'
+  );
 }
 
 /**

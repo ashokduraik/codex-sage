@@ -1,12 +1,15 @@
 /**
- * Ordered ingest stage list, resume resolution, and S5–S6 placeholders.
+ * Ordered ingest stage list, resume resolution, and S0–S6 runners.
  */
 import { createJobFailureError } from '../../worker/retryPolicy.js';
+import { runCodegraphUpdateWithRecovery } from '../knowledge/knowledge.recovery.js';
 import { runValidateUploadStage } from './stages/s0ValidateUpload.js';
 import { runStoreFilesStage } from './stages/s1StoreFiles.js';
 import { runExcludeApplyStage } from './stages/s2ExcludeApply.js';
 import { runMaterializeDocsStage } from './stages/s3MaterializeDocs.js';
 import { runCodegraphUpdateStage } from './stages/s4CodegraphUpdate.js';
+import { runKnowledgePublishStage } from './stages/s5KnowledgePublish.js';
+import { runFinalizeStage } from './stages/s6Finalize.js';
 
 /**
  * @typedef {{
@@ -20,35 +23,25 @@ import { runCodegraphUpdateStage } from './stages/s4CodegraphUpdate.js';
  */
 
 /**
- * Placeholder for stages owned by later phases.
- * @param {string} stageName Stage id.
- * @returns {IngestStageDefinition}
+ * S4 wrapper that applies same-job recovery on temporary CodeGraph failures.
+ * @param {object} ctx IngestStageContext.
+ * @returns {Promise<object>}
  */
-function createNotImplementedStage(stageName) {
-  return {
-    name: stageName,
-    /**
-     * @returns {never}
-     */
-    async run() {
-      throw createJobFailureError({
-        failureClass: 'permanent',
-        code: 'NOT_IMPLEMENTED',
-        message: `Ingest stage ${stageName} is not implemented yet.`,
-      });
-    },
-  };
+async function runCodegraphUpdateStageWithRecovery(ctx) {
+  return runCodegraphUpdateWithRecovery(ctx, {
+    runS4: runCodegraphUpdateStage,
+  });
 }
 
-/** Full S0–S6 pipeline; S5–S6 throw until later phases replace them. */
+/** Full S0–S6 pipeline. */
 export const INGEST_STAGES = Object.freeze([
   Object.freeze({ name: 'validate_upload', run: runValidateUploadStage }),
   Object.freeze({ name: 'store_files', run: runStoreFilesStage }),
   Object.freeze({ name: 'exclude_apply', run: runExcludeApplyStage }),
   Object.freeze({ name: 'materialize_docs', run: runMaterializeDocsStage }),
-  Object.freeze({ name: 'codegraph_update', run: runCodegraphUpdateStage }),
-  Object.freeze(createNotImplementedStage('knowledge_publish')),
-  Object.freeze(createNotImplementedStage('finalize')),
+  Object.freeze({ name: 'codegraph_update', run: runCodegraphUpdateStageWithRecovery }),
+  Object.freeze({ name: 'knowledge_publish', run: runKnowledgePublishStage }),
+  Object.freeze({ name: 'finalize', run: runFinalizeStage }),
 ]);
 
 /**

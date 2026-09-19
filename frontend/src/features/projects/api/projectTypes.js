@@ -10,7 +10,7 @@
  */
 
 /**
- * @typedef {'none' | 'updating' | 'ready' | 'partial' | 'stale' | 'failed' | string} KnowledgeHealth
+ * @typedef {'none' | 'updating' | 'ready' | 'partially_available' | 'stale' | 'failed' | string} KnowledgeHealth
  */
 
 /**

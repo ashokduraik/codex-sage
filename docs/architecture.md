@@ -374,21 +374,21 @@ We do not keep historical graphs to browse.
 One CodeGraph **writer** per project. Cross-job serialization uses `project_job_locks`
 (ADR 0022). Inside the worker (and later the API for read leases), the CodeGraph adapter
 also holds an in-process per-project writer mutex around `indexAll` / `sync`. Chat/search/browse
-take a **read lease** only when health is `ready` or `partially_available` and no writer
-is active.
+use `assertKnowledgeReadable` (Phase 28) and take a **read lease** only when health is `ready`
+or `partially_available` and no writer is active.
 
 ```text
 t0  graph ready (source version N)
-t1  version N+1 accepted → Q&A off; new questions saved as queued (202)
-t2  worker updates the index in place
-t3a success → publish ready or partial → queued questions resume on the new graph
-t3b failure → Q&A stays off
-    restore last successfully accepted tree, rebuild, validate
-    then t3a, or fail the queue with retryable KNOWLEDGE_UNAVAILABLE
+t1  ingest job claimed → lifecycle updating + knowledgeHealth updating (Q&A queues);
+    first ingest (no currentKnowledgeVersionId) → Q&A deny until publish
+t2  worker updates the index in place (S3–S4); writer lock also queues Q&A
+t3a success → S5/S6 publish ready or partially_available → gate allows
+t3b temporary S4 fail → same-job rematerialize this source version + indexAll (bounded)
+    exhaust → knowledge failed; gate denies KNOWLEDGE_UNAVAILABLE
 ```
 
-Git/auth failure **before** the graph is mutated does not disable Q&A. Queue wait has a
-configured expiry.
+Git/auth failure **before** the graph is mutated does not disable Q&A (Phase 32). Queue wait
+has a configured expiry (Phase 51).
 
 During writer/recovery, code browse returns “updating / unavailable”, never a stale graph.
 Graph-excluded files may still be previewed when authorized; they must be labeled excluded

@@ -24,12 +24,15 @@ describe('ingest.counters', () => {
     });
   });
 
-  it('derives partialSuccess only when filesFailed > 0 and otherwise completed', () => {
+  it('derives partialSuccess when filesFailed or filesExcluded > 0 and otherwise completed', () => {
     const counters = createIngestCounters();
     expect(derivePartialSuccess(counters, true)).toBe(false);
     counters.filesFailed = 1;
     expect(derivePartialSuccess(counters, true)).toBe(true);
     expect(derivePartialSuccess(counters, false)).toBe(false);
+    counters.filesFailed = 0;
+    counters.filesExcluded = 2;
+    expect(derivePartialSuccess(counters, true)).toBe(true);
   });
 
   it('flushes at most once per interval unless forced or batch-full', async () => {

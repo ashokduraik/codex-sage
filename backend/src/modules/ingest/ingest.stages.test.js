@@ -1,5 +1,5 @@
 /**
- * Unit tests for ingest stage list resume and placeholders.
+ * Unit tests for ingest stage list resume.
  */
 import { describe, expect, it } from 'vitest';
 import { createJobFailureError } from '../../worker/retryPolicy.js';
@@ -36,21 +36,20 @@ describe('resolveStagesAfter', () => {
     );
   });
 
-  it('placeholder stages throw NOT_IMPLEMENTED as permanent', async () => {
-    const publish = INGEST_STAGES.find((s) => s.name === 'knowledge_publish');
-    await expect(publish.run({})).rejects.toMatchObject({
-      code: 'NOT_IMPLEMENTED',
-      failureClass: 'permanent',
-    });
-  });
-
-  it('wires materialize_docs and codegraph_update to real stage runners', () => {
-    const materialize = INGEST_STAGES.find((s) => s.name === 'materialize_docs');
-    expect(materialize).toBeDefined();
-    expect(typeof materialize.run).toBe('function');
-    const codegraph = INGEST_STAGES.find((s) => s.name === 'codegraph_update');
-    expect(codegraph).toBeDefined();
-    expect(typeof codegraph.run).toBe('function');
+  it('wires S0–S6 stages to real runners including knowledge_publish and finalize', () => {
+    for (const name of [
+      'validate_upload',
+      'store_files',
+      'exclude_apply',
+      'materialize_docs',
+      'codegraph_update',
+      'knowledge_publish',
+      'finalize',
+    ]) {
+      const stage = INGEST_STAGES.find((s) => s.name === name);
+      expect(stage).toBeDefined();
+      expect(typeof stage.run).toBe('function');
+    }
   });
 });
 

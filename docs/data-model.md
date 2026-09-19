@@ -108,8 +108,8 @@ Tenant-scoped (Phase 17). Fields: `name` (1–120), `description` (≤ 2000), `l
 (`creating` \| `awaiting_source` \| `connecting_repository` \| `source_received` \|
 `processing` \| `knowledge_ready` \| `updating` \| `failed` \| `partially_available` \|
 `archived`), `preArchiveLifecycleStatus`, `lifecycleStatusReasonCode`,
-`lifecycleStatusChangedAt`, `knowledgeHealth` (`none` \| `updating` \| `ready` \| `partial` \|
-`stale` \| `failed`), `currentKnowledgeVersionId`, `sourceConfig`
+`lifecycleStatusChangedAt`, `knowledgeHealth` (`none` \| `updating` \| `ready` \|
+`partially_available` \| `stale` \| `failed`), `currentKnowledgeVersionId`, `sourceConfig`
 (`sourceType`: `upload` \| `repository`, optional connection/version refs), `settings`
 (key registry starts empty), `counts` (`sourceVersions`, `files`, `excludedFiles`,
 `conversations` — written only by owning phases), `archivedAt`, plus base fields.
@@ -122,7 +122,22 @@ Indexes (partial `status: 'A'`): `{ orgId: 1, updatedAt: -1, _id: -1 }` (list ke
 `{ orgId: 1, lifecycleStatus: 1 }` (dashboard grouping).
 
 Lifecycle transitions are enforced by `transitionLifecycle` (API vs worker source; worker +
-`knowledgeVersionId` required for `knowledge_ready` / `partially_available`).
+`knowledgeVersionId` required for `knowledge_ready` / `partially_available`). Worker publish
+also sets `knowledgeHealth` on the same transition.
+
+### `knowledgeVersions`
+
+Tenant- and project-scoped published graph metadata (Phase 28). Fields: `projectId`,
+`sourceVersionId`, `graphIdentity` (`graphHash`, `indexedAt`, `sourceVersionId`,
+`indexedFileCount`, `skippedFileCount`, `mode`, `graphDir` — relative `.codegraph` only, no
+absolute paths), `publishedHealth` (`ready` \| `partially_available` \| `failed`),
+`excludedFileCount`, `publishedAt`, plus base fields.
+
+Current knowledge for a project is **`projects.currentKnowledgeVersionId`** — prior rows stay
+`status: 'A'` until retention purge (Phase 60).
+
+Indexes (partial `status: 'A'`): `{ orgId, projectId, publishedAt: -1, _id: -1 }`;
+`{ orgId, projectId, sourceVersionId }`.
 
 ### `sourceVersions`
 

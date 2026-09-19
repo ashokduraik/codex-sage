@@ -31,7 +31,7 @@ function mockKnowledgeFromHealth(knowledgeHealth) {
     none: 'Needs attention',
     updating: 'Updating',
     ready: 'Ready',
-    partial: 'Partially available',
+    partially_available: 'Partially available',
     stale: 'Outdated',
     failed: 'Needs attention',
   };

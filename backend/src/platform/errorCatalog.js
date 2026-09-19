@@ -259,6 +259,12 @@ export const ERROR_CATALOG = Object.freeze({
     class: 'knowledge',
     httpStatus: 503,
     retryability: 'temporary',
+    message: 'Project knowledge is not available.',
+  }),
+  KNOWLEDGE_UPDATING: Object.freeze({
+    class: 'knowledge',
+    httpStatus: 503,
+    retryability: 'temporary',
     message: 'Project knowledge is being updated.',
   }),
   CONTEXT_ACCOUNTING_UNAVAILABLE: Object.freeze({

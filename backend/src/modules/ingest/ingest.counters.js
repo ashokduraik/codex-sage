@@ -54,13 +54,16 @@ export function toJobProgressCounters(counters) {
 }
 
 /**
- * True when the job finished with some failed files but otherwise succeeded.
+ * True when the job finished with some failed or graph-excluded files but otherwise succeeded.
  * @param {IngestCounters} counters Domain counters.
  * @param {boolean} otherwiseCompleted Pipeline completed past implemented stages.
  * @returns {boolean}
  */
 export function derivePartialSuccess(counters, otherwiseCompleted) {
-  return otherwiseCompleted === true && counters.filesFailed > 0;
+  return (
+    otherwiseCompleted === true &&
+    (counters.filesFailed > 0 || counters.filesExcluded > 0)
+  );
 }
 
 /**
