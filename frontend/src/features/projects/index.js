@@ -26,3 +26,7 @@ export {
 } from './hooks/useProjectMutations.js';
 export { useProjectDeletionPreview } from './hooks/useProjectDeletionPreview.js';
 export { useRecordProjectAccess } from './hooks/useRecordProjectAccess.js';
+export { useUploadSource } from './hooks/useUploadSource.js';
+export { useRepositoryProbe } from './hooks/useRepositoryProbe.js';
+export { useRepositoryAttach } from './hooks/useRepositoryAttach.js';
+export { mapProbeResult, tokenPageUrl } from './repositoryProbeMap.js';

@@ -257,10 +257,12 @@ S3 keeps those workspace files and copies their sections; S4 `sync`s changed pat
 new `jobType: reingest` job on the same GridFS bytes and rebuilds S0–S6 without skip
 paths. Retry of a failed job is a different verb and reuses the same Job (ADR 0023).
 
-**Git sync:** every 30 minutes per connected project (skipped if a sync is already
-running). Auth/network failure **before** the graph is touched leaves current Q&A
-usable. Same `commitSha` → no-op. Changed SHA → new `SourceVersion`, same index path
-as re-upload. Manual `POST .../repositories/sync` enqueues the same job.
+**Git sync:** every 30 minutes per connected project (skipped if a sync or ingest
+is already running). Worker handler `repo_sync` (`exclusiveScope: none`) looks up
+the branch HEAD, downloads a provider zip archive (ADR 0026), and enqueues
+`ingest` (S0–S6). Auth/network failure **before** bytes persist leaves current
+Q&A usable. Same `commitSha` → no-op. Manual `POST .../repositories/sync`
+enqueues the same job.
 
 Failed jobs are kept. Retry resumes from a checkpoint (or re-runs the full pipeline from
 `validate_upload` against stored bytes when a full rebuild is required) and reuses the same
@@ -434,7 +436,7 @@ Mechanisms below match the accepted stack ADRs
 | Worker | MongoDB | atomic claim | Jobs, source/knowledge metadata |
 | Worker | GridFS | read | Rebuild the tree from accepted bytes |
 | Worker | workspace | local encrypted volume | Source tree + `.codegraph/` SQLite |
-| Worker | GitHub/GitLab | git fetch or API archive | `repo_sync` only; credentials decrypted in memory |
+| Worker | GitHub/GitLab | HTTPS archive API (zipball / archive.zip) | `repo_sync` only; credentials decrypted in memory |
 | Worker | CodeGraph | in-process, **writer lock** | `indexAll` (first time) or `sync` |
 
 SSE events the UI handles: `status`, `delta` (token text), `clarification`, `evidence`,

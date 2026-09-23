@@ -41,6 +41,7 @@ export const AUDIT_ACTION_RESOURCE_TYPES = Object.freeze({
   'repository.branch_changed': 'repository',
   'repository.credential_replaced': 'repository',
   'repository.credential_revoked': 'repository',
+  'repository.sync_triggered': 'repository',
 });
 
 /** Frozen list of known action strings. */

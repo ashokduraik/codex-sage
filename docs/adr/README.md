@@ -28,6 +28,7 @@
 | [0023](./0023-job-retry-same-document.md) | Retry reuses the same Job document; reingest creates a new one | Accepted |
 | [0024](./0024-repository-credential-encryption.md) | Repository credential encryption (AES-256-GCM) | Accepted |
 | [0025](./0025-provider-inference-from-url.md) | Provider inference from repository URL | Accepted |
+| [0026](./0026-repository-sync-archive-adapter.md) | Repository sync uses the provider archive API | Accepted |
 
 One decision = one ADR. Accepted ADRs are immutable; supersede with a new number rather
 than rewriting history.

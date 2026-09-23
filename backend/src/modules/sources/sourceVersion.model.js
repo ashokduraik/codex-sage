@@ -44,6 +44,20 @@ const sourceVersionSchema = createBaseSchema({
     type: mongoose.Schema.Types.ObjectId,
     default: null,
   },
+  commitSha: {
+    type: String,
+    default: null,
+    trim: true,
+  },
+  branch: {
+    type: String,
+    default: null,
+    trim: true,
+  },
+  repositoryConnectionId: {
+    type: mongoose.Schema.Types.ObjectId,
+    default: null,
+  },
   fileCounts: {
     type: fileCountsSchema,
     required: true,

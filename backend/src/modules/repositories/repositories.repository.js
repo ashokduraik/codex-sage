@@ -11,6 +11,21 @@ import { RepositoryConnection } from './repositoryConnection.model.js';
 import { RepositoryCredential } from './repositoryCredential.model.js';
 
 /**
+ * Lists active connections whose next sync is due.
+ * @param {Date} [now] Clock (tests inject).
+ * @returns {Promise<object[]>}
+ */
+export async function listDueConnections(now = new Date()) {
+  return RepositoryConnection.find({
+    status: ROW_STATUS_ACTIVE,
+    nextDueAt: { $lte: now },
+    connectionStatus: { $in: ['connected', 'authentication_required', 'unreachable'] },
+  })
+    .lean()
+    .exec();
+}
+
+/**
  * Finds the active connection for a project.
  * @param {string | import('mongoose').Types.ObjectId} orgId Tenant id.
  * @param {string | import('mongoose').Types.ObjectId} projectId Project id.

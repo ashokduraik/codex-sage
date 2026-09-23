@@ -70,6 +70,45 @@ describe('startWorker', () => {
     expect(stop).toHaveBeenCalledOnce();
   });
 
+  it('ticks the repo_sync scheduler when enabled', async () => {
+    const enqueueDueRepositorySyncs = vi.fn().mockResolvedValue({ enqueued: 0, skipped: 0 });
+    const setIntervalFn = vi.fn(() => 7);
+    const clearIntervalFn = vi.fn();
+    const registerShutdownHook = vi.fn();
+    const handle = await startWorker({
+      loadConfig: () => ({
+        ...TEST_APP_CONFIG,
+        env: { ...TEST_APP_CONFIG.env, isProduction: true },
+      }),
+      connectMongo: vi.fn().mockResolvedValue(undefined),
+      registerProcessHandlers: vi.fn(),
+      registerShutdownHook,
+      attachShutdownSignals: vi.fn(),
+      startWorkerRuntime: vi.fn().mockReturnValue({
+        stop: vi.fn().mockResolvedValue(undefined),
+        getInFlightCount: () => 0,
+      }),
+      setInterval: setIntervalFn,
+      clearInterval: clearIntervalFn,
+      enableRepoSyncScheduler: true,
+      enqueueDueRepositorySyncs,
+      hostname: () => 'sched-host',
+      pid: 1,
+      bootSuffix: 'aa',
+      log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+      clearHandlersForTests: true,
+      skipDefaultHandlers: true,
+    });
+    expect(enqueueDueRepositorySyncs).toHaveBeenCalled();
+    expect(setIntervalFn).toHaveBeenCalled();
+    const stopScheduler = registerShutdownHook.mock.calls.find(
+      (call) => call[0] === 'stop-repo-sync-scheduler',
+    )[1];
+    await stopScheduler();
+    expect(clearIntervalFn).toHaveBeenCalledWith(7);
+    await handle.stopRuntime();
+  });
+
   it('exits non-zero when the first mongo connect fails', async () => {
     const exit = vi.fn();
     const log = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
@@ -191,7 +230,7 @@ describe('startWorker', () => {
       clearHandlersForTests: true,
       registerExtraHandlers: (register) => {
         register({
-          type: 'repo_sync',
+          type: 'extra_test_job',
           exclusiveScope: 'project',
           run: async () => ({ result: 'completed' }),
         });

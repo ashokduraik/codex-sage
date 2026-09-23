@@ -11,6 +11,7 @@ import {
   retestRepositoryConnection,
   revokeRepositoryCredential,
 } from './repositoryAttach.service.js';
+import { enqueueManualRepositorySync } from './sync/repoSync.service.js';
 import { probeRepository } from './repositoryProbe.service.js';
 import {
   attachBodySchema,
@@ -75,6 +76,27 @@ export async function repositoryRoutes(app) {
         log: request.log,
       });
       return reply.code(201).send(result);
+    },
+  );
+
+  app.post(
+    '/projects/:projectId/repositories/sync',
+    {
+      config: {
+        routeAccess: 'authenticated',
+        requireIdempotencyKey: true,
+      },
+      preHandler: requireProjectPermission('repos.connect'),
+    },
+    async (request, reply) => {
+      const result = await enqueueManualRepositorySync({
+        orgId: request.projectScope.orgId,
+        projectId: request.projectScope.projectId,
+        actorUserId: request.projectScope.userId,
+        correlationId: request.id,
+        log: request.log,
+      });
+      return reply.code(202).send(result);
     },
   );
 

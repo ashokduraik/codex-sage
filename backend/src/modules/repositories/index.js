@@ -1,5 +1,5 @@
 /**
- * Public surface of the repositories module (probe in Phase 30; attach in Phase 31).
+ * Public surface of the repositories module (probe, attach, and repo_sync).
  */
 export { repositoryRoutes } from './repositories.routes.js';
 export { probeRepository } from './repositoryProbe.service.js';
@@ -22,6 +22,14 @@ export {
   retestRepositoryConnection,
   revokeRepositoryCredential,
 } from './repositoryAttach.service.js';
+export { repoSyncHandlerRegistration } from './sync/repoSync.handler.js';
+export { enqueueDueRepositorySyncs } from './sync/repoSync.scheduler.js';
+export { enqueueManualRepositorySync } from './sync/repoSync.service.js';
+export {
+  REPO_SYNC_INTERVAL_MS,
+  REPO_SYNC_SCHEDULER_TICK_MS,
+  REPO_SYNC_OVERLAP_RETRY_MS,
+} from './sync/repoSync.constants.js';
 
 import { RepositoryConnection } from './repositoryConnection.model.js';
 import { RepositoryCredential } from './repositoryCredential.model.js';

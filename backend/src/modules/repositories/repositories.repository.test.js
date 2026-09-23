@@ -11,6 +11,7 @@ import { RepositoryCredential } from './repositoryCredential.model.js';
 import {
   findActiveConnection,
   findActiveCredential,
+  listDueConnections,
   insertConnection,
   insertCredential,
   softDeleteConnectionAndCredentials,
@@ -45,6 +46,38 @@ describe('repositories.repository', () => {
       projectId: new mongoose.Types.ObjectId(),
     };
   }
+
+  it('lists due connections and hides ones that are not yet due', async () => {
+    const { orgId, projectId } = ids();
+    await insertConnection({
+      orgId,
+      projectId,
+      provider: 'github',
+      hostKind: 'github',
+      repositoryFullName: 'acme/due',
+      repositoryWebUrl: 'https://github.com/acme/due',
+      selectedBranch: 'main',
+      defaultBranchAtAttach: 'main',
+      connectionStatus: 'connected',
+      nextDueAt: new Date('2020-01-01T00:00:00.000Z'),
+    });
+    const later = ids();
+    await insertConnection({
+      orgId: later.orgId,
+      projectId: later.projectId,
+      provider: 'github',
+      hostKind: 'github',
+      repositoryFullName: 'acme/later',
+      repositoryWebUrl: 'https://github.com/acme/later',
+      selectedBranch: 'main',
+      defaultBranchAtAttach: 'main',
+      connectionStatus: 'connected',
+      nextDueAt: new Date('2099-01-01T00:00:00.000Z'),
+    });
+    const due = await listDueConnections(new Date('2026-01-01T00:00:00.000Z'));
+    expect(due.some((row) => row.repositoryFullName === 'acme/due')).toBe(true);
+    expect(due.some((row) => row.repositoryFullName === 'acme/later')).toBe(false);
+  });
 
   it('inserts a connection and finds it only for the owning org and project', async () => {
     const { orgId, projectId } = ids();

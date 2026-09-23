@@ -20,13 +20,17 @@ export const INGEST_STAGE_DEFINITIONS = Object.freeze([
 
 /**
  * Stage definitions keyed by job type.
- * reingest / repo_sync reuse ingest stages until those phases specialize them.
+ * reingest reuses ingest stages. repo_sync has its own short fetch/persist list.
  * @type {Readonly<Record<string, readonly JobStageDefinition[]>>}
  */
 export const JOB_STAGE_CATALOG = Object.freeze({
   ingest: INGEST_STAGE_DEFINITIONS,
   reingest: INGEST_STAGE_DEFINITIONS,
-  repo_sync: INGEST_STAGE_DEFINITIONS,
+  repo_sync: Object.freeze([
+    Object.freeze({ stage: 'fetch_remote', label: 'Checking repository' }),
+    Object.freeze({ stage: 'persist_source', label: 'Saving source files' }),
+    Object.freeze({ stage: 'enqueue_ingest', label: 'Queued for processing' }),
+  ]),
   worker_smoke: Object.freeze([
     Object.freeze({ stage: 'smoke_run', label: 'Worker smoke check' }),
   ]),

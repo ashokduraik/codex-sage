@@ -7,6 +7,7 @@ import { SourceFile } from './sourceFile.model.js';
 import { SourceVersion } from './sourceVersion.model.js';
 import {
   SOURCE_FILE_STATE_STORED,
+  SOURCE_ORIGIN_REPOSITORY,
   SOURCE_ORIGIN_UPLOAD,
   VERSION_LIFECYCLE_RECEIVED,
 } from './sources.constants.js';
@@ -21,6 +22,10 @@ import {
  *   createdBy: string,
  *   fileCounts: { accepted: number, skipped: number, excludedFromGraph: number },
  *   jobId?: string | null,
+ *   origin?: 'upload' | 'repository',
+ *   commitSha?: string | null,
+ *   branch?: string | null,
+ *   repositoryConnectionId?: string | null,
  * }} input Version fields.
  * @param {{ session?: import('mongoose').ClientSession }} [options] Optional session.
  * @returns {Promise<import('mongoose').Document>}
@@ -31,10 +36,16 @@ export async function insertSourceVersion(input, options = {}) {
     _id: new mongoose.Types.ObjectId(input.sourceVersionId),
     orgId: input.orgId,
     projectId: input.projectId,
-    origin: SOURCE_ORIGIN_UPLOAD,
+    origin:
+      input.origin === SOURCE_ORIGIN_REPOSITORY ? SOURCE_ORIGIN_REPOSITORY : SOURCE_ORIGIN_UPLOAD,
     exclusionRulesetId: input.exclusionRulesetId,
     versionLifecycle: VERSION_LIFECYCLE_RECEIVED,
     jobId: input.jobId ? new mongoose.Types.ObjectId(input.jobId) : null,
+    commitSha: input.commitSha ?? null,
+    branch: input.branch ?? null,
+    repositoryConnectionId: input.repositoryConnectionId
+      ? new mongoose.Types.ObjectId(input.repositoryConnectionId)
+      : null,
     fileCounts: input.fileCounts,
     createdBy: input.createdBy,
     updatedBy: input.createdBy,

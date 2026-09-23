@@ -141,12 +141,14 @@ Indexes (partial `status: 'A'`): `{ orgId, projectId, publishedAt: -1, _id: -1 }
 
 ### `sourceVersions`
 
-Tenant- and project-scoped upload/repository snapshot (Phase 24). Fields: `projectId`,
-`origin` (`upload` \| `repository`), `exclusionRulesetId` (e.g. `exclusions.v1`),
-`versionLifecycle` (`received` \| `failed` \| `accepted` — domain; not row `status`),
-`jobId` (pending ingest job), `fileCounts` (`accepted`, `skipped`, `excludedFromGraph`),
-plus base fields. Skipped paths are counted only here — they are never stored as
-`sourceFiles` or GridFS objects.
+Tenant- and project-scoped upload/repository snapshot (Phase 24 / 32). Fields:
+`projectId`, `origin` (`upload` \| `repository`), `exclusionRulesetId` (e.g.
+`exclusions.v1`), `versionLifecycle` (`received` \| `failed` \| `accepted` —
+domain; not row `status`), `jobId` (pending ingest job), `commitSha`, `branch`,
+`repositoryConnectionId` (set when `origin` is `repository`), `fileCounts`
+(`accepted`, `skipped`, `excludedFromGraph`), plus base fields. Provider
+(`github` \| `gitlab`) lives on the connection, not on `origin`. Skipped paths
+are counted only here — they are never stored as `sourceFiles` or GridFS objects.
 
 Index (partial `status: 'A'`): `{ orgId, projectId, createdAt: -1 }`.
 
@@ -250,15 +252,18 @@ One **active** attached repository per project (Phase 31). Fields: `projectId`,
 `defaultBranchAtAttach`, `connectionStatus` (`connected` \|
 `authentication_required` \| `access_denied` \| `not_found` \| `unreachable`),
 `connectionStatusReasonCode`, `credentialId` (active `repositoryCredentials` row),
-`attachedBy`, `attachedAt`, `lastSuccessfulProbeAt`, `branchChangedAt`, plus
+`attachedBy`, `attachedAt`, `lastSuccessfulProbeAt`, `branchChangedAt`,
+`lastSyncedCommitSha`, `lastSyncedAt`, `nextDueAt` (defaults to attach time so
+the first sync is due immediately), `lastSyncJobId`, `lastSyncErrorCode`, plus
 base fields. Domain `connectionStatus` is not row `status`.
 
 Unique index (partial `status: 'A'`): `{ orgId, projectId }`.
 List index (partial `status: 'A'`): `{ orgId, projectId, status }`.
+Due-scan index (partial `status: 'A'`): `{ nextDueAt }`.
 
 Soft-delete (revoke) sets `status: 'D'` and clears
-`projects.sourceConfig.repositoryConnectionId`. Worker `repo_sync` (Phase 32)
-reads this row; it is not created here.
+`projects.sourceConfig.repositoryConnectionId`. Worker `repo_sync` reads this
+row, downloads a provider archive (ADR 0026), and enqueues `ingest`.
 
 ### `repositoryCredentials`
 

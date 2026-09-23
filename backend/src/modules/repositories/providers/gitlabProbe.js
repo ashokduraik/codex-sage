@@ -133,7 +133,7 @@ export function looksLikeGitlabApi(response) {
  * @param {string | null} baseUrl Self-hosted origin or null for gitlab.com.
  * @returns {string}
  */
-function gitlabApiBase(baseUrl) {
+export function gitlabApiBase(baseUrl) {
   return `${baseUrl ?? 'https://gitlab.com'}/api/v4`;
 }
 
@@ -141,7 +141,7 @@ function gitlabApiBase(baseUrl) {
  * @param {string | null | undefined} accessToken Token.
  * @returns {Record<string, string>}
  */
-function gitlabHeaders(accessToken) {
+export function gitlabHeaders(accessToken) {
   /** @type {Record<string, string>} */
   const headers = {
     Accept: 'application/json',

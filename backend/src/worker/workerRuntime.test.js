@@ -214,4 +214,27 @@ describe('workerRuntime', () => {
     releaseHandler();
     await runtime.stop();
   });
+
+  it('does not complete a job when the handler returns deferred', async () => {
+    const { startWorkerRuntime } = await import('./workerRuntime.js');
+    registerJobHandler({
+      type: 'repo_sync',
+      exclusiveScope: 'none',
+      run: async () => ({ result: 'deferred' }),
+    });
+    claimNextJob.mockResolvedValueOnce(makeJobDoc({ jobType: 'repo_sync' })).mockResolvedValue(null);
+    const runtime = startWorkerRuntime({
+      workerId: 'w-defer',
+      log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+      pollIntervalMs: 60_000,
+      heartbeatIntervalMs: 60_000,
+      sweepIntervalMs: 60_000,
+      setInterval: () => 1,
+      clearInterval: vi.fn(),
+    });
+    await vi.waitFor(() => expect(claimNextJob).toHaveBeenCalled());
+    await vi.waitFor(() => expect(runtime.getInFlightCount()).toBe(0));
+    expect(finishJobCompleted).not.toHaveBeenCalled();
+    await runtime.stop();
+  });
 });

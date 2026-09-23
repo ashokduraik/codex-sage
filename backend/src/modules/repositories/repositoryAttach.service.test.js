@@ -121,6 +121,8 @@ describe('repositoryAttach.service', () => {
     expect(dto.attachedAt).toBeNull();
     expect(dto).not.toHaveProperty('credentialId');
     expect(dto).not.toHaveProperty('accessToken');
+    expect(dto.lastSyncedCommitSha).toBeNull();
+    expect(dto.lastSyncedAt).toBeNull();
 
     const withDates = mapConnectionToDto({
       _id: new mongoose.Types.ObjectId(),

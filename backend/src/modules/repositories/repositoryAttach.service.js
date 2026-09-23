@@ -55,6 +55,11 @@ export function mapConnectionToDto(connection) {
     attachedAt: connection.attachedAt
       ? new Date(connection.attachedAt).toISOString()
       : null,
+    lastSyncedCommitSha: connection.lastSyncedCommitSha ?? null,
+    lastSyncedAt: connection.lastSyncedAt
+      ? new Date(connection.lastSyncedAt).toISOString()
+      : null,
+    nextDueAt: connection.nextDueAt ? new Date(connection.nextDueAt).toISOString() : null,
   };
 }
 
@@ -121,6 +126,11 @@ export async function attachRepository(input) {
       attachedBy: input.actorUserId,
       attachedAt: now,
       lastSuccessfulProbeAt: now,
+      nextDueAt: now,
+      lastSyncedCommitSha: null,
+      lastSyncedAt: null,
+      lastSyncJobId: null,
+      lastSyncErrorCode: null,
       createdBy: input.actorUserId,
       updatedBy: input.actorUserId,
     });
@@ -252,6 +262,8 @@ export async function patchRepositoryBranch(input) {
     set: {
       selectedBranch: input.selectedBranch,
       branchChangedAt: new Date(),
+      lastSyncedCommitSha: null,
+      nextDueAt: new Date(),
       connectionStatus: 'connected',
       connectionStatusReasonCode: null,
       lastSuccessfulProbeAt: new Date(),

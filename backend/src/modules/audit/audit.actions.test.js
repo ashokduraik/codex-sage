@@ -44,6 +44,7 @@ describe('audit.actions', () => {
         'repository.branch_changed',
         'repository.credential_replaced',
         'repository.credential_revoked',
+        'repository.sync_triggered',
       ]),
     );
     expect(AUDIT_ACTIONS).toHaveLength(Object.keys(AUDIT_ACTION_RESOURCE_TYPES).length);
@@ -73,5 +74,6 @@ describe('audit.actions', () => {
     expect(resourceTypeForAction('repository.branch_changed')).toBe('repository');
     expect(resourceTypeForAction('repository.credential_replaced')).toBe('repository');
     expect(resourceTypeForAction('repository.credential_revoked')).toBe('repository');
+    expect(resourceTypeForAction('repository.sync_triggered')).toBe('repository');
   });
 });

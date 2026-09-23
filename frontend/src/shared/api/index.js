@@ -19,6 +19,7 @@ export {
   subscribeSessionCleared,
 } from './apiSession.js';
 export { apiRequest } from './apiRequest.js';
+export { apiUpload } from './apiUpload.js';
 export {
   CSRF_COOKIE_NAME,
   CSRF_HEADER_NAME,

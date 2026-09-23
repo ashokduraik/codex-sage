@@ -118,7 +118,7 @@ export async function readGithubDescription(input) {
  * @param {string | null | undefined} accessToken Token.
  * @returns {Record<string, string>}
  */
-function githubHeaders(accessToken) {
+export function githubHeaders(accessToken) {
   /** @type {Record<string, string>} */
   const headers = {
     Accept: 'application/vnd.github+json',

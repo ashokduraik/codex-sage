@@ -300,6 +300,11 @@ export function startWorkerRuntime(options) {
 
         const outcome = await handler.run(context);
 
+        if (outcome?.result === 'deferred') {
+          jobLog.info?.({}, 'job deferred by handler');
+          return;
+        }
+
         if (abortController.signal.aborted) {
           return;
         }

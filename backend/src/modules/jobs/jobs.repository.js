@@ -302,6 +302,69 @@ export async function appendJobEvent(input, options = {}) {
 }
 
 /**
+ * Finds an active job of the given types for a project.
+ * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
+ * @param {import('mongoose').Types.ObjectId | string} projectId Project id.
+ * @param {string[]} jobTypes Job types to match.
+ * @param {{ excludeJobId?: string | null }} [options] Optional current-job exclusion.
+ * @returns {Promise<import('mongoose').Document | null>}
+ */
+export async function findActiveJobForProjectByTypes(orgId, projectId, jobTypes, options = {}) {
+  assertOrgId(orgId);
+  if (!mongoose.isValidObjectId(String(projectId)) || !Array.isArray(jobTypes) || jobTypes.length === 0) {
+    return null;
+  }
+  /** @type {Record<string, unknown>} */
+  const filter = {
+    orgId,
+    projectId: new mongoose.Types.ObjectId(String(projectId)),
+    status: ROW_STATUS_ACTIVE,
+    jobType: { $in: jobTypes },
+    jobStatus: { $in: ['pending', 'retrying', 'running'] },
+  };
+  if (options.excludeJobId && mongoose.isValidObjectId(String(options.excludeJobId))) {
+    filter._id = { $ne: new mongoose.Types.ObjectId(String(options.excludeJobId)) };
+  }
+  return Job.findOne(filter).sort({ updatedAt: -1, _id: -1 }).exec();
+}
+
+/**
+ * Returns a running job to pending and bumps scheduledAt without burning an attempt.
+ * @param {{
+ *   jobId: string | import('mongoose').Types.ObjectId,
+ *   orgId: string | import('mongoose').Types.ObjectId,
+ *   delayMs: number,
+ * }} input Defer fields.
+ * @returns {Promise<import('mongoose').Document | null>}
+ */
+export async function deferRunningJob(input) {
+  assertOrgId(input.orgId);
+  const delayMs = Math.max(1, Math.floor(input.delayMs));
+  return Job.findOneAndUpdate(
+    {
+      _id: input.jobId,
+      orgId: input.orgId,
+      status: ROW_STATUS_ACTIVE,
+      jobStatus: 'running',
+    },
+    [
+      {
+        $set: {
+          jobStatus: 'pending',
+          workerId: null,
+          leaseExpiresAt: null,
+          heartbeatAt: null,
+          attempt: { $max: [0, { $subtract: ['$attempt', 1] }] },
+          scheduledAt: { $add: ['$$NOW', delayMs] },
+          updatedAt: '$$NOW',
+        },
+      },
+    ],
+    { returnDocument: 'after', updatePipeline: true },
+  ).exec();
+}
+
+/**
  * Finds the newest active writer job for a project (pending, retrying, or running).
  * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
  * @param {import('mongoose').Types.ObjectId | string} projectId Project id.

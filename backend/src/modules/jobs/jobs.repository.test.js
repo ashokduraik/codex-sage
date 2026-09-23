@@ -27,7 +27,9 @@ import {
   beginUserRetry,
   cancelQueuedJob,
   clampJobListLimit,
+  deferRunningJob,
   findActiveJobForProject,
+  findActiveJobForProjectByTypes,
   findActiveJobForSourceVersion,
   findJobById,
   insertPendingJob,
@@ -332,5 +334,40 @@ describe('jobs.repository', () => {
       actorUserId: actor,
     });
     expect(promoted.jobStatus).toBe('pending');
+  });
+
+  it('finds active jobs by type and defers a running job without burning attempts', async () => {
+    const orgId = new mongoose.Types.ObjectId();
+    const projectId = new mongoose.Types.ObjectId();
+    const { job: ingestJob } = await insertPendingJob({
+      orgId,
+      projectId,
+      jobType: 'ingest',
+    });
+    const { job: syncJob } = await insertPendingJob({
+      orgId,
+      projectId,
+      jobType: 'repo_sync',
+    });
+    await Job.updateOne({ _id: syncJob._id }, { $set: { jobStatus: 'running', attempt: 2 } });
+
+    expect(await findActiveJobForProjectByTypes(orgId, projectId, ['repo_sync'])).toBeTruthy();
+    expect(
+      await findActiveJobForProjectByTypes(orgId, projectId, ['repo_sync'], {
+        excludeJobId: String(syncJob._id),
+      }),
+    ).toBeNull();
+    expect(await findActiveJobForProjectByTypes(orgId, projectId, ['ingest'])).toBeTruthy();
+    expect(await findActiveJobForProjectByTypes(orgId, 'bad-id', ['ingest'])).toBeNull();
+    void ingestJob;
+
+    const deferred = await deferRunningJob({
+      orgId,
+      jobId: syncJob._id,
+      delayMs: 5_000,
+    });
+    expect(deferred?.jobStatus).toBe('pending');
+    expect(deferred?.attempt).toBe(1);
+    expect(deferred?.scheduledAt.getTime()).toBeGreaterThan(Date.now());
   });
 });

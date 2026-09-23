@@ -21,6 +21,9 @@ export const JOB_EVENT_MESSAGES = Object.freeze({
   'job.retry_requested': 'Retry requested',
   'job.cancelled': 'Processing cancelled',
   'job.enqueued': 'Processing is queued.',
+  'repo.sync.no_changes': 'No changes on the selected branch',
+  'repo.sync.deferred': 'Sync deferred because the project is busy.',
+  'repo.sync.source_enqueued': 'Source queued for processing.',
 });
 
 /**

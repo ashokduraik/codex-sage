@@ -22,6 +22,7 @@ import { IDEMPOTENCY_MODELS } from '../../platform/idempotency/index.js';
 import { PROJECT_MODELS } from '../projects/index.js';
 import { PROJECT_MEMBER_MODELS, addProjectMember } from '../projectMembers/index.js';
 import { probeRepository } from './repositoryProbe.service.js';
+import { JOB_MODELS } from '../jobs/index.js';
 import { REPOSITORY_MODELS, RepositoryConnection } from './index.js';
 
 vi.mock('./repositoryProbe.service.js', () => ({
@@ -39,6 +40,7 @@ const harness = createMongoHarness({
     ...PROJECT_MODELS,
     ...PROJECT_MEMBER_MODELS,
     ...REPOSITORY_MODELS,
+    ...JOB_MODELS,
   ],
   uri: TEST_APP_CONFIG.mongo.uri,
 });
@@ -592,6 +594,69 @@ describe('repository attach routes', () => {
       },
     });
     expect(res.statusCode).toBe(404);
+  });
+
+  it('enqueues repo_sync with Idempotency-Key and 404s without a connection', async () => {
+    await runBootstrapSeed(createMockLog());
+    app = await readyApp();
+    const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
+    const project = await createProject(app, accessToken, 'Sync Target', 'idem-sync-proj');
+    probeRepository.mockResolvedValue({
+      probeStatus: 'connected',
+      provider: 'github',
+      hostKind: 'github',
+      baseUrl: null,
+      repository: { fullName: 'acme/payments', webUrl: 'https://github.com/acme/payments' },
+      defaultBranch: 'main',
+      branches: ['main'],
+      branchesTruncated: false,
+      tokenUsed: false,
+    });
+    await app.inject({
+      method: 'POST',
+      url: `${API_BASE_PATH}/projects/${project.id}/repositories`,
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+        'idempotency-key': 'idem-sync-attach',
+      },
+      payload: {
+        repositoryUrl: 'https://github.com/acme/payments',
+        selectedBranch: 'main',
+      },
+    });
+
+    const first = await app.inject({
+      method: 'POST',
+      url: `${API_BASE_PATH}/projects/${project.id}/repositories/sync`,
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+        'idempotency-key': 'idem-sync-1',
+      },
+    });
+    expect(first.statusCode).toBe(202);
+    expect(first.json().job.jobType).toBe('repo_sync');
+
+    const replay = await app.inject({
+      method: 'POST',
+      url: `${API_BASE_PATH}/projects/${project.id}/repositories/sync`,
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+        'idempotency-key': 'idem-sync-1',
+      },
+    });
+    expect(replay.statusCode).toBe(202);
+    expect(replay.json().job.id).toBe(first.json().job.id);
+
+    const other = await createProject(app, accessToken, 'No Conn', 'idem-sync-nocon');
+    const missing = await app.inject({
+      method: 'POST',
+      url: `${API_BASE_PATH}/projects/${other.id}/repositories/sync`,
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+        'idempotency-key': 'idem-sync-missing',
+      },
+    });
+    expect(missing.statusCode).toBe(404);
   });
 });
 

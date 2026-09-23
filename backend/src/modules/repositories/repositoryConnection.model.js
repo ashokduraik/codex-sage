@@ -42,6 +42,11 @@ const repositoryConnectionSchema = createBaseSchema({
   attachedAt: { type: Date, default: () => new Date() },
   lastSuccessfulProbeAt: { type: Date, default: null },
   branchChangedAt: { type: Date, default: null },
+  lastSyncedCommitSha: { type: String, default: null, trim: true },
+  lastSyncedAt: { type: Date, default: null },
+  nextDueAt: { type: Date, default: () => new Date() },
+  lastSyncJobId: { type: mongoose.Schema.Types.ObjectId, default: null },
+  lastSyncErrorCode: { type: String, default: null },
 });
 
 repositoryConnectionSchema.index(
@@ -54,6 +59,11 @@ repositoryConnectionSchema.index(
 
 repositoryConnectionSchema.index(
   { orgId: 1, projectId: 1, status: 1 },
+  { partialFilterExpression: { status: ROW_STATUS_ACTIVE } },
+);
+
+repositoryConnectionSchema.index(
+  { nextDueAt: 1 },
   { partialFilterExpression: { status: ROW_STATUS_ACTIVE } },
 );
 

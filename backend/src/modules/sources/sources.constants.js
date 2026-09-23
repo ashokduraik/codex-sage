@@ -17,6 +17,9 @@ export const ARCHIVE_FIELD_NAME = 'archive';
 /** SourceVersion.origin for this upload path. */
 export const SOURCE_ORIGIN_UPLOAD = 'upload';
 
+/** SourceVersion.origin for a repository snapshot. */
+export const SOURCE_ORIGIN_REPOSITORY = 'repository';
+
 /** SourceVersion.versionLifecycle values (domain; not row status). */
 export const VERSION_LIFECYCLE_VALUES = Object.freeze([
   'received',

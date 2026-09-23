@@ -23,6 +23,11 @@ import {
   ingestHandlerRegistration,
   reingestHandlerRegistration,
 } from '../modules/ingest/index.js';
+import {
+  enqueueDueRepositorySyncs,
+  repoSyncHandlerRegistration,
+  REPO_SYNC_SCHEDULER_TICK_MS,
+} from '../modules/repositories/index.js';
 import { ProjectJobLock } from './projectJobLock.model.js';
 import { buildWorkerId, startWorkerRuntime } from './workerRuntime.js';
 import {
@@ -99,6 +104,7 @@ export async function startWorker(deps = {}) {
     register(workerSmokeHandlerRegistration);
     register(ingestHandlerRegistration);
     register(reingestHandlerRegistration);
+    register(repoSyncHandlerRegistration);
   }
   if (typeof deps.registerExtraHandlers === 'function') {
     deps.registerExtraHandlers(register);
@@ -128,6 +134,26 @@ export async function startWorker(deps = {}) {
   });
 
   const registerHook = deps.registerShutdownHook ?? registerShutdownHook;
+  const enableScheduler =
+    deps.enableRepoSyncScheduler ?? deps.startWorkerRuntime == null;
+  if (enableScheduler) {
+    const schedule = deps.setInterval ?? setInterval;
+    const clear = deps.clearInterval ?? clearInterval;
+    const enqueueDue = deps.enqueueDueRepositorySyncs ?? enqueueDueRepositorySyncs;
+    const tick = () => {
+      enqueueDue({ log }).catch((err) => {
+        log.error?.(
+          { errName: err instanceof Error ? err.name : 'Error' },
+          'repo_sync scheduler tick failed',
+        );
+      });
+    };
+    tick();
+    const timer = schedule(tick, REPO_SYNC_SCHEDULER_TICK_MS);
+    registerHook('stop-repo-sync-scheduler', async () => {
+      clear(timer);
+    });
+  }
   registerHook('stop-worker-runtime', async () => {
     await runtime.stop();
   });

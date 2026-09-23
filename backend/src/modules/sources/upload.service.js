@@ -56,6 +56,7 @@ function createHashingPassThrough(hash, counter) {
  *   orgId: string,
  *   projectId: string,
  *   sourceVersionId: string,
+ *   rewritePath?: (normalizedPath: string) => string,
  * }} input Scope + accepted set.
  * @returns {Promise<{
  *   files: Array<{
@@ -106,7 +107,9 @@ export async function storeAcceptedZipEntries(input) {
         continue;
       }
 
-      const path = normalizeArchivePath(rawName);
+      const normalized = normalizeArchivePath(rawName);
+      const path =
+        typeof input.rewritePath === 'function' ? input.rewritePath(normalized) : normalized;
       const accepted = acceptedByPath.get(path);
       if (!accepted) {
         continue;
