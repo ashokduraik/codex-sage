@@ -141,9 +141,9 @@ timeout).
 
 **None** (frontend).
 
-## 6. API contract — PROPOSED (needs approval before implementation)
+## 6. API contract — implemented
 
-Frontend consumes only; all endpoints **PROPOSED** until backend phases approve.
+Frontend consumes the shipped Phase 24/31 surfaces plus the source-versions list added here.
 
 ### Already defined elsewhere
 
@@ -154,14 +154,9 @@ Frontend consumes only; all endpoints **PROPOSED** until backend phases approve.
 | `GET /api/v1/jobs/:jobId` | Phase 20/22 | Version → job detail link |
 | Probe / attach | Phase 30/31 | Connect + re-test |
 
-### Additional read surface needed for Sources (PROPOSED — no owner doc yet)
+### `GET /api/v1/projects/:projectId/source-versions?cursor&limit` — **implemented**
 
-Phase 24 defines upload write only. This slice **requires** a paginated list of source versions.
-Proposed for backend approval (may land in Phase 24 follow-up or Phase 31 doc):
-
-### `GET /api/v1/projects/:projectId/source-versions?cursor&limit` — **PROPOSED**
-
-- **Permission:** `projects.view` or `sources.view` — **confirm with Phase 18 permission matrix**.
+- **Permission:** `projects.view` (there is no `sources.view`).
 - **Response `200`:**
 
 ```json
@@ -172,6 +167,8 @@ Proposed for backend approval (may land in Phase 24 follow-up or Phase 31 doc):
     "versionLifecycle": "accepted",
     "fileCounts": { "accepted": 4812, "skipped": 1203, "excludedFromGraph": 9 },
     "jobId": "665f1c9d4b2a8e0012a4f001",
+    "commitSha": null,
+    "branch": null,
     "createdBy": "6650f0aa0000000000000001",
     "createdAt": "2026-09-11T09:12:04.000Z"
   }],
@@ -179,19 +176,18 @@ Proposed for backend approval (may land in Phase 24 follow-up or Phase 31 doc):
 }
 ```
 
-### Repository connection (Phase 31 **PROPOSED**)
+### Repository connection (Phase 31 — **implemented**)
 
 | Method | Path | Purpose |
 |---|---|---|
 | `GET` | `/api/v1/projects/:projectId/repositories/connection` | Sources header metadata |
 | `PATCH` | `.../connection/branch` | Branch change |
-| `POST` | `.../connection/credential` | Replace credential (body token only) |
-| `POST` | `.../connection/revoke` | Disconnect / revoke |
+| `POST` | `.../credentials/replace` | Replace credential (body token only) |
+| `POST` | `.../credentials/revoke` | Disconnect / revoke |
+| `POST` | `.../connection/re-test` | Re-test stored credentials |
 
-Response must include `connectionStatus`, `repository` identity, `branch`, `provider`, `baseUrl`,
-`lastSyncAt` / `nextSyncAt` **only if Phase 31/32 define them** — omit unknown fields.
-
-Credential replace/revoke shapes follow Phase 31 §6 when that document exists.
+Response includes `connectionStatus`, `repository` identity, `selectedBranch`, `provider`,
+`baseUrl`, and `lastSyncedAt` when present. Do not invent `lastSyncAt` / `nextSyncAt`.
 
 ## 7. Configuration & environment variables
 
@@ -241,11 +237,11 @@ Phase 33/34 files unchanged except shared API extensions.
 
 ## 10. Definition of Done
 
-- [ ] `SourcesPanel` and `HealthPanel` do not import `useAppData` or `mockProject`.
-- [ ] Health uses backend `knowledgeHealth` + counts only — no knowledge explorer (Phase 40).
-- [ ] Sources show connection + versions from approved list/GET APIs.
-- [ ] Credential UI write-only; re-test uses real probe.
-- [ ] i18n complete; loading/error/empty per §89–§90.
+- [x] `SourcesPanel` and `HealthPanel` do not import `useAppData` or `mockProject`.
+- [x] Health uses backend `knowledgeHealth` + counts only — no knowledge explorer (Phase 40).
+- [x] Sources show connection + versions from approved list/GET APIs.
+- [x] Credential UI write-only; re-test uses real probe.
+- [x] i18n complete; loading/error/empty per §89–§90.
 - [ ] Responsive 375 / 768 / 1280; ≥ 80% coverage on touched files.
 
 ## 11. Documentation & ADR updates

@@ -11,6 +11,20 @@ import {
   seedAuthSession,
 } from '@/test/renderWithProviders';
 
+vi.mock('@/features/processing/api/jobsApi.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    listProjectJobs: vi.fn(async () => ({
+      items: [],
+      pageInfo: { nextCursor: null, hasMore: false },
+    })),
+    getJob: vi.fn(),
+    retryJob: vi.fn(),
+    cancelJob: vi.fn(),
+  };
+});
+
 vi.mock('@/features/projects/api/projectsApi.js', () => ({
   getProject: vi.fn(),
   listProjects: vi.fn(),

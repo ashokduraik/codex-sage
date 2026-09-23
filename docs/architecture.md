@@ -408,10 +408,23 @@ and must not be shown as graph-derived knowledge.
 
 Same tenant isolation as chat tools.
 
+Browse routes (`GET /api/v1/projects/:projectId/knowledge`, `/summary`, `/workflows`,
+`/apis`, `/symbols?q=`, `/health`) require `knowledge.browse` **or** `knowledge.view`.
+They resolve the project's **current** knowledge version only and read CodeGraph through a
+read lease. Gate `allow` returns HTTP `200` with `{ state: "ready" }` plus payload.
+Gate `queue` / writer or a missing index that cannot be leased returns `200`
+`{ state: "updating"|"unavailable", items: [] }` — never a stale graph. `404` / `403` /
+`400` are unchanged. Unexpected crashes stay `INTERNAL_ERROR` via the global handler.
+
 | Endpoint (shape) | Reads |
 |------------------|--------|
 | `GET /projects/:id/search` | CodeGraph (code/symbols) + Mongo text search (docs) |
-| `GET /projects/:id/knowledge/*` | Current graph metadata + on-demand bounded reads |
+| `GET /projects/:id/knowledge` | Facets present on the current graph + docs |
+| `GET /projects/:id/knowledge/summary` | Extractive docs + graph metadata (no LLM) |
+| `GET /projects/:id/knowledge/workflows` | Workflow nodes when the library exposes them |
+| `GET /projects/:id/knowledge/apis` | `getRoutingManifest` / `route` nodes |
+| `GET /projects/:id/knowledge/symbols?q=` | `getNodesByNamePrefix` / `searchNodes` |
+| `GET /projects/:id/knowledge/health` | Published health + exclusion count |
 | `GET /projects/:id/files/slice` | GridFS / materialized bytes, capped |
 | Chat “ask about this” | Resolve ids again under org/project/current version → evidence → budgeter → UNDERSTAND |
 

@@ -48,3 +48,9 @@ export const SOURCE_FILE_STATE_MISSING = 'missing';
 
 /** FileState when length or sha256 does not match. */
 export const SOURCE_FILE_STATE_CORRUPT = 'corrupt';
+
+/** Default page size for GET /projects/:projectId/source-versions. */
+export const SOURCE_VERSION_LIST_PAGE_SIZE_DEFAULT = 20;
+
+/** Hard cap on the source-versions `limit` query parameter. */
+export const SOURCE_VERSION_LIST_PAGE_SIZE_MAX = 100;

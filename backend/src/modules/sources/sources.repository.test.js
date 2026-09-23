@@ -19,6 +19,7 @@ import {
   insertSourceVersion,
   listSourceFilePathHashesPage,
   listSourceFilesForVersion,
+  listSourceVersionsByProject,
   markGridFsFilesOrphaned,
 } from './index.js';
 import { EXCLUSION_RULESET_ID } from './exclusions/exclusions.constants.js';
@@ -184,5 +185,40 @@ describe('sources gridfs + repository', () => {
     expect(diff.unchanged).toEqual(['src/a.js']);
     expect(diff.added).toEqual(['src/b.js']);
     expect(diff.removed).toEqual([]);
+  });
+
+  it('pages source versions by createdAt and ignores invalid project ids', async () => {
+    const orgId = new mongoose.Types.ObjectId().toString();
+    const projectId = new mongoose.Types.ObjectId().toString();
+    const actorId = new mongoose.Types.ObjectId().toString();
+    await insertSourceVersion({
+      orgId,
+      projectId,
+      sourceVersionId: new mongoose.Types.ObjectId().toString(),
+      exclusionRulesetId: EXCLUSION_RULESET_ID,
+      createdBy: actorId,
+      fileCounts: { accepted: 1, skipped: 0, excludedFromGraph: 0 },
+    });
+    await insertSourceVersion({
+      orgId,
+      projectId,
+      sourceVersionId: new mongoose.Types.ObjectId().toString(),
+      exclusionRulesetId: EXCLUSION_RULESET_ID,
+      createdBy: actorId,
+      fileCounts: { accepted: 2, skipped: 0, excludedFromGraph: 0 },
+    });
+    const page1 = await listSourceVersionsByProject(orgId, projectId, { limit: 1 });
+    expect(page1.items).toHaveLength(1);
+    expect(page1.pageInfo.hasMore).toBe(true);
+    const page2 = await listSourceVersionsByProject(orgId, projectId, {
+      limit: 1,
+      cursor: page1.pageInfo.nextCursor,
+    });
+    expect(page2.items).toHaveLength(1);
+    expect(page2.pageInfo.hasMore).toBe(false);
+    expect(await listSourceVersionsByProject(orgId, 'not-an-id')).toEqual({
+      items: [],
+      pageInfo: { nextCursor: null, hasMore: false },
+    });
   });
 });

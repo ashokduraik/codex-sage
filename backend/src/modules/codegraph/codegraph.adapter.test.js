@@ -5,7 +5,11 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createCodegraphAdapter, mapCodegraphLibraryError } from './codegraph.adapter.js';
+import {
+  createCodegraphAdapter,
+  inspectQuerySurface,
+  mapCodegraphLibraryError,
+} from './codegraph.adapter.js';
 import { resetCodegraphTelemetryConfiguredFlag } from './codegraph.telemetry.js';
 import { resetWriterLocksForTests } from './codegraph.writerLock.js';
 
@@ -303,6 +307,145 @@ describe('codegraph.adapter', () => {
     await fs.mkdir(path.join(workspace, '.codegraph'), { recursive: true });
     await adapter.indexAll(workspace, {});
     expect(mockLib.CodeGraph.recreate).toHaveBeenCalled();
+  });
+
+  it('inspectQuerySurface reports only real methods', () => {
+    expect(inspectQuerySurface({ searchNodes: () => [], getStats: 1 })).toMatchObject({
+      searchNodes: true,
+      getStats: false,
+    });
+  });
+
+  it('refuses a read lease when a writer is held', async () => {
+    const adapter = createCodegraphAdapter({
+      loadLibrary: async () => mockLib,
+      isInProcessWriterHeld: () => true,
+      hasMongoWriterLock: async () => false,
+    });
+    await expect(
+      adapter.acquireReadLease({
+        orgId: 'o',
+        projectId: 'p',
+        workspacePath: '/tmp/ws',
+      }),
+    ).resolves.toEqual({ ok: false, reason: 'writer' });
+    expect(mockLib.CodeGraph.open).not.toHaveBeenCalled();
+  });
+
+  it('opens a read-only lease and wraps query methods', async () => {
+    mockLib.CodeGraph.isInitialized.mockReturnValue(true);
+    mockLib.CodeGraph.open.mockImplementation(async (root, options) => {
+      const graph = createMockGraph(root);
+      graph.getNodesByNamePrefix = vi.fn(() => [
+        { id: 'n1', name: 'foo', filePath: 'a.js', kind: 'function', startLine: 1, endLine: 2 },
+      ]);
+      graph.getRoutingManifest = vi.fn(() => ({
+        entries: [{ url: '/pay', handler: 'pay', handlerFile: 'r.js', handlerLine: 3 }],
+      }));
+      graph.getStats = vi.fn(() => ({ nodeCount: 4, fileCount: 1 }));
+      mockLib.instances.push(graph);
+      expect(options).toMatchObject({ readOnly: true, sync: false });
+      return graph;
+    });
+    const adapter = createCodegraphAdapter({
+      loadLibrary: async () => mockLib,
+      isInProcessWriterHeld: () => false,
+      hasMongoWriterLock: async () => false,
+    });
+    const workspace = await makeTempWorkspace();
+    const leased = await adapter.acquireReadLease({
+      orgId: 'o',
+      projectId: 'p',
+      workspacePath: workspace,
+    });
+    expect(leased.ok).toBe(true);
+    expect(leased.lease.expired).toBe(false);
+    expect(adapter.querySymbols(leased.lease.graph, 'fo', 10)).toHaveLength(1);
+    expect(adapter.queryApis(leased.lease.graph, 10)).toEqual([
+      { url: '/pay', handler: 'pay', handlerFile: 'r.js', handlerLine: 3 },
+    ]);
+    expect(adapter.queryWorkflows(leased.lease.graph, 10)).toEqual([]);
+    expect(adapter.queryStats(leased.lease.graph)).toEqual({ nodeCount: 4, fileCount: 1 });
+    expect(
+      adapter.querySymbols(
+        { searchNodes: (q, options) => [{ node: { name: q }, limit: options.limit }] },
+        'pay',
+        3,
+      ),
+    ).toEqual([{ node: { name: 'pay' }, limit: 3 }]);
+    expect(adapter.querySymbols({}, 'x', 1)).toEqual([]);
+    expect(adapter.queryApis({ getNodesByKind: () => [{ name: 'r', filePath: 'a.js' }] }, 1)).toEqual([
+      { name: 'r', filePath: 'a.js' },
+    ]);
+    expect(adapter.queryStats({})).toBeNull();
+    leased.lease.release();
+    leased.lease.release();
+  });
+
+  it('returns missing when the index does not exist', async () => {
+    mockLib.CodeGraph.isInitialized.mockReturnValue(false);
+    const adapter = createCodegraphAdapter({
+      loadLibrary: async () => mockLib,
+      isInProcessWriterHeld: () => false,
+      hasMongoWriterLock: async () => false,
+    });
+    await expect(
+      adapter.acquireReadLease({
+        orgId: 'o',
+        projectId: 'p',
+        workspacePath: '/tmp/missing-ws',
+      }),
+    ).resolves.toEqual({ ok: false, reason: 'missing' });
+  });
+
+  it('expires a read lease after the TTL', async () => {
+    mockLib.CodeGraph.isInitialized.mockReturnValue(true);
+    const adapter = createCodegraphAdapter({
+      loadLibrary: async () => mockLib,
+      isInProcessWriterHeld: () => false,
+      hasMongoWriterLock: async () => false,
+    });
+    const workspace = await makeTempWorkspace();
+    const leased = await adapter.acquireReadLease({
+      orgId: 'o',
+      projectId: 'p',
+      workspacePath: workspace,
+      ttlMs: 5,
+    });
+    expect(leased.ok).toBe(true);
+    await new Promise((resolve) => {
+      setTimeout(resolve, 15);
+    });
+    expect(leased.lease.expired).toBe(true);
+  });
+
+  it('releases writers and keeps explore/buildContext unimplemented', async () => {
+    const release = vi.fn();
+    const adapter = createCodegraphAdapter({
+      loadLibrary: async () => mockLib,
+      acquireWriter: async () => release,
+    });
+    const held = await adapter.acquireWriter({ orgId: 'o', projectId: 'p' });
+    adapter.releaseWriter(held);
+    adapter.releaseWriter(undefined);
+    expect(release).toHaveBeenCalled();
+    await expect(adapter.explore('/tmp')).rejects.toMatchObject({ code: 'NOT_IMPLEMENTED' });
+    await expect(adapter.buildContext('/tmp')).rejects.toMatchObject({ code: 'NOT_IMPLEMENTED' });
+  });
+
+  it('refuses a read lease when the Mongo writer lock is held', async () => {
+    const adapter = createCodegraphAdapter({
+      loadLibrary: async () => mockLib,
+      isInProcessWriterHeld: () => false,
+      hasMongoWriterLock: async () => true,
+    });
+    await expect(
+      adapter.acquireReadLease({
+        orgId: 'o',
+        projectId: 'p',
+        workspacePath: '/tmp/ws',
+      }),
+    ).resolves.toEqual({ ok: false, reason: 'writer' });
   });
 
   it('isCodegraphLoadable returns true when the package imports', async () => {

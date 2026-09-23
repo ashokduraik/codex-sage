@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   acquireWriter,
   buildWriterLockKey,
+  isWriterHeld,
   resetWriterLocksForTests,
 } from './codegraph.writerLock.js';
 
@@ -43,6 +44,14 @@ describe('codegraph.writerLock', () => {
     const b = await acquireWriter({ orgId: 'o', projectId: 'b' });
     a();
     b();
+  });
+
+  it('reports isWriterHeld only while the mutex is held', async () => {
+    expect(isWriterHeld({ orgId: 'o', projectId: 'p' })).toBe(false);
+    const release = await acquireWriter({ orgId: 'o', projectId: 'p' });
+    expect(isWriterHeld({ orgId: 'o', projectId: 'p' })).toBe(true);
+    release();
+    expect(isWriterHeld({ orgId: 'o', projectId: 'p' })).toBe(false);
   });
 
   it('ignores double release', async () => {

@@ -107,6 +107,8 @@ idempotency, API versioning (`/api/v1`).
 
 **Not present:** any HTTP client, real authentication, SSE consumption, server-state hooks.
 `shared/mock-data/AppDataContext.jsx` is the current source of all application state.
+Sources and Health tabs now read the project API, source-versions list, and repository
+connection — they no longer use `mockProject`. Changes, Chat, Knowledge, and Search still do.
 
 ### Docs
 

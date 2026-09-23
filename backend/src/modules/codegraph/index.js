@@ -5,7 +5,10 @@ export {
   createCodegraphAdapter,
   isCodegraphLoadable,
   mapCodegraphLibraryError,
+  inspectQuerySurface,
   CODEGRAPH_MAX_SYNC_RETRY_ATTEMPTS,
+  CODEGRAPH_READ_LEASE_TTL_MS,
+  CODEGRAPH_QUERY_SURFACE_METHODS,
 } from './codegraph.adapter.js';
 export {
   configureCodegraphTelemetryOff,
@@ -15,6 +18,7 @@ export {
 export {
   acquireWriter,
   buildWriterLockKey,
+  isWriterHeld,
   resetWriterLocksForTests,
 } from './codegraph.writerLock.js';
 export {

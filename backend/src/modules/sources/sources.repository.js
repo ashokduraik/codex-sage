@@ -2,15 +2,58 @@
  * SourceVersion / SourceFile persistence helpers.
  */
 import mongoose from 'mongoose';
-import { assertOrgId } from '../../platform/data/index.js';
+import { ApiError } from '../../platform/errors.js';
+import {
+  assertOrgId,
+  decodeCursor,
+  encodeCursor,
+  ROW_STATUS_ACTIVE,
+} from '../../platform/data/index.js';
 import { SourceFile } from './sourceFile.model.js';
 import { SourceVersion } from './sourceVersion.model.js';
 import {
   SOURCE_FILE_STATE_STORED,
   SOURCE_ORIGIN_REPOSITORY,
   SOURCE_ORIGIN_UPLOAD,
+  SOURCE_VERSION_LIST_PAGE_SIZE_DEFAULT,
+  SOURCE_VERSION_LIST_PAGE_SIZE_MAX,
   VERSION_LIFECYCLE_RECEIVED,
 } from './sources.constants.js';
+
+/**
+ * Clamps a requested source-version page size into the allowed range.
+ * @param {unknown} limit Raw limit.
+ * @returns {number}
+ */
+export function clampSourceVersionListLimit(limit) {
+  if (limit === undefined || limit === null || limit === '') {
+    return SOURCE_VERSION_LIST_PAGE_SIZE_DEFAULT;
+  }
+  const parsed = typeof limit === 'number' ? limit : Number(limit);
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    return SOURCE_VERSION_LIST_PAGE_SIZE_DEFAULT;
+  }
+  return Math.min(Math.floor(parsed), SOURCE_VERSION_LIST_PAGE_SIZE_MAX);
+}
+
+/**
+ * Builds a keyset filter for createdAt/_id descending pages.
+ * @param {{ t: string, i: string }} cursor Decoded cursor.
+ * @returns {object}
+ */
+function keysetAfterCreatedAt(cursor) {
+  const stamp = new Date(cursor.t);
+  if (Number.isNaN(stamp.getTime())) {
+    throw ApiError.fromCode('INVALID_CURSOR');
+  }
+  if (!mongoose.isValidObjectId(cursor.i)) {
+    throw ApiError.fromCode('INVALID_CURSOR');
+  }
+  const id = new mongoose.Types.ObjectId(cursor.i);
+  return {
+    $or: [{ createdAt: { $lt: stamp } }, { createdAt: stamp, _id: { $lt: id } }],
+  };
+}
 
 /**
  * Inserts a SourceVersion row.
@@ -224,4 +267,52 @@ export async function listSourceFilePathHashesPage(input) {
     .limit(input.limit)
     .lean()
     .exec();
+}
+
+/**
+ * Lists active source versions for a project with keyset pagination.
+ * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
+ * @param {string} projectId Project id.
+ * @param {{ cursor?: string, limit?: unknown }} [filters] List filters.
+ * @returns {Promise<{
+ *   items: object[],
+ *   pageInfo: { nextCursor: string | null, hasMore: boolean },
+ * }>}
+ */
+export async function listSourceVersionsByProject(orgId, projectId, filters = {}) {
+  assertOrgId(orgId);
+  if (!mongoose.isValidObjectId(projectId)) {
+    return { items: [], pageInfo: { nextCursor: null, hasMore: false } };
+  }
+
+  const limit = clampSourceVersionListLimit(filters.limit);
+  /** @type {Record<string, unknown>} */
+  const query = {
+    orgId,
+    projectId: new mongoose.Types.ObjectId(String(projectId)),
+    status: ROW_STATUS_ACTIVE,
+  };
+
+  if (filters.cursor) {
+    const decoded = decodeCursor(filters.cursor);
+    Object.assign(query, keysetAfterCreatedAt(decoded));
+  }
+
+  const rows = await SourceVersion.find(query)
+    .sort({ createdAt: -1, _id: -1 })
+    .limit(limit + 1)
+    .lean()
+    .exec();
+
+  const hasMore = rows.length > limit;
+  const items = hasMore ? rows.slice(0, limit) : rows;
+  let nextCursor = null;
+  if (hasMore && items.length > 0) {
+    const last = items[items.length - 1];
+    nextCursor = encodeCursor({
+      t: last.createdAt.toISOString(),
+      i: String(last._id),
+    });
+  }
+  return { items, pageInfo: { nextCursor, hasMore } };
 }

@@ -3,7 +3,10 @@
  */
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { uploadProjectSource } from '@/features/projects/api/sourcesApi.js';
+import {
+  sourceVersionsQueryKey,
+  uploadProjectSource,
+} from '@/features/projects/api/sourcesApi.js';
 import { projectDetailQueryKey } from '@/features/projects/api/projectKeys.js';
 
 /**
@@ -56,6 +59,9 @@ export function useUploadSource() {
       });
       void queryClient.invalidateQueries({
         queryKey: ['projects', variables.projectId, 'jobs'],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: sourceVersionsQueryKey(variables.projectId),
       });
     },
   });

@@ -12,6 +12,8 @@ import {
 import { useTranslation } from 'react-i18next';
 import { EmptyState, KnowledgeHealthBadge } from '@/shared/components';
 import { Button } from '@/shared/ui/button';
+import { useActiveProjectJob } from '@/features/processing/hooks/useActiveProjectJob.js';
+import { jobTypeLabelKey, stageLabelKey } from '@/features/processing/jobProgressMap.js';
 import { isProjectAskable } from './projectStatusMap.js';
 
 const SECTION_DEFS = [
@@ -42,6 +44,23 @@ export default function ProjectOverview() {
   const fileCount = project.counts?.files ?? mockProject?.fileCount ?? 0;
   const excludedCount = project.counts?.excludedFiles ?? mockProject?.excludedCount ?? 0;
   const askable = isProjectAskable(project);
+  const { activeJob } = useActiveProjectJob(project?.id);
+  const processingHref = `/processing?projectId=${encodeURIComponent(project.id)}`;
+  const processingBanner = activeJob ? (
+    <Link
+      to={processingHref}
+      className="mb-6 flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50/60 px-4 py-3 text-sm text-blue-800 hover:bg-blue-50"
+    >
+      <span>
+        {t('processing.overviewBanner', {
+          stageLabel: activeJob.currentStage
+            ? t(stageLabelKey(activeJob.currentStage), { defaultValue: activeJob.currentStage })
+            : t(jobTypeLabelKey(activeJob.jobType), { defaultValue: activeJob.jobType }),
+        })}
+      </span>
+      <ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />
+    </Link>
+  ) : null;
 
   if (tree.length === 0) {
     return (
@@ -68,12 +87,13 @@ export default function ProjectOverview() {
               ) : null}
             </div>
           </section>
+          {processingBanner}
           <EmptyState
             icon={BookOpen}
             title={t('projects.knowledgeNotReadyTitle')}
             description={t('projects.knowledgeNotReadyDescription')}
             action={
-              <Link to="/processing">
+              <Link to={`/processing?projectId=${encodeURIComponent(project.id)}`}>
                 <Button variant="outline">{t('nav.processing')}</Button>
               </Link>
             }
@@ -108,6 +128,8 @@ export default function ProjectOverview() {
             ) : null}
           </div>
         </section>
+
+        {processingBanner}
 
         <section className="mt-8">
           <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">

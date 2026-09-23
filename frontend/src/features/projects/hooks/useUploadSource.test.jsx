@@ -8,6 +8,8 @@ import { ApiError } from '@/shared/api';
 
 vi.mock('@/features/projects/api/sourcesApi.js', () => ({
   uploadProjectSource: vi.fn(),
+  sourceVersionsQueryKey: (projectId) =>
+    Object.freeze(['projects', String(projectId), 'source-versions']),
 }));
 
 import { uploadProjectSource } from '@/features/projects/api/sourcesApi.js';
@@ -48,6 +50,9 @@ describe('useUploadSource', () => {
     expect(result.current.progress).toEqual({ loaded: 10, total: 10 });
     expect(invalidateSpy).toHaveBeenCalledWith({
       queryKey: projectDetailQueryKey('p1'),
+    });
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ['projects', 'p1', 'source-versions'],
     });
     act(() => {
       result.current.resetProgress();

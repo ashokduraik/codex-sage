@@ -95,6 +95,8 @@ export default function ProjectDetailPage() {
   const archived = isProjectArchived(apiProject);
   const askable = isProjectAskable(apiProject);
 
+  // Sources and Health read `project` from the API only. mockProject remains
+  // for Changes, Chat, Knowledge, and Search until those phases migrate.
   const context = useMemo(() => {
     if (!apiProject || !mockProject) {
       return null;

@@ -135,6 +135,22 @@ export const ERROR_CODE_MESSAGES = Object.freeze({
     i18nKey: 'errors.codes.KNOWLEDGE_UNAVAILABLE',
     category: 'temporary',
   }),
+  JOB_NOT_FOUND: Object.freeze({
+    i18nKey: 'errors.codes.JOB_NOT_FOUND',
+    category: 'validation',
+  }),
+  JOB_NOT_RETRYABLE: Object.freeze({
+    i18nKey: 'errors.codes.JOB_NOT_RETRYABLE',
+    category: 'validation',
+  }),
+  JOB_RETRY_LIMIT_EXCEEDED: Object.freeze({
+    i18nKey: 'errors.codes.JOB_RETRY_LIMIT_EXCEEDED',
+    category: 'validation',
+  }),
+  INVALID_JOB_TRANSITION: Object.freeze({
+    i18nKey: 'errors.codes.INVALID_JOB_TRANSITION',
+    category: 'validation',
+  }),
   CONTEXT_ACCOUNTING_UNAVAILABLE: Object.freeze({
     i18nKey: 'errors.codes.CONTEXT_ACCOUNTING_UNAVAILABLE',
     category: 'temporary',

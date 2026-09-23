@@ -7,8 +7,18 @@ vi.mock('@/shared/api/apiUpload.js', () => ({
   apiUpload: vi.fn(),
 }));
 
+vi.mock('@/shared/api', () => ({
+  apiRequest: vi.fn(),
+}));
+
+import { apiRequest } from '@/shared/api';
 import { apiUpload } from '@/shared/api/apiUpload.js';
-import { uploadProjectSource } from './sourcesApi.js';
+import {
+  SOURCE_VERSION_LIST_PAGE_SIZE,
+  listProjectSourceVersions,
+  sourceVersionsQueryKey,
+  uploadProjectSource,
+} from './sourcesApi.js';
 
 describe('uploadProjectSource', () => {
   it('posts the archive field with an Idempotency-Key', async () => {
@@ -36,5 +46,15 @@ describe('uploadProjectSource', () => {
     expect(archive).toBeInstanceOf(File);
     expect(archive.name).toBe(file.name);
     expect(archive.size).toBe(file.size);
+  });
+
+  it('lists source versions with the default page size', async () => {
+    apiRequest.mockResolvedValue({ items: [], pageInfo: { nextCursor: null, hasMore: false } });
+    await listProjectSourceVersions({ projectId: 'p1' });
+    expect(apiRequest).toHaveBeenCalledWith(
+      `/projects/p1/source-versions?limit=${SOURCE_VERSION_LIST_PAGE_SIZE}`,
+      { signal: undefined },
+    );
+    expect(sourceVersionsQueryKey('p1')).toEqual(['projects', 'p1', 'source-versions']);
   });
 });

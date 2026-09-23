@@ -1,36 +1,52 @@
 import { cleanup, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { clearAuthSession, renderWithProviders, seedAuthSession, } from '@/test/renderWithProviders';
+import { clearAuthSession, renderWithProviders, seedAuthSession } from '@/test/renderWithProviders';
 import ProcessingIndicator from './ProcessingIndicator';
+
 afterEach(() => {
-    cleanup();
+  cleanup();
 });
+
 beforeEach(() => {
-    clearAuthSession();
-    localStorage.clear();
-    seedAuthSession();
+  clearAuthSession();
+  localStorage.clear();
+  seedAuthSession();
 });
+
 describe('ProcessingIndicator', () => {
-    it('returns null when there is no job', () => {
-        const { container } = renderWithProviders(<ProcessingIndicator job={null} project={null}/>);
-        expect(container.textContent).toBe('');
-    });
-    it('renders job progress when a job is active', () => {
-        const job = {
-            id: 'job1',
-            projectId: 'p1',
-            op: 'Initial processing',
-            status: 'in_progress',
-            progress: 42,
-            startedAt: new Date().toISOString(),
-            stages: [],
-            activity: [],
-            warnings: [],
-            errors: [],
-        };
-        const project = { id: 'p1', name: 'Atlas' };
-        renderWithProviders(<ProcessingIndicator job={job} project={project}/>);
-        expect(screen.getByText(/Initial processing/)).toBeTruthy();
-        expect(screen.getAllByText(/42%/).length).toBeGreaterThan(0);
-    });
+  it('returns null when there is no job', () => {
+    const { container } = renderWithProviders(
+      <ProcessingIndicator job={null} project={null} />,
+    );
+    expect(container.textContent).toBe('');
+  });
+
+  it('renders the stage label without a percent', () => {
+    const job = {
+      id: 'job1',
+      projectId: 'p1',
+      jobType: 'ingest',
+      jobStatus: 'running',
+      currentStage: 'codegraph_update',
+    };
+    const project = { id: 'p1', name: 'Atlas' };
+    const { container } = renderWithProviders(
+      <ProcessingIndicator job={job} project={project} />,
+    );
+    expect(screen.getByText(/Project structure analyzed · Atlas/)).toBeTruthy();
+    expect(container.textContent).not.toMatch(/%/);
+    expect(screen.getByRole('link').getAttribute('href')).toBe('/processing?projectId=p1');
+  });
+
+  it('falls back to the job type and /processing when project context is missing', () => {
+    const job = {
+      id: 'job1',
+      jobType: 'ingest',
+      jobStatus: 'running',
+      currentStage: null,
+    };
+    renderWithProviders(<ProcessingIndicator job={job} project={null} />);
+    expect(screen.getByText(/Knowledge update · project/)).toBeTruthy();
+    expect(screen.getByRole('link').getAttribute('href')).toBe('/processing');
+  });
 });

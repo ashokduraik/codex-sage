@@ -26,6 +26,21 @@ vi.mock('@/features/projects/api/projectsApi.js', () => ({
   recordProjectAccess: vi.fn(async (id) => getProject(id)),
 }));
 
+const listProjectJobs = vi.fn(async () => ({
+  items: [],
+  pageInfo: { nextCursor: null, hasMore: false },
+}));
+vi.mock('@/features/processing/api/jobsApi.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    listProjectJobs: (...args) => listProjectJobs(...args),
+    getJob: vi.fn(),
+    retryJob: vi.fn(),
+    cancelJob: vi.fn(),
+  };
+});
+
 import { clearAuthSession, renderWithProviders, seedAuthSession, } from '@/test/renderWithProviders';
 import Header from './Header';
 afterEach(() => {
@@ -35,6 +50,11 @@ beforeEach(() => {
     clearAuthSession();
     localStorage.clear();
     seedAuthSession();
+    listProjectJobs.mockReset();
+    listProjectJobs.mockResolvedValue({
+      items: [],
+      pageInfo: { nextCursor: null, hasMore: false },
+    });
 });
 describe('Header', () => {
     it('renders org name and search placeholder', () => {
@@ -81,5 +101,29 @@ describe('Header', () => {
         expect(await screen.findByRole('button', { name: /Atlas Commerce/i })).toBeTruthy();
         fireEvent.mouseDown(document.body);
         expect(screen.queryByRole('button', { name: /Atlas Commerce/i })).toBeNull();
+    });
+
+    it('hides the processing chip when the project has no active job', async () => {
+        renderWithProviders(<Header />, { route: '/projects/prj_atlas' });
+        expect(await screen.findByText('Atlas Commerce')).toBeTruthy();
+        expect(screen.queryByText(/· Atlas Commerce/)).toBeNull();
+    });
+
+    it('shows the processing chip when the project has a running job', async () => {
+        listProjectJobs.mockResolvedValue({
+            items: [
+                {
+                    id: 'job_run',
+                    jobType: 'ingest',
+                    jobStatus: 'running',
+                    currentStage: 'codegraph_update',
+                    createdAt: '2026-01-02T00:00:00.000Z',
+                },
+            ],
+            pageInfo: { nextCursor: null, hasMore: false },
+        });
+        renderWithProviders(<Header />, { route: '/projects/prj_atlas' });
+        expect(await screen.findByText(/Project structure analyzed · Atlas Commerce/)).toBeTruthy();
+        expect(screen.queryByText(/%/)).toBeNull();
     });
 });

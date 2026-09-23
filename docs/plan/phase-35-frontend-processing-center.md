@@ -140,31 +140,31 @@ Processing cards stack at 375 px; stage list remains vertical; activity log scro
 
 **None** (frontend).
 
-## 6. API contract — PROPOSED (needs approval before implementation)
+## 6. API contract — implemented
 
-No new backend endpoints in this FE phase. Consume:
+No new backend endpoints in this FE phase. Consume the shipped Phase 20/22 jobs APIs.
 
-### `GET /api/v1/projects/:projectId/jobs` (Phase 20 §6) — **PROPOSED**
+### `GET /api/v1/projects/:projectId/jobs` (Phase 20) — **implemented**
 
 - Permission: `projects.view` + membership.
 - Query: `cursor`, `limit`, optional `jobStatus`.
 - Response: `items[]`, `pageInfo`.
 
-### `GET /api/v1/jobs/:jobId` (Phase 20 §6) + progress block (Phase 22 §6) — **PROPOSED**
+### `GET /api/v1/jobs/:jobId` (Phase 20 + Phase 22) — **implemented**
 
-- Detail includes `events[]` and nested `progress` as in Phase 22 example (`percent: null` allowed).
+- Flattened progress on the job detail DTO: `percent`, `stages`, `events`, `retry`,
+  `cancellation`, `knowledgeAvailability`. There is **no** nested `progress` object.
+  `percent` may be `null` — do not invent a percentage.
 
-### `POST /api/v1/jobs/:jobId/retry` (Phase 22 §6) — **PROPOSED**
+### `POST /api/v1/jobs/:jobId/retry` (Phase 22) — **implemented**
 
 - Header: `Idempotency-Key`.
 - Response `202` with updated status / retry metadata.
 
-### `POST /api/v1/jobs/:jobId/cancel` (Phase 22 §6) — **PROPOSED**
+### `POST /api/v1/jobs/:jobId/cancel` (Phase 22) — **implemented**
 
-- Response `200` or `202` per job state; cooperative cancel for `running`.
-
-All remain **PROPOSED** until Phases 20 and 22 are approved and deployed. Frontend hooks must
-tolerate absent `progress` until Phase 22 ships (feature-detect: fall back to events + status only).
+- Cooperative cancel for `running`; while `cancellation.requested` the UI shows
+  “Cancellation requested”.
 
 ## 7. Configuration & environment variables
 

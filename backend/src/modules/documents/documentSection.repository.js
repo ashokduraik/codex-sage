@@ -130,6 +130,32 @@ export async function listSectionsForPath(input) {
 }
 
 /**
+ * Lists active sections for a source version (path + section order).
+ * @param {{
+ *   orgId: string | import('mongoose').Types.ObjectId,
+ *   projectId: string | import('mongoose').Types.ObjectId,
+ *   sourceVersionId: string | import('mongoose').Types.ObjectId,
+ * }} scope Version scope.
+ * @param {{ limit?: number }} [options] Cap (defaults to 50).
+ * @returns {Promise<object[]>}
+ */
+export async function listSectionsForVersion(scope, options = {}) {
+  assertOrgId(scope.orgId);
+  const rawLimit = Number(options.limit);
+  const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(Math.floor(rawLimit), 200) : 50;
+  return DocumentSection.find({
+    orgId: scope.orgId,
+    projectId: scope.projectId,
+    sourceVersionId: scope.sourceVersionId,
+    status: ROW_STATUS_ACTIVE,
+  })
+    .sort({ path: 1, sectionIndex: 1 })
+    .limit(limit)
+    .lean()
+    .exec();
+}
+
+/**
  * Counts active sections for a source version.
  * @param {{
  *   orgId: string | import('mongoose').Types.ObjectId,

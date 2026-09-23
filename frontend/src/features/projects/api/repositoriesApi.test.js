@@ -12,8 +12,12 @@ vi.mock('@/shared/api', () => ({
 import {
   attachProjectRepository,
   getProjectRepositoryConnection,
+  patchProjectRepositoryBranch,
   probeProjectRepository,
+  replaceProjectRepositoryCredential,
   repositoryConnectionQueryKey,
+  retestProjectRepositoryConnection,
+  revokeProjectRepositoryCredential,
 } from './repositoriesApi.js';
 
 describe('repositoriesApi', () => {
@@ -94,5 +98,37 @@ describe('repositoriesApi', () => {
       'repositories',
       'connection',
     ]);
+  });
+
+  it('patches the selected branch', async () => {
+    apiRequest.mockResolvedValue({ connection: { selectedBranch: 'develop' } });
+    await patchProjectRepositoryBranch({ projectId: 'p1', selectedBranch: 'develop' });
+    expect(apiRequest).toHaveBeenCalledWith('/projects/p1/repositories/connection/branch', {
+      method: 'PATCH',
+      body: { selectedBranch: 'develop' },
+      signal: undefined,
+    });
+  });
+
+  it('replaces, revokes, and re-tests credentials on the shipped paths', async () => {
+    apiRequest.mockResolvedValue({ connection: { id: 'c1' } });
+    await replaceProjectRepositoryCredential({ projectId: 'p1', accessToken: 'tok' });
+    expect(apiRequest).toHaveBeenCalledWith('/projects/p1/repositories/credentials/replace', {
+      method: 'POST',
+      body: { accessToken: 'tok' },
+      signal: undefined,
+    });
+    apiRequest.mockResolvedValue(undefined);
+    await revokeProjectRepositoryCredential({ projectId: 'p1' });
+    expect(apiRequest).toHaveBeenCalledWith('/projects/p1/repositories/credentials/revoke', {
+      method: 'POST',
+      signal: undefined,
+    });
+    apiRequest.mockResolvedValue({ connectionStatus: 'connected' });
+    await retestProjectRepositoryConnection({ projectId: 'p1' });
+    expect(apiRequest).toHaveBeenCalledWith('/projects/p1/repositories/connection/re-test', {
+      method: 'POST',
+      signal: undefined,
+    });
   });
 });

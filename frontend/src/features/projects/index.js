@@ -29,4 +29,7 @@ export { useRecordProjectAccess } from './hooks/useRecordProjectAccess.js';
 export { useUploadSource } from './hooks/useUploadSource.js';
 export { useRepositoryProbe } from './hooks/useRepositoryProbe.js';
 export { useRepositoryAttach } from './hooks/useRepositoryAttach.js';
+export { useSourceVersions, flattenSourceVersionPages } from './hooks/useSourceVersions.js';
+export { useRepositoryConnection } from './hooks/useRepositoryConnection.js';
+export { useRepositoryCredentialActions } from './hooks/useRepositoryCredentialActions.js';
 export { mapProbeResult, tokenPageUrl } from './repositoryProbeMap.js';

@@ -11,10 +11,39 @@ import {
 } from './codegraph.paths.js';
 import { configureCodegraphTelemetryOff } from './codegraph.telemetry.js';
 import { validateCodegraphIndex } from './codegraph.validate.js';
-import { acquireWriter as acquireProjectWriter } from './codegraph.writerLock.js';
+import { acquireWriter as acquireProjectWriter, isWriterHeld } from './codegraph.writerLock.js';
+import { hasActiveProjectWriterLock } from '../../worker/projectJobLock.js';
 
 /** Bounded temporary retries for SQLite lock / transient IO inside one stage attempt. */
 export const CODEGRAPH_MAX_SYNC_RETRY_ATTEMPTS = 3;
+
+/** Wall-clock TTL for a CodeGraph read lease (browse / later chat tools). */
+export const CODEGRAPH_READ_LEASE_TTL_MS = 10_000;
+
+/** Library instance methods browse may wrap after a surface check. */
+export const CODEGRAPH_QUERY_SURFACE_METHODS = Object.freeze([
+  'searchNodes',
+  'getNodesByNamePrefix',
+  'getNodesByKind',
+  'getRoutingManifest',
+  'getStats',
+  'getDetectedFrameworks',
+  'buildContext',
+]);
+
+/**
+ * Reports which query methods exist on a live graph instance.
+ * @param {object | null | undefined} graph Library instance.
+ * @returns {Readonly<Record<string, boolean>>}
+ */
+export function inspectQuerySurface(graph) {
+  /** @type {Record<string, boolean>} */
+  const surface = {};
+  for (const name of CODEGRAPH_QUERY_SURFACE_METHODS) {
+    surface[name] = typeof graph?.[name] === 'function';
+  }
+  return Object.freeze(surface);
+}
 
 /**
  * Loads the CodeGraph library after forcing telemetry off.
@@ -132,8 +161,14 @@ async function fingerprintDatabase(databasePath) {
  *   indexAll: (workspacePath: string, options: object) => Promise<object>,
  *   sync: (workspacePath: string, options: object) => Promise<object>,
  *   validate: (workspacePath: string, options: object) => Promise<object>,
- *   explore: () => Promise<never>,
- *   buildContext: () => Promise<never>,
+ *   acquireReadLease: (input: object) => Promise<object>,
+ *   inspectQuerySurface: typeof inspectQuerySurface,
+ *   querySymbols: (graph: object, q: string, limit: number) => object[],
+ *   queryApis: (graph: object, limit: number) => object[],
+ *   queryWorkflows: (graph: object, limit: number) => object[],
+ *   queryStats: (graph: object) => object | null,
+ *   explore: (workspacePath: string, input: object) => Promise<unknown>,
+ *   buildContext: (workspacePath: string, input: object) => Promise<unknown>,
  * }}
  */
 export function createCodegraphAdapter(config = {}) {
@@ -433,11 +468,151 @@ export function createCodegraphAdapter(config = {}) {
       }
     },
 
+    inspectQuerySurface,
+
     /**
-     * Read-side stub until phase 46.
+     * Opens a read-only graph when no writer holds the project.
+     * @param {{
+     *   orgId: string,
+     *   projectId: string,
+     *   workspacePath: string,
+     *   ttlMs?: number,
+     * }} input Lease scope.
+     * @returns {Promise<
+     *   | { ok: true, lease: { graph: object, expired: boolean, release: () => void } }
+     *   | { ok: false, reason: 'writer' | 'missing' }
+     * >}
+     */
+    async acquireReadLease(input) {
+      const hasMongoWriter =
+        config.hasMongoWriterLock ?? hasActiveProjectWriterLock;
+      const writerHeld =
+        (config.isInProcessWriterHeld ?? isWriterHeld)({
+          orgId: input.orgId,
+          projectId: input.projectId,
+        }) || (await hasMongoWriter({ orgId: input.orgId, projectId: input.projectId }));
+      if (writerHeld) {
+        return { ok: false, reason: 'writer' };
+      }
+
+      const { CodeGraph } = await ensureLibrary();
+      const exists =
+        typeof CodeGraph.isInitialized === 'function'
+          ? CodeGraph.isInitialized(input.workspacePath)
+          : await codegraphIndexExists(input.workspacePath);
+      if (!exists) {
+        return { ok: false, reason: 'missing' };
+      }
+
+      const openOptions = { sync: false, readOnly: true };
+      const graph = await CodeGraph.open(input.workspacePath, openOptions);
+      disableFilesystemWatch(graph);
+
+      const ttlMs = input.ttlMs ?? CODEGRAPH_READ_LEASE_TTL_MS;
+      let released = false;
+      let expired = false;
+      const timer = setTimeout(() => {
+        expired = true;
+        releaseLease();
+      }, ttlMs);
+      if (typeof timer.unref === 'function') {
+        timer.unref();
+      }
+
+      /**
+       * Releases the graph handle once.
+       */
+      function releaseLease() {
+        if (released) {
+          return;
+        }
+        released = true;
+        clearTimeout(timer);
+        try {
+          graph.close?.();
+        } catch {
+          // ignore close errors
+        }
+      }
+
+      return {
+        ok: true,
+        lease: {
+          graph,
+          get expired() {
+            return expired;
+          },
+          release: releaseLease,
+        },
+      };
+    },
+
+    /**
+     * Bounded symbol lookup using real library methods only.
+     * @param {object} graph Open graph.
+     * @param {string} query Prefix or search text.
+     * @param {number} limit Max rows.
+     * @returns {object[]}
+     */
+    querySymbols(graph, query, limit) {
+      const surface = inspectQuerySurface(graph);
+      if (surface.getNodesByNamePrefix) {
+        return graph.getNodesByNamePrefix(query, limit) ?? [];
+      }
+      if (surface.searchNodes) {
+        return graph.searchNodes(query, { limit }) ?? [];
+      }
+      return [];
+    },
+
+    /**
+     * Route / API entries when the library exposes them.
+     * @param {object} graph Open graph.
+     * @param {number} limit Max rows.
+     * @returns {object[]}
+     */
+    queryApis(graph, limit) {
+      const surface = inspectQuerySurface(graph);
+      if (surface.getRoutingManifest) {
+        const manifest = graph.getRoutingManifest(limit);
+        return Array.isArray(manifest?.entries) ? manifest.entries : [];
+      }
+      if (surface.getNodesByKind) {
+        return (graph.getNodesByKind('route') ?? []).slice(0, limit);
+      }
+      return [];
+    },
+
+    /**
+     * Workflow-oriented nodes. The library has no first-class workflow API.
+     * @param {object} graph Open graph.
+     * @param {number} _limit Unused; kept for call-site symmetry.
+     * @returns {object[]}
+     */
+    queryWorkflows(graph, _limit) {
+      void _limit;
+      void graph;
+      return [];
+    },
+
+    /**
+     * Graph stats when `getStats` exists.
+     * @param {object} graph Open graph.
+     * @returns {object | null}
+     */
+    queryStats(graph) {
+      if (inspectQuerySurface(graph).getStats) {
+        return graph.getStats() ?? null;
+      }
+      return null;
+    },
+
+    /**
+     * Read-side explore — wraps the library method when present.
+     * @param {string} _workspacePath Unused until a caller supplies a lease.
      * @returns {Promise<never>}
      */
-    async explore() {
+    async explore(_workspacePath) {
       throw Object.assign(new Error('CodeGraph explore is not implemented yet.'), {
         code: 'NOT_IMPLEMENTED',
         failureClass: 'permanent',
@@ -445,10 +620,11 @@ export function createCodegraphAdapter(config = {}) {
     },
 
     /**
-     * Read-side stub until phase 46.
+     * Read-side buildContext — wraps the library method when present.
+     * @param {string} _workspacePath Unused until a caller supplies a lease.
      * @returns {Promise<never>}
      */
-    async buildContext() {
+    async buildContext(_workspacePath) {
       throw Object.assign(new Error('CodeGraph buildContext is not implemented yet.'), {
         code: 'NOT_IMPLEMENTED',
         failureClass: 'permanent',

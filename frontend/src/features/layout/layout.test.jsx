@@ -28,6 +28,21 @@ vi.mock('@/features/projects/api/projectsApi.js', () => ({
   recordProjectAccess: vi.fn(async (id) => getProject(id)),
 }));
 
+const listProjectJobs = vi.fn(async () => ({
+  items: [],
+  pageInfo: { nextCursor: null, hasMore: false },
+}));
+vi.mock('@/features/processing/api/jobsApi.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    listProjectJobs: (...args) => listProjectJobs(...args),
+    getJob: vi.fn(),
+    retryJob: vi.fn(),
+    cancelJob: vi.fn(),
+  };
+});
+
 import { AuthProvider } from '@/features/auth/AuthContext';
 import { CURRENT_USER_QUERY_KEY } from '@/features/auth/api/authKeys.js';
 import AppShell from '@/features/layout/AppShell';
@@ -122,23 +137,20 @@ describe('ProcessingIndicator', () => {
     expect(container.textContent).toBe('');
   });
 
-  it('renders job progress when a job is active', () => {
+  it('renders the stage label when a job is active', () => {
     const job = {
       id: 'job1',
       projectId: 'p1',
-      op: 'Initial processing',
-      status: 'in_progress',
-      progress: 42,
-      startedAt: new Date().toISOString(),
-      stages: [],
-      activity: [],
-      warnings: [],
-      errors: [],
+      jobType: 'ingest',
+      jobStatus: 'running',
+      currentStage: 'codegraph_update',
     };
     const project = { id: 'p1', name: 'Atlas' };
-    renderLayout(<ProcessingIndicator job={job} project={project} />);
-    expect(screen.getByText(/Initial processing/)).toBeTruthy();
-    expect(screen.getAllByText(/42%/).length).toBeGreaterThan(0);
+    const { container } = renderLayout(
+      <ProcessingIndicator job={job} project={project} />,
+    );
+    expect(screen.getByText(/Project structure analyzed · Atlas/)).toBeTruthy();
+    expect(container.textContent).not.toMatch(/%/);
   });
 });
 

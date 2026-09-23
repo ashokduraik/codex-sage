@@ -263,4 +263,81 @@ describe('source reingest routes', () => {
     expect(res.statusCode).toBe(403);
     expect(res.json().error.code).toBe('FORBIDDEN');
   });
+
+  it('lists source versions for a project with projects.view', async () => {
+    await runBootstrapSeed(createMockLog());
+    app = await readyApp();
+    const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
+    const org = await findOrganizationBySlug('default');
+    const created = await createProjectRequest(
+      app,
+      accessToken,
+      { name: 'Source Versions List', sourceType: 'upload' },
+      'idem-source-versions-list',
+    );
+    const projectId = created.json().id;
+    const firstId = new mongoose.Types.ObjectId();
+    const secondId = new mongoose.Types.ObjectId();
+    await insertSourceVersion({
+      orgId: String(org._id),
+      projectId,
+      sourceVersionId: String(firstId),
+      exclusionRulesetId: EXCLUSION_RULESET_ID,
+      createdBy: String(org._id),
+      fileCounts: { accepted: 10, skipped: 2, excludedFromGraph: 1 },
+    });
+    await insertSourceVersion({
+      orgId: String(org._id),
+      projectId,
+      sourceVersionId: String(secondId),
+      exclusionRulesetId: EXCLUSION_RULESET_ID,
+      createdBy: String(org._id),
+      origin: 'repository',
+      commitSha: 'abc123',
+      branch: 'main',
+      fileCounts: { accepted: 4, skipped: 0, excludedFromGraph: 0 },
+    });
+
+    const page1 = await app.inject({
+      method: 'GET',
+      url: `${API_BASE_PATH}/projects/${projectId}/source-versions?limit=1`,
+      headers: { authorization: `Bearer ${accessToken}` },
+    });
+    expect(page1.statusCode).toBe(200);
+    expect(page1.json().items).toHaveLength(1);
+    expect(page1.json().pageInfo.hasMore).toBe(true);
+    expect(page1.json().items[0]).toMatchObject({
+      origin: 'repository',
+      commitSha: 'abc123',
+      branch: 'main',
+    });
+
+    const page2 = await app.inject({
+      method: 'GET',
+      url: `${API_BASE_PATH}/projects/${projectId}/source-versions?limit=1&cursor=${encodeURIComponent(page1.json().pageInfo.nextCursor)}`,
+      headers: { authorization: `Bearer ${accessToken}` },
+    });
+    expect(page2.statusCode).toBe(200);
+    expect(page2.json().items).toHaveLength(1);
+    expect(page2.json().pageInfo.hasMore).toBe(false);
+  });
+
+  it('rejects limit=0 on source-versions list', async () => {
+    await runBootstrapSeed(createMockLog());
+    app = await readyApp();
+    const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
+    const created = await createProjectRequest(
+      app,
+      accessToken,
+      { name: 'Source Versions Limit', sourceType: 'upload' },
+      'idem-source-versions-limit',
+    );
+    const res = await app.inject({
+      method: 'GET',
+      url: `${API_BASE_PATH}/projects/${created.json().id}/source-versions?limit=0`,
+      headers: { authorization: `Bearer ${accessToken}` },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error.code).toBe('VALIDATION_ERROR');
+  });
 });

@@ -6,7 +6,23 @@ import {
   createPendingJob,
   findActiveJobForSourceVersion,
 } from '../jobs/index.js';
-import { findActiveSourceVersionForProject } from './sources.repository.js';
+import { findActiveSourceVersionForProject, listSourceVersionsByProject } from './sources.repository.js';
+import { mapSourceVersionToListDto } from './sources.types.js';
+
+/**
+ * Lists source versions for a project (caller already passed project ACL).
+ * @param {string} orgId Tenant id.
+ * @param {string} projectId Project id.
+ * @param {{ cursor?: string, limit?: unknown }} [query] List query.
+ * @returns {Promise<{ items: object[], pageInfo: { nextCursor: string | null, hasMore: boolean } }>}
+ */
+export async function listProjectSourceVersions(orgId, projectId, query = {}) {
+  const result = await listSourceVersionsByProject(orgId, projectId, query);
+  return {
+    items: result.items.map(mapSourceVersionToListDto),
+    pageInfo: result.pageInfo,
+  };
+}
 
 /**
  * Enqueues a reingest job for an existing source version, or returns the active one.

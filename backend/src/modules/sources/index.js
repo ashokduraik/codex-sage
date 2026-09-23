@@ -32,6 +32,8 @@ export {
   SOURCE_FILE_STATE_STORED,
   SOURCE_FILE_STATE_MISSING,
   SOURCE_FILE_STATE_CORRUPT,
+  SOURCE_VERSION_LIST_PAGE_SIZE_DEFAULT,
+  SOURCE_VERSION_LIST_PAGE_SIZE_MAX,
 } from './sources.constants.js';
 
 export { SourceVersion } from './sourceVersion.model.js';
@@ -54,13 +56,16 @@ export {
   findSourceVersionById,
   findActiveSourceVersionForProject,
   listSourceFilePathHashesPage,
+  listSourceVersionsByProject,
+  clampSourceVersionListLimit,
 } from './sources.repository.js';
+export { mapSourceVersionToListDto } from './sources.types.js';
 export { kindForSourcePath } from './sourceFileKind.js';
 export { consumeSourceArchivePreHandler } from './consumeSourceArchive.js';
 export { persistSourceUpload, storeAcceptedZipEntries } from './upload.service.js';
 export { sourceUploadRoutes } from './upload.routes.js';
 export { sourceRoutes } from './sources.routes.js';
-export { enqueueSourceReingest } from './sources.service.js';
+export { enqueueSourceReingest, listProjectSourceVersions } from './sources.service.js';
 export {
   SOURCE_DIFF_BATCH_SIZE,
   classifySourceDiff,

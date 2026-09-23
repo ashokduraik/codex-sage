@@ -10,10 +10,12 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/features/auth/AuthContext';
 import { flattenProjectPages, useProjects } from '@/features/projects/hooks/useProjects.js';
 import { useProject } from '@/features/projects/hooks/useProject.js';
+import { useActiveProjectJob } from '@/features/processing/hooks/useActiveProjectJob.js';
+import { resolveProcessingProjectId } from '@/features/processing/resolveProcessingProjectId.js';
 import { useAppData } from '@/shared/mock-data';
 import { cn } from '@/shared/lib/utils';
 import {
@@ -34,15 +36,17 @@ import ProcessingIndicator from './ProcessingIndicator';
  */
 export default function Header({ onMenu }) {
   const { t } = useTranslation();
-  const { org, activeJob, notifications, markAllNotificationsRead, markNotificationRead } =
-    useAppData();
+  const { org, notifications, markAllNotificationsRead, markNotificationRead } = useAppData();
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const params = useParams();
-  const routeProjectId = location.pathname.startsWith('/projects/')
-    ? params.id || location.pathname.split('/')[2]
-    : undefined;
+  const [searchParams] = useSearchParams();
+  const routeProjectId = resolveProcessingProjectId({
+    pathname: location.pathname,
+    params,
+    searchParams,
+  });
 
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -63,6 +67,7 @@ export default function Header({ onMenu }) {
     enabled: debouncedQuery.length > 0,
   });
   const activeProjectQuery = useProject(routeProjectId, { enabled: Boolean(routeProjectId) });
+  const { activeJob } = useActiveProjectJob(routeProjectId, { enabled: Boolean(routeProjectId) });
 
   const switcherProjects = flattenProjectPages(switcherQuery.data);
   const searchResults = useMemo(

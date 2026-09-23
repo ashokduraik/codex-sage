@@ -7,6 +7,7 @@ export {
   softDeleteSectionsForPath,
   insertDocumentSections,
   listSectionsForPath,
+  listSectionsForVersion,
   countSectionsForVersion,
   copySectionsForPaths,
 } from './documentSection.repository.js';

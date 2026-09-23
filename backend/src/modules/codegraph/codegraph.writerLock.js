@@ -6,6 +6,9 @@
 /** @type {Map<string, Promise<void>>} */
 const projectWriterTails = new Map();
 
+/** Keys currently held by an in-process writer (not merely queued). */
+const heldWriterKeys = new Set();
+
 /**
  * Builds a stable lock key for a tenant project.
  * @param {{ orgId: string, projectId: string }} scope Org + project ids.
@@ -39,6 +42,7 @@ export async function acquireWriter(scope) {
   );
 
   await previous;
+  heldWriterKeys.add(key);
 
   let released = false;
   return function releaseWriter() {
@@ -46,8 +50,18 @@ export async function acquireWriter(scope) {
       return;
     }
     released = true;
+    heldWriterKeys.delete(key);
     releaseCurrent();
   };
+}
+
+/**
+ * True when this process currently holds the writer mutex for the project.
+ * @param {{ orgId: string, projectId: string }} scope Org + project ids.
+ * @returns {boolean}
+ */
+export function isWriterHeld(scope) {
+  return heldWriterKeys.has(buildWriterLockKey(scope));
 }
 
 /**
@@ -56,4 +70,5 @@ export async function acquireWriter(scope) {
  */
 export function resetWriterLocksForTests() {
   projectWriterTails.clear();
+  heldWriterKeys.clear();
 }

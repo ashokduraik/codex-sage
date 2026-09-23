@@ -156,10 +156,12 @@ Confirm against phase 28 schema before a second pass. Row `status: 'A'|'D'` unch
 Indexes: reuse phase 26 `{ orgId, projectId, sourceVersionId, path }` on `documentSections` for
 doc facets.
 
-## 6. API contract — PROPOSED (needs approval before implementation)
+## 6. API contract — implemented
 
 Base path: `/api/v1/projects/:projectId/knowledge`. All routes: **Auth** JWT; **Permission**
-`knowledge.browse` or `knowledge.view` (confirm equivalence); project membership required.
+`knowledge.browse` **or** `knowledge.view` (`permissionMode: 'any'`); project membership
+required. Unavailable/updating uses HTTP `200` `{ state: "ready"|"updating"|"unavailable" }`
+with empty items — not `503`.
 
 ### `GET /api/v1/projects/:projectId/knowledge`
 
@@ -185,7 +187,7 @@ Base path: `/api/v1/projects/:projectId/knowledge`. All routes: **Auth** JWT; **
 }
 ```
 
-- **Response `503`:** `{ "error": { "code": "KNOWLEDGE_UNAVAILABLE", ... } }`
+- **Response `200` wrapper when the gate queues or denies:** `{ "state": "updating"|"unavailable", "facets": [], ... }`
 
 ### `GET /api/v1/projects/:projectId/knowledge/summary`
 
@@ -257,8 +259,9 @@ Base path: `/api/v1/projects/:projectId/knowledge`. All routes: **Auth** JWT; **
 Enum values for `state` and `knowledgeHealth` must match phase 28 / data-model mapping — do
 not invent a fourth scheme (see section 12).
 
-**Errors (all routes):** `401 UNAUTHENTICATED`, `403 FORBIDDEN`, `404 NOT FOUND` (cross-tenant),
-`400 VALIDATION_ERROR`, `503 KNOWLEDGE_UNAVAILABLE`.
+**Errors (all routes):** `401 UNAUTHENTICATED`, `403 FORBIDDEN`, `404 PROJECT_NOT_FOUND`
+(cross-tenant / `status: D`), `400 VALIDATION_ERROR`. Unexpected crashes: `INTERNAL_ERROR`.
+Gate/writer/missing graph: HTTP `200` with `state` — not `503`.
 
 ## 7. Configuration & environment variables
 
@@ -311,13 +314,13 @@ not invent a fourth scheme (see section 12).
 
 ## 10. Definition of Done
 
-- [ ] All six solution §11.1 routes are registered under `/api/v1`.
-- [ ] Every route enforces org/project scope and RBAC independently of the UI.
-- [ ] Browse never returns data from a non-current knowledge version or a stale mid-update graph.
-- [ ] `KNOWLEDGE_UNAVAILABLE` is used when the gate or read lease blocks graph reads.
-- [ ] List endpoints paginate; constants live in module code, not `.env`.
-- [ ] No embeddings/vector/reranker code paths.
-- [ ] `npm run lint`, `npm test` pass; coverage ≥ 80% line and branch on touched modules.
+- [x] All six solution §11.1 routes are registered under `/api/v1`.
+- [x] Every route enforces org/project scope and RBAC independently of the UI.
+- [x] Browse never returns data from a non-current knowledge version or a stale mid-update graph.
+- [x] Gate/writer blocks return `200` `{ state: "updating"|"unavailable" }` with empty items.
+- [x] List endpoints paginate; constants live in module code, not `.env`.
+- [x] No embeddings/vector/reranker code paths.
+- [x] `npm run lint`, `npm test` pass; coverage ≥ 80% line and branch on touched modules.
 
 ## 11. Documentation & ADR updates
 

@@ -11,6 +11,7 @@ import {
   countSectionsForVersion,
   insertDocumentSections,
   listSectionsForPath,
+  listSectionsForVersion,
   softDeleteSectionsForPath,
   softDeleteSectionsForVersion,
 } from './documentSection.repository.js';
@@ -73,6 +74,9 @@ describe('documentSection.repository', () => {
       ],
     });
     expect(await countSectionsForVersion({ orgId, projectId, sourceVersionId })).toBe(1);
+    const listed = await listSectionsForVersion({ orgId, projectId, sourceVersionId });
+    expect(listed).toHaveLength(1);
+    expect(listed[0].path).toBe('docs/a.md');
 
     await softDeleteSectionsForPath({
       orgId,
