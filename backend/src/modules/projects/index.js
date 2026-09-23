@@ -23,6 +23,7 @@ export {
   PROJECTS_LIST_SORT_VALUES,
   clampProjectsListLimit,
   resolveProjectsListSort,
+  adjustProjectConversationCount,
   createProject as createProjectInRepo,
   findProjectById,
   listProjects as listProjectsInRepo,

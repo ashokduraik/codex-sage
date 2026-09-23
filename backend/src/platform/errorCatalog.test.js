@@ -52,6 +52,11 @@ describe('ERROR_CATALOG', () => {
       httpStatus: 404,
       retryability: 'user_action_required',
     });
+    expect(ERROR_CATALOG.CONVERSATION_NOT_FOUND).toMatchObject({
+      class: 'user',
+      httpStatus: 404,
+      retryability: 'user_action_required',
+    });
   });
 
   it('allows details for validation, rate limit, and policy violation codes', () => {

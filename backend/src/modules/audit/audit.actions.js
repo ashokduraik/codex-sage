@@ -3,7 +3,7 @@
  * Later phases add entries in the same change that introduces their routes.
  */
 
-/** @typedef {'user' | 'role' | 'membership' | 'route' | 'project' | 'job' | 'source' | 'knowledge' | 'repository'} AuditResourceType */
+/** @typedef {'user' | 'role' | 'membership' | 'route' | 'project' | 'job' | 'source' | 'knowledge' | 'repository' | 'conversation'} AuditResourceType */
 
 /**
  * Map of known `<domain>.<verb>` actions to their paired resourceType.
@@ -42,6 +42,11 @@ export const AUDIT_ACTION_RESOURCE_TYPES = Object.freeze({
   'repository.credential_replaced': 'repository',
   'repository.credential_revoked': 'repository',
   'repository.sync_triggered': 'repository',
+  'conversation.created': 'conversation',
+  'conversation.archived': 'conversation',
+  'conversation.restored': 'conversation',
+  'conversation.deleted': 'conversation',
+  'conversation.title_changed': 'conversation',
 });
 
 /** Frozen list of known action strings. */

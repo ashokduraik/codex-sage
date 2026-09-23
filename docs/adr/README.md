@@ -29,6 +29,7 @@
 | [0024](./0024-repository-credential-encryption.md) | Repository credential encryption (AES-256-GCM) | Accepted |
 | [0025](./0025-provider-inference-from-url.md) | Provider inference from repository URL | Accepted |
 | [0026](./0026-repository-sync-archive-adapter.md) | Repository sync uses the provider archive API | Accepted |
+| [0027](./0027-conversation-owner-privacy.md) | Conversations are private to the owner until explicit share | Accepted |
 
 One decision = one ADR. Accepted ADRs are immutable; supersede with a new number rather
 than rewriting history.

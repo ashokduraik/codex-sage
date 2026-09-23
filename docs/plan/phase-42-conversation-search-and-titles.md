@@ -253,15 +253,14 @@ Documented for Phase 49; behaviour per §4.4 until Phase 45.
 - Phase 54 frontend plan consumes these PROPOSED contracts.
 - No ADR unless search scope choice has long-term privacy implications worth recording.
 
-## 12. Risks & open questions
+## 12. Risks & open questions — decided (ADR 0027)
 
-1. **Search scope (master plan #12).** Own only vs org_admin all in project vs everyone with
-   `conversations.view` — which is MVP?
-2. **Truncated user-text placeholder title** before Phase 45: allowed per FE §98 honesty, or must
-   title stay `New conversation` until LLM auto-title runs?
-3. **Index strategy:** denormalized `searchText` on conversation (Option A) vs message collection
-   text search (Option B)?
-4. **Archived conversations in search:** included by default or opt-in via `archived=1`?
-5. **Admin rename:** may `conversations.archive` or org_admin rename another user's conversation?
-6. **Highlighting:** return plain snippet only, or marked highlights for UI bolding (FE not
-   required for MVP)?
+1. **Search scope.** Own conversations only (same as list/get). `conversations.view` and
+   org_admin do not expand the set.
+2. **Truncated user-text placeholder title.** Allowed when `titleSource` is still `default`;
+   labeled `truncated_user_text`. LLM titles wait for Phase 45.
+3. **Index strategy.** Option A: denormalized `searchText` on the conversation + weighted
+   text index on `title` + `searchText`.
+4. **Archived conversations in search.** Excluded unless `archived=1` / `archived=true`.
+5. **Admin rename.** Owner only.
+6. **Highlighting.** Plain snippet only; no highlight markers.

@@ -16,6 +16,7 @@ import {
 } from '../modules/sources/index.js';
 import { knowledgeBrowseRoutes } from '../modules/knowledge/index.js';
 import { searchRoutes } from '../modules/search/index.js';
+import { conversationRoutes } from '../modules/conversations/index.js';
 
 /**
  * Fastify plugin that registers every domain route module.
@@ -39,4 +40,5 @@ export async function registerRoutes(app) {
   await app.register(repositoryRoutes);
   await app.register(knowledgeBrowseRoutes);
   await app.register(searchRoutes);
+  await app.register(conversationRoutes);
 }

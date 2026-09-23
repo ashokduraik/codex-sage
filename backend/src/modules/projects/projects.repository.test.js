@@ -18,6 +18,7 @@ import {
   updateProjectSourceConfig,
   touchProjectLastAccessedAt,
   resolveProjectsListSort,
+  adjustProjectConversationCount,
   PROJECTS_LIST_DEFAULT_LIMIT,
   PROJECTS_LIST_MAX_LIMIT,
 } from './projects.repository.js';
@@ -260,5 +261,21 @@ describe('projects.repository', () => {
     expect(await updateProjectSourceConfig(orgId, 'not-an-id', {
       repositoryConnectionId: String(connectionId),
     })).toBeNull();
+  });
+
+  it('increments and floors conversation counts', async () => {
+    const orgId = new mongoose.Types.ObjectId();
+    const actor = new mongoose.Types.ObjectId();
+    const created = await createProject(orgId, {
+      name: 'Counts',
+      sourceType: 'upload',
+      createdBy: actor,
+    });
+    const up = await adjustProjectConversationCount(orgId, String(created._id), 2);
+    expect(up.counts.conversations).toBe(2);
+    const down = await adjustProjectConversationCount(orgId, String(created._id), -5);
+    expect(down.counts.conversations).toBe(0);
+    expect(await adjustProjectConversationCount(orgId, String(created._id), 0)).toBeNull();
+    expect(await adjustProjectConversationCount(orgId, 'not-an-id', 1)).toBeNull();
   });
 });

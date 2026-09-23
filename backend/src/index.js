@@ -11,6 +11,7 @@ import { SOURCE_MODELS } from './modules/sources/index.js';
 import { DOCUMENT_MODELS } from './modules/documents/index.js';
 import { KNOWLEDGE_MODELS } from './modules/knowledge/index.js';
 import { REPOSITORY_MODELS } from './modules/repositories/index.js';
+import { CONVERSATION_MODELS } from './modules/conversations/index.js';
 import { ProjectJobLock } from './worker/projectJobLock.model.js';
 import { loadConfig } from './platform/config.js';
 import { syncSchemaIndexes } from './platform/data/index.js';
@@ -78,6 +79,7 @@ async function start() {
         ...DOCUMENT_MODELS,
         ...KNOWLEDGE_MODELS,
         ...REPOSITORY_MODELS,
+        ...CONVERSATION_MODELS,
         ProjectJobLock,
       ]);
     } catch (err) {

@@ -282,6 +282,38 @@ the credential with the connection.
 
 Index (partial `status: 'A'`): `{ orgId, projectId, connectionId, status }`.
 
+### `conversations`
+
+Owner-private chat thread header (Phases 41–42; ADR 0027). Fields: `projectId`,
+`ownerUserId` (same as `createdBy` on create), `title` (1–200), `titleSource`
+(`default` \| `user` \| `truncated_user_text` \| `llm`), `searchText` (denormalized
+message contents for the text index; maintained when messages persist),
+`lifecycleStatus` (`active` \| `archived`), `archivedAt`, `lastMessageAt`,
+`messageCount`, plus base fields.
+
+Row `status` is never used for archive. Default list is `status: 'A'` and
+`lifecycleStatus: 'active'`; `?archived=true` returns archived rows only.
+Soft-delete sets `status: 'D'` and decrements `projects.counts.conversations`.
+Messages remain until retention (Phase 60).
+
+Indexes (partial `status: 'A'`): `{ orgId, projectId, ownerUserId, updatedAt: -1, _id: -1 }`,
+`{ orgId, projectId, ownerUserId, lifecycleStatus, updatedAt: -1 }`.
+Text index `conversation_search_text` on `title` (weight 10) + `searchText` (weight 5).
+
+Conversations do not write `KnowledgeVersion` or other project knowledge.
+
+### `messages`
+
+One row per chat turn (Phase 41 schema; HTTP create is Phase 50). Fields:
+`projectId`, `conversationId`, `role` (`user` \| `assistant` \| `system`), `content`,
+`messageStatus` (`completed` in this slice; Phase 50 extends the enum),
+`knowledgeVersionId`, `parentMessageId` (reserved for Phase 53), optional
+`evidence` / `usage` / `contextMetrics` (null until later phases), plus base fields.
+
+Indexes (partial `status: 'A'`): `{ orgId, conversationId, createdAt: 1, _id: 1 }`,
+`{ orgId, projectId, conversationId }`. Thread pages are oldest-first on
+`(createdAt, _id)`.
+
 ## Bootstrap seed
 
 On API startup the process ensures the default organization, four built-in roles, admin

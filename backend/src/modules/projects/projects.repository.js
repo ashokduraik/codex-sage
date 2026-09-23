@@ -403,6 +403,37 @@ export async function conditionalLifecycleUpdate(orgId, projectId, transition) {
 }
 
 /**
+ * Increments or decrements `counts.conversations`, floored at 0.
+ * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
+ * @param {string} projectId Project id.
+ * @param {number} delta Integer change (typically +1 or -1).
+ * @returns {Promise<import('mongoose').Document | null>}
+ */
+export async function adjustProjectConversationCount(orgId, projectId, delta) {
+  assertOrgId(orgId);
+  if (!mongoose.isValidObjectId(projectId) || !Number.isInteger(delta) || delta === 0) {
+    return null;
+  }
+  return Project.findOneAndUpdate(
+    {
+      _id: projectId,
+      orgId,
+      status: ROW_STATUS_ACTIVE,
+    },
+    [
+      {
+        $set: {
+          'counts.conversations': {
+            $max: [0, { $add: [{ $ifNull: ['$counts.conversations', 0] }, delta] }],
+          },
+        },
+      },
+    ],
+    { returnDocument: 'after', updatePipeline: true },
+  ).exec();
+}
+
+/**
  * Soft-deletes an active project.
  * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
  * @param {string} projectId Project id.

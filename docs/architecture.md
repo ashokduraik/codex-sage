@@ -163,7 +163,11 @@ MongoDB
   ADR 0004)
   Project job locks (`project_job_locks`; one live `project_writer` lock per project —
   ADR 0022)
-  Conversations, messages, clarifications, summaries
+  Conversations (`ownerUserId`, `title`, `titleSource`, `searchText`,
+  `lifecycleStatus` active|archived, `archivedAt`, `lastMessageAt`, `messageCount`;
+  text index `conversation_search_text` on `title` + `searchText`),
+  messages (`conversationId`, `role`, `content`, `messageStatus`),
+  clarifications, summaries
   Audit, in-app notifications, usage, idempotency keys
   GridFS: accepted source/doc bytes (not node_modules, not images)
 
@@ -176,8 +180,9 @@ Encrypted workspace on disk (current graph only)
 
 Every Mongo query and every workspace path is scoped to
 `orgId + projectId + status: 'A'` (and the current knowledge version on retrieval).
-Soft-delete is `status: 'D'`. Lifecycle uses other fields (`lifecycleStatus`, `jobStatus`,
-`knowledgeHealth`, …).
+Conversation reads also require `ownerUserId` of the caller (ADR 0027) until an
+explicit share feature exists. Soft-delete is `status: 'D'`. Lifecycle uses other
+fields (`lifecycleStatus`, `jobStatus`, `knowledgeHealth`, …).
 
 **Not in this slice:** Redis/BullMQ, S3, an embedding service, a reranker, a standalone
 CodeGraph service, Node `worker_threads`, live queries against the customer app database.

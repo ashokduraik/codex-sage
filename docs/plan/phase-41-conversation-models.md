@@ -366,18 +366,13 @@ Author must be owner **or** holder of `conversations.archive` (PROPOSED — conf
 - Update `docs/data-model.md` when it exists.
 - No new ADR unless privacy rules in §12 choose a non-obvious sharing model.
 
-## 12. Risks & open questions
+## 12. Risks & open questions — decided (ADR 0027)
 
-Ask the user; do not assume (`.cursor/rules/no-assumptions.mdc`).
-
-1. **List/get visibility.** PROPOSED: users with `conversations.view` see all project
-   conversations; everyone else sees only `ownerUserId = self`. Is that correct, or should
-   org_admin always see all without a separate permission?
-2. **Archive/delete permission.** PROPOSED: owner may archive/delete own threads; org admins use
-   `conversations.archive`. Should project_admin also delete others' conversations?
-3. **Default title string.** Is the constant `New conversation` acceptable until Phase 42, or must
-   the API require an explicit title on create?
-4. **Placeholder title honesty (FE §98).** If the UI shows the default title before any user text,
-   is that considered fabricated copy, or acceptable as a neutral label?
-5. **Shared conversations.** Requirements mention "unless explicitly shared" (§141). Is shared
-   conversation support out of scope for MVP (recommended: yes — README §5)?
+1. **List/get visibility.** Own only. `conversations.view` does not expand visibility.
+   org_admin and project_admin do not see others’ threads.
+2. **Archive/delete permission.** Owner only. `conversations.archive` gates the route;
+   it does not authorize mutating another user’s thread.
+3. **Default title string.** `New conversation` when `title` is omitted; `titleSource: 'default'`.
+4. **Placeholder title honesty.** Neutral default label is acceptable; auto-title from
+   truncated first user text is labeled `titleSource: 'truncated_user_text'` (Phase 42).
+5. **Shared conversations.** Out of scope until an explicit share feature exists.
