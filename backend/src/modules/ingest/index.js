@@ -16,6 +16,8 @@ export {
   enterIngestLifecycleAtJobStart,
   markProjectKnowledgeFailed,
   ingestHandlerRegistration,
+  reingestHandlerRegistration,
 } from './ingest.handler.js';
+export { applySourceDiffAfterValidate, hydrateSourceDiffCarry } from './applySourceDiff.js';
 export { INGEST_MAX_FAILED_FILE_RATIO } from './stages/s1StoreFiles.js';
 export { buildIngestStageContext } from './ingest.context.js';

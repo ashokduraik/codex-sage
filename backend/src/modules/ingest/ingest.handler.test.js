@@ -18,6 +18,7 @@ import { Project } from '../projects/projects.model.js';
 import { KnowledgeVersion } from '../knowledge/knowledgeVersion.model.js';
 import {
   EXCLUSION_RULESET_ID,
+  SourceChangeSummary,
   SourceFile,
   SourceVersion,
   clearSourceFilesBucket,
@@ -35,7 +36,16 @@ import { loadSourceVersionForIngest } from './ingest.repository.js';
 let workspaceRoot;
 
 const harness = createMongoHarness({
-  models: [Job, JobEvent, SourceVersion, SourceFile, DocumentSection, Project, KnowledgeVersion],
+  models: [
+    Job,
+    JobEvent,
+    SourceVersion,
+    SourceFile,
+    SourceChangeSummary,
+    DocumentSection,
+    Project,
+    KnowledgeVersion,
+  ],
   uri: TEST_APP_CONFIG.mongo.uri,
 });
 

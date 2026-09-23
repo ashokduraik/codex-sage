@@ -7,7 +7,8 @@ import { auditRoutes } from '../modules/audit/index.js';
 import { projectRoutes } from '../modules/projects/index.js';
 import { projectMemberRoutes } from '../modules/projectMembers/index.js';
 import { jobRoutes } from '../modules/jobs/index.js';
-import { sourceUploadRoutes } from '../modules/sources/index.js';
+import { repositoryRoutes } from '../modules/repositories/index.js';
+import { sourceRoutes, sourceUploadRoutes } from '../modules/sources/index.js';
 
 /**
  * Fastify plugin that registers every domain route module.
@@ -25,4 +26,6 @@ export async function registerRoutes(app) {
   await app.register(projectMemberRoutes);
   await app.register(jobRoutes);
   await app.register(sourceUploadRoutes);
+  await app.register(sourceRoutes);
+  await app.register(repositoryRoutes);
 }

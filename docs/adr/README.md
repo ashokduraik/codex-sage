@@ -26,6 +26,8 @@
 | [0021](./0021-project-acl-version-cache.md) | Project ACL cache invalidated via organization.aclVersion | Accepted |
 | [0022](./0022-project-job-locks.md) | Per-project job serialization via lease-based lock collection | Accepted |
 | [0023](./0023-job-retry-same-document.md) | Retry reuses the same Job document; reingest creates a new one | Accepted |
+| [0024](./0024-repository-credential-encryption.md) | Repository credential encryption (AES-256-GCM) | Accepted |
+| [0025](./0025-provider-inference-from-url.md) | Provider inference from repository URL | Accepted |
 
 One decision = one ADR. Accepted ADRs are immutable; supersede with a new number rather
 than rewriting history.

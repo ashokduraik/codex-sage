@@ -22,7 +22,12 @@ export const LIFECYCLE_TRANSITIONS = Object.freeze({
     'failed',
     'archived',
   ]),
-  source_received: Object.freeze(['processing', 'failed', 'archived']),
+  source_received: Object.freeze([
+    'processing',
+    'connecting_repository',
+    'failed',
+    'archived',
+  ]),
   processing: Object.freeze([
     'knowledge_ready',
     'partially_available',

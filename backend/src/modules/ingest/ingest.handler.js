@@ -13,6 +13,7 @@ import {
 } from '../projects/index.js';
 import { buildIngestStageContext } from './ingest.context.js';
 import { derivePartialSuccess } from './ingest.counters.js';
+import { applySourceDiffAfterValidate, hydrateSourceDiffCarry } from './applySourceDiff.js';
 import { loadSourceVersionForIngest } from './ingest.repository.js';
 import { INGEST_STAGES, resolveStagesAfter } from './ingest.stages.js';
 
@@ -242,6 +243,7 @@ export async function runIngestJob(workerContext) {
 
   const lastCompleted = workerContext.stageCheckpoint?.lastCompletedStage ?? null;
   const remaining = resolveStagesAfter(lastCompleted, INGEST_STAGES);
+  await hydrateSourceDiffCarry(context, job);
 
   try {
     for (const stage of remaining) {
@@ -249,6 +251,9 @@ export async function runIngestJob(workerContext) {
       context.logger?.info?.({ stage: stage.name }, 'ingest stage starting');
 
       const stageResult = await runStageWithTimeout({ stage, context });
+      if (stage.name === 'validate_upload') {
+        await applySourceDiffAfterValidate(context, job);
+      }
 
       const checkpoint = {
         lastCompletedStage: stage.name,
@@ -302,6 +307,15 @@ export async function runIngestJob(workerContext) {
  */
 export const ingestHandlerRegistration = {
   type: 'ingest',
+  exclusiveScope: /** @type {'project'} */ ('project'),
+  run: runIngestJob,
+};
+
+/**
+ * Reingest uses the same pipeline; skipPaths stay empty for a full rebuild.
+ */
+export const reingestHandlerRegistration = {
+  type: 'reingest',
   exclusiveScope: /** @type {'project'} */ ('project'),
   run: runIngestJob,
 };

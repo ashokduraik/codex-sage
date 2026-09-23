@@ -8,13 +8,16 @@ import { TEST_APP_CONFIG } from '../../test/appConfig.js';
 import {
   SourceFile,
   SourceVersion,
+  computeSourceDiff,
   buildSourceGridFsFilename,
   clearSourceFilesBucket,
   countSourceVersions,
+  findActiveSourceVersionForProject,
   findSourceVersionById,
   getSourceFilesBucket,
   insertSourceFiles,
   insertSourceVersion,
+  listSourceFilePathHashesPage,
   listSourceFilesForVersion,
   markGridFsFilesOrphaned,
 } from './index.js';
@@ -113,6 +116,23 @@ describe('sources gridfs + repository', () => {
     const files = await listSourceFilesForVersion(orgId, sourceVersionId);
     expect(files).toHaveLength(1);
     expect(files[0].path).toBe('src/a.js');
+    const page = await listSourceFilePathHashesPage({
+      orgId,
+      projectId,
+      sourceVersionId,
+      limit: 10,
+    });
+    expect(page).toEqual([{ path: 'src/a.js', sha256: 'a'.repeat(64) }]);
+    expect(
+      await findActiveSourceVersionForProject(orgId, projectId, sourceVersionId),
+    ).toBeTruthy();
+    expect(
+      await findActiveSourceVersionForProject(
+        orgId,
+        projectId,
+        new mongoose.Types.ObjectId().toString(),
+      ),
+    ).toBeNull();
 
     await insertSourceFiles({
       orgId,
@@ -121,5 +141,48 @@ describe('sources gridfs + repository', () => {
       createdBy: actorId,
       files: [],
     });
+
+    const incomingId = new mongoose.Types.ObjectId().toString();
+    await insertSourceVersion({
+      orgId,
+      projectId,
+      sourceVersionId: incomingId,
+      exclusionRulesetId: EXCLUSION_RULESET_ID,
+      createdBy: actorId,
+      fileCounts: { accepted: 2, skipped: 0, excludedFromGraph: 0 },
+    });
+    await insertSourceFiles({
+      orgId,
+      projectId,
+      sourceVersionId: incomingId,
+      createdBy: actorId,
+      files: [
+        {
+          path: 'src/a.js',
+          sha256: 'a'.repeat(64),
+          byteLength: 12,
+          kind: 'code',
+          gridFsId: new mongoose.Types.ObjectId(),
+          excludedFromGraph: false,
+        },
+        {
+          path: 'src/b.js',
+          sha256: 'b'.repeat(64),
+          byteLength: 4,
+          kind: 'code',
+          gridFsId: new mongoose.Types.ObjectId(),
+          excludedFromGraph: false,
+        },
+      ],
+    });
+    const diff = await computeSourceDiff({
+      orgId,
+      projectId,
+      incomingSourceVersionId: incomingId,
+      publishedSourceVersionId: sourceVersionId,
+    });
+    expect(diff.unchanged).toEqual(['src/a.js']);
+    expect(diff.added).toEqual(['src/b.js']);
+    expect(diff.removed).toEqual([]);
   });
 });

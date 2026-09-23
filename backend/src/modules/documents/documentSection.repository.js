@@ -147,3 +147,68 @@ export async function countSectionsForVersion(scope) {
     status: ROW_STATUS_ACTIVE,
   }).exec();
 }
+
+/**
+ * Copies active sections for selected paths from one source version onto another.
+ * Existing target paths are left untouched so retries stay idempotent.
+ * @param {{
+ *   orgId: string | import('mongoose').Types.ObjectId,
+ *   projectId: string | import('mongoose').Types.ObjectId,
+ *   fromSourceVersionId: string | import('mongoose').Types.ObjectId,
+ *   toSourceVersionId: string | import('mongoose').Types.ObjectId,
+ *   paths: string[],
+ * }} input Copy scope.
+ * @returns {Promise<number>} Number of inserted section rows.
+ */
+export async function copySectionsForPaths(input) {
+  assertOrgId(input.orgId);
+  if (!Array.isArray(input.paths) || input.paths.length === 0) {
+    return 0;
+  }
+
+  const alreadyOnTarget = await DocumentSection.distinct('path', {
+    orgId: input.orgId,
+    projectId: input.projectId,
+    sourceVersionId: input.toSourceVersionId,
+    path: { $in: input.paths },
+    status: ROW_STATUS_ACTIVE,
+  }).exec();
+  const already = new Set(alreadyOnTarget);
+  const remainingPaths = input.paths.filter((filePath) => !already.has(filePath));
+  if (remainingPaths.length === 0) {
+    return 0;
+  }
+
+  const sourceRows = await DocumentSection.find({
+    orgId: input.orgId,
+    projectId: input.projectId,
+    sourceVersionId: input.fromSourceVersionId,
+    path: { $in: remainingPaths },
+    status: ROW_STATUS_ACTIVE,
+  })
+    .lean()
+    .exec();
+  if (sourceRows.length === 0) {
+    return 0;
+  }
+
+  const now = new Date();
+  const docs = sourceRows.map((row) => ({
+    orgId: row.orgId,
+    projectId: row.projectId,
+    sourceVersionId: input.toSourceVersionId,
+    path: row.path,
+    heading: row.heading,
+    startLine: row.startLine,
+    endLine: row.endLine,
+    text: row.text,
+    sectionIndex: row.sectionIndex,
+    status: ROW_STATUS_ACTIVE,
+    createdAt: now,
+    updatedAt: now,
+    createdBy: null,
+    updatedBy: null,
+  }));
+  const inserted = await DocumentSection.insertMany(docs, { ordered: true });
+  return inserted.length;
+}

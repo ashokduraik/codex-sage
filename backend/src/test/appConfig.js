@@ -33,4 +33,9 @@ export const TEST_APP_CONFIG = {
   workspace: {
     root: TEST_WORKSPACE_ROOT,
   },
+  repositories: {
+    encryptionKey: Buffer.alloc(32, 7),
+    keyId: 'k1',
+    allowPrivateHosts: false,
+  },
 };

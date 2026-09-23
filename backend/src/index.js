@@ -10,6 +10,7 @@ import { JOB_MODELS } from './modules/jobs/index.js';
 import { SOURCE_MODELS } from './modules/sources/index.js';
 import { DOCUMENT_MODELS } from './modules/documents/index.js';
 import { KNOWLEDGE_MODELS } from './modules/knowledge/index.js';
+import { REPOSITORY_MODELS } from './modules/repositories/index.js';
 import { ProjectJobLock } from './worker/projectJobLock.model.js';
 import { loadConfig } from './platform/config.js';
 import { syncSchemaIndexes } from './platform/data/index.js';
@@ -76,6 +77,7 @@ async function start() {
         ...SOURCE_MODELS,
         ...DOCUMENT_MODELS,
         ...KNOWLEDGE_MODELS,
+        ...REPOSITORY_MODELS,
         ProjectJobLock,
       ]);
     } catch (err) {

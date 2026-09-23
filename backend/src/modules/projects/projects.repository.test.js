@@ -15,6 +15,7 @@ import {
   softDeleteProject,
   updateProjectMetadata,
   updateProjectSettings,
+  updateProjectSourceConfig,
   touchProjectLastAccessedAt,
   resolveProjectsListSort,
   PROJECTS_LIST_DEFAULT_LIMIT,
@@ -81,7 +82,6 @@ describe('projects.repository', () => {
     const actor = new mongoose.Types.ObjectId();
     const created = [];
     for (let i = 0; i < 5; i += 1) {
-      // eslint-disable-next-line no-await-in-loop
       const row = await createProject(orgId, {
         name: `P${i}`,
         sourceType: 'upload',
@@ -89,7 +89,6 @@ describe('projects.repository', () => {
       });
       row.lifecycleStatus = 'awaiting_source';
       row.updatedAt = new Date(Date.UTC(2026, 0, 1, 0, 0, i));
-      // eslint-disable-next-line no-await-in-loop
       await row.save();
       created.push(row);
     }
@@ -233,5 +232,33 @@ describe('projects.repository', () => {
     });
     expect(page2.items.map((row) => row.name)).toEqual(['Untouched']);
     expect(page2.pageInfo.hasMore).toBe(false);
+  });
+
+  it('sets and clears the repository connection pointer', async () => {
+    const orgId = new mongoose.Types.ObjectId();
+    const actor = new mongoose.Types.ObjectId();
+    const connectionId = new mongoose.Types.ObjectId();
+    const created = await createProject(orgId, {
+      name: 'Repo Pointer',
+      sourceType: 'repository',
+      createdBy: actor,
+    });
+
+    const pointed = await updateProjectSourceConfig(orgId, String(created._id), {
+      repositoryConnectionId: String(connectionId),
+      sourceType: 'repository',
+      updatedBy: String(actor),
+    });
+    expect(String(pointed.sourceConfig.repositoryConnectionId)).toBe(String(connectionId));
+
+    const cleared = await updateProjectSourceConfig(orgId, String(created._id), {
+      repositoryConnectionId: null,
+      sourceType: 'repository',
+      updatedBy: String(actor),
+    });
+    expect(cleared.sourceConfig.repositoryConnectionId).toBeNull();
+    expect(await updateProjectSourceConfig(orgId, 'not-an-id', {
+      repositoryConnectionId: String(connectionId),
+    })).toBeNull();
   });
 });

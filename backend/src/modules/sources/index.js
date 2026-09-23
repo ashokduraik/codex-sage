@@ -51,14 +51,35 @@ export {
   countSourceVersions,
   listSourceFilesForVersion,
   findSourceVersionById,
+  findActiveSourceVersionForProject,
+  listSourceFilePathHashesPage,
 } from './sources.repository.js';
 export { kindForSourcePath } from './sourceFileKind.js';
 export { consumeSourceArchivePreHandler } from './consumeSourceArchive.js';
 export { persistSourceUpload, storeAcceptedZipEntries } from './upload.service.js';
 export { sourceUploadRoutes } from './upload.routes.js';
+export { sourceRoutes } from './sources.routes.js';
+export { enqueueSourceReingest } from './sources.service.js';
+export {
+  SOURCE_DIFF_BATCH_SIZE,
+  classifySourceDiff,
+  loadPathHashesForVersion,
+  computeSourceDiff,
+  carryFromSourceDiff,
+} from './sourceDiff.js';
+export { SourceChangeSummary, SOURCE_DIFF_STATUS_VALUES } from './sourceChangeSummary.model.js';
+export {
+  findChangeSummaryForVersion,
+  upsertChangeSummary,
+} from './sourceChangeSummary.repository.js';
 
 import { SourceFile } from './sourceFile.model.js';
 import { SourceVersion } from './sourceVersion.model.js';
+import { SourceChangeSummary } from './sourceChangeSummary.model.js';
 
 /** Models whose indexes are synced on development API startup / test harness. */
-export const SOURCE_MODELS = Object.freeze([SourceVersion, SourceFile]);
+export const SOURCE_MODELS = Object.freeze([
+  SourceVersion,
+  SourceFile,
+  SourceChangeSummary,
+]);

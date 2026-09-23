@@ -120,7 +120,7 @@ describe('buildErrorEnvelope', () => {
       'REQ-k',
     );
     expect(knowledge.statusCode).toBe(503);
-    expect(knowledge.body.error.message).toBe('Project knowledge is being updated.');
+    expect(knowledge.body.error.message).toBe('Project knowledge is not available.');
     expect(knowledge.body.error.retryability).toBe('temporary');
   });
 });

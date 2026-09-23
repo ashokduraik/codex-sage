@@ -287,6 +287,36 @@ export async function updateProjectMetadata(orgId, projectId, patch) {
 }
 
 /**
+ * Updates the project's repository connection pointer.
+ * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
+ * @param {string} projectId Project id.
+ * @param {{
+ *   repositoryConnectionId: string | null,
+ *   sourceType?: 'upload' | 'repository',
+ *   updatedBy?: string | null,
+ * }} input Pointer fields.
+ * @returns {Promise<import('mongoose').Document | null>}
+ */
+export async function updateProjectSourceConfig(orgId, projectId, input) {
+  assertOrgId(orgId);
+  if (!mongoose.isValidObjectId(projectId)) {
+    return null;
+  }
+  return Project.findOneAndUpdate(
+    { _id: projectId, orgId, status: ROW_STATUS_ACTIVE },
+    {
+      $set: {
+        'sourceConfig.sourceType': input.sourceType ?? 'repository',
+        'sourceConfig.repositoryConnectionId': input.repositoryConnectionId,
+        updatedBy: input.updatedBy ?? null,
+        updatedAt: new Date(),
+      },
+    },
+    { returnDocument: 'after' },
+  ).exec();
+}
+
+/**
  * Replaces the settings object on a project.
  * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
  * @param {string} projectId Project id.

@@ -29,6 +29,7 @@ export {
   touchProjectLastAccessedAt,
   updateProjectMetadata,
   updateProjectSettings,
+  updateProjectSourceConfig,
   conditionalLifecycleUpdate,
   softDeleteProject,
 } from './projects.repository.js';

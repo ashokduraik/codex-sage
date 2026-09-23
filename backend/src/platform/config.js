@@ -5,6 +5,7 @@
 import os from 'node:os';
 import path from 'node:path';
 import { z } from 'zod';
+import { parseEncryptionKey } from './secretCrypto.js';
 
 const LOG_LEVELS = new Set(['debug', 'info', 'warning', 'error']);
 
@@ -13,6 +14,9 @@ export const JWT_ACCESS_TOKEN_SECRET_MIN_LENGTH = 32;
 
 /** Default workspace root used only when NODE_ENV=test and WORKSPACE_ROOT is unset. */
 const TEST_DEFAULT_WORKSPACE_ROOT = path.join(os.tmpdir(), 'codex-sage-workspace-test');
+
+/** 32-byte test key used only when NODE_ENV=test and the env key is unset. */
+const TEST_DEFAULT_REPO_ENCRYPTION_KEY_B64 = Buffer.alloc(32, 7).toString('base64');
 
 /** Non-empty hostname (after trim). */
 const hostSchema = z.string().trim().min(1, { error: 'must be a non-empty hostname' });
@@ -36,6 +40,53 @@ const jwtSecretSchema = z
   .min(JWT_ACCESS_TOKEN_SECRET_MIN_LENGTH, {
     error: `must be at least ${JWT_ACCESS_TOKEN_SECRET_MIN_LENGTH} characters`,
   });
+
+/**
+ * Reads the repository credential encryption key without requiring Mongo/JWT env.
+ * @param {NodeJS.ProcessEnv} [env] Env overlay.
+ * @returns {{ encryptionKey: Buffer, keyId: string }}
+ */
+export function resolveRepositoryCrypto(env = process.env) {
+  const nodeEnv = env.NODE_ENV ?? 'development';
+  const parsed = parseRepositoryCrypto(env, nodeEnv);
+  if (parsed.error || !parsed.encryptionKey) {
+    throw new Error(parsed.error ?? 'REPO_CREDENTIAL_ENCRYPTION_KEY: required 32-byte base64 value');
+  }
+  return { encryptionKey: parsed.encryptionKey, keyId: parsed.keyId };
+}
+
+/**
+ * @param {NodeJS.ProcessEnv} env Env overlay.
+ * @param {string} nodeEnv Resolved NODE_ENV.
+ * @returns {{ encryptionKey: Buffer | null, keyId: string, error?: string }}
+ */
+function parseRepositoryCrypto(env, nodeEnv) {
+  const rawKey =
+    typeof env.REPO_CREDENTIAL_ENCRYPTION_KEY === 'string'
+      ? env.REPO_CREDENTIAL_ENCRYPTION_KEY
+      : '';
+  const keyCandidate =
+    rawKey.trim() || (nodeEnv === 'test' ? TEST_DEFAULT_REPO_ENCRYPTION_KEY_B64 : '');
+  const keyIdRaw =
+    typeof env.REPO_CREDENTIAL_KEY_ID === 'string' ? env.REPO_CREDENTIAL_KEY_ID.trim() : '';
+  const keyId = keyIdRaw || 'k1';
+  if (!keyCandidate) {
+    return {
+      encryptionKey: null,
+      keyId,
+      error: 'REPO_CREDENTIAL_ENCRYPTION_KEY: required 32-byte base64 value',
+    };
+  }
+  try {
+    return { encryptionKey: parseEncryptionKey(keyCandidate), keyId };
+  } catch {
+    return {
+      encryptionKey: null,
+      keyId,
+      error: 'REPO_CREDENTIAL_ENCRYPTION_KEY: must be 32-byte base64',
+    };
+  }
+}
 
 /**
  * Parses `APP_RUNNING_PLATFORM` into a known platform value.
@@ -128,6 +179,13 @@ export function loadConfig(env = process.env) {
   collectFieldError(errors, 'JWT_ACCESS_TOKEN_SECRET', jwtResult);
   const nodeEnv = env.NODE_ENV ?? 'development';
   const workspaceRoot = parseWorkspaceRoot(env, nodeEnv, errors);
+
+  const crypto = parseRepositoryCrypto(env, nodeEnv);
+  if (crypto.error) {
+    errors.push(crypto.error);
+  }
+  const allowPrivateHosts = env.REPO_PROBE_ALLOW_PRIVATE_HOSTS === 'true';
+
   if (errors.length > 0) {
     throw new Error(`Invalid configuration:\n${errors.join('\n')}`);
   }
@@ -155,6 +213,11 @@ export function loadConfig(env = process.env) {
     },
     workspace: {
       root: workspaceRoot,
+    },
+    repositories: {
+      encryptionKey: crypto.encryptionKey,
+      keyId: crypto.keyId,
+      allowPrivateHosts,
     },
   };
 }

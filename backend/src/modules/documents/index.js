@@ -8,6 +8,7 @@ export {
   insertDocumentSections,
   listSectionsForPath,
   countSectionsForVersion,
+  copySectionsForPaths,
 } from './documentSection.repository.js';
 export {
   DOCUMENT_SECTION_MAX_CHARS,

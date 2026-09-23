@@ -40,6 +40,10 @@ describe('audit.actions', () => {
         'source.upload',
         'knowledge.completed',
         'knowledge.failed',
+        'repository.connected',
+        'repository.branch_changed',
+        'repository.credential_replaced',
+        'repository.credential_revoked',
       ]),
     );
     expect(AUDIT_ACTIONS).toHaveLength(Object.keys(AUDIT_ACTION_RESOURCE_TYPES).length);
@@ -50,6 +54,7 @@ describe('audit.actions', () => {
     expect(isKnownAuditAction('user.create')).toBe(true);
     expect(isKnownAuditAction('project.create')).toBe(true);
     expect(isKnownAuditAction('source.upload')).toBe(true);
+    expect(isKnownAuditAction('repository.connected')).toBe(true);
     expect(isKnownAuditAction('not.a.real.action')).toBe(false);
   });
 
@@ -64,5 +69,9 @@ describe('audit.actions', () => {
     expect(resourceTypeForAction('source.upload')).toBe('source');
     expect(resourceTypeForAction('knowledge.completed')).toBe('knowledge');
     expect(resourceTypeForAction('knowledge.failed')).toBe('knowledge');
+    expect(resourceTypeForAction('repository.connected')).toBe('repository');
+    expect(resourceTypeForAction('repository.branch_changed')).toBe('repository');
+    expect(resourceTypeForAction('repository.credential_replaced')).toBe('repository');
+    expect(resourceTypeForAction('repository.credential_revoked')).toBe('repository');
   });
 });

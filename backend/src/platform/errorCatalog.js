@@ -304,6 +304,24 @@ export const ERROR_CATALOG = Object.freeze({
     retryability: 'permanent',
     message: 'The recorded exclusion ruleset is unknown and cannot be applied.',
   }),
+  SOURCE_VERSION_NOT_FOUND: Object.freeze({
+    class: 'source',
+    httpStatus: 404,
+    retryability: 'user_action_required',
+    message: 'Source version not found.',
+  }),
+  CONNECTION_NOT_VERIFIED: Object.freeze({
+    class: 'repository',
+    httpStatus: 409,
+    retryability: 'user_action_required',
+    message: 'The repository could not be verified for attach.',
+  }),
+  CREDENTIAL_DECRYPT_FAILED: Object.freeze({
+    class: 'repository',
+    httpStatus: 503,
+    retryability: 'temporary',
+    message: 'Stored repository credentials could not be read.',
+  }),
 });
 
 /**

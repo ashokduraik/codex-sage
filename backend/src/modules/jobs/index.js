@@ -27,6 +27,7 @@ export {
   cancelQueuedJob,
   clampJobListLimit,
   findActiveJobForProject,
+  findActiveJobForSourceVersion,
   findJobById,
   insertPendingJob,
   isKnownJobStatus,

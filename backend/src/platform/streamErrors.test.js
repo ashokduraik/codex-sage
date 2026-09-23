@@ -12,7 +12,7 @@ describe('buildStreamErrorEvent', () => {
         code: 'KNOWLEDGE_UNAVAILABLE',
         class: 'knowledge',
         retryability: 'temporary',
-        message: 'Project knowledge is being updated.',
+        message: 'Project knowledge is not available.',
         reference: 'REQ-abc',
       },
     });

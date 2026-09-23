@@ -142,6 +142,12 @@ export async function runCodegraphUpdateStage(ctx, deps = {}) {
         : ctx.carry?.changedPaths instanceof Set
           ? [...ctx.carry.changedPaths]
           : undefined;
+    const removedPaths = Array.isArray(ctx.carry?.removedPaths)
+      ? ctx.carry.removedPaths
+      : ctx.carry?.removedPaths instanceof Set
+        ? [...ctx.carry.removedPaths]
+        : [];
+    const syncChangedPaths = removedPaths.length > 0 ? undefined : changedPaths;
 
     let updateResult;
     try {
@@ -153,7 +159,7 @@ export async function runCodegraphUpdateStage(ctx, deps = {}) {
       } else {
         updateResult = await adapter.sync(workspacePath, {
           excludedPaths,
-          changedPaths,
+          changedPaths: syncChangedPaths,
           signal: ctx.signal,
         });
       }

@@ -29,6 +29,17 @@ export async function resetProjectWorkspaceSubtree(workspacePath, workspaceRoot)
 }
 
 /**
+ * Deletes one repo-relative file from the project workspace (missing is ok).
+ * @param {string} workspacePath Absolute project workspace path.
+ * @param {string} relativePath Repo-relative path.
+ * @returns {Promise<void>}
+ */
+export async function deleteWorkspaceRelativePath(workspacePath, relativePath) {
+  const absoluteFile = resolveSafeWorkspaceFilePath(workspacePath, relativePath);
+  await fs.rm(absoluteFile, { force: true });
+}
+
+/**
  * Streams one GridFS object to a safe path under the project workspace.
  * @param {{
  *   workspacePath: string,

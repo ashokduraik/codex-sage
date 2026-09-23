@@ -323,6 +323,33 @@ export async function findActiveJobForProject(orgId, projectId) {
 }
 
 /**
+ * Finds an active ingest or reingest job for a source version.
+ * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
+ * @param {import('mongoose').Types.ObjectId | string} projectId Project id.
+ * @param {import('mongoose').Types.ObjectId | string} sourceVersionId Source version id.
+ * @returns {Promise<import('mongoose').Document | null>}
+ */
+export async function findActiveJobForSourceVersion(orgId, projectId, sourceVersionId) {
+  assertOrgId(orgId);
+  if (
+    !mongoose.isValidObjectId(String(projectId)) ||
+    !mongoose.isValidObjectId(String(sourceVersionId))
+  ) {
+    return null;
+  }
+  return Job.findOne({
+    orgId,
+    projectId: new mongoose.Types.ObjectId(String(projectId)),
+    sourceVersionId: new mongoose.Types.ObjectId(String(sourceVersionId)),
+    status: ROW_STATUS_ACTIVE,
+    jobType: { $in: ['ingest', 'reingest'] },
+    jobStatus: { $in: ['pending', 'retrying', 'running'] },
+  })
+    .sort({ updatedAt: -1, _id: -1 })
+    .exec();
+}
+
+/**
  * Immediately cancels a pending or retrying job.
  * @param {{
  *   orgId: import('mongoose').Types.ObjectId | string,

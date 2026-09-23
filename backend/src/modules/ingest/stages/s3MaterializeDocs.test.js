@@ -178,6 +178,69 @@ describe('s3MaterializeDocs extras', () => {
     ).toBe(0);
   });
 
+  it('keeps skipPaths on disk, copies prior sections, and deletes removed paths', async () => {
+    const seeded = await seedOneVersion({
+      path: 'docs/keep.md',
+      content: Buffer.from('# Keep\nunchanged\n'),
+    });
+    const priorVersionId = new mongoose.Types.ObjectId();
+    await documents.insertDocumentSections({
+      orgId: seeded.orgId,
+      projectId: seeded.projectId,
+      sourceVersionId: priorVersionId,
+      path: 'docs/keep.md',
+      sections: [
+        {
+          heading: 'Keep',
+          startLine: 1,
+          endLine: 2,
+          text: 'unchanged',
+          sectionIndex: 0,
+        },
+      ],
+    });
+
+    const workspacePath = path.join(
+      workspaceRoot,
+      String(seeded.orgId),
+      String(seeded.projectId),
+    );
+    await fs.mkdir(path.join(workspacePath, 'docs'), { recursive: true });
+    await fs.writeFile(path.join(workspacePath, 'docs/keep.md'), '# Keep\nunchanged\n');
+    await fs.writeFile(path.join(workspacePath, 'docs/gone.md'), '# Gone\n');
+
+    const workerContext = createWorkerContext(seeded.job);
+    const version = await loadSourceVersionForIngest({
+      orgId: seeded.orgId,
+      projectId: seeded.projectId,
+      sourceVersionId: seeded.sourceVersionId,
+    });
+    const ctx = buildIngestStageContext({ workerContext, origin: 'upload' });
+    ctx.carry.sourceVersion = version;
+    ctx.carry.workspaceRoot = workspaceRoot;
+    ctx.carry.skipPaths = new Set(['docs/keep.md']);
+    ctx.carry.removedPaths = ['docs/gone.md'];
+    ctx.carry.baseSourceVersionId = String(priorVersionId);
+    ctx.checkpoint = { lastCompletedStage: 'exclude_apply', cursor: null };
+
+    const result = await runMaterializeDocsStage(ctx);
+    expect(result.outcome).toBe('completed');
+    expect(await fs.readFile(path.join(workspacePath, 'docs/keep.md'), 'utf8')).toContain(
+      'unchanged',
+    );
+    await expect(fs.access(path.join(workspacePath, 'docs/gone.md'))).rejects.toMatchObject({
+      code: 'ENOENT',
+    });
+    expect(
+      await documents.listSectionsForPath({
+        orgId: seeded.orgId,
+        projectId: seeded.projectId,
+        sourceVersionId: seeded.sourceVersionId,
+        path: 'docs/keep.md',
+      }),
+    ).toHaveLength(1);
+  });
+
   it('warns with DOCUMENT_PARSE_FAILED when reading the materialized doc fails', async () => {
     const seeded = await seedOneVersion({
       path: 'docs/broken.md',

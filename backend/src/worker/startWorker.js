@@ -11,6 +11,7 @@ import { SOURCE_MODELS } from '../modules/sources/index.js';
 import { DOCUMENT_MODELS } from '../modules/documents/index.js';
 import { PROJECT_MODELS } from '../modules/projects/index.js';
 import { KNOWLEDGE_MODELS } from '../modules/knowledge/index.js';
+import { REPOSITORY_MODELS } from '../modules/repositories/index.js';
 import { registerProcessHandlers } from '../platform/processHandlers.js';
 import {
   attachShutdownSignals,
@@ -18,7 +19,10 @@ import {
 } from '../platform/shutdown.js';
 import { clearJobHandlersForTests, registerJobHandler } from './handlerRegistry.js';
 import { workerSmokeHandlerRegistration } from './handlers/workerSmokeHandler.js';
-import { ingestHandlerRegistration } from '../modules/ingest/index.js';
+import {
+  ingestHandlerRegistration,
+  reingestHandlerRegistration,
+} from '../modules/ingest/index.js';
 import { ProjectJobLock } from './projectJobLock.model.js';
 import { buildWorkerId, startWorkerRuntime } from './workerRuntime.js';
 import {
@@ -35,6 +39,7 @@ export const WORKER_MODELS = Object.freeze([
   ...DOCUMENT_MODELS,
   ...PROJECT_MODELS,
   ...KNOWLEDGE_MODELS,
+  ...REPOSITORY_MODELS,
   ProjectJobLock,
 ]);
 
@@ -82,7 +87,7 @@ export async function startWorker(deps = {}) {
         'worker schema index sync failed',
       );
       (deps.exit ?? ((code) => process.exit(code)))(1);
-      throw new Error('worker index sync failed');
+      throw new Error('worker index sync failed', { cause: err });
     }
   }
 
@@ -93,6 +98,7 @@ export async function startWorker(deps = {}) {
   if (!deps.skipDefaultHandlers) {
     register(workerSmokeHandlerRegistration);
     register(ingestHandlerRegistration);
+    register(reingestHandlerRegistration);
   }
   if (typeof deps.registerExtraHandlers === 'function') {
     deps.registerExtraHandlers(register);

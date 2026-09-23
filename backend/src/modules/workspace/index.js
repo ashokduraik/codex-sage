@@ -8,5 +8,6 @@ export {
 } from './workspacePaths.js';
 export {
   resetProjectWorkspaceSubtree,
+  deleteWorkspaceRelativePath,
   materializeGridFsFileToDisk,
 } from './workspaceMaterialize.js';

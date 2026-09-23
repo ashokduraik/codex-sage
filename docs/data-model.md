@@ -150,6 +150,22 @@ plus base fields. Skipped paths are counted only here — they are never stored 
 
 Index (partial `status: 'A'`): `{ orgId, projectId, createdAt: -1 }`.
 
+### `sourceChangeSummaries`
+
+Persisted path+sha256 diff for an incoming `sourceVersion` versus the last published
+source (Phase 29). Fields: `projectId`, `sourceVersionId` (incoming),
+`previousSourceVersionId`, `knowledgeVersionId` (published base, may be null),
+`counts` (`added`, `removed`, `changed`, `unchanged`), `paths` (same keys, string
+arrays), `computedAt`, `diffStatus` (`pending` \| `computed` \| `failed`), plus
+base fields.
+
+Unique index (partial `status: 'A'`): `{ orgId, projectId, sourceVersionId }`.
+List index (partial `status: 'A'`): `{ orgId, projectId, createdAt: -1 }`.
+
+Used by ingest to populate `carry.skipPaths` / `changedPaths` / `removedPaths` on
+new-upload jobs. Reingest does not write a skip-path summary (full rebuild).
+Phase 39 reads these rows for the change-summary API.
+
 ### `sourceFiles`
 
 One accepted path within a `sourceVersion` (Phase 24). Fields: `projectId`,
@@ -224,6 +240,38 @@ Job-level per-project writer lock (Phase 21; ADR 0022). Fields: `projectId`, `jo
 including row `status` (`A` \| `D`). Soft-delete releases the unique key for the next
 writer. Indexes: unique `{ orgId, projectId, lockScope }` partial `status: 'A'`;
 `{ expiresAt: 1 }` for expired-lock takeover.
+
+### `repositoryConnections`
+
+One **active** attached repository per project (Phase 31). Fields: `projectId`,
+`provider` (`github` \| `gitlab`), `hostKind` (`github` \| `gitlab_saas` \|
+`gitlab_self_hosted`), `baseUrl` (self-hosted origin or null),
+`repositoryFullName`, `repositoryWebUrl`, `visibility`, `selectedBranch`,
+`defaultBranchAtAttach`, `connectionStatus` (`connected` \|
+`authentication_required` \| `access_denied` \| `not_found` \| `unreachable`),
+`connectionStatusReasonCode`, `credentialId` (active `repositoryCredentials` row),
+`attachedBy`, `attachedAt`, `lastSuccessfulProbeAt`, `branchChangedAt`, plus
+base fields. Domain `connectionStatus` is not row `status`.
+
+Unique index (partial `status: 'A'`): `{ orgId, projectId }`.
+List index (partial `status: 'A'`): `{ orgId, projectId, status }`.
+
+Soft-delete (revoke) sets `status: 'D'` and clears
+`projects.sourceConfig.repositoryConnectionId`. Worker `repo_sync` (Phase 32)
+reads this row; it is not created here.
+
+### `repositoryCredentials`
+
+Encrypted PAT storage for a connection (Phase 31). Fields: `projectId`,
+`connectionId`, `ciphertext`, `iv`, `authTag`, `keyId`, `credentialKind`
+(`pat` only), `lastValidatedAt`, `revokedAt`, plus base fields. Never joined
+into list or connection DTOs. Decrypt only in memory inside the credential
+service.
+
+Replace soft-deletes the prior row and inserts a new one. Revoke soft-deletes
+the credential with the connection.
+
+Index (partial `status: 'A'`): `{ orgId, projectId, connectionId, status }`.
 
 ## Bootstrap seed
 

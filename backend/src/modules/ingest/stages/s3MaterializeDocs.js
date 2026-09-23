@@ -6,6 +6,7 @@ import path from 'node:path';
 import { loadConfig } from '../../../platform/config.js';
 import { createJobFailureError } from '../../../worker/retryPolicy.js';
 import {
+  copySectionsForPaths,
   insertDocumentSections,
   isDocumentPath,
   parseDocumentSections,
@@ -13,6 +14,7 @@ import {
   softDeleteSectionsForVersion,
 } from '../../documents/index.js';
 import {
+  deleteWorkspaceRelativePath,
   materializeGridFsFileToDisk,
   resetProjectWorkspaceSubtree,
   resolveProjectWorkspacePath,
@@ -117,35 +119,67 @@ export async function runMaterializeDocsStage(ctx) {
   const resumePath =
     typeof ctx.checkpoint?.cursor?.path === 'string' ? ctx.checkpoint.cursor.path : null;
 
+  const skipPaths = ctx.carry?.skipPaths instanceof Set ? ctx.carry.skipPaths : null;
+  const incremental = Boolean(skipPaths && skipPaths.size > 0);
+  const removedPaths = Array.isArray(ctx.carry?.removedPaths) ? ctx.carry.removedPaths : [];
+
   if (!resumePath) {
-    try {
-      await resetProjectWorkspaceSubtree(workspacePath, workspaceRoot);
-    } catch (err) {
-      const mapped = temporaryIoFailureOrNull(err);
-      if (mapped) {
-        throw mapped;
+    if (!incremental) {
+      try {
+        await resetProjectWorkspaceSubtree(workspacePath, workspaceRoot);
+      } catch (err) {
+        const mapped = temporaryIoFailureOrNull(err);
+        if (mapped) {
+          throw mapped;
+        }
+        if (err && typeof err === 'object' && 'code' in err) {
+          const unsafe = String(/** @type {{ code?: unknown }} */ (err).code);
+          if (unsafe === 'WORKSPACE_PATH_UNSAFE') {
+            throw createJobFailureError({
+              failureClass: 'permanent',
+              code: 'WORKSPACE_PATH_UNSAFE',
+              message: 'Workspace reset refused an unsafe path.',
+            });
+          }
+        }
+        throw createJobFailureError({
+          failureClass: 'temporary',
+          code: 'WORKSPACE_IO_ERROR',
+          message: 'Failed to reset the project workspace before materialization.',
+        });
       }
-      if (err && typeof err === 'object' && 'code' in err) {
-        const unsafe = String(/** @type {{ code?: unknown }} */ (err).code);
-        if (unsafe === 'WORKSPACE_PATH_UNSAFE') {
+      await softDeleteSectionsForVersion({
+        orgId: ctx.scope.orgId,
+        projectId: ctx.scope.projectId,
+        sourceVersionId: ctx.scope.sourceVersionId,
+      });
+    } else {
+      for (const removedPath of removedPaths) {
+        try {
+          await deleteWorkspaceRelativePath(workspacePath, removedPath);
+        } catch (err) {
+          const mapped = temporaryIoFailureOrNull(err);
+          if (mapped) {
+            throw mapped;
+          }
+          if (err && typeof err === 'object' && 'code' in err) {
+            const unsafe = String(/** @type {{ code?: unknown }} */ (err).code);
+            if (unsafe === 'WORKSPACE_PATH_UNSAFE') {
+              throw createJobFailureError({
+                failureClass: 'permanent',
+                code: 'WORKSPACE_PATH_UNSAFE',
+                message: 'A removed path failed workspace path-safety checks.',
+              });
+            }
+          }
           throw createJobFailureError({
-            failureClass: 'permanent',
-            code: 'WORKSPACE_PATH_UNSAFE',
-            message: 'Workspace reset refused an unsafe path.',
+            failureClass: 'temporary',
+            code: 'WORKSPACE_IO_ERROR',
+            message: 'Failed to delete a removed path from the workspace.',
           });
         }
       }
-      throw createJobFailureError({
-        failureClass: 'temporary',
-        code: 'WORKSPACE_IO_ERROR',
-        message: 'Failed to reset the project workspace before materialization.',
-      });
     }
-    await softDeleteSectionsForVersion({
-      orgId: ctx.scope.orgId,
-      projectId: ctx.scope.projectId,
-      sourceVersionId: ctx.scope.sourceVersionId,
-    });
   }
 
   const allFiles = await listSourceFilesOrdered({
@@ -158,8 +192,6 @@ export async function runMaterializeDocsStage(ctx) {
   const files = allFiles.filter(
     (file) => !file.fileState || file.fileState === SOURCE_FILE_STATE_STORED,
   );
-
-  const skipPaths = ctx.carry?.skipPaths instanceof Set ? ctx.carry.skipPaths : null;
 
   /** @type {object[]} */
   const warnings = [];
@@ -183,6 +215,43 @@ export async function runMaterializeDocsStage(ctx) {
     }
 
     if (skipPaths?.has(file.path)) {
+      try {
+        const diskPath = resolveSafeWorkspaceFilePath(workspacePath, file.path);
+        try {
+          await fs.access(diskPath);
+        } catch {
+          await materializeGridFsFileToDisk({
+            workspacePath,
+            relativePath: file.path,
+            gridFsId: file.gridFsId,
+          });
+          pathsWritten += 1;
+        }
+      } catch (err) {
+        const mapped = temporaryIoFailureOrNull(err);
+        if (mapped) {
+          if (lastPath) {
+            await ctx.saveInProgressCursor({ path: lastPath }, 'materialize_docs');
+            await ctx.saveProgress(true);
+          }
+          throw mapped;
+        }
+        if (err && typeof err === 'object' && 'code' in err) {
+          const code = String(/** @type {{ code?: unknown }} */ (err).code);
+          if (code === 'WORKSPACE_PATH_UNSAFE') {
+            throw createJobFailureError({
+              failureClass: 'permanent',
+              code: 'WORKSPACE_PATH_UNSAFE',
+              message: 'A source path failed workspace path-safety checks.',
+            });
+          }
+        }
+        warnings.push({ code: 'GRIDFS_READ_FAILED', path: file.path });
+        ctx.counters.filesFailed += 1;
+      }
+      lastPath = file.path;
+      sinceBatch += 1;
+      sinceBatch = await maybeFlushCursor(ctx, lastPath, sinceBatch);
       continue;
     }
 
@@ -255,6 +324,17 @@ export async function runMaterializeDocsStage(ctx) {
     lastPath = file.path;
     sinceBatch += 1;
     sinceBatch = await maybeFlushCursor(ctx, lastPath, sinceBatch);
+  }
+
+  if (incremental && ctx.carry?.baseSourceVersionId && skipPaths) {
+    const copied = await copySectionsForPaths({
+      orgId: ctx.scope.orgId,
+      projectId: ctx.scope.projectId,
+      fromSourceVersionId: ctx.carry.baseSourceVersionId,
+      toSourceVersionId: ctx.scope.sourceVersionId,
+      paths: [...skipPaths],
+    });
+    documentationSections += copied;
   }
 
   await ctx.emitEvent(buildWorkspaceMaterializedEvent({ pathsWritten }));

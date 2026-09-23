@@ -166,3 +166,51 @@ export async function findSourceVersionById(orgId, sourceVersionId) {
   }
   return SourceVersion.findOne({ _id: sourceVersionId, orgId }).exec();
 }
+
+/**
+ * Finds an active SourceVersion scoped to a project.
+ * @param {string} orgId Tenant id.
+ * @param {string} projectId Project id.
+ * @param {string} sourceVersionId Version id.
+ * @returns {Promise<import('mongoose').Document | null>}
+ */
+export async function findActiveSourceVersionForProject(orgId, projectId, sourceVersionId) {
+  assertOrgId(orgId);
+  if (!mongoose.isValidObjectId(sourceVersionId) || !mongoose.isValidObjectId(projectId)) {
+    return null;
+  }
+  return SourceVersion.findOne({
+    _id: sourceVersionId,
+    orgId,
+    projectId,
+  }).exec();
+}
+
+/**
+ * Lists a page of path+sha256 pairs for a version, ordered by path.
+ * @param {{
+ *   orgId: string | import('mongoose').Types.ObjectId,
+ *   projectId: string | import('mongoose').Types.ObjectId,
+ *   sourceVersionId: string | import('mongoose').Types.ObjectId,
+ *   afterPath?: string | null,
+ *   limit: number,
+ * }} input Scope and page.
+ * @returns {Promise<Array<{ path: string, sha256: string }>>}
+ */
+export async function listSourceFilePathHashesPage(input) {
+  assertOrgId(input.orgId);
+  /** @type {Record<string, unknown>} */
+  const filter = {
+    orgId: input.orgId,
+    projectId: input.projectId,
+    sourceVersionId: input.sourceVersionId,
+  };
+  if (input.afterPath) {
+    filter.path = { $gt: input.afterPath };
+  }
+  return SourceFile.find(filter, { path: 1, sha256: 1, _id: 0 })
+    .sort({ path: 1 })
+    .limit(input.limit)
+    .lean()
+    .exec();
+}

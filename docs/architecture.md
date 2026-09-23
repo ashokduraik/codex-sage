@@ -248,8 +248,14 @@ Worker  Atomically claim job  pending → running
 Any file excluded from the graph forces knowledge health **`partially_available`**.
 The project is not “knowledge ready” unless S5 succeeded.
 
-**Re-upload:** new `SourceVersion`. Diff against the last successful version by
-`path + sha256`. Unchanged docs skip re-index. Then S3–S5 under the same writer lock.
+**Re-upload:** new `SourceVersion`. Diff against the last **published** version by
+`path + sha256` (persisted on `sourceChangeSummaries`). Unchanged docs skip re-parse;
+S3 keeps those workspace files and copies their sections; S4 `sync`s changed paths
+(or the full tree when paths were removed). Then S5 under the same writer lock.
+
+**Re-ingest:** `POST /projects/:projectId/sources/:sourceVersionId/reingest` creates a
+new `jobType: reingest` job on the same GridFS bytes and rebuilds S0–S6 without skip
+paths. Retry of a failed job is a different verb and reuses the same Job (ADR 0023).
 
 **Git sync:** every 30 minutes per connected project (skipped if a sync is already
 running). Auth/network failure **before** the graph is touched leaves current Q&A
@@ -423,6 +429,7 @@ Mechanisms below match the accepted stack ADRs
 | Fastify | LangGraph | in-process library | Chat state machine; the route handler still owns SSE |
 | Fastify | CodeGraph | in-process, **read lease** | Explore / `buildContext` on the current workspace |
 | Fastify | Ollama | HTTP `/v1` via `ai` SDK | Budgeted generate / stream |
+| Fastify | GitHub/GitLab | HTTPS REST (probe + persist connection/credential rows) | Identity, branches, default branch, encrypted PAT |
 | Fastify | Worker | **only** by inserting a `Job` row | `202 { jobId }` — no RPC |
 | Worker | MongoDB | atomic claim | Jobs, source/knowledge metadata |
 | Worker | GridFS | read | Rebuild the tree from accepted bytes |

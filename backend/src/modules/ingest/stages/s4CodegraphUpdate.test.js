@@ -247,6 +247,21 @@ describe('runCodegraphUpdateStage', () => {
     });
   });
 
+  it('omits changedPaths from sync when removedPaths are present', async () => {
+    codegraphIndexExists.mockResolvedValue(true);
+    listSourceFilesOrdered.mockResolvedValue([
+      { path: 'a.js', fileState: 'stored', excludedFromGraph: false },
+    ]);
+    const ctx = buildCtx();
+    ctx.carry.changedPaths = ['a.js'];
+    ctx.carry.removedPaths = ['gone.js'];
+    await runCodegraphUpdateStage(ctx, { adapter });
+    expect(adapter.sync).toHaveBeenCalledWith(
+      '/ws/org/proj',
+      expect.objectContaining({ changedPaths: undefined }),
+    );
+  });
+
   it('accepts changedPaths as a Set on carry', async () => {
     codegraphIndexExists.mockResolvedValue(true);
     listSourceFilesOrdered.mockResolvedValue([

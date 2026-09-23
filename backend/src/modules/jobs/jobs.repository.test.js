@@ -28,6 +28,7 @@ import {
   cancelQueuedJob,
   clampJobListLimit,
   findActiveJobForProject,
+  findActiveJobForSourceVersion,
   findJobById,
   insertPendingJob,
   isKnownJobStatus,
@@ -255,14 +256,20 @@ describe('jobs.repository', () => {
     const orgId = new mongoose.Types.ObjectId();
     const projectId = new mongoose.Types.ObjectId();
     const actor = new mongoose.Types.ObjectId();
+    const sourceVersionId = new mongoose.Types.ObjectId();
     const { job } = await insertPendingJob({
       orgId,
       projectId,
       jobType: 'ingest',
       createdBy: actor,
+      sourceVersionId,
     });
 
     expect(await findActiveJobForProject(orgId, projectId)).toBeTruthy();
+    expect(await findActiveJobForSourceVersion(orgId, projectId, sourceVersionId)).toBeTruthy();
+    expect(
+      await findActiveJobForSourceVersion(orgId, projectId, new mongoose.Types.ObjectId()),
+    ).toBeNull();
 
     const cancelled = await cancelQueuedJob({
       orgId,

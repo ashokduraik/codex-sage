@@ -97,6 +97,21 @@ describe('ERROR_CATALOG', () => {
       httpStatus: 500,
       retryability: 'permanent',
     });
+    expect(ERROR_CATALOG.SOURCE_VERSION_NOT_FOUND).toMatchObject({
+      class: 'source',
+      httpStatus: 404,
+      retryability: 'user_action_required',
+    });
+    expect(ERROR_CATALOG.CONNECTION_NOT_VERIFIED).toMatchObject({
+      class: 'repository',
+      httpStatus: 409,
+      retryability: 'user_action_required',
+    });
+    expect(ERROR_CATALOG.CREDENTIAL_DECRYPT_FAILED).toMatchObject({
+      class: 'repository',
+      httpStatus: 503,
+      retryability: 'temporary',
+    });
   });
 });
 
