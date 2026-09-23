@@ -9,9 +9,11 @@ import { DocumentSection } from './documentSection.model.js';
 import {
   copySectionsForPaths,
   countSectionsForVersion,
+  findDocumentSectionById,
   insertDocumentSections,
   listSectionsForPath,
   listSectionsForVersion,
+  searchDocumentSections,
   softDeleteSectionsForPath,
   softDeleteSectionsForVersion,
 } from './documentSection.repository.js';
@@ -166,5 +168,59 @@ describe('documentSection.repository', () => {
         paths: ['docs/a.md'],
       }),
     ).toBe(0);
+  });
+
+  it('searches sections by text and loads one by id', async () => {
+    const orgId = new mongoose.Types.ObjectId();
+    const projectId = new mongoose.Types.ObjectId();
+    const sourceVersionId = new mongoose.Types.ObjectId();
+
+    expect(
+      await searchDocumentSections({ orgId, projectId, sourceVersionId }, { q: '   ', limit: 5 }),
+    ).toEqual([]);
+
+    await insertDocumentSections({
+      orgId,
+      projectId,
+      sourceVersionId,
+      path: 'docs/refunds.md',
+      sections: [
+        {
+          heading: 'Refunds',
+          startLine: 1,
+          endLine: 4,
+          text: 'Partial refunds are allowed within thirty days.',
+          sectionIndex: 0,
+        },
+      ],
+    });
+    const listed = await listSectionsForPath({
+      orgId,
+      projectId,
+      sourceVersionId,
+      path: 'docs/refunds.md',
+    });
+    const hits = await searchDocumentSections(
+      { orgId, projectId, sourceVersionId },
+      { q: 'refunds', limit: 5 },
+    );
+    expect(hits.length).toBeGreaterThan(0);
+    expect(hits[0].path).toBe('docs/refunds.md');
+
+    const found = await findDocumentSectionById({
+      orgId,
+      projectId,
+      sourceVersionId,
+      sectionId: listed[0]._id,
+    });
+    expect(found?.heading).toBe('Refunds');
+    expect(
+      await findDocumentSectionById({
+        orgId,
+        projectId,
+        sourceVersionId,
+        sectionId: 'not-an-id',
+      }),
+    ).toBeNull();
   });
 });

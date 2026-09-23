@@ -175,6 +175,7 @@
   "chat": {
     "title": "Chat",
     "newChat": "New Chat",
+    "attachmentChip": "Attached: {{title}}",
     "askPlaceholder": "Ask anything about this project…",
     "archivedPlaceholder": "This project is archived and not askable",
     "send": "Send",
@@ -235,7 +236,25 @@
     "expandAll": "Expand all",
     "collapseAll": "Collapse all",
     "evidenceFile": "Evidence",
-    "nodeType": "Type"
+    "nodeType": "Type",
+    "open": "Open",
+    "askAboutThis": "Ask about this",
+    "loading": "Loading knowledge…",
+    "loadingFacet": "Loading…",
+    "error": "Knowledge could not be loaded.",
+    "updating": "Project knowledge is updating.",
+    "unavailable": "Project knowledge is not available.",
+    "emptyFacet": "Nothing in this category yet.",
+    "symbolQuery": "Search symbols…",
+    "healthTitle": "Knowledge health",
+    "linkHealth": "View health",
+    "facet": {
+      "summary": "Summary",
+      "workflows": "Workflows",
+      "apis": "APIs",
+      "symbols": "Symbols",
+      "documentation": "Documentation"
+    }
   },
   "search": {
     "title": "Search",
@@ -245,7 +264,28 @@
     "emptyDescription": "Try a different query or pick another project.",
     "noQuery": "Enter a query to search project knowledge.",
     "idleTitle": "Search this project",
-    "emptyForQuery": "No matches for \"{{query}}\" in this project."
+    "emptyForQuery": "No matches for \"{{query}}\" in this project.",
+    "loading": "Searching…",
+    "error": "Search could not be completed.",
+    "updating": "Code search is paused while knowledge updates. Documentation may still appear.",
+    "unavailable": "Project knowledge is not available.",
+    "type": {
+      "code": "Code",
+      "doc": "Documentation",
+      "symbol": "Functionality",
+      "workflow": "Workflows",
+      "api": "APIs"
+    }
+  },
+  "preview": {
+    "title": "Source preview",
+    "subtitle": "Bounded file contents for the current source version.",
+    "lineRange": "Lines {{start}}–{{end}}",
+    "loading": "Loading preview…",
+    "error": "This file could not be previewed.",
+    "truncated": "Preview was truncated to stay within the size limit.",
+    "excluded": "This file is not in the code map. Chat will not treat it as graph knowledge.",
+    "binary": "This file cannot be shown as text."
   },
   "changes": {
     "title": "Changes",
@@ -260,7 +300,10 @@
     "docConflicts": "Documentation conflicts",
     "docConflictsHint": "Where docs and code disagree, both sides are shown with evidence.",
     "codeSays": "Code says",
-    "docsSay": "Docs say"
+    "docsSay": "Docs say",
+    "noConflicts": "No documentation conflicts were recorded for this update.",
+    "loading": "Loading changes…",
+    "error": "Change summary could not be loaded."
   },
   "sources": {
     "title": "Sources",

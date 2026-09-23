@@ -1,6 +1,7 @@
 /**
  * Tenant-scoped DocumentSection persistence (soft-delete by version/path).
  */
+import mongoose from 'mongoose';
 import { assertOrgId, ROW_STATUS_ACTIVE, ROW_STATUS_DELETED } from '../../platform/data/index.js';
 import { DocumentSection } from './documentSection.model.js';
 
@@ -151,6 +152,66 @@ export async function listSectionsForVersion(scope, options = {}) {
   })
     .sort({ path: 1, sectionIndex: 1 })
     .limit(limit)
+    .lean()
+    .exec();
+}
+
+/**
+ * Full-text search of active sections for a source version.
+ * @param {{
+ *   orgId: string | import('mongoose').Types.ObjectId,
+ *   projectId: string | import('mongoose').Types.ObjectId,
+ *   sourceVersionId: string | import('mongoose').Types.ObjectId,
+ * }} scope Version scope.
+ * @param {{ q: string, limit: number }} options Query and cap.
+ * @returns {Promise<object[]>}
+ */
+export async function searchDocumentSections(scope, options) {
+  assertOrgId(scope.orgId);
+  const query = typeof options.q === 'string' ? options.q.trim() : '';
+  if (!query) {
+    return [];
+  }
+  const rawLimit = Number(options.limit);
+  const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(Math.floor(rawLimit), 50) : 15;
+  return DocumentSection.find(
+    {
+      orgId: scope.orgId,
+      projectId: scope.projectId,
+      sourceVersionId: scope.sourceVersionId,
+      status: ROW_STATUS_ACTIVE,
+      $text: { $search: query },
+    },
+    { score: { $meta: 'textScore' } },
+  )
+    .sort({ score: { $meta: 'textScore' } })
+    .limit(limit)
+    .lean()
+    .exec();
+}
+
+/**
+ * Loads one active section by id within a version scope.
+ * @param {{
+ *   orgId: string | import('mongoose').Types.ObjectId,
+ *   projectId: string | import('mongoose').Types.ObjectId,
+ *   sourceVersionId: string | import('mongoose').Types.ObjectId,
+ *   sectionId: string | import('mongoose').Types.ObjectId,
+ * }} scope Scope + section id.
+ * @returns {Promise<object | null>}
+ */
+export async function findDocumentSectionById(scope) {
+  assertOrgId(scope.orgId);
+  if (!scope.sectionId || !mongoose.isValidObjectId(scope.sectionId)) {
+    return null;
+  }
+  return DocumentSection.findOne({
+    _id: scope.sectionId,
+    orgId: scope.orgId,
+    projectId: scope.projectId,
+    sourceVersionId: scope.sourceVersionId,
+    status: ROW_STATUS_ACTIVE,
+  })
     .lean()
     .exec();
 }

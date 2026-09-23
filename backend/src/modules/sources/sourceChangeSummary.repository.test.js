@@ -8,6 +8,7 @@ import { TEST_APP_CONFIG } from '../../test/appConfig.js';
 import { SourceChangeSummary } from './sourceChangeSummary.model.js';
 import {
   findChangeSummaryForVersion,
+  findLatestComputedChangeSummary,
   upsertChangeSummary,
 } from './sourceChangeSummary.repository.js';
 
@@ -95,5 +96,34 @@ describe('sourceChangeSummary.repository', () => {
         sourceVersionId: new mongoose.Types.ObjectId(),
       }),
     ).toBeNull();
+  });
+
+  it('returns the newest computed summary for a project', async () => {
+    const orgId = new mongoose.Types.ObjectId();
+    const projectId = new mongoose.Types.ObjectId();
+    const older = new mongoose.Types.ObjectId();
+    const newer = new mongoose.Types.ObjectId();
+    await upsertChangeSummary({
+      orgId,
+      projectId,
+      sourceVersionId: older,
+      added: ['old.js'],
+      removed: [],
+      changed: [],
+      unchanged: [],
+      counts: { added: 1, removed: 0, changed: 0, unchanged: 0 },
+    });
+    await upsertChangeSummary({
+      orgId,
+      projectId,
+      sourceVersionId: newer,
+      added: ['new.js'],
+      removed: [],
+      changed: [],
+      unchanged: [],
+      counts: { added: 1, removed: 0, changed: 0, unchanged: 0 },
+    });
+    const latest = await findLatestComputedChangeSummary({ orgId, projectId });
+    expect(String(latest?.sourceVersionId)).toBe(String(newer));
   });
 });

@@ -168,7 +168,9 @@ List index (partial `status: 'A'`): `{ orgId, projectId, createdAt: -1 }`.
 
 Used by ingest to populate `carry.skipPaths` / `changedPaths` / `removedPaths` on
 new-upload jobs. Reingest does not write a skip-path summary (full rebuild).
-Phase 39 reads these rows for the change-summary API.
+Phase 39 reads these rows for `GET /projects/:projectId/knowledge/updates/latest`
+(no schema change). The HTTP DTO maps `counts.changed` → `modified` and leaves
+API/workflow impact fields `null` until an impact graph exists.
 
 ### `sourceFiles`
 

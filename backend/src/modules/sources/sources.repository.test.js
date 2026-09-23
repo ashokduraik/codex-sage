@@ -13,7 +13,9 @@ import {
   clearSourceFilesBucket,
   countSourceVersions,
   findActiveSourceVersionForProject,
+  findSourceFileByPath,
   findSourceVersionById,
+  readSourceGridFsBytes,
   getSourceFilesBucket,
   insertSourceFiles,
   insertSourceVersion,
@@ -64,6 +66,9 @@ describe('sources gridfs + repository', () => {
       upload.on('finish', resolve);
       upload.on('error', reject);
     });
+
+    const uploaded = await readSourceGridFsBytes(upload.id);
+    expect(uploaded.toString('utf8')).toBe('x');
 
     await markGridFsFilesOrphaned([]);
     await markGridFsFilesOrphaned([upload.id]);
@@ -117,6 +122,21 @@ describe('sources gridfs + repository', () => {
     const files = await listSourceFilesForVersion(orgId, sourceVersionId);
     expect(files).toHaveLength(1);
     expect(files[0].path).toBe('src/a.js');
+    const byPath = await findSourceFileByPath({
+      orgId,
+      projectId,
+      sourceVersionId,
+      path: 'src/a.js',
+    });
+    expect(byPath?.sha256).toBe('a'.repeat(64));
+    expect(
+      await findSourceFileByPath({
+        orgId,
+        projectId,
+        sourceVersionId,
+        path: '',
+      }),
+    ).toBeNull();
     const page = await listSourceFilePathHashesPage({
       orgId,
       projectId,

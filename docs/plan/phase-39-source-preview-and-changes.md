@@ -265,13 +265,13 @@ may use a small fixed cap via test-only injection.
 
 ## 10. Definition of Done
 
-- [ ] File metadata and slice routes match PROPOSED contract after approval.
-- [ ] Slice responses enforce byte cap constant (test uses injectable cap).
-- [ ] Excluded-from-graph labeling on every preview payload.
-- [ ] Change summary route reads phase 29 storage; no fabricated API/workflow counts.
-- [ ] No full-project leakage; no secrets in logs/responses.
-- [ ] Optional audit not enabled until policy answered.
-- [ ] Coverage ≥ 80%; lint and tests green.
+- [x] File metadata and slice routes match the approved contract.
+- [x] Slice responses enforce byte cap constant (test uses injectable cap).
+- [x] Excluded-from-graph labeling on every preview payload.
+- [x] Change summary route reads phase 29 storage; no fabricated API/workflow counts.
+- [x] No full-project leakage; no secrets in logs/responses.
+- [x] Optional audit not enabled until policy answered.
+- [x] Coverage ≥ 80%; lint and tests green.
 
 ## 11. Documentation & ADR updates
 

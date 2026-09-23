@@ -197,6 +197,33 @@ export async function countSourceVersions(orgId, projectId) {
 }
 
 /**
+ * Finds an active stored SourceFile by normalized path.
+ * @param {{
+ *   orgId: string | import('mongoose').Types.ObjectId,
+ *   projectId: string | import('mongoose').Types.ObjectId,
+ *   sourceVersionId: string | import('mongoose').Types.ObjectId,
+ *   path: string,
+ * }} scope Scope + path.
+ * @returns {Promise<object | null>}
+ */
+export async function findSourceFileByPath(scope) {
+  assertOrgId(scope.orgId);
+  if (!scope.path) {
+    return null;
+  }
+  return SourceFile.findOne({
+    orgId: scope.orgId,
+    projectId: scope.projectId,
+    sourceVersionId: scope.sourceVersionId,
+    path: scope.path,
+    status: ROW_STATUS_ACTIVE,
+    fileState: SOURCE_FILE_STATE_STORED,
+  })
+    .lean()
+    .exec();
+}
+
+/**
  * Lists active SourceFile rows for a version.
  * @param {string} orgId Tenant id.
  * @param {string} sourceVersionId Version id.

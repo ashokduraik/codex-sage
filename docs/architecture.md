@@ -418,14 +418,16 @@ Gate `queue` / writer or a missing index that cannot be leased returns `200`
 
 | Endpoint (shape) | Reads |
 |------------------|--------|
-| `GET /projects/:id/search` | CodeGraph (code/symbols) + Mongo text search (docs) |
+| `GET /projects/:id/search` | CodeGraph (code/symbols/apis) + Mongo text search (docs). Same `200 { state }` wrapper as browse; docs kept when the graph lease fails and the gate allows. |
 | `GET /projects/:id/knowledge` | Facets present on the current graph + docs |
 | `GET /projects/:id/knowledge/summary` | Extractive docs + graph metadata (no LLM) |
 | `GET /projects/:id/knowledge/workflows` | Workflow nodes when the library exposes them |
 | `GET /projects/:id/knowledge/apis` | `getRoutingManifest` / `route` nodes |
 | `GET /projects/:id/knowledge/symbols?q=` | `getNodesByNamePrefix` / `searchNodes` |
 | `GET /projects/:id/knowledge/health` | Published health + exclusion count |
-| `GET /projects/:id/files/slice` | GridFS / materialized bytes, capped |
+| `GET /projects/:id/files` | Current `SourceFile` metadata + excluded-from-graph labels |
+| `GET /projects/:id/files/slice` | GridFS bytes, line-bounded and capped; `truncated` when a cap applies |
+| `GET /projects/:id/knowledge/updates/latest` | Latest computed `sourceChangeSummaries` row (file counts only; impact fields null) |
 | Chat “ask about this” | Resolve ids again under org/project/current version → evidence → budgeter → UNDERSTAND |
 
 ---

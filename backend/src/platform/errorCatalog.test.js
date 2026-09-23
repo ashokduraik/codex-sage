@@ -47,6 +47,11 @@ describe('ERROR_CATALOG', () => {
     );
     expect(ERROR_CATALOG.CONTEXT_ACCOUNTING_UNAVAILABLE.retryability).toBe('temporary');
     expect(ERROR_CATALOG[MONGO_UNAVAILABLE_CODE].httpStatus).toBe(503);
+    expect(ERROR_CATALOG.SEARCH_RESULT_NOT_FOUND).toMatchObject({
+      class: 'knowledge',
+      httpStatus: 404,
+      retryability: 'user_action_required',
+    });
   });
 
   it('allows details for validation, rate limit, and policy violation codes', () => {
@@ -101,6 +106,18 @@ describe('ERROR_CATALOG', () => {
       class: 'source',
       httpStatus: 404,
       retryability: 'user_action_required',
+    });
+    expect(ERROR_CATALOG.SOURCE_NOT_FOUND).toMatchObject({
+      class: 'source',
+      httpStatus: 404,
+    });
+    expect(ERROR_CATALOG.CHANGE_SUMMARY_NOT_FOUND).toMatchObject({
+      class: 'knowledge',
+      httpStatus: 404,
+    });
+    expect(ERROR_CATALOG.UNSUPPORTED_MEDIA_TYPE).toMatchObject({
+      class: 'source',
+      httpStatus: 415,
     });
     expect(ERROR_CATALOG.CONNECTION_NOT_VERIFIED).toMatchObject({
       class: 'repository',

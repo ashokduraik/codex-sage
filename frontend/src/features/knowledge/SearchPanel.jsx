@@ -1,155 +1,194 @@
-import { useMemo, useState } from 'react';
-import { useOutletContext, Link } from 'react-router-dom';
-import { Search, FileCode, BookOpen, Boxes, Workflow, Plug, Database, ArrowRight, FileQuestion, } from 'lucide-react';
+/**
+ * Project search panel backed by GET /search.
+ */
+import { useState } from 'react';
+import { Link, useNavigate, useOutletContext } from 'react-router-dom';
+import {
+  ArrowRight,
+  BookOpen,
+  Boxes,
+  FileCode,
+  FileQuestion,
+  Plug,
+  Search,
+  Workflow,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { EmptyState } from '@/shared/components';
 import { Input } from '@/shared/ui/input';
 import { cn } from '@/shared/lib/utils';
-const TYPE_KEYS = [
-    'all',
-    'Code',
-    'Documentation',
-    'Functionality',
-    'Workflows',
-    'APIs',
-    'Data',
-    'Other',
+import { useProjectSearch } from './hooks/useProjectSearch.js';
+import SourcePreviewDrawer from './SourcePreviewDrawer.jsx';
+
+const TYPE_CHIPS = [
+  { token: '', labelKey: 'home.all' },
+  { token: 'code', labelKey: 'search.type.code', icon: FileCode },
+  { token: 'doc', labelKey: 'search.type.doc', icon: BookOpen },
+  { token: 'symbol', labelKey: 'search.type.symbol', icon: Boxes },
+  { token: 'workflow', labelKey: 'search.type.workflow', icon: Workflow },
+  { token: 'api', labelKey: 'search.type.api', icon: Plug },
 ];
+
 const TYPE_ICON = {
-    Code: FileCode,
-    Documentation: BookOpen,
-    Functionality: Boxes,
-    Workflows: Workflow,
-    APIs: Plug,
-    Data: Database,
-    Other: FileQuestion,
+  code: FileCode,
+  doc: BookOpen,
+  symbol: Boxes,
+  workflow: Workflow,
+  api: Plug,
 };
+
 /**
- * Build a searchable index from the project knowledge tree plus mock docs.
+ * Project knowledge search panel.
  *
- * @param project - Current project
- * @returns Flat search index
- */
-function buildIndex(project) {
-    const index = [];
-    (project.knowledgeTree || []).forEach((capability) => {
-        index.push({
-            type: 'Functionality',
-            title: capability.label,
-            detail: 'Capability',
-            evidence: null,
-        });
-        (capability.children || []).forEach((child) => {
-            const mappedType = child.type === 'Workflow'
-                ? 'Workflows'
-                : child.type === 'API'
-                    ? 'APIs'
-                    : child.type === 'Data'
-                        ? 'Data'
-                        : child.type === 'Service'
-                            ? 'Code'
-                            : child.type === 'Integration'
-                                ? 'APIs'
-                                : 'Other';
-            index.push({
-                type: mappedType,
-                title: child.label,
-                detail: capability.label,
-                evidence: child.evidence ?? null,
-            });
-        });
-    });
-    index.push({
-        type: 'Documentation',
-        title: 'README — getting started',
-        detail: 'Docs',
-        evidence: 'README.md',
-    });
-    index.push({
-        type: 'Documentation',
-        title: 'Architecture overview',
-        detail: 'Docs',
-        evidence: 'docs/architecture.md',
-    });
-    index.push({
-        type: 'Code',
-        title: 'Route definitions',
-        detail: 'Server',
-        evidence: 'src/server/routes.ts',
-    });
-    return index;
-}
-/**
- * Project knowledge search panel with type filters.
- *
- * @returns Search panel
+ * @returns {import('react').ReactElement}
  */
 export default function SearchPanel() {
-    const { t } = useTranslation();
-    const { project: apiProject, mockProject } = useOutletContext();
-    const project = mockProject ?? apiProject;
-    const [query, setQuery] = useState('');
-    const [type, setType] = useState('all');
-    const index = useMemo(() => buildIndex(project), [project]);
-    const results = useMemo(() => {
-        if (!query.trim())
-            return [];
-        return index.filter((item) => {
-            if (type !== 'all' && item.type !== type)
-                return false;
-            return `${item.title} ${item.detail} ${item.evidence || ''}`
-                .toLowerCase()
-                .includes(query.toLowerCase());
-        });
-    }, [query, type, index]);
-    return (<div className="h-full overflow-y-auto scrollbar-thin">
+  const { t } = useTranslation();
+  const { project } = useOutletContext();
+  const navigate = useNavigate();
+  const projectId = project?.id;
+  const [query, setQuery] = useState('');
+  const [type, setType] = useState('');
+  const [previewTarget, setPreviewTarget] = useState(null);
+  const searchQuery = useProjectSearch(projectId, query, type);
+  const items = Array.isArray(searchQuery.data?.items) ? searchQuery.data.items : [];
+  const state = searchQuery.data?.state;
+  const idle = query.trim() === '';
+  const waitingDebounce = query.trim().length >= 2 && searchQuery.debouncedQ !== query.trim();
+
+  return (
+    <div className="h-full overflow-y-auto scrollbar-thin">
       <div className="mx-auto max-w-3xl px-6 py-8">
         <h1 className="font-display text-xl font-medium">{t('search.title')}</h1>
         <p className="text-sm text-muted-foreground">{t('search.subtitle')}</p>
 
         <div className="relative mt-4">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true"/>
-          <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('search.placeholder')} className="h-11 pl-9 text-base" autoFocus/>
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden="true"
+          />
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={t('search.placeholder')}
+            className="h-11 pl-9 text-base"
+            autoFocus
+          />
         </div>
 
         <div className="mt-3 flex flex-wrap gap-1.5">
-          {TYPE_KEYS.map((typeKey) => (<button key={typeKey} type="button" onClick={() => setType(typeKey)} className={cn('rounded-full px-3 py-1 text-xs font-medium transition-colors', type === typeKey
-                ? 'bg-brand text-brand-foreground'
-                : 'bg-muted text-muted-foreground hover:bg-muted/70')}>
-              {typeKey === 'all' ? t('home.all') : typeKey}
-            </button>))}
+          {TYPE_CHIPS.map((chip) => (
+            <button
+              key={chip.token || 'all'}
+              type="button"
+              onClick={() => setType(chip.token)}
+              className={cn(
+                'rounded-full px-3 py-1 text-xs font-medium transition-colors',
+                type === chip.token
+                  ? 'bg-brand text-brand-foreground'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/70',
+              )}
+            >
+              {t(chip.labelKey)}
+            </button>
+          ))}
         </div>
 
+        {state && state !== 'ready' ? (
+          <p className="mt-4 text-sm text-amber-800" role="alert">
+            {state === 'updating' ? t('search.updating') : t('search.unavailable')}{' '}
+            <Link to={`/projects/${projectId}/health`} className="underline">
+              {t('knowledge.linkHealth')}
+            </Link>
+          </p>
+        ) : null}
+
+        {searchQuery.isError ? (
+          <p className="mt-4 text-sm text-destructive" role="alert">
+            {searchQuery.error?.message || t('search.error')}
+          </p>
+        ) : null}
+
         <div className="mt-5">
-          {query.trim() === '' ? (<EmptyState icon={Search} title={t('search.idleTitle')} description={t('search.noQuery')}/>) : results.length === 0 ? (<EmptyState icon={FileQuestion} title={t('search.emptyTitle')} description={t('search.emptyForQuery', { query })}/>) : (<div className="divide-y divide-border rounded-lg border border-border bg-card">
-              {results.map((result) => {
+          {idle ? (
+            <EmptyState icon={Search} title={t('search.idleTitle')} description={t('search.noQuery')} />
+          ) : searchQuery.isFetching || waitingDebounce ? (
+            <p className="text-sm text-muted-foreground" aria-busy="true">
+              {t('search.loading')}
+            </p>
+          ) : items.length === 0 ? (
+            <EmptyState
+              icon={FileQuestion}
+              title={t('search.emptyTitle')}
+              description={t('search.emptyForQuery', { query })}
+            />
+          ) : (
+            <div className="divide-y divide-border rounded-lg border border-border bg-card">
+              {items.map((result) => {
                 const Icon = TYPE_ICON[result.type] || FileQuestion;
-                return (<div key={`${result.type}-${result.title}-${result.evidence}`} className="flex items-center gap-3 px-4 py-3">
-                    <Icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true"/>
+                return (
+                  <div key={result.id} className="flex items-center gap-3 px-4 py-3">
+                    <Icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-medium">
-                        {result.title}
-                      </div>
+                      <div className="truncate text-sm font-medium">{result.title}</div>
                       <div className="truncate text-xs text-muted-foreground">
                         <span className="mr-1.5 rounded bg-muted px-1.5 py-0.5">
-                          {result.type}
+                          {t(`search.type.${result.type}`, { defaultValue: result.type })}
                         </span>
-                        {result.detail}
-                        {result.evidence && (<>
+                        {result.snippet}
+                        {result.sourceRef?.path ? (
+                          <>
                             {' '}
-                            ·{' '}
-                            <span className="font-mono">{result.evidence}</span>
-                          </>)}
+                            · <span className="font-mono">{result.sourceRef.path}</span>
+                          </>
+                        ) : null}
                       </div>
                     </div>
-                    <Link to={`/projects/${project.id}/chat?q=${encodeURIComponent(result.title)}`} className="inline-flex items-center gap-1 text-xs text-brand hover:underline">
-                      {t('home.ask')}
-                      <ArrowRight className="h-3 w-3" aria-hidden="true"/>
-                    </Link>
-                  </div>);
-            })}
-            </div>)}
+                    {result.sourceRef?.path ? (
+                      <button
+                        type="button"
+                        className="text-xs text-brand hover:underline"
+                        onClick={() =>
+                          setPreviewTarget({
+                            path: result.sourceRef.path,
+                            startLine: result.sourceRef.startLine || 1,
+                            endLine: result.sourceRef.endLine || result.sourceRef.startLine || 1,
+                          })
+                        }
+                      >
+                        {t('knowledge.open')}
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1 text-xs text-brand hover:underline"
+                      onClick={() =>
+                        navigate(`/projects/${projectId}/chat`, {
+                          state: {
+                            searchAttachment: {
+                              id: result.id,
+                              knowledgeVersionId: searchQuery.data?.knowledgeVersionId,
+                              title: result.title,
+                            },
+                          },
+                        })
+                      }
+                    >
+                      {t('knowledge.askAboutThis')}
+                      <ArrowRight className="h-3 w-3" aria-hidden="true" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
-    </div>);
+      <SourcePreviewDrawer
+        projectId={projectId}
+        target={previewTarget}
+        onClose={() => setPreviewTarget(null)}
+      />
+    </div>
+  );
 }

@@ -267,6 +267,12 @@ export const ERROR_CATALOG = Object.freeze({
     retryability: 'temporary',
     message: 'Project knowledge is being updated.',
   }),
+  SEARCH_RESULT_NOT_FOUND: Object.freeze({
+    class: 'knowledge',
+    httpStatus: 404,
+    retryability: 'user_action_required',
+    message: 'Search result was not found for the current knowledge version.',
+  }),
   CONTEXT_ACCOUNTING_UNAVAILABLE: Object.freeze({
     class: 'system',
     httpStatus: 503,
@@ -309,6 +315,24 @@ export const ERROR_CATALOG = Object.freeze({
     httpStatus: 404,
     retryability: 'user_action_required',
     message: 'Source version not found.',
+  }),
+  SOURCE_NOT_FOUND: Object.freeze({
+    class: 'source',
+    httpStatus: 404,
+    retryability: 'user_action_required',
+    message: 'Source file not found.',
+  }),
+  CHANGE_SUMMARY_NOT_FOUND: Object.freeze({
+    class: 'knowledge',
+    httpStatus: 404,
+    retryability: 'user_action_required',
+    message: 'No change summary is available for this project.',
+  }),
+  UNSUPPORTED_MEDIA_TYPE: Object.freeze({
+    class: 'source',
+    httpStatus: 415,
+    retryability: 'user_action_required',
+    message: 'This file cannot be previewed as text.',
   }),
   CONNECTION_NOT_VERIFIED: Object.freeze({
     class: 'repository',

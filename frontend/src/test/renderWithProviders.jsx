@@ -60,12 +60,13 @@ export function clearAuthSession() {
  * Render a UI tree with router, i18n, query client, mock data, and auth providers.
  *
  * @param ui - Element to render
- * @param options - Route and render options
+ * @param options - Route and render options (`routeState` is location.state)
  * @returns Testing Library render result
  */
 export function renderWithProviders(ui, options = {}) {
   const {
     route = '/',
+    routeState,
     withAuth = true,
     authUser,
     queryClient: providedQueryClient,
@@ -83,11 +84,22 @@ export function renderWithProviders(ui, options = {}) {
     queryClient.setQueryData(CURRENT_USER_QUERY_KEY, resolvedUser);
   }
 
+  const parsedRoute = new URL(route, 'http://localhost');
+  const initialEntry =
+    routeState === undefined
+      ? route
+      : {
+          pathname: parsedRoute.pathname,
+          search: parsedRoute.search,
+          hash: parsedRoute.hash,
+          state: routeState,
+        };
+
   function Wrapper({ children }) {
     return (
       <I18nextProvider i18n={i18n}>
         <QueryClientProvider client={queryClient}>
-          <MemoryRouter initialEntries={[route]}>
+          <MemoryRouter initialEntries={[initialEntry]}>
             {withAuth ? (
               <AuthProvider>
                 <AppDataProvider>{children}</AppDataProvider>

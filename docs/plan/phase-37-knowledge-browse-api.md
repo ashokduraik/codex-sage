@@ -18,9 +18,8 @@ and reads only through a CodeGraph **read lease** when health allows. During an 
 writer or recovery, code-graph browse returns a structured **updating / unavailable** response;
 it never serves a stale or partially mutated graph. You can see it working by calling
 `GET /api/v1/projects/:projectId/knowledge/summary` on a ready project and receiving bounded
-metadata, then triggering a re-ingest and watching the same routes return `503
-KNOWLEDGE_UNAVAILABLE` (or an agreed `200` wrapper — see section 12) instead of yesterday's
-graph.
+metadata, then triggering a re-ingest and watching the same routes return HTTP `200`
+with `{ state: "updating"|"unavailable" }` instead of yesterday's graph.
 
 ## 2. Why this phase is here
 
@@ -302,7 +301,7 @@ Gate/writer/missing graph: HTTP `200` with `state` — not `503`.
 ### Integration (Fastify `app.inject` + Mongo harness)
 
 - Ready project: summary + symbols return `200` with `knowledgeVersionId` matching project.
-- Simulated writer lock held → `503 KNOWLEDGE_UNAVAILABLE`, no graph payload.
+- Simulated writer lock held → HTTP `200` `{ state: "updating" }`, no graph payload.
 - `partially_available` project returns items plus `partialKnowledge.excludedFromGraphCount > 0`.
 - Soft-deleted project → `404`.
 

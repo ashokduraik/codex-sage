@@ -191,15 +191,15 @@ feature module (`KNOWLEDGE_SEARCH_DEBOUNCE_MS`, e.g. `300`).
 
 ## 10. Definition of Done
 
-- [ ] Knowledge explorer, search, changes, and preview use React Query + real API (approved
+- [x] Knowledge explorer, search, changes, and preview use React Query + real API (approved
       contracts).
-- [ ] No `mockProject.knowledgeTree` / `MOCK_CHANGES` / local search index in these features.
-- [ ] Explorer categories match backend facets only (§71).
-- [ ] No Data/live-DB nodes; no fabricated API/workflow impact numbers.
-- [ ] Ask about this navigates only; no chat execution (phase 55).
-- [ ] i18n complete; action feedback on interactive controls.
-- [ ] Responsive at 375/768/1280; keyboard reachable tree/search.
-- [ ] Tests ≥ 80% line and branch on touched files; lint green.
+- [x] No `mockProject.knowledgeTree` / `MOCK_CHANGES` / local search index in these features.
+- [x] Explorer categories match backend facets only (§71).
+- [x] No Data/live-DB nodes; no fabricated API/workflow impact numbers.
+- [x] Ask about this navigates only; no chat execution (phase 55).
+- [x] i18n complete; action feedback on interactive controls.
+- [x] Responsive at 375/768/1280; keyboard reachable tree/search.
+- [x] Tests ≥ 80% line and branch on touched files; lint green.
 
 ## 11. Documentation & ADR updates
 

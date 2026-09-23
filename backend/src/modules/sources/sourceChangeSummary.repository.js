@@ -30,6 +30,27 @@ export async function findChangeSummaryForVersion(scope) {
 }
 
 /**
+ * Finds the newest computed change summary for a project.
+ * @param {{
+ *   orgId: string | import('mongoose').Types.ObjectId,
+ *   projectId: string | import('mongoose').Types.ObjectId,
+ * }} scope Tenant + project.
+ * @returns {Promise<object | null>}
+ */
+export async function findLatestComputedChangeSummary(scope) {
+  assertOrgId(scope.orgId);
+  return SourceChangeSummary.findOne({
+    orgId: scope.orgId,
+    projectId: scope.projectId,
+    status: ROW_STATUS_ACTIVE,
+    diffStatus: 'computed',
+  })
+    .sort({ computedAt: -1, createdAt: -1, _id: -1 })
+    .lean()
+    .exec();
+}
+
+/**
  * Upserts a computed change summary for an incoming source version.
  * @param {{
  *   orgId: string | import('mongoose').Types.ObjectId,

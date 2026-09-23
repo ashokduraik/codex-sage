@@ -119,6 +119,22 @@ export function openSourceGridFsDownloadStream(gridFsId, connection = mongoose.c
 }
 
 /**
+ * Reads GridFS file bytes into a buffer.
+ * @param {import('mongoose').Types.ObjectId | string} gridFsId File id.
+ * @param {import('mongoose').Connection} [connection] Connection.
+ * @returns {Promise<Buffer>}
+ */
+export async function readSourceGridFsBytes(gridFsId, connection = mongoose.connection) {
+  const stream = openSourceGridFsDownloadStream(gridFsId, connection);
+  /** @type {Buffer[]} */
+  const chunks = [];
+  for await (const chunk of stream) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  return chunks.length === 1 ? chunks[0] : Buffer.concat(chunks);
+}
+
+/**
  * Deletes all documents in the source GridFS bucket (test cleanup only).
  * @param {import('mongoose').Connection} [connection] Connection.
  * @returns {Promise<void>}

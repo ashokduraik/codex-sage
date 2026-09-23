@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useOutletContext, useSearchParams } from 'react-router-dom';
+import { useLocation, useOutletContext, useSearchParams } from 'react-router-dom';
 import { PanelLeftOpen, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAppData } from '@/shared/mock-data';
@@ -60,6 +60,10 @@ export default function ChatWorkspace() {
     const project = mockProject ?? apiProject;
     const { getConversation, createConversation, askQuestion, editUserMessage, getConversations, } = useAppData();
     const [searchParams, setSearchParams] = useSearchParams();
+    const location = useLocation();
+    const [searchAttachment, setSearchAttachment] = useState(
+        location.state?.searchAttachment ?? null,
+    );
     const [showHistory, setShowHistory] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
     const [clarification, setClarification] = useState(null);
@@ -260,6 +264,23 @@ export default function ChatWorkspace() {
               </div>
             </div>
           </div>)}
+
+        {searchAttachment ? (
+          <div className="border-t border-border bg-brand-muted/30 px-4 py-2 sm:px-6">
+            <div className="mx-auto flex max-w-3xl items-center justify-between gap-3">
+              <p className="truncate text-xs text-foreground">
+                {t('chat.attachmentChip', { title: searchAttachment.title || searchAttachment.id })}
+              </p>
+              <button
+                type="button"
+                className="shrink-0 text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => setSearchAttachment(null)}
+              >
+                {t('common.cancel')}
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         <Composer onSend={handleSend} onStop={handleStop} isGenerating={isGenerating} queued={queued} contextWarning={contextWarning} disabled={project.status === 'Archived'} placeholder={project.status === 'Archived'
             ? t('chat.archivedPlaceholder')

@@ -129,7 +129,11 @@ closed with `KNOWLEDGE_UNAVAILABLE` or attachment invalidation — exact behavio
 (phase 28). Optional: text index already on sections — confirm name and weights in phase 26
 before duplicating indexes.
 
-## 6. API contract — PROPOSED (needs approval before implementation)
+## 6. API contract — implemented
+
+Search follows browse: HTTP **200** `{ state: "ready"|"updating"|"unavailable" }`.
+Never `503` for graph unavailability. Docs are returned when `types` includes `doc` and
+the gate allows. Graph items are omitted when the read lease fails.
 
 ### `GET /api/v1/projects/:projectId/search`
 
@@ -179,7 +183,9 @@ before duplicating indexes.
 }
 ```
 
-- **Response `503`:** `KNOWLEDGE_UNAVAILABLE` when gate blocks all requested graph types.
+- **Response `200` wrapper:** `state` is `updating` when the gate queues or the lease sees a
+  writer, `unavailable` when the gate denies or the lease expires, `ready` otherwise
+  (including docs-only when the graph is missing).
 - **Errors:** `400 VALIDATION_ERROR` (missing `q`, unknown `types`), `401`, `403`, `404`.
 
 ### Internal: `resolveSearchResultForChat` (not HTTP unless approved in §12)
@@ -251,13 +257,13 @@ are placeholders until phase 05/benchmark confirms.
 
 ## 10. Definition of Done
 
-- [ ] `GET .../search` implemented with PROPOSED contract approved.
-- [ ] Results include `knowledgeVersionId` and stable `id` values.
-- [ ] No vector/embedding/reranker usage.
-- [ ] `resolveSearchResultForChat` exported and tested; no unapproved `/search/ask` route.
-- [ ] Tenant isolation and RBAC enforced on every call.
-- [ ] Constants in module code; no new `.env` keys.
-- [ ] Coverage ≥ 80% line and branch; lint and tests green.
+- [x] `GET .../search` implemented with the approved `200 + state` contract.
+- [x] Results include `knowledgeVersionId` and stable `id` values.
+- [x] No vector/embedding/reranker usage.
+- [x] `resolveSearchResultForChat` exported and tested; no unapproved `/search/ask` route.
+- [x] Tenant isolation and RBAC enforced on every call.
+- [x] Constants in module code; no new `.env` keys.
+- [x] Coverage ≥ 80% line and branch; lint and tests green.
 
 ## 11. Documentation & ADR updates
 

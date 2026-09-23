@@ -8,6 +8,8 @@ export {
   insertDocumentSections,
   listSectionsForPath,
   listSectionsForVersion,
+  searchDocumentSections,
+  findDocumentSectionById,
   countSectionsForVersion,
   copySectionsForPaths,
 } from './documentSection.repository.js';

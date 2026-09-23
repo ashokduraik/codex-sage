@@ -55,6 +55,31 @@ describe('ChatWorkspace', () => {
             expect(screen.getAllByText(/JWT-based session/i).length).toBeGreaterThan(0);
         }, { timeout: 8000 });
     });
+    it('shows a search attachment chip without auto-sending', async () => {
+        renderWithProviders(
+          <Routes>
+            <Route path="/projects/:id" element={<ProjectDetailPage />}>
+              <Route path="chat" element={<ChatWorkspace />} />
+            </Route>
+          </Routes>,
+          {
+            route: '/projects/prj_atlas/chat',
+            routeState: {
+              searchAttachment: {
+                id: 'kv1:symbol:refund',
+                knowledgeVersionId: 'kv1',
+                title: 'refundHandler',
+              },
+            },
+          },
+        );
+        expect(await screen.findByText('Attached: refundHandler')).toBeTruthy();
+        expect(screen.getByPlaceholderText('Ask anything about this project…').value).toBe('');
+        expect(screen.queryByText('Searching project knowledge…')).toBeNull();
+        fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+        expect(screen.queryByText('Attached: refundHandler')).toBeNull();
+    });
+
     it('shows clarification chips for vague questions on a new chat', async () => {
         renderWithProviders(<Routes>
         <Route path="/projects/:id" element={<ProjectDetailPage />}>

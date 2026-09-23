@@ -8,8 +8,14 @@ import { projectRoutes } from '../modules/projects/index.js';
 import { projectMemberRoutes } from '../modules/projectMembers/index.js';
 import { jobRoutes } from '../modules/jobs/index.js';
 import { repositoryRoutes } from '../modules/repositories/index.js';
-import { sourceRoutes, sourceUploadRoutes } from '../modules/sources/index.js';
+import {
+  changeSummaryRoutes,
+  sourcePreviewRoutes,
+  sourceRoutes,
+  sourceUploadRoutes,
+} from '../modules/sources/index.js';
 import { knowledgeBrowseRoutes } from '../modules/knowledge/index.js';
+import { searchRoutes } from '../modules/search/index.js';
 
 /**
  * Fastify plugin that registers every domain route module.
@@ -28,6 +34,9 @@ export async function registerRoutes(app) {
   await app.register(jobRoutes);
   await app.register(sourceUploadRoutes);
   await app.register(sourceRoutes);
+  await app.register(sourcePreviewRoutes);
+  await app.register(changeSummaryRoutes);
   await app.register(repositoryRoutes);
   await app.register(knowledgeBrowseRoutes);
+  await app.register(searchRoutes);
 }

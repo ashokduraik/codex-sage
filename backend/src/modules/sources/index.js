@@ -45,6 +45,7 @@ export {
   findSourceGridFsFileById,
   listSourceGridFsFilesForVersion,
   openSourceGridFsDownloadStream,
+  readSourceGridFsBytes,
   clearSourceFilesBucket,
 } from './gridfs.js';
 export {
@@ -53,6 +54,7 @@ export {
   setSourceVersionJobId,
   countSourceVersions,
   listSourceFilesForVersion,
+  findSourceFileByPath,
   findSourceVersionById,
   findActiveSourceVersionForProject,
   listSourceFilePathHashesPage,
@@ -76,8 +78,18 @@ export {
 export { SourceChangeSummary, SOURCE_DIFF_STATUS_VALUES } from './sourceChangeSummary.model.js';
 export {
   findChangeSummaryForVersion,
+  findLatestComputedChangeSummary,
   upsertChangeSummary,
 } from './sourceChangeSummary.repository.js';
+export { sourcePreviewRoutes } from './sourcePreview.routes.js';
+export { changeSummaryRoutes } from './changeSummary.routes.js';
+export { loadSourceFileMetadata, loadSourceFileSlice } from './sourcePreview.service.js';
+export { loadLatestChangeSummary, mapChangeSummaryDto } from './changeSummary.service.js';
+export {
+  SOURCE_PREVIEW_MAX_BYTES,
+  SOURCE_PREVIEW_MAX_LINES,
+  SOURCE_PATH_MAX_LENGTH,
+} from './sources.preview.constants.js';
 
 import { SourceFile } from './sourceFile.model.js';
 import { SourceVersion } from './sourceVersion.model.js';
