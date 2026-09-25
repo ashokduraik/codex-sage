@@ -1,0 +1,1007 @@
+/**
+ * masters/projects.js — merged resource file.
+ */
+import { requireProjectPermission } from '../../http/preHandlers/requireProjectPermission.js';
+import { ApiError } from '../../platform/errors.js';
+import { buildAuditContextFromRequest, recordAuditEvent } from '../access/index.js';
+import { ensureCreatorProjectMember, resolveAccessibleProjectFilter } from './projectMembers.js';
+import {
+  assertLifecycleTransitionAllowed,
+  assertKnowledgeHealthAllowed,
+  initialLifecycleAfterCreate,
+  conditionalLifecycleUpdate,
+  createProject as createProjectInRepo,
+  findProjectById,
+  listProjects as listProjectsInRepo,
+  softDeleteProject,
+  touchProjectLastAccessedAt,
+  updateProjectMetadata,
+  updateProjectSettings,
+} from './projects.helper.js';
+import { z } from 'zod';
+
+// --- from projects/projects.routes.js ---
+/**
+ * Project HTTP routes under `/api/v1`.
+ */
+const createBodySchema = z
+  .object({
+    name: z.string().trim().min(1).max(120),
+    description: z.string().trim().max(2000).optional(),
+    sourceType: z.enum(['upload', 'repository']),
+  });
+  // Unknown keys (e.g. forged orgId) are stripped — never trusted from the client.
+
+const patchBodySchema = z
+  .object({
+    name: z.string().trim().min(1).max(120).optional(),
+    description: z.string().trim().max(2000).optional(),
+  })
+  .strict()
+  .refine((value) => value.name !== undefined || value.description !== undefined, {
+    message: 'At least one of name or description is required',
+  });
+
+const settingsBodySchema = z
+  .object({
+    settings: z.record(z.string(), z.unknown()),
+  })
+  .strict();
+
+const listQuerySchema = z.object({
+  q: z.string().optional(),
+  cursor: z.string().min(1).optional(),
+  limit: z.coerce.number().int().optional(),
+  sort: z.enum(['updatedAt', 'lastAccessedAt']).optional(),
+  includeArchived: z
+    .union([z.boolean(), z.enum(['true', 'false'])])
+    .optional()
+    .transform((value) => value === true || value === 'true'),
+});
+// Unknown query keys (e.g. forged orgId) are stripped.
+
+const projectIdParamsSchema = z.object({
+  projectId: z.string().min(1),
+});
+
+/**
+ * Maps zod issues to VALIDATION_ERROR details.
+ * @param {import('zod').ZodError} error Zod error.
+ * @returns {{ path: string, message: string }[]}
+ */
+function zodDetails(error) {
+  /** @type {{ path: string, message: string }[]} */
+  const details = [];
+  for (const issue of error.issues) {
+    if (issue.code === 'unrecognized_keys' && Array.isArray(issue.keys)) {
+      for (const key of issue.keys) {
+        details.push({ path: String(key), message: 'Unrecognized key' });
+      }
+      continue;
+    }
+    details.push({
+      path: issue.path.join('.') || 'body',
+      message: issue.message,
+    });
+  }
+  return details;
+}
+
+/**
+ * Shared request context for project services.
+ * @param {import('fastify').FastifyRequest} request Request.
+ * @returns {{
+ *   orgId: string,
+ *   actorUserId: string,
+ *   correlationId: string,
+ *   ip?: string,
+ *   userAgent?: string,
+ *   log: import('fastify').FastifyBaseLogger,
+ * }}
+ */
+function serviceContext(request) {
+  const audit = buildAuditContextFromRequest(request);
+  return {
+    orgId: /** @type {string} */ (request.principal.orgId),
+    actorUserId: /** @type {string} */ (request.principal.userId),
+    correlationId: audit.correlationId,
+    ip: audit.ip,
+    userAgent: audit.userAgent,
+    log: request.log,
+  };
+}
+
+/**
+ * Registers project routes under `/api/v1`.
+ * @param {import('fastify').FastifyInstance} app Fastify app.
+ */
+export async function projectRoutes(app) {
+  app.post(
+    '/projects',
+    {
+      config: {
+        requiredPermissions: ['projects.create'],
+        requireIdempotencyKey: true,
+      },
+    },
+    async (request, reply) => {
+      const parsed = createBodySchema.safeParse(request.body ?? {});
+      if (!parsed.success) {
+        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
+      }
+      const ctx = serviceContext(request);
+      const project = await createProject({
+        ...ctx,
+        name: parsed.data.name,
+        description: parsed.data.description,
+        sourceType: parsed.data.sourceType,
+      });
+      return reply.code(201).send(project);
+    },
+  );
+
+  app.get(
+    '/projects',
+    { config: { requiredPermissions: ['projects.view'] } },
+    async (request) => {
+      const parsed = listQuerySchema.safeParse(request.query ?? {});
+      if (!parsed.success) {
+        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
+      }
+      if (parsed.data.limit === 0) {
+        throw ApiError.fromCode('VALIDATION_ERROR', {
+          details: [{ path: 'limit', message: 'limit must be a positive integer' }],
+        });
+      }
+      return listProjects(request.principal.orgId, request.principal.userId, parsed.data);
+    },
+  );
+
+  app.get(
+    '/projects/:projectId',
+    {
+      config: { routeAccess: 'authenticated' },
+      preHandler: requireProjectPermission('projects.view'),
+    },
+    async (request) => {
+      const params = projectIdParamsSchema.safeParse(request.params ?? {});
+      if (!params.success) {
+        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+      }
+      return getProject(request.projectScope.orgId, request.projectScope.projectId);
+    },
+  );
+
+  app.post(
+    '/projects/:projectId/access',
+    {
+      config: { routeAccess: 'authenticated' },
+      preHandler: requireProjectPermission('projects.view'),
+    },
+    async (request) => {
+      const params = projectIdParamsSchema.safeParse(request.params ?? {});
+      if (!params.success) {
+        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+      }
+      return recordProjectAccess(
+        request.projectScope.orgId,
+        request.projectScope.projectId,
+      );
+    },
+  );
+
+  app.patch(
+    '/projects/:projectId',
+    {
+      config: { routeAccess: 'authenticated' },
+      preHandler: requireProjectPermission('projects.update'),
+    },
+    async (request) => {
+      const params = projectIdParamsSchema.safeParse(request.params ?? {});
+      if (!params.success) {
+        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+      }
+      const parsed = patchBodySchema.safeParse(request.body ?? {});
+      if (!parsed.success) {
+        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
+      }
+      const ctx = serviceContext(request);
+      return updateProject({
+        ...ctx,
+        projectId: request.projectScope.projectId,
+        name: parsed.data.name,
+        description: parsed.data.description,
+      });
+    },
+  );
+
+  app.get(
+    '/projects/:projectId/settings',
+    {
+      config: { routeAccess: 'authenticated' },
+      preHandler: requireProjectPermission('settings.manage'),
+    },
+    async (request) => {
+      const params = projectIdParamsSchema.safeParse(request.params ?? {});
+      if (!params.success) {
+        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+      }
+      return getProjectSettings(request.projectScope.orgId, request.projectScope.projectId);
+    },
+  );
+
+  app.patch(
+    '/projects/:projectId/settings',
+    {
+      config: { routeAccess: 'authenticated' },
+      preHandler: requireProjectPermission('settings.manage'),
+    },
+    async (request) => {
+      const params = projectIdParamsSchema.safeParse(request.params ?? {});
+      if (!params.success) {
+        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+      }
+      const parsed = settingsBodySchema.safeParse(request.body ?? {});
+      if (!parsed.success) {
+        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
+      }
+      const ctx = serviceContext(request);
+      return patchProjectSettings({
+        ...ctx,
+        projectId: request.projectScope.projectId,
+        settings: parsed.data.settings,
+      });
+    },
+  );
+
+  app.post(
+    '/projects/:projectId/archive',
+    {
+      config: { routeAccess: 'authenticated' },
+      preHandler: requireProjectPermission('projects.update'),
+    },
+    async (request) => {
+      const params = projectIdParamsSchema.safeParse(request.params ?? {});
+      if (!params.success) {
+        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+      }
+      const ctx = serviceContext(request);
+      return archiveProject({ ...ctx, projectId: request.projectScope.projectId });
+    },
+  );
+
+  app.post(
+    '/projects/:projectId/restore',
+    {
+      config: { routeAccess: 'authenticated' },
+      preHandler: requireProjectPermission('projects.update'),
+    },
+    async (request) => {
+      const params = projectIdParamsSchema.safeParse(request.params ?? {});
+      if (!params.success) {
+        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+      }
+      const ctx = serviceContext(request);
+      return restoreProject({ ...ctx, projectId: request.projectScope.projectId });
+    },
+  );
+
+  app.get(
+    '/projects/:projectId/deletion-preview',
+    {
+      config: { routeAccess: 'authenticated' },
+      preHandler: requireProjectPermission('projects.delete'),
+    },
+    async (request) => {
+      const params = projectIdParamsSchema.safeParse(request.params ?? {});
+      if (!params.success) {
+        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+      }
+      return getDeletionPreview(
+        request.projectScope.orgId,
+        request.projectScope.projectId,
+      );
+    },
+  );
+
+  app.delete(
+    '/projects/:projectId',
+    {
+      config: { routeAccess: 'authenticated' },
+      preHandler: requireProjectPermission('projects.delete'),
+    },
+    async (request, reply) => {
+      const params = projectIdParamsSchema.safeParse(request.params ?? {});
+      if (!params.success) {
+        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+      }
+      const ctx = serviceContext(request);
+      await deleteProject({ ...ctx, projectId: request.projectScope.projectId });
+      return reply.code(204).send();
+    },
+  );
+}
+
+// --- from projects/projects.service.js ---
+/**
+ * Project use cases — CRUD, lifecycle transitions, audit, deletion preview.
+ */
+/** Known setting keys accepted by PATCH /projects/:id/settings (empty in Phase 17). */
+export const PROJECT_SETTING_KEYS = Object.freeze([]);
+
+const PROJECT_SETTING_KEY_SET = new Set(PROJECT_SETTING_KEYS);
+
+/**
+ * Returns whether `key` is a registered project setting.
+ * @param {string} key Candidate setting key.
+ * @returns {boolean}
+ */
+export function isKnownProjectSettingKey(key) {
+  return typeof key === 'string' && PROJECT_SETTING_KEY_SET.has(key);
+}
+
+/**
+ * Validates a settings object against the registry.
+ * @param {Record<string, unknown>} settings Candidate settings patch.
+ * @returns {{ ok: true } | { ok: false, unknownKeys: string[] }}
+ */
+export function validateProjectSettingsKeys(settings) {
+  if (!settings || typeof settings !== 'object' || Array.isArray(settings)) {
+    return { ok: false, unknownKeys: ['settings'] };
+  }
+  const unknownKeys = Object.keys(settings).filter((key) => !isKnownProjectSettingKey(key));
+  if (unknownKeys.length > 0) {
+    return { ok: false, unknownKeys };
+  }
+  return { ok: true };
+}
+
+/**
+ * Formats a date field as ISO-8601, or empty string when missing.
+ * @param {unknown} value Date or string.
+ * @returns {string}
+ */
+function toIsoOrEmpty(value) {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  return String(value ?? '');
+}
+
+/**
+ * Formats a date field as ISO-8601, or null when missing.
+ * @param {unknown} value Date or string.
+ * @returns {string | null}
+ */
+function toIsoOrNull(value) {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  if (value == null || value === '') {
+    return null;
+  }
+  return String(value);
+}
+
+/**
+ * Maps a project document to the API DTO.
+ * @param {object} project Project document or lean object.
+ * @param {{ detail?: boolean }} [options] When detail, include archivedAt and version id.
+ * @returns {object}
+ */
+export function mapProjectToDto(project, options = {}) {
+  const detail = options.detail === true;
+  const counts = project.counts ?? {};
+  const sourceConfig = project.sourceConfig ?? {};
+  /** @type {Record<string, unknown>} */
+  const source = { sourceType: sourceConfig.sourceType };
+  if (sourceConfig.repositoryConnectionId) {
+    source.repositoryConnectionId = String(sourceConfig.repositoryConnectionId);
+  }
+  if (sourceConfig.currentSourceVersionId) {
+    source.currentSourceVersionId = String(sourceConfig.currentSourceVersionId);
+  }
+
+  /** @type {Record<string, unknown>} */
+  const dto = {
+    id: String(project._id ?? project.id),
+    name: project.name,
+    description: project.description ?? '',
+    lifecycleStatus: project.lifecycleStatus,
+    knowledgeHealth: project.knowledgeHealth,
+    sourceConfig: source,
+    counts: {
+      sourceVersions: counts.sourceVersions ?? 0,
+      files: counts.files ?? 0,
+      excludedFiles: counts.excludedFiles ?? 0,
+      conversations: counts.conversations ?? 0,
+    },
+    lastAccessedAt: toIsoOrNull(project.lastAccessedAt),
+    createdBy: project.createdBy ? String(project.createdBy) : null,
+    createdAt: toIsoOrEmpty(project.createdAt),
+    updatedAt: toIsoOrEmpty(project.updatedAt),
+  };
+
+  if (detail) {
+    dto.archivedAt = toIsoOrNull(project.archivedAt);
+    dto.currentKnowledgeVersionId = project.currentKnowledgeVersionId
+      ? String(project.currentKnowledgeVersionId)
+      : null;
+    dto.settings =
+      project.settings && typeof project.settings === 'object' ? { ...project.settings } : {};
+    dto.lifecycleStatusReasonCode = project.lifecycleStatusReasonCode ?? null;
+    dto.lifecycleStatusChangedAt = toIsoOrNull(project.lifecycleStatusChangedAt);
+  }
+
+  return dto;
+}
+
+/** Retention defaults mirrored from solution §12.3 for deletion-preview. */
+export const DELETION_PREVIEW_CONSEQUENCES = Object.freeze([
+  Object.freeze({ resource: 'source', effect: 'soft_deleted', retentionDays: null }),
+  Object.freeze({ resource: 'knowledge', effect: 'soft_deleted', retentionDays: null }),
+  Object.freeze({
+    resource: 'conversations',
+    effect: 'soft_deleted',
+    retentionDays: 365,
+  }),
+  Object.freeze({
+    resource: 'processing_history',
+    effect: 'soft_deleted',
+    retentionDays: 180,
+  }),
+  Object.freeze({ resource: 'audit_events', effect: 'retained', retentionDays: 730 }),
+]);
+
+/**
+ * Applies a validated lifecycle transition with one race retry.
+ * @param {{
+ *   orgId: string,
+ *   projectId: string,
+ *   from: string,
+ *   to: string,
+ *   source: 'api' | 'worker',
+ *   reasonCode?: string | null,
+ *   actorUserId?: string | null,
+ *   knowledgeVersionId?: string | null,
+ *   knowledgeHealth?: string | null,
+ *   preArchiveLifecycleStatus?: string | null,
+ *   clearPreArchive?: boolean,
+ *   archivedAt?: Date | null,
+ * }} input Transition inputs.
+ * @returns {Promise<import('mongoose').Document>}
+ * @throws {ApiError} INVALID_STATE_TRANSITION | NOT_FOUND
+ */
+export async function transitionLifecycle(input) {
+  assertLifecycleTransitionAllowed({
+    from: input.from,
+    to: input.to,
+    source: input.source,
+    knowledgeVersionId: input.knowledgeVersionId,
+  });
+
+  if (input.knowledgeHealth !== undefined && input.knowledgeHealth !== null) {
+    assertKnowledgeHealthAllowed({
+      lifecycleStatus: input.to,
+      knowledgeHealth: input.knowledgeHealth,
+    });
+  }
+
+  const updated = await conditionalLifecycleUpdate(input.orgId, input.projectId, {
+    from: input.from,
+    to: input.to,
+    reasonCode: input.reasonCode ?? null,
+    updatedBy: input.actorUserId ?? null,
+    preArchiveLifecycleStatus: input.preArchiveLifecycleStatus,
+    clearPreArchive: input.clearPreArchive,
+    archivedAt: input.archivedAt,
+    currentKnowledgeVersionId: input.knowledgeVersionId,
+    knowledgeHealth: input.knowledgeHealth,
+  });
+
+  if (updated) {
+    return updated;
+  }
+
+  const current = await findProjectById(input.orgId, input.projectId);
+  if (!current) {
+    throw ApiError.fromCode('NOT_FOUND', { message: 'Project not found.' });
+  }
+
+  assertLifecycleTransitionAllowed({
+    from: current.lifecycleStatus,
+    to: input.to,
+    source: input.source,
+    knowledgeVersionId: input.knowledgeVersionId,
+  });
+
+  if (input.knowledgeHealth !== undefined && input.knowledgeHealth !== null) {
+    assertKnowledgeHealthAllowed({
+      lifecycleStatus: input.to,
+      knowledgeHealth: input.knowledgeHealth,
+    });
+  }
+
+  const retried = await conditionalLifecycleUpdate(input.orgId, input.projectId, {
+    from: current.lifecycleStatus,
+    to: input.to,
+    reasonCode: input.reasonCode ?? null,
+    updatedBy: input.actorUserId ?? null,
+    preArchiveLifecycleStatus: input.preArchiveLifecycleStatus,
+    clearPreArchive: input.clearPreArchive,
+    archivedAt: input.archivedAt,
+    currentKnowledgeVersionId: input.knowledgeVersionId,
+    knowledgeHealth: input.knowledgeHealth,
+  });
+
+  if (!retried) {
+    throw ApiError.fromCode('INVALID_STATE_TRANSITION', {
+      details: { from: current.lifecycleStatus, to: input.to },
+    });
+  }
+  return retried;
+}
+
+/**
+ * Creates a project and transitions out of `creating`.
+ * @param {{
+ *   orgId: string,
+ *   actorUserId: string,
+ *   name: string,
+ *   description?: string,
+ *   sourceType: 'upload' | 'repository',
+ *   correlationId: string,
+ *   ip?: string,
+ *   userAgent?: string,
+ *   log?: { error?: Function },
+ * }} input Create inputs.
+ * @returns {Promise<object>} Project DTO.
+ */
+export async function createProject(input) {
+  const created = await createProjectInRepo(input.orgId, {
+    name: input.name,
+    description: input.description,
+    sourceType: input.sourceType,
+    createdBy: input.actorUserId,
+  });
+
+  const nextStatus = initialLifecycleAfterCreate(input.sourceType);
+  const transitioned = await transitionLifecycle({
+    orgId: input.orgId,
+    projectId: String(created._id),
+    from: 'creating',
+    to: nextStatus,
+    source: 'api',
+    reasonCode: 'project_created',
+    actorUserId: input.actorUserId,
+  });
+
+  await recordAuditEvent(
+    {
+      orgId: input.orgId,
+      actorUserId: input.actorUserId,
+      action: 'project.create',
+      resourceType: 'project',
+      resourceId: String(transitioned._id),
+      result: 'success',
+      correlationId: input.correlationId,
+      ip: input.ip,
+      userAgent: input.userAgent,
+      context: {
+        name: transitioned.name,
+        sourceType: input.sourceType,
+        lifecycleStatus: transitioned.lifecycleStatus,
+      },
+    },
+    { log: input.log },
+  );
+
+  await ensureCreatorProjectMember({
+    orgId: input.orgId,
+    projectId: String(transitioned._id),
+    userId: input.actorUserId,
+  });
+
+  return mapProjectToDto(transitioned, { detail: true });
+}
+
+/**
+ * Lists projects visible to the caller under project ACL.
+ * @param {string} orgId Tenant id.
+ * @param {string} userId Caller user id.
+ * @param {{
+ *   q?: string,
+ *   includeArchived?: boolean,
+ *   cursor?: string,
+ *   limit?: number,
+ *   sort?: 'updatedAt' | 'lastAccessedAt',
+ * }} [filters] List filters.
+ * @returns {Promise<{ items: object[], pageInfo: object }>}
+ */
+export async function listProjects(orgId, userId, filters = {}) {
+  const access = await resolveAccessibleProjectFilter(orgId, userId);
+  /** @type {Parameters<typeof listProjectsInRepo>[1]} */
+  const repoFilters = { ...filters };
+  if (access.mode === 'none') {
+    repoFilters.emptyResult = true;
+  } else if (access.mode === 'selected') {
+    repoFilters.projectIds = access.projectIds;
+  }
+  const page = await listProjectsInRepo(orgId, repoFilters);
+  return {
+    items: page.items.map((project) => mapProjectToDto(project)),
+    pageInfo: page.pageInfo,
+  };
+}
+
+/**
+ * Returns one project DTO or throws NOT_FOUND.
+ * @param {string} orgId Tenant id.
+ * @param {string} projectId Project id.
+ * @returns {Promise<object>}
+ */
+export async function getProject(orgId, projectId) {
+  const project = await findProjectById(orgId, projectId);
+  if (!project) {
+    throw ApiError.fromCode('NOT_FOUND', { message: 'Project not found.' });
+  }
+  return mapProjectToDto(project, { detail: true });
+}
+
+/**
+ * Records that a project was opened (org-scoped lastAccessedAt bump).
+ * @param {string} orgId Tenant id.
+ * @param {string} projectId Project id.
+ * @returns {Promise<object>} Updated project detail DTO.
+ */
+export async function recordProjectAccess(orgId, projectId) {
+  const updated = await touchProjectLastAccessedAt(orgId, projectId);
+  if (!updated) {
+    throw ApiError.fromCode('NOT_FOUND', { message: 'Project not found.' });
+  }
+  return mapProjectToDto(updated, { detail: true });
+}
+
+/**
+ * Patches name and/or description.
+ * @param {{
+ *   orgId: string,
+ *   actorUserId: string,
+ *   projectId: string,
+ *   name?: string,
+ *   description?: string,
+ *   correlationId: string,
+ *   ip?: string,
+ *   userAgent?: string,
+ *   log?: { error?: Function },
+ * }} input Patch inputs.
+ * @returns {Promise<object>}
+ */
+export async function updateProject(input) {
+  const existing = await findProjectById(input.orgId, input.projectId);
+  if (!existing) {
+    throw ApiError.fromCode('NOT_FOUND', { message: 'Project not found.' });
+  }
+
+  const updated = await updateProjectMetadata(input.orgId, input.projectId, {
+    name: input.name,
+    description: input.description,
+    updatedBy: input.actorUserId,
+  });
+  if (!updated) {
+    throw ApiError.fromCode('NOT_FOUND', { message: 'Project not found.' });
+  }
+
+  await recordAuditEvent(
+    {
+      orgId: input.orgId,
+      actorUserId: input.actorUserId,
+      action: 'project.update',
+      resourceType: 'project',
+      resourceId: String(updated._id),
+      result: 'success',
+      correlationId: input.correlationId,
+      ip: input.ip,
+      userAgent: input.userAgent,
+      context: {
+        name: updated.name,
+        description: updated.description,
+      },
+    },
+    { log: input.log },
+  );
+
+  return mapProjectToDto(updated, { detail: true });
+}
+
+/**
+ * Returns project settings.
+ * @param {string} orgId Tenant id.
+ * @param {string} projectId Project id.
+ * @returns {Promise<{ settings: Record<string, unknown> }>}
+ */
+export async function getProjectSettings(orgId, projectId) {
+  const project = await findProjectById(orgId, projectId);
+  if (!project) {
+    throw ApiError.fromCode('NOT_FOUND', { message: 'Project not found.' });
+  }
+  const settings =
+    project.settings && typeof project.settings === 'object' ? { ...project.settings } : {};
+  return { settings };
+}
+
+/**
+ * Patches project settings against the empty Phase 17 registry.
+ * @param {{
+ *   orgId: string,
+ *   actorUserId: string,
+ *   projectId: string,
+ *   settings: Record<string, unknown>,
+ *   correlationId: string,
+ *   ip?: string,
+ *   userAgent?: string,
+ *   log?: { error?: Function },
+ * }} input Settings inputs.
+ * @returns {Promise<{ settings: Record<string, unknown> }>}
+ */
+export async function patchProjectSettings(input) {
+  const validation = validateProjectSettingsKeys(input.settings);
+  if (!validation.ok) {
+    throw ApiError.fromCode('UNKNOWN_SETTING', {
+      details: { unknownKeys: validation.unknownKeys },
+    });
+  }
+
+  const existing = await findProjectById(input.orgId, input.projectId);
+  if (!existing) {
+    throw ApiError.fromCode('NOT_FOUND', { message: 'Project not found.' });
+  }
+
+  const nextSettings = { ...(existing.settings ?? {}), ...input.settings };
+  const updated = await updateProjectSettings(input.orgId, input.projectId, {
+    settings: nextSettings,
+    updatedBy: input.actorUserId,
+  });
+  if (!updated) {
+    throw ApiError.fromCode('NOT_FOUND', { message: 'Project not found.' });
+  }
+
+  await recordAuditEvent(
+    {
+      orgId: input.orgId,
+      actorUserId: input.actorUserId,
+      action: 'project.settings_changed',
+      resourceType: 'project',
+      resourceId: String(updated._id),
+      result: 'success',
+      correlationId: input.correlationId,
+      ip: input.ip,
+      userAgent: input.userAgent,
+      context: { keys: Object.keys(input.settings) },
+    },
+    { log: input.log },
+  );
+
+  const settings =
+    updated.settings && typeof updated.settings === 'object' ? { ...updated.settings } : {};
+  return { settings };
+}
+
+/**
+ * Archives an active non-archived project.
+ * @param {{
+ *   orgId: string,
+ *   actorUserId: string,
+ *   projectId: string,
+ *   correlationId: string,
+ *   ip?: string,
+ *   userAgent?: string,
+ *   log?: { error?: Function },
+ * }} input Archive inputs.
+ * @returns {Promise<object>}
+ */
+export async function archiveProject(input) {
+  const project = await findProjectById(input.orgId, input.projectId);
+  if (!project) {
+    throw ApiError.fromCode('NOT_FOUND', { message: 'Project not found.' });
+  }
+  if (project.lifecycleStatus === 'archived') {
+    throw ApiError.fromCode('INVALID_STATE_TRANSITION', {
+      details: { from: 'archived', to: 'archived' },
+    });
+  }
+
+  const updated = await transitionLifecycle({
+    orgId: input.orgId,
+    projectId: input.projectId,
+    from: project.lifecycleStatus,
+    to: 'archived',
+    source: 'api',
+    reasonCode: 'project_archived',
+    actorUserId: input.actorUserId,
+    preArchiveLifecycleStatus: project.lifecycleStatus,
+    archivedAt: new Date(),
+  });
+
+  await recordAuditEvent(
+    {
+      orgId: input.orgId,
+      actorUserId: input.actorUserId,
+      action: 'project.archive',
+      resourceType: 'project',
+      resourceId: String(updated._id),
+      result: 'success',
+      correlationId: input.correlationId,
+      ip: input.ip,
+      userAgent: input.userAgent,
+      context: {
+        previousLifecycleStatus: project.lifecycleStatus,
+      },
+    },
+    { log: input.log },
+  );
+
+  return mapProjectToDto(updated, { detail: true });
+}
+
+/**
+ * Restores an archived project to preArchiveLifecycleStatus.
+ * @param {{
+ *   orgId: string,
+ *   actorUserId: string,
+ *   projectId: string,
+ *   correlationId: string,
+ *   ip?: string,
+ *   userAgent?: string,
+ *   log?: { error?: Function },
+ * }} input Restore inputs.
+ * @returns {Promise<object>}
+ */
+export async function restoreProject(input) {
+  const project = await findProjectById(input.orgId, input.projectId);
+  if (!project) {
+    throw ApiError.fromCode('NOT_FOUND', { message: 'Project not found.' });
+  }
+  if (project.lifecycleStatus !== 'archived' || !project.preArchiveLifecycleStatus) {
+    throw ApiError.fromCode('INVALID_STATE_TRANSITION', {
+      details: {
+        from: project.lifecycleStatus,
+        to: project.preArchiveLifecycleStatus ?? null,
+        reason: 'not_archived',
+      },
+    });
+  }
+
+  const restoreTo = project.preArchiveLifecycleStatus;
+  // Restore is the only path out of archived; bypass table for archived→previous.
+  const updated = await conditionalLifecycleUpdate(input.orgId, input.projectId, {
+    from: 'archived',
+    to: restoreTo,
+    reasonCode: 'project_restored',
+    updatedBy: input.actorUserId,
+    clearPreArchive: true,
+    archivedAt: null,
+  });
+  if (!updated) {
+    throw ApiError.fromCode('INVALID_STATE_TRANSITION', {
+      details: { from: 'archived', to: restoreTo },
+    });
+  }
+
+  await recordAuditEvent(
+    {
+      orgId: input.orgId,
+      actorUserId: input.actorUserId,
+      action: 'project.restore',
+      resourceType: 'project',
+      resourceId: String(updated._id),
+      result: 'success',
+      correlationId: input.correlationId,
+      ip: input.ip,
+      userAgent: input.userAgent,
+      context: { restoredLifecycleStatus: restoreTo },
+    },
+    { log: input.log },
+  );
+
+  return mapProjectToDto(updated, { detail: true });
+}
+
+/**
+ * Builds deletion consequences from stored counts (jobs default 0 until Phase 20).
+ * @param {string} orgId Tenant id.
+ * @param {string} projectId Project id.
+ * @returns {Promise<object>}
+ */
+export async function getDeletionPreview(orgId, projectId) {
+  const project = await findProjectById(orgId, projectId);
+  if (!project) {
+    throw ApiError.fromCode('NOT_FOUND', { message: 'Project not found.' });
+  }
+  const counts = project.counts ?? {};
+  return {
+    counts: {
+      sourceVersions: counts.sourceVersions ?? 0,
+      files: counts.files ?? 0,
+      conversations: counts.conversations ?? 0,
+      jobs: 0,
+    },
+    consequences: [...DELETION_PREVIEW_CONSEQUENCES],
+  };
+}
+
+/**
+ * Soft-deletes a project.
+ * @param {{
+ *   orgId: string,
+ *   actorUserId: string,
+ *   projectId: string,
+ *   correlationId: string,
+ *   ip?: string,
+ *   userAgent?: string,
+ *   log?: { error?: Function },
+ * }} input Delete inputs.
+ * @returns {Promise<void>}
+ */
+export async function deleteProject(input) {
+  const project = await findProjectById(input.orgId, input.projectId);
+  if (!project) {
+    throw ApiError.fromCode('NOT_FOUND', { message: 'Project not found.' });
+  }
+
+  const result = await softDeleteProject(input.orgId, input.projectId, {
+    updatedBy: input.actorUserId,
+  });
+  if (!result.matchedCount) {
+    throw ApiError.fromCode('NOT_FOUND', { message: 'Project not found.' });
+  }
+
+  await recordAuditEvent(
+    {
+      orgId: input.orgId,
+      actorUserId: input.actorUserId,
+      action: 'project.delete',
+      resourceType: 'project',
+      resourceId: String(input.projectId),
+      result: 'success',
+      correlationId: input.correlationId,
+      ip: input.ip,
+      userAgent: input.userAgent,
+      context: {
+        name: project.name,
+        lifecycleStatus: project.lifecycleStatus,
+      },
+    },
+    { log: input.log },
+  );
+}
+
+export {
+  findProjectById,
+  createProject as createProjectInRepo,
+  listProjects as listProjectsInRepo,
+  adjustProjectConversationCount,
+  touchProjectLastAccessedAt,
+  updateProjectMetadata,
+  updateProjectSettings,
+  updateProjectSourceConfig,
+  conditionalLifecycleUpdate,
+  softDeleteProject,
+  LIFECYCLE_TRANSITIONS,
+  WORKER_ONLY_LIFECYCLE_STATUSES,
+  PRE_KNOWLEDGE_LIFECYCLE_STATUSES,
+  isKnownLifecycleStatus,
+  isKnownKnowledgeHealth,
+  initialLifecycleAfterCreate,
+  assertLifecycleTransitionAllowed,
+  assertKnowledgeHealthAllowed,
+  PROJECTS_LIST_DEFAULT_LIMIT,
+  PROJECTS_LIST_MAX_LIMIT,
+  PROJECTS_LIST_SORT_VALUES,
+  clampProjectsListLimit,
+  resolveProjectsListSort,
+} from './projects.helper.js';
+
+import { Project } from '../../models/projects.model.js';
+export { Project };
+export const PROJECT_MODELS = Object.freeze([Project]);

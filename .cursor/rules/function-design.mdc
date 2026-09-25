@@ -70,8 +70,8 @@ const data = await fs.promises.readFile(path);
 - Extract a named function only when the same logic is (or clearly will be) used in
   **two or more** places, or when the body is complex enough that a name materially aids
   understanding (multi-branch / multi-step domain logic — not a one-liner wrapper).
-- An extracted function lives in an existing file unless `file-colocation.mdc` allows a
-  new one.
+- An extracted function lives in the resource file unless `file-colocation.mdc`
+  allows a `.helper.js` / `.util.js` overflow file.
 
 ```js
 // ❌ BAD — one-liner helper used once

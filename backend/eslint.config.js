@@ -29,7 +29,7 @@ export default [
     },
   },
   {
-    files: ['src/platform/config.js', 'src/**/*.test.js'],
+    files: ['src/platform/config.js', 'tests/**/*.test.js'],
     rules: {
       'no-restricted-properties': 'off',
     },

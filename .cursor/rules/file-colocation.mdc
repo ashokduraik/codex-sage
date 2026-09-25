@@ -1,31 +1,32 @@
 ---
-description: Colocate helpers in the owning file; do not add a file per function
+description: One file per resource or model; helper then util only after 1000 code lines
 alwaysApply: true
 ---
 
 # File colocation
 
-A new source file is allowed only when one of these is true:
+Backend domain code lives in four modules: `access`, `masters`, `knowledge`,
+`conversation`. One production file per resource (routes + service + repository,
+or worker handler + its persistence). One production file per model in
+`backend/src/models/`.
 
-- It is a real boundary: route, service, repository, model, worker handler, React
-  component, or React hook (one component/hook per file stays).
-- The same non-trivial logic is used by two or more other files, and those files
-  should not each own a copy.
+Do not add a helper or util up front. Do not add a file per function. Do not add
+a `helpers/` folder or a shared util dumped across resources. Do not add a file
+that nothing in production calls.
 
-Otherwise the function goes in the file that calls it, or in the existing file
-that already owns that concern. Do not add a file that nothing in production
-calls. Do not copy the same helper under a new name.
+## Overflow (code lines only)
 
-Prefer fewer modules/folders when two folders are the same concern.
+The **1000 code-line cap applies to production files under `src/` only**.
+Files under `backend/tests/` and `frontend/tests/` are exempt.
 
-## Line cap (code only)
+A production file must not exceed **1000 code lines**. Do not count blank
+lines, `//` comments, or `/* */` / JSDoc blocks.
 
-A file must not exceed **1000 code lines**. Do not count blank lines, `//` comments,
-or `/* */` / JSDoc blocks.
-
-If a file would go over 1000 code lines, **do not create a new file**. Move the extra
-concern into another **existing** file that already owns related work. Only add a
-file if no existing owner can take it without mixing unrelated concerns.
+- If `resource.js` would exceed 1000 code lines, add **one** `resource.helper.js`
+  used only by that file. Public functions stay on `resource.js`.
+- If `resource.helper.js` would exceed 1000 code lines, add **one**
+  `resource.util.js` used only by that helper.
+- Do not add a second helper.
 
 ```js
 // BAD — one unused helper, own file
@@ -36,7 +37,7 @@ export function assertOrganizationPathMatchesPrincipal(pathOrgId, principal) {
   }
 }
 
-// GOOD — live in the caller or the file that already owns the concern
+// GOOD — live in the resource file that owns the concern
 export function createAuthorizePreHandler(requiredPermissions) {
   return async function authorize(request) {
     if (String(request.params.orgId) !== String(request.principal.orgId)) {

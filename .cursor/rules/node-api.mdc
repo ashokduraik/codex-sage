@@ -10,8 +10,13 @@ alwaysApply: false
 embed, build knowledge, or run heavy retrieval — **enqueue a Node background job/worker**
 instead of doing that work inline.
 
-- **Module-per-domain:** each module = `routes + service + repository + tests`, public surface
-  only, no cross-imports of another module's internals.
+- **Four domain modules:** `access`, `masters`, `knowledge`, `conversation`. Each
+  exposes a public `index.js` only — no cross-imports of another module's internals.
+- **One production file per resource** (routes + service + repository, or worker
+  handler + persistence). Overflow uses `resource.helper.js` then `resource.util.js`
+  only after 1000 code lines (`file-colocation.mdc`).
+- **Mongoose models** live in `backend/src/models/` (`*.model.js`). Modules import them from
+  there and may re-export them on their public surface.
 - Cross-cutting concerns (db client, queue enqueue, config, logging, errors) live in a shared
   platform/shared layer inside `backend/`.
 - **Do not invent API request/response shapes.** Align with requirements or ask the user
@@ -19,8 +24,8 @@ instead of doing that work inline.
   and update these rules.
 - **Security:** encrypt tokens at rest, enforce RBAC + tenant isolation, audit-log sensitive
   actions.
-- Descriptive names, colocated `*.test.js`. Helpers stay in the owning file
-  (`file-colocation.mdc`). No secrets in code.
+- Descriptive names. Unit tests live under `backend/tests/` mirroring `src/`
+  (`*.test.js`). The 1000-line cap does not apply there. No secrets in code.
 - **Node ESM:** relative imports must include the `.js` extension (`import { x } from './foo.js'`).
 
 ```js

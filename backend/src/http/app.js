@@ -4,6 +4,7 @@
  * domain routes. Does not start listening — call `.listen()` on the returned
  * instance (see `index.js`).
  */
+import { randomUUID } from 'node:crypto';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import cookie from '@fastify/cookie';
@@ -18,30 +19,24 @@ import {
 } from '../platform/logger.js';
 import { registerErrorHandler } from '../platform/errors.js';
 import {
-  generateCorrelationId,
-  runWithRequestContext,
-} from '../platform/requestContext.js';
-import { createAuthenticatePreHandler } from '../modules/auth/authenticate.preHandler.js';
-import { createAuthService } from '../modules/auth/auth.service.js';
-import {
+  assertAllRoutesDeclareAccess,
+  createAuthenticatePreHandler,
+  createAuthService,
+  createAuthorizePreHandler,
   CSRF_SECRET_COOKIE_NAME,
   JWT_AUDIENCE,
   JWT_ISSUER,
   JWT_ACCESS_TOKEN_TTL_SECONDS,
   JWT_REFRESH_TOKEN_TTL_SECONDS,
-} from '../modules/auth/tokenService.js';
-import {
-  assertAllRoutesDeclareAccess,
-  createAuthorizePreHandler,
   installRouteDeclarationCollector,
-} from '../modules/authorization/index.js';
+} from '../modules/access/index.js';
 import { registerIdempotency } from '../platform/idempotency/index.js';
-import { configureProjectAclCache } from '../modules/projectMembers/index.js';
-import { UPLOAD_MAX_ARCHIVE_BYTES } from '../modules/sources/exclusions/exclusions.constants.js';
+import { configureProjectAclCache } from '../modules/masters/index.js';
 import {
   MULTIPART_MAX_FILES,
+  UPLOAD_MAX_ARCHIVE_BYTES,
   consumeSourceArchivePreHandler,
-} from '../modules/sources/index.js';
+} from '../modules/knowledge/index.js';
 import { registerRoutes } from './routes.js';
 import { healthRoutes } from './health.routes.js';
 import {
@@ -54,6 +49,18 @@ import {
 export const API_BASE_PATH = '/api/v1';
 /** Response header carrying the request correlation reference. */
 export const CORRELATION_ID_HEADER = 'X-Correlation-Id';
+/** Prefix of the generated correlation reference (backend §105). */
+export const CORRELATION_ID_PREFIX = 'REQ';
+
+/**
+ * Generates a server-side correlation id: `REQ-` + 32 hex (UUID without dashes).
+ * Client-supplied ids are never honoured.
+ * @returns {string}
+ */
+export function generateCorrelationId() {
+  return `${CORRELATION_ID_PREFIX}-${randomUUID().replace(/-/g, '')}`;
+}
+
 /** CSRF header the browser must echo on refresh/logout. */
 export const CSRF_HEADER_NAME = 'x-csrf-token';
 
@@ -120,11 +127,6 @@ export function buildApp(config = loadConfig(), options = {}) {
 
   installRouteDeclarationCollector(app);
   app.addHook('preHandler', authorize);
-
-  // Enter ALS for the remainder of the request (Fastify continues inside `done`).
-  app.addHook('onRequest', (request, _reply, done) => {
-    runWithRequestContext({ correlationId: request.id }, done);
-  });
 
   app.addHook('onSend', (request, reply, payload, done) => {
     reply.header(CORRELATION_ID_HEADER, request.id);

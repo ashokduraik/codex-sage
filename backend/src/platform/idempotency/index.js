@@ -27,7 +27,7 @@ export {
   IDEMPOTENCY_RECORD_TTL_MS,
   IDEMPOTENCY_WAIT_MS,
 } from './idempotency.repository.js';
-export { IDEMPOTENCY_MODELS, IdempotencyRecord } from './idempotency.model.js';
+export { IDEMPOTENCY_MODELS, IdempotencyRecord } from '../../models/idempotency.model.js';
 export {
   beginIdempotencyClaim,
   buildIdempotencyRouteLabel,

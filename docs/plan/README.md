@@ -125,17 +125,19 @@ Taken from `AGENTS.md` and `.cursor/rules/`. Repeated here so a phase document d
 ### Code
 
 - JavaScript only. No Python anywhere in the repo.
-- Files stay under 1000 code lines (comments/blanks do not count); names under 60
-  characters; intention-revealing names. If a file would go over, move work into
-  another existing owner — do not invent a new file.
+- Production files under `src/` stay under 1000 code lines (comments/blanks do
+  not count); names under 60 characters; intention-revealing names. If a file
+  would go over, move work into another existing owner — do not invent a new
+  file. The 1000-line cap does not apply to `backend/tests/` or `frontend/tests/`.
 - `async`/`await` only — no callback APIs, no `.then` chains.
 - Every function carries JSDoc (purpose, params, returns, throws).
 - Comments explain *why*, never narrate *what*.
 - 2-space indent, single quotes, semicolons, max line length 100.
-- Module-per-domain in the backend: `routes + service + repository + tests`, exposed through a
-  public surface. No deep imports into another module's internals.
-- Feature-per-folder in the frontend: UI + hooks + API calls + tests; cross-feature reuse goes
-  through `shared/`.
+- Module-per-domain in the backend: `routes + service + repository`, exposed through a
+  public surface. Tests live under `backend/tests/` mirroring `src/`. No deep imports
+  into another module's internals.
+- Feature-per-folder in the frontend: UI + hooks + API calls; tests live under
+  `frontend/tests/` mirroring `src/`; cross-feature reuse goes through `shared/`.
 - HTTP handlers own `res`/`reply`. Helpers return data or throw — they never write the response.
 - **HTTP handlers never block on heavy work.** Heavy work is enqueued as a job for the worker.
 
@@ -181,7 +183,8 @@ Taken from `AGENTS.md` and `.cursor/rules/`. Repeated here so a phase document d
 
 ### Tests
 
-- Vitest, colocated as `*.test.js` / `*.test.jsx`.
+- Vitest, as `*.test.js` / `*.test.jsx` under `backend/tests/` and `frontend/tests/`
+  mirroring `src/`.
 - **≥ 80% line and branch coverage** for the code the phase touches, shipped in the same change.
 - Descriptive names that state the behaviour (`it('returns 403 when the caller lacks chat.ask')`).
 - Test the public surface, plus the unhappy paths: errors, authorization failures, empty and

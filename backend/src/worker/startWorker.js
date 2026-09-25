@@ -6,12 +6,12 @@ import { hostname } from 'node:os';
 import { loadConfig } from '../platform/config.js';
 import { connectMongo, disconnectMongo } from '../platform/mongo.js';
 import { syncSchemaIndexes } from '../platform/data/index.js';
-import { JOB_MODELS } from '../modules/jobs/index.js';
-import { SOURCE_MODELS } from '../modules/sources/index.js';
-import { DOCUMENT_MODELS } from '../modules/documents/index.js';
-import { PROJECT_MODELS } from '../modules/projects/index.js';
+import { JOB_MODELS } from '../modules/masters/index.js';
+import { SOURCE_MODELS } from '../modules/knowledge/index.js';
+import { DOCUMENT_MODELS } from '../modules/knowledge/index.js';
+import { PROJECT_MODELS } from '../modules/masters/index.js';
 import { KNOWLEDGE_MODELS } from '../modules/knowledge/index.js';
-import { REPOSITORY_MODELS } from '../modules/repositories/index.js';
+import { REPOSITORY_MODELS } from '../modules/knowledge/index.js';
 import {
   attachShutdownSignals,
   registerProcessHandlers,
@@ -22,13 +22,13 @@ import { workerSmokeHandlerRegistration } from './handlers/workerSmokeHandler.js
 import {
   ingestHandlerRegistration,
   reingestHandlerRegistration,
-} from '../modules/ingest/index.js';
+} from '../modules/knowledge/index.js';
 import {
   enqueueDueRepositorySyncs,
   repoSyncHandlerRegistration,
   REPO_SYNC_SCHEDULER_TICK_MS,
-} from '../modules/repositories/index.js';
-import { ProjectJobLock } from './projectJobLock.model.js';
+} from '../modules/knowledge/index.js';
+import { ProjectJobLock } from '../models/projectJobLock.model.js';
 import { buildWorkerId, startWorkerRuntime } from './workerRuntime.js';
 import {
   WORKER_HEARTBEAT_INTERVAL_MS,

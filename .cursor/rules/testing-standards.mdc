@@ -8,8 +8,9 @@ alwaysApply: true
 The 80%-coverage gate lives in `test-coverage.mdc`; this rule fixes the **frameworks and
 conventions**.
 
-- **JavaScript unit tests:** **Vitest** (Jest-compatible API), colocated as `*.test.js` /
-  `*.test.jsx` under `frontend/` and `backend/`.
+- **JavaScript unit tests:** **Vitest** (Jest-compatible API) as `*.test.js` /
+  `*.test.jsx` under `frontend/tests/` and `backend/tests/`, mirroring the
+  `src/` tree. The 1000-line cap does not apply to files under `tests/`.
 - **End-to-end tests:** **Playwright** when the E2E suite exists (cross-app flows).
 - **Maintain ≥ 80% code coverage** (line + branch) across unit tests — see `test-coverage.mdc`.
 - **Descriptive test names** that state the behavior, e.g.

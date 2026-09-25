@@ -3,8 +3,8 @@
  */
 import mongoose from 'mongoose';
 import { ROW_STATUS_ACTIVE } from '../platform/data/index.js';
-import { appendJobEvent } from '../modules/jobs/jobs.repository.js';
-import { Job } from '../modules/jobs/job.model.js';
+import { appendJobEvent } from '../modules/masters/index.js';
+import { Job } from '../models/job.model.js';
 import { WORKER_LEASE_TTL_MS, WORKER_PROJECT_BUSY_RETRY_MS } from './worker.constants.js';
 import {
   WORKER_EVENT_CANCELLED,

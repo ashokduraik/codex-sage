@@ -2,8 +2,8 @@
  * Worker runtime — poll / heartbeat / sweep timers and in-flight job orchestration.
  */
 import { randomBytes } from 'node:crypto';
-import { Job } from '../modules/jobs/job.model.js';
-import { appendJobEvent } from '../modules/jobs/jobs.repository.js';
+import { Job } from '../models/job.model.js';
+import { appendJobEvent } from '../modules/masters/index.js';
 import { getJobHandler, listRegisteredJobTypes } from './handlerRegistry.js';
 import {
   claimNextJob,

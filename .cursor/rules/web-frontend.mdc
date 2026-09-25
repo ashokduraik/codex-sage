@@ -6,7 +6,8 @@ alwaysApply: false
 
 # frontend/ — React frontend
 
-- **Feature-based structure:** each feature folder owns UI + hooks + API calls + tests. Cross-
+- **Feature-based structure:** each feature folder owns UI + hooks + API calls.
+  Tests for a feature live under `frontend/tests/` mirroring that folder. Cross-
   feature reuse goes through `shared/` — no deep imports across features.
 - **Talk only to `backend/`.** Never invent a direct path around the Node API.
 - **Do not invent API shapes.** Align with requirements or ask. When shared API clients /
@@ -14,8 +15,9 @@ alwaysApply: false
 - **Thin components, logic in hooks.** Keep components presentational.
 - **Always render citations / evidence** where an answer is shown; handle the unknown /
   abstain path.
-- One component/hook per file; descriptive names; colocated `*.test.jsx`. Plain helpers
-  follow `file-colocation.mdc`. No secrets.
+- One component/hook per file; descriptive names. Unit tests live under
+  `frontend/tests/` mirroring `src/` (`*.test.jsx`). The 1000-line cap does not
+  apply there. Plain helpers follow `file-colocation.mdc`. No secrets.
 
 ```jsx
 // ❌ BAD: logic + ad-hoc fetch buried in the component

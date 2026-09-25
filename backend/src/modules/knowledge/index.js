@@ -1,25 +1,198 @@
 /**
- * Public surface of the knowledge module (publish, gate, recovery).
+ * Public surface of the knowledge module (source, ingest, browse, search).
  */
+export {
+  EXCLUSION_RULESET_ID,
+  GRAPH_FILE_MAX_BYTES,
+  UPLOAD_MAX_ARCHIVE_BYTES,
+  UPLOAD_MAX_ENTRY_COUNT,
+  evaluateUploadEntry,
+  inspectZip,
+  summarizeInspection,
+  assertKnownExclusionRulesetId,
+  normalizeArchivePath,
+  isUnsafeArchivePath,
+  assertSafeArchivePath,
+  consumeSourceArchivePreHandler,
+  kindForSourcePath,
+  persistSourceUpload,
+  storeAcceptedZipEntries,
+  sourceUploadRoutes,
+} from './uploads.js';
+export {
+  GRIDFS_SOURCE_BUCKET,
+  UPLOAD_HASH_ALGORITHM,
+  MULTIPART_MAX_FILES,
+  ARCHIVE_FIELD_NAME,
+  SOURCE_ORIGIN_UPLOAD,
+  SOURCE_ORIGIN_REPOSITORY,
+  VERSION_LIFECYCLE_VALUES,
+  VERSION_LIFECYCLE_RECEIVED,
+  SOURCE_FILE_KIND_VALUES,
+  SOURCE_FILE_STATE_VALUES,
+  SOURCE_FILE_STATE_STORED,
+  SOURCE_FILE_STATE_MISSING,
+  SOURCE_FILE_STATE_CORRUPT,
+  SOURCE_VERSION_LIST_PAGE_SIZE_DEFAULT,
+  SOURCE_VERSION_LIST_PAGE_SIZE_MAX,
+  getSourceFilesBucket,
+  buildSourceGridFsFilename,
+  markGridFsFilesOrphaned,
+  findSourceGridFsFileById,
+  listSourceGridFsFilesForVersion,
+  openSourceGridFsDownloadStream,
+  readSourceGridFsBytes,
+  clearSourceFilesBucket,
+  insertSourceVersion,
+  insertSourceFiles,
+  setSourceVersionJobId,
+  countSourceVersions,
+  listSourceFilesForVersion,
+  findSourceFileByPath,
+  findSourceVersionById,
+  findActiveSourceVersionForProject,
+  listSourceFilePathHashesPage,
+  listSourceVersionsByProject,
+  clampSourceVersionListLimit,
+  sourceRoutes,
+  enqueueSourceReingest,
+  listProjectSourceVersions,
+  mapSourceVersionToListDto,
+  SOURCE_DIFF_BATCH_SIZE,
+  classifySourceDiff,
+  loadPathHashesForVersion,
+  computeSourceDiff,
+  carryFromSourceDiff,
+  resolveProjectWorkspacePath,
+  resolveSafeWorkspaceFilePath,
+  assertPathInsideRoot,
+  resetProjectWorkspaceSubtree,
+  deleteWorkspaceRelativePath,
+  materializeGridFsFileToDisk,
+} from './sources.js';
+export { SourceVersion } from '../../models/sourceVersion.model.js';
+export { SourceFile } from '../../models/sourceFile.model.js';
+export { SourceChangeSummary, SOURCE_DIFF_STATUS_VALUES } from '../../models/sourceChangeSummary.model.js';
+export {
+  findChangeSummaryForVersion,
+  findLatestComputedChangeSummary,
+  upsertChangeSummary,
+  changeSummaryRoutes,
+  loadLatestChangeSummary,
+  mapChangeSummaryDto,
+} from './changeSummary.js';
+export {
+  sourcePreviewRoutes,
+  loadSourceFileMetadata,
+  loadSourceFileSlice,
+  SOURCE_PREVIEW_MAX_BYTES,
+  SOURCE_PREVIEW_MAX_LINES,
+  SOURCE_PATH_MAX_LENGTH,
+} from './sourcePreview.js';
+export {
+  repositoryRoutes,
+  attachRepository,
+  getRepositoryConnection,
+  mapConnectionToDto,
+  patchRepositoryBranch,
+  replaceRepositoryCredential,
+  retestRepositoryConnection,
+  revokeRepositoryCredential,
+  probeRepository,
+  resolveRepositoryUrl,
+  mapAnonymousLookupStatus,
+  mapAuthenticatedLookupStatus,
+  mapOutboundThrown,
+  outboundGet,
+  REPO_PROBE_TIMEOUT_MS,
+  REPO_BRANCH_LIST_LIMIT,
+  REPO_README_MAX_BYTES,
+} from './repositories.js';
+export { RepositoryConnection } from '../../models/repositoryConnection.model.js';
+export { RepositoryCredential } from '../../models/repositoryCredential.model.js';
+export {
+  repoSyncHandlerRegistration,
+  enqueueDueRepositorySyncs,
+  enqueueManualRepositorySync,
+  REPO_SYNC_INTERVAL_MS,
+  REPO_SYNC_SCHEDULER_TICK_MS,
+  REPO_SYNC_OVERLAP_RETRY_MS,
+} from './repoSync.js';
+export { DocumentSection } from '../../models/documentSection.model.js';
+export {
+  softDeleteSectionsForVersion,
+  softDeleteSectionsForPath,
+  insertDocumentSections,
+  listSectionsForPath,
+  listSectionsForVersion,
+  searchDocumentSections,
+  findDocumentSectionById,
+  countSectionsForVersion,
+  copySectionsForPaths,
+  DOCUMENT_SECTION_MAX_CHARS,
+  DOCUMENT_TXT_SECTION_LINE_WINDOW,
+  isDocumentPath,
+  capSectionText,
+  parseDocumentSections,
+} from './documents.js';
+export {
+  INGEST_FILE_BATCH_SIZE,
+  INGEST_PROGRESS_FLUSH_MS,
+  createIngestCounters,
+  toJobProgressCounters,
+  derivePartialSuccess,
+  createProgressFlusher,
+  INGEST_STAGES,
+  resolveStagesAfter,
+  INGEST_STAGE_TIMEOUT_MS,
+  runIngestJob,
+  enterIngestLifecycleAtJobStart,
+  markProjectKnowledgeFailed,
+  ingestHandlerRegistration,
+  reingestHandlerRegistration,
+  applySourceDiffAfterValidate,
+  hydrateSourceDiffCarry,
+  INGEST_MAX_FAILED_FILE_RATIO,
+  buildIngestStageContext,
+} from './ingest.js';
+export {
+  createCodegraphAdapter,
+  isCodegraphLoadable,
+  mapCodegraphLibraryError,
+  inspectQuerySurface,
+  CODEGRAPH_MAX_SYNC_RETRY_ATTEMPTS,
+  CODEGRAPH_READ_LEASE_TTL_MS,
+  CODEGRAPH_QUERY_SURFACE_METHODS,
+  configureCodegraphTelemetryOff,
+  isCodegraphTelemetryConfigured,
+  CODEGRAPH_TELEMETRY_ENV_KEYS,
+  acquireWriter,
+  buildWriterLockKey,
+  isWriterHeld,
+  resetWriterLocksForTests,
+  validateCodegraphIndex,
+  CODEGRAPH_VALIDATION_PROBE_TIMEOUT_MS,
+  resolveCodegraphDir,
+  codegraphIndexExists,
+  writeCodegraphExcludeConfig,
+  CODEGRAPH_DIR_NAME,
+  CODEGRAPH_PROJECT_CONFIG_FILENAME,
+} from './codegraph.js';
 export {
   KnowledgeVersion,
   PUBLISHED_HEALTH_VALUES,
-} from './knowledgeVersion.model.js';
+} from '../../models/knowledgeVersion.model.js';
 export {
   countExcludedFromGraphFiles,
   findActiveKnowledgeVersionForSource,
   findKnowledgeVersionById,
   insertKnowledgeVersion,
-} from './knowledgeVersion.repository.js';
-export {
   KNOWLEDGE_GRAPH_DIR_NAME,
   sanitizeGraphIdentityForPublish,
   resolvePublishedHealth,
   publishKnowledgeVersion,
-} from './knowledge.publish.js';
-export { assertKnowledgeReadable } from './knowledge.gate.js';
-export { knowledgeBrowseRoutes } from './knowledge.routes.js';
-export {
+  assertKnowledgeReadable,
+  knowledgeBrowseRoutes,
   loadKnowledgeBrowse,
   clampBrowseLimit,
   KNOWLEDGE_BROWSE_PAGE_SIZE,
@@ -29,15 +202,47 @@ export {
   mapBrowseFacets,
   emptyBrowseEnvelope,
   mapHealthDimensions,
-} from './knowledge.browse.service.js';
-export {
   KNOWLEDGE_RECOVERY_MAX_ATTEMPTS,
   wipeCodegraphIndex,
   isRecoverableCodegraphFailure,
   runCodegraphUpdateWithRecovery,
-} from './knowledge.recovery.js';
+} from './knowledge.js';
+export {
+  searchRoutes,
+  runProjectSearch,
+  runProjectSearchFromQuery,
+  SEARCH_QUERY_MIN_LEN,
+  SEARCH_PAGE_SIZE,
+  SEARCH_SNIPPET_MAX_CHARS,
+  SEARCH_GRAPH_MAX_RESULTS,
+  SEARCH_DOC_MAX_RESULTS,
+  SEARCH_TYPES,
+  resolveSearchResultForChat,
+  encodeSearchResultId,
+  parseSearchResultId,
+  encodeOpaqueKey,
+  decodeOpaqueKey,
+  parseSearchTypes,
+  parseSearchQuery,
+  clampSearchLimit,
+} from './search.js';
 
-import { KnowledgeVersion } from './knowledgeVersion.model.js';
+import { DocumentSection } from '../../models/documentSection.model.js';
+import { KnowledgeVersion } from '../../models/knowledgeVersion.model.js';
+import { RepositoryConnection } from '../../models/repositoryConnection.model.js';
+import { RepositoryCredential } from '../../models/repositoryCredential.model.js';
+import { SourceChangeSummary } from '../../models/sourceChangeSummary.model.js';
+import { SourceFile } from '../../models/sourceFile.model.js';
+import { SourceVersion } from '../../models/sourceVersion.model.js';
 
-/** Models whose indexes are synced on development API startup / worker / tests. */
+export const SOURCE_MODELS = Object.freeze([
+  SourceVersion,
+  SourceFile,
+  SourceChangeSummary,
+]);
+export const DOCUMENT_MODELS = Object.freeze([DocumentSection]);
 export const KNOWLEDGE_MODELS = Object.freeze([KnowledgeVersion]);
+export const REPOSITORY_MODELS = Object.freeze([
+  RepositoryConnection,
+  RepositoryCredential,
+]);

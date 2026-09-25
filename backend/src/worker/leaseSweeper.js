@@ -2,7 +2,7 @@
  * Requeues or fails running jobs whose lease expired (crash recovery).
  */
 import { ROW_STATUS_ACTIVE } from '../platform/data/index.js';
-import { Job } from '../modules/jobs/job.model.js';
+import { Job } from '../models/job.model.js';
 import { failJobLeaseExpired, requeueJobInterrupted } from './jobClaim.js';
 import { releaseProjectJobLock } from './projectJobLock.js';
 import { computeRetryBackoffMs } from './retryPolicy.js';

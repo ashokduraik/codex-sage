@@ -3,8 +3,8 @@
  */
 import mongoose from 'mongoose';
 import { ApiError } from '../../platform/errors.js';
-import { hasRequiredPermissions } from '../../modules/authorization/permissionResolver.js';
-import { resolveProjectPermissions } from '../../modules/projectMembers/projectAccess.js';
+import { hasRequiredPermissions } from '../../modules/access/index.js';
+import { resolveProjectPermissions } from '../../modules/masters/index.js';
 
 /**
  * Creates a preHandler that enforces project ACL for `:projectId` routes.

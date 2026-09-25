@@ -27,15 +27,17 @@ Additional docs and ADRs live under [`docs/`](./docs/).
 
 ## Code style & structure
 
-- **Descriptive file names.** Helpers live in the file that owns them — see
+- **Descriptive file names.** Backend domain code is four modules (`access`,
+  `masters`, `knowledge`, `conversation`) with one file per resource — see
   `.cursor/rules/file-colocation.mdc`. Do not add a file per function. Cap is
-  1000 code lines (comments/blanks do not count); if a file would go over, move
-  work into another existing owner. Prefer fewer modules when they are the same
-  concern.
+  1000 code lines (comments/blanks do not count); overflow is `resource.helper.js`,
+  then `resource.util.js` if the helper also exceeds 1000. The 1000-line cap
+  applies to production files under `src/` only — not `backend/tests/` or
+  `frontend/tests/`.
 - **No deep cross-module imports.** Modules expose a public surface; internals stay private.
 - **JavaScript** for all application code (frontend and backend); JSX for React.
-- **Tests colocated:** `*.test.js` / `*.test.jsx` next to code; cross-app E2E via Playwright
-  when that suite exists.
+- **Tests** live under `backend/tests/` and `frontend/tests/`, mirroring `src/`;
+  cross-app E2E via Playwright when that suite exists.
 - **Comments explain *why*, not *what*.** No narration comments.
 
 ## Trust & safety (product-critical)

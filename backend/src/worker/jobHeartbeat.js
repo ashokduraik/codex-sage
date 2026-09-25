@@ -3,7 +3,7 @@
  */
 import mongoose from 'mongoose';
 import { ROW_STATUS_ACTIVE } from '../platform/data/index.js';
-import { Job } from '../modules/jobs/job.model.js';
+import { Job } from '../models/job.model.js';
 import { refreshProjectJobLock } from './projectJobLock.js';
 import { WORKER_LEASE_TTL_MS } from './worker.constants.js';
 

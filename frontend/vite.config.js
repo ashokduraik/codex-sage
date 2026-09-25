@@ -7,6 +7,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
+      '@tests': fileURLToPath(new URL('./tests', import.meta.url)),
     },
   },
   server: {
@@ -20,13 +21,13 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom',
-    include: ['src/**/*.test.{js,jsx}'],
+    include: ['tests/**/*.test.{js,jsx}'],
     globals: false,
     // jsdom + React + parallel workers can exceed the 5s default on cold imports.
     testTimeout: 15_000,
     hookTimeout: 15_000,
     teardownTimeout: 15_000,
-    setupFiles: ['src/test/setup.js'],
+    setupFiles: ['tests/setup.js'],
     // Pin VITE_ env vars so tests are independent of the developer's local .env file.
     env: {
       VITE_API_BASE_URL: '/api/v1',
@@ -36,8 +37,6 @@ export default defineConfig({
       include: ['src/**/*.{js,jsx}'],
       exclude: [
         'src/main.jsx',
-        'src/**/*.test.{js,jsx}',
-        'src/test/**',
         'src/shared/ui/**',
       ],
       thresholds: { lines: 80, branches: 80, functions: 80, statements: 80 },

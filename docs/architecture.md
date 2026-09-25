@@ -482,8 +482,8 @@ SSE events the UI handles: `status`, `delta` (token text), `clarification`, `evi
   `retryability`, and a stable English default message (see [ADR 0010](./adr/0010-structured-error-envelope.md)).
 - **Envelope:** `{ error: { code, class, retryability, message, reference, details? } }`.
 - **Correlation:** Fastify `request.id` is `REQ-` + 32 hex; echoed as `X-Correlation-Id` on
-  every response and as `error.reference`. Inbound client ids are ignored. Services read the
-  id via `AsyncLocalStorage` (`requestContext.js`) without threading it through every call.
+  every response and as `error.reference`. Inbound client ids are ignored. Services and audit
+  writers receive the id as an explicit argument (`request.id` or `job.correlationId`).
 - **Retry:** only `temporary` codes are auto-retryable (`retryPolicy.js`); permanent /
   `user_action_required` never increment an auto-retry counter.
 - **SSE:** after headers are sent, handlers emit a terminal `error` event built by

@@ -7,7 +7,7 @@
 3. After connect, the process syncs indexes (non-production) and runs the idempotent
    bootstrap seed. Watch for `bootstrap seed succeeded` at `info`.
 4. Set `LOG_LEVEL=debug` in `.env` for per-step seed logs. Defaults are in
-   `src/modules/identity/bootstrapDefaults.js` — not env vars (ADR 0011).
+   `src/modules/masters/organizations.js` — not env vars (ADR 0011).
 
 There is no CLI bootstrap command. Login arrives in Phase 07; the seeded admin starts as
 `invited` without a password hash.

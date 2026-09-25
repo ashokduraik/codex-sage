@@ -3,7 +3,7 @@
  */
 import mongoose from 'mongoose';
 import { assertOrgId, softDelete } from '../data/index.js';
-import { IdempotencyRecord } from './idempotency.model.js';
+import { IdempotencyRecord } from '../../models/idempotency.model.js';
 
 /** How long an idempotency record remains usable for replay. */
 export const IDEMPOTENCY_RECORD_TTL_MS = 86_400_000;

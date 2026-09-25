@@ -1,22 +1,26 @@
 import { healthRoutes } from './health.routes.js';
-import { authRoutes } from '../modules/auth/auth.routes.js';
-import { passwordRoutes } from '../modules/auth/password.routes.js';
-import { identityRoutes } from '../modules/identity/identity.routes.js';
-import { permissionsRoutes } from '../modules/authorization/permissions.routes.js';
-import { auditRoutes } from '../modules/audit/index.js';
-import { projectRoutes } from '../modules/projects/index.js';
-import { projectMemberRoutes } from '../modules/projectMembers/index.js';
-import { jobRoutes } from '../modules/jobs/index.js';
-import { repositoryRoutes } from '../modules/repositories/index.js';
+import {
+  authRoutes,
+  passwordRoutes,
+  permissionsRoutes,
+  auditRoutes,
+} from '../modules/access/index.js';
+import {
+  identityRoutes,
+  projectRoutes,
+  projectMemberRoutes,
+  jobRoutes,
+} from '../modules/masters/index.js';
 import {
   changeSummaryRoutes,
   sourcePreviewRoutes,
   sourceRoutes,
   sourceUploadRoutes,
-} from '../modules/sources/index.js';
-import { knowledgeBrowseRoutes } from '../modules/knowledge/index.js';
-import { searchRoutes } from '../modules/search/index.js';
-import { conversationRoutes } from '../modules/conversations/index.js';
+  repositoryRoutes,
+  knowledgeBrowseRoutes,
+  searchRoutes,
+} from '../modules/knowledge/index.js';
+import { conversationRoutes } from '../modules/conversation/index.js';
 
 /**
  * Fastify plugin that registers every domain route module.
