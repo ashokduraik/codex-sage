@@ -14,7 +14,6 @@ import {
   DEFAULT_ADMIN_EMAIL,
   DEFAULT_ADMIN_PASSWORD,
   IDENTITY_MODELS,
-  createMembership,
   createRoleInRepo,
   createUser, createUserInRepo,
   findBuiltInRole,
@@ -323,12 +322,9 @@ describe('conversation routes', () => {
       displayName: 'Other Admin',
       userStatus: 'active',
       passwordHash,
-    });
-    await createMembership(org._id, {
-      userId: otherAdmin._id,
-      roleIds: [adminRole._id],
-      projectAccessMode: 'all',
-    });
+          roleIds: [adminRole._id],
+          projectAccessMode: 'all'
+        });
     const other = await login(app, 'other-admin@example.com', 'OtherAdmin1!');
 
     const getDenied = await app.inject({
@@ -508,12 +504,8 @@ describe('conversation routes', () => {
       passwordHash,
       userStatus: 'active',
       createdBy: null,
-    });
-    await createMembership(org._id, {
-      userId: user._id,
-      roleIds: [role._id],
-      createdBy: null,
-    });
+          roleIds: [role._id]
+        });
     await addProjectMember({
       orgId: String(org._id),
       projectId: project.id,

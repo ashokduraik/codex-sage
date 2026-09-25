@@ -8,7 +8,6 @@ import { TEST_APP_CONFIG } from '../../appConfig.js';
 import { AUDIT_MODELS, listAuditEvents } from '../../../src/modules/access/audit.js';
 import {
   IDENTITY_MODELS,
-  createMembership,
   createOrganization,
   createUser, createUserInRepo,
   findBuiltInRole,
@@ -56,12 +55,9 @@ async function seedActorWithAllProjects() {
     email: `actor-${Date.now()}@example.com`,
     displayName: 'Actor',
     userStatus: 'active',
-  });
-  await createMembership(org._id, {
-    userId: actor._id,
-    roleIds: [orgAdmin._id],
-    projectAccessMode: 'all',
-  });
+        roleIds: [orgAdmin._id],
+        projectAccessMode: 'all'
+      });
   return { orgId: org._id, actor: actor._id };
 }
 

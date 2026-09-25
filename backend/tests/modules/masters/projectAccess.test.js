@@ -6,7 +6,6 @@ import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
 import {
   IDENTITY_MODELS,
-  createMembership,
   createOrganization,
   createUser, createUserInRepo,
   ensureBuiltInRoles,
@@ -57,12 +56,9 @@ describe('resolveProjectPermissions', () => {
       email: `u-${Date.now()}@example.com`,
       displayName: 'User',
       userStatus: 'active',
-    });
-    await createMembership(org._id, {
-      userId: user._id,
-      roleIds: [role._id],
-      projectAccessMode: mode,
-    });
+          roleIds: [role._id],
+          projectAccessMode: mode
+        });
     const project = await createProjectInRepo(org._id, {
       name: 'P',
       sourceType: 'upload',
@@ -187,14 +183,11 @@ describe('resolveProjectPermissions', () => {
       ).kind,
     ).toBe('NO_ACCESS');
 
+    const memberRole = await findBuiltInRole(a.org._id, 'member');
     const inactive = await createUserInRepo(a.org._id, {
       email: `off-${Date.now()}@example.com`,
       displayName: 'Off',
       userStatus: 'disabled',
-    });
-    const memberRole = await findBuiltInRole(a.org._id, 'member');
-    await createMembership(a.org._id, {
-      userId: inactive._id,
       roleIds: [memberRole._id],
       projectAccessMode: 'all',
     });

@@ -246,7 +246,7 @@ setting `status: 'D'`.
 | `knowledgeVersions` | follow source | standard soft-delete |
 | `documentSections` | follow source | standard soft-delete |
 | `conversations`, `messages` | 365d archived inactive | standard soft-delete |
-| `jobs`, `jobEvents` | 180d terminal | standard soft-delete |
+| `jobs` (includes embedded `events[]`) | 180d terminal | standard soft-delete |
 | `auditEvents` | 730d | `{ retentionJob: true }` only |
 | `notifications` | 90d / read rule | standard soft-delete |
 | `usageEvents`, `usageRollups` | 730d | per phase 59 storage |

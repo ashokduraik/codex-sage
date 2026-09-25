@@ -1,18 +1,21 @@
 /**
- * `organizations` — tenant accounts. Each org owns users, projects, and
- * roles; its `_id` is the tenant key used everywhere else as `orgId`.
+ * `organizations` — one company account (Acme). Every other collection
+ * stores this row's `_id` as `orgId`, so Acme data never mixes with
+ * another company.
+ *
+ * This collection has no `orgId` column: the row `_id` *is* the tenant id.
  */
 import mongoose from 'mongoose';
 import { createBaseSchema, ROW_STATUS_ACTIVE } from '../platform/data/index.js';
 
-/** Lowercase slug pattern for tenant handles. */
+/** Allowed org slug: 2–64 lowercase letters, digits, or hyphens. */
 export const SLUG_PATTERN = /^[a-z0-9-]{2,64}$/;
 
 const organizationSchema = createBaseSchema(
   {
-    // Display name of the tenant organization
+    // Name shown in the UI, e.g. "Acme"
     name: { type: String, required: true, trim: true, minlength: 1, maxlength: 200 },
-    // Unique URL-safe handle used to identify the organization
+    // Unique URL handle, e.g. "acme" (lowercase letters, digits, hyphens)
     slug: {
       type: String,
       required: true,
@@ -29,9 +32,9 @@ const organizationSchema = createBaseSchema(
         message: 'slug must match [a-z0-9-]{2,64}',
       },
     },
-    // Tenant-level settings that do not need a dedicated column
+    // Extra org settings that do not need their own column
     config: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
-    // Bumped when RBAC or project ACL inputs change so ACL caches invalidate
+    // Goes up when roles or project access change, so cached permissions are discarded
     aclVersion: { type: Number, required: true, default: 0, min: 0 },
   },
   { tenantScoped: false },

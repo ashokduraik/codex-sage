@@ -1,5 +1,8 @@
 # Phase 18 — Project membership & project-scoped authorization
 
+> **Later change (ADR 0028):** `projectAccessMode` lives on `users`, not
+> `memberships`. Visibility rules (`all` / `selected` / `none`) are unchanged.
+
 - **Layer:** BE
 - **Depends on:** Phase 17 (project model)
 - **Unblocks:** Phase 19, 23, 24, 30, 37, 38, 41, 50 (every project-scoped route)

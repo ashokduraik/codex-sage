@@ -1,0 +1,30 @@
+---
+description: ObjectId fields use a top-level alias and a mongoose model ref
+globs: backend/src/models/**/*.js,backend/src/platform/data/baseSchema.js
+alwaysApply: false
+---
+
+# Mongoose ObjectId fields
+
+Declare `ObjectId` once at the top of each schema file. Never write
+`mongoose.Schema.Types.ObjectId` (or `Schema.Types.ObjectId`) on field
+definitions.
+
+Every ObjectId field that points at a domain document **must** set `ref` to
+the registered Mongoose model name (`User`, `Project`, `Organization`, …).
+
+Omit `ref` only when the value is not a Mongoose document (GridFS file id)
+or is polymorphic with no single model (`resourceId` on idempotency records).
+Use `refPath` when a sibling field names the target model.
+
+```js
+const ObjectId = mongoose.Schema.Types.ObjectId;
+
+// ❌ BAD
+projectId: { type: mongoose.Schema.Types.ObjectId, required: true },
+
+// ✅ GOOD
+projectId: { type: ObjectId, ref: 'Project', required: true },
+createdBy: { type: ObjectId, ref: 'User', default: null },
+roleIds: { type: [ObjectId], ref: 'Role', required: true },
+```

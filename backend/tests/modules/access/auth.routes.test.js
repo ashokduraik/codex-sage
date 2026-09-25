@@ -12,6 +12,7 @@ import {
   IDENTITY_MODELS,
   findOrganizationBySlug,
   findUserByEmail,
+  findBuiltInRole,
   createUser, createUserInRepo,
   softDeleteUser,
   updateUserPasswordHash,
@@ -244,17 +245,20 @@ describe('auth.routes', () => {
     app = await readyApp();
     const organization = await findOrganizationBySlug('default');
     const orgId = organization._id;
+    const memberRole = await findBuiltInRole(orgId, 'member');
 
     await createUserInRepo(orgId, {
       email: 'invited@example.com',
       displayName: 'Invited',
       userStatus: 'invited',
+      roleIds: [memberRole._id],
     });
 
     const disabled = await createUserInRepo(orgId, {
       email: 'disabled@example.com',
       displayName: 'Disabled',
       userStatus: 'active',
+      roleIds: [memberRole._id],
     });
     await updateUserPasswordHash(
       orgId,
@@ -270,6 +274,7 @@ describe('auth.routes', () => {
       email: 'deleted@example.com',
       displayName: 'Deleted',
       userStatus: 'active',
+      roleIds: [memberRole._id],
     });
     await updateUserPasswordHash(
       orgId,

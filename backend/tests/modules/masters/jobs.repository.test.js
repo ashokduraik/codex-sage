@@ -12,7 +12,6 @@ import {
 } from '../../../src/platform/data/index.js';
 import { ApiError } from '../../../src/platform/errors.js';
 import { Job } from '../../../src/models/job.model.js';
-import { JobEvent } from '../../../src/models/jobEvent.model.js';
 import {
   JOB_DEFAULT_MAX_ATTEMPTS,
   JOB_ENQUEUED_MESSAGE,
@@ -41,7 +40,7 @@ import {
 } from '../../../src/modules/masters/jobs.helper.js';
 
 const harness = createMongoHarness({
-  models: [Job, JobEvent],
+  models: [Job],
   uri: TEST_APP_CONFIG.mongo.uri,
 });
 
@@ -89,10 +88,81 @@ describe('jobs.repository', () => {
     expect(event.eventCode).toBe(JOB_EVENT_CODE_ENQUEUED);
     expect(event.message).toBe(JOB_ENQUEUED_MESSAGE);
     expect(event.severity).toBe('info');
-    expect(String(event.jobId)).toBe(String(job._id));
+    expect(job.events).toHaveLength(1);
+    expect(String(job.events[0]._id)).toBe(String(event._id));
 
     const events = await listEventsForJob(orgId, String(job._id));
     expect(events).toHaveLength(1);
+  });
+
+  it('listEventsForJob returns [] when the job is missing and sorts by createdAt', async () => {
+    const orgId = new mongoose.Types.ObjectId();
+    const projectId = new mongoose.Types.ObjectId();
+    expect(await listEventsForJob(orgId, new mongoose.Types.ObjectId().toHexString())).toEqual([]);
+
+    const { job } = await insertPendingJob({
+      orgId,
+      projectId,
+      jobType: 'ingest',
+    });
+    const older = new Date('2020-01-01T00:00:00.000Z');
+    const newer = new Date('2021-01-01T00:00:00.000Z');
+    await Job.updateOne(
+      { _id: job._id },
+      {
+        $set: {
+          events: [
+            {
+              eventCode: 'later',
+              severity: 'info',
+              message: 'later',
+              data: {},
+              createdAt: newer,
+            },
+            {
+              eventCode: 'earlier',
+              severity: 'info',
+              message: 'earlier',
+              data: {},
+              createdAt: older,
+            },
+          ],
+        },
+      },
+    );
+    const listed = await listEventsForJob(orgId, String(job._id));
+    expect(listed.map((entry) => entry.eventCode)).toEqual(['earlier', 'later']);
+
+    const sameTime = new Date('2022-01-01T00:00:00.000Z');
+    const firstId = new mongoose.Types.ObjectId('000000000000000000000001');
+    const secondId = new mongoose.Types.ObjectId('000000000000000000000002');
+    await Job.updateOne(
+      { _id: job._id },
+      {
+        $set: {
+          events: [
+            {
+              _id: secondId,
+              eventCode: 'b',
+              severity: 'info',
+              message: 'b',
+              data: {},
+              createdAt: sameTime,
+            },
+            {
+              _id: firstId,
+              eventCode: 'a',
+              severity: 'info',
+              message: 'a',
+              data: {},
+              createdAt: sameTime,
+            },
+          ],
+        },
+      },
+    );
+    const tied = await listEventsForJob(orgId, String(job._id));
+    expect(tied.map((entry) => entry.eventCode)).toEqual(['a', 'b']);
   });
 
   it('rejects event messages over the max length without truncating', () => {
@@ -102,6 +172,31 @@ describe('jobs.repository', () => {
     expect(() =>
       assertJobEventMessageLength('x'.repeat(JOB_EVENT_MESSAGE_MAX_LENGTH)),
     ).not.toThrow();
+  });
+
+  it('appendJobEvent rejects a missing job and a bad job id', async () => {
+    const orgId = new mongoose.Types.ObjectId();
+    const projectId = new mongoose.Types.ObjectId();
+    await expect(
+      appendJobEvent({
+        orgId,
+        projectId,
+        jobId: 'not-an-id',
+        eventCode: 'job.test',
+        severity: 'info',
+        message: 'ok',
+      }),
+    ).rejects.toMatchObject({ code: 'JOB_NOT_FOUND' });
+    await expect(
+      appendJobEvent({
+        orgId,
+        projectId,
+        jobId: new mongoose.Types.ObjectId(),
+        eventCode: 'job.test',
+        severity: 'info',
+        message: 'ok',
+      }),
+    ).rejects.toMatchObject({ code: 'JOB_NOT_FOUND' });
   });
 
   it('appendJobEvent rejects oversized messages', async () => {

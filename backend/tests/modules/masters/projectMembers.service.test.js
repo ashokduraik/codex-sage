@@ -7,7 +7,6 @@ import { TEST_APP_CONFIG } from '../../appConfig.js';
 import { AUDIT_MODELS, listAuditEvents } from '../../../src/modules/access/audit.js';
 import {
   IDENTITY_MODELS,
-  createMembership,
   createOrganization,
   createUser, createUserInRepo,
   ensureBuiltInRoles,
@@ -51,19 +50,13 @@ describe('projectMembers.service', () => {
       email: `actor-${Date.now()}@example.com`,
       displayName: 'Actor',
       userStatus: 'active',
-    });
-    await createMembership(org._id, {
-      userId: actor._id,
-      roleIds: [adminRole._id],
-      projectAccessMode: 'all',
-    });
+          roleIds: [adminRole._id],
+          projectAccessMode: 'all'
+        });
     const target = await createUserInRepo(org._id, {
       email: `target-${Date.now()}@example.com`,
       displayName: 'Target',
       userStatus: 'active',
-    });
-    await createMembership(org._id, {
-      userId: target._id,
       roleIds: [(await findBuiltInRole(org._id, 'member'))._id],
       projectAccessMode: 'selected',
     });

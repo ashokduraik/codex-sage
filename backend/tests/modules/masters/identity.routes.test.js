@@ -13,7 +13,6 @@ import {
   DEFAULT_ADMIN_EMAIL,
   DEFAULT_ADMIN_PASSWORD,
   IDENTITY_MODELS,
-  createMembership,
   createOrganization,
   createUser, createUserInRepo,
   ensureBuiltInRoles,
@@ -88,11 +87,8 @@ describe('identity.routes', () => {
       displayName: 'Member',
       userStatus: 'active',
       passwordHash,
-    });
-    await createMembership(org._id, {
-      userId: member._id,
-      roleIds: [memberRole._id],
-    });
+          roleIds: [memberRole._id]
+        });
 
     app = await readyApp();
     const unauth = await app.inject({
@@ -179,11 +175,12 @@ describe('identity.routes', () => {
   it('cross-organization access returns 404 not 403', async () => {
     await runBootstrapSeed(createMockLog());
     const other = await createOrganization({ name: 'Other', slug: 'other-org' });
-    await ensureBuiltInRoles(other._id);
+    const { roles } = await ensureBuiltInRoles(other._id);
     const otherUser = await createUserInRepo(other._id, {
       email: 'other@example.com',
       displayName: 'Other',
       userStatus: 'active',
+      roleIds: [roles[0]._id],
     });
 
     app = await readyApp();
@@ -201,11 +198,13 @@ describe('identity.routes', () => {
     const org = await (
       await import('../../../src/modules/masters/organizations.js')
     ).findOrganizationBySlug('default');
+    const memberRole = await findBuiltInRole(org._id, 'member');
     for (let i = 0; i < 5; i += 1) {
       await createUserInRepo(org._id, {
         email: `page${i}@example.com`,
         displayName: `Page${i}`,
         userStatus: 'active',
+        roleIds: [memberRole._id],
       });
     }
     app = await readyApp();
@@ -270,11 +269,8 @@ describe('identity.routes', () => {
       displayName: 'Target',
       userStatus: 'active',
       passwordHash,
-    });
-    await createMembership(org._id, {
-      userId: target._id,
-      roleIds: [memberRole._id],
-    });
+          roleIds: [memberRole._id]
+        });
 
     app = await readyApp();
     const targetLogin = await login(app, 'target@example.com', 'targetpass1');
@@ -535,11 +531,8 @@ describe('identity.routes', () => {
       email: 'resetme@example.com',
       displayName: 'Reset',
       userStatus: 'invited',
-    });
-    await createMembership(org._id, {
-      userId: target._id,
-      roleIds: [memberRole._id],
-    });
+          roleIds: [memberRole._id]
+        });
 
     app = await readyApp();
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);

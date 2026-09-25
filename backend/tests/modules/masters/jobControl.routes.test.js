@@ -18,7 +18,6 @@ import {
   DEFAULT_ADMIN_EMAIL,
   DEFAULT_ADMIN_PASSWORD,
   IDENTITY_MODELS,
-  createMembership,
   createUser, createUserInRepo,
   findBuiltInRole,
   findOrganizationBySlug,
@@ -30,7 +29,7 @@ import { PROJECT_MEMBER_MODELS, addProjectMember } from '../../../src/modules/ma
 import {
   JOB_MODELS,
   Job,
-  JobEvent,
+  appendJobEvent,
   createPendingJob,
 } from '../../../src/modules/masters/jobs.js';
 
@@ -147,7 +146,7 @@ describe('jobControl.routes', () => {
         },
       },
     );
-    await JobEvent.create({
+    await appendJobEvent({
       orgId: org._id,
       projectId,
       jobId,
@@ -406,15 +405,12 @@ describe('jobControl.routes', () => {
     expect(unauth.statusCode).toBe(401);
 
     const passwordHash = await hashPassword('ViewerPass1!');
+    const viewerRole = await findBuiltInRole(org._id, 'viewer');
     const viewer = await createUserInRepo(org._id, {
       email: 'viewer-ctrl@example.com',
       displayName: 'Viewer Ctrl',
       userStatus: 'active',
       passwordHash,
-    });
-    const viewerRole = await findBuiltInRole(org._id, 'viewer');
-    await createMembership(org._id, {
-      userId: viewer._id,
       roleIds: [viewerRole._id],
     });
     const adminUser = await findUserByEmail(org._id, DEFAULT_ADMIN_EMAIL);

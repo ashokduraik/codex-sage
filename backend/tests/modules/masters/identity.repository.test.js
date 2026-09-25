@@ -13,6 +13,7 @@ import {
 import {
   createUserInRepo,
   findUserByEmail,
+  findUserById,
   listUsersInRepo,
   softDeleteUser,
 } from '../../../src/modules/masters/users.js';
@@ -22,15 +23,12 @@ import {
   softDeleteRoleInRepo,
   updateRoleInRepo,
 } from '../../../src/modules/masters/roles.js';
-import {
-  createMembership,
-  findMembership,
-  listMemberships,
-  softDeleteMembership,
-} from '../../../src/modules/masters/memberships.js';
 import { User } from '../../../src/models/user.model.js';
+import mongoose from 'mongoose';
 import { Role } from '../../../src/models/role.model.js';
 import { Organization } from '../../../src/models/organization.model.js';
+
+const PLACEHOLDER_ROLE_ID = new mongoose.Types.ObjectId();
 
 const harness = createMongoHarness({
   models: [...IDENTITY_MODELS],
@@ -50,21 +48,18 @@ describe('identity models and repositories', () => {
     await harness.afterAll();
   });
 
-  it('defaults status to A on insert for all four models', async () => {
+  it('defaults status to A on insert for org, user, and role', async () => {
     const org = await createOrganization({ name: 'Acme', slug: 'acme-a' });
     const { roles } = await ensureBuiltInRoles(org._id);
     const user = await createUserInRepo(org._id, {
       email: 'a@example.com',
       displayName: 'A',
-    });
-    const membership = await createMembership(org._id, {
-      userId: user._id,
       roleIds: [roles[0]._id],
     });
     expect(org.status).toBe('A');
     expect(user.status).toBe('A');
     expect(roles[0].status).toBe('A');
-    expect(membership.status).toBe('A');
+    expect(user.roleIds).toHaveLength(1);
   });
 
   it('rejects a userStatus outside active|invited|disabled', async () => {
@@ -97,6 +92,7 @@ describe('identity models and repositories', () => {
     const user = await createUserInRepo(org._id, {
       email: '  Admin@Example.COM ',
       displayName: 'Admin',
+      roleIds: [PLACEHOLDER_ROLE_ID],
     });
     expect(user.email).toBe('admin@example.com');
   });
@@ -109,6 +105,7 @@ describe('identity models and repositories', () => {
       displayName: 'Hash',
       passwordHash: 'secret-hash-value',
       userStatus: 'active',
+      roleIds: [PLACEHOLDER_ROLE_ID],
     });
     const found = await findUserByEmail(org._id, 'hash@example.com');
     expect(found?._id.equals(created._id)).toBe(true);
@@ -142,17 +139,33 @@ describe('identity models and repositories', () => {
   it('allows the same email in two different organizations', async () => {
     const first = await createOrganization({ name: 'One', slug: 'org-one' });
     const second = await createOrganization({ name: 'Two', slug: 'org-two' });
-    await createUserInRepo(first._id, { email: 'shared@example.com', displayName: 'S1' });
-    await createUserInRepo(second._id, { email: 'shared@example.com', displayName: 'S2' });
+    await createUserInRepo(first._id, {
+      email: 'shared@example.com',
+      displayName: 'S1',
+      roleIds: [PLACEHOLDER_ROLE_ID],
+    });
+    await createUserInRepo(second._id, {
+      email: 'shared@example.com',
+      displayName: 'S2',
+      roleIds: [PLACEHOLDER_ROLE_ID],
+    });
     expect(await findUserByEmail(first._id, 'shared@example.com')).toBeTruthy();
     expect(await findUserByEmail(second._id, 'shared@example.com')).toBeTruthy();
   });
 
   it('rejects a duplicate active email inside one organization', async () => {
     const org = await createOrganization({ name: 'Acme', slug: 'acme-dup' });
-    await createUserInRepo(org._id, { email: 'dup@example.com', displayName: 'D1' });
+    await createUserInRepo(org._id, {
+      email: 'dup@example.com',
+      displayName: 'D1',
+      roleIds: [PLACEHOLDER_ROLE_ID],
+    });
     await expect(
-      createUserInRepo(org._id, { email: 'dup@example.com', displayName: 'D2' }),
+      createUserInRepo(org._id, {
+        email: 'dup@example.com',
+        displayName: 'D2',
+        roleIds: [PLACEHOLDER_ROLE_ID],
+      }),
     ).rejects.toThrow();
   });
 
@@ -161,11 +174,13 @@ describe('identity models and repositories', () => {
     const user = await createUserInRepo(org._id, {
       email: 'gone@example.com',
       displayName: 'Gone',
+      roleIds: [PLACEHOLDER_ROLE_ID],
     });
     await softDeleteUser(org._id, user._id);
     const again = await createUserInRepo(org._id, {
       email: 'gone@example.com',
       displayName: 'Back',
+      roleIds: [PLACEHOLDER_ROLE_ID],
     });
     expect(again.status).toBe('A');
     expect(again.displayName).toBe('Back');
@@ -176,10 +191,12 @@ describe('identity models and repositories', () => {
     const keep = await createUserInRepo(org._id, {
       email: 'keep@example.com',
       displayName: 'Keep',
+      roleIds: [PLACEHOLDER_ROLE_ID],
     });
     const drop = await createUserInRepo(org._id, {
       email: 'drop@example.com',
       displayName: 'Drop',
+      roleIds: [PLACEHOLDER_ROLE_ID],
     });
     await softDeleteUser(org._id, drop._id);
     const listed = await listUsersInRepo(org._id);
@@ -191,10 +208,12 @@ describe('identity models and repositories', () => {
     const first = await createUserInRepo(org._id, {
       email: 'k1@example.com',
       displayName: 'K1',
+      roleIds: [PLACEHOLDER_ROLE_ID],
     });
     const second = await createUserInRepo(org._id, {
       email: 'k2@example.com',
       displayName: 'K2',
+      roleIds: [PLACEHOLDER_ROLE_ID],
     });
     const page = await listUsersInRepo(org._id, { limit: 10 });
     expect(page.items.map((u) => String(u._id))).toEqual([
@@ -204,23 +223,20 @@ describe('identity models and repositories', () => {
     expect(page.pageInfo.hasMore).toBe(false);
   });
 
-  it('finds a membership only within its own organization', async () => {
+  it('finds a user only within its own organization', async () => {
     const orgA = await createOrganization({ name: 'A', slug: 'mem-a' });
     const orgB = await createOrganization({ name: 'B', slug: 'mem-b' });
     const { roles } = await ensureBuiltInRoles(orgA._id);
     const user = await createUserInRepo(orgA._id, {
       email: 'm@example.com',
       displayName: 'M',
-    });
-    await createMembership(orgA._id, {
-      userId: user._id,
       roleIds: [roles[0]._id],
     });
-    expect(await findMembership(orgA._id, user._id)).toBeTruthy();
-    expect(await findMembership(orgB._id, user._id)).toBeNull();
+    expect(await findUserById(orgA._id, user._id)).toBeTruthy();
+    expect(await findUserById(orgB._id, user._id)).toBeNull();
   });
 
-  it('excludes soft-deleted roles and memberships from list helpers', async () => {
+  it('excludes soft-deleted roles and users from list helpers', async () => {
     const org = await createOrganization({ name: 'Acme', slug: 'acme-lists' });
     const { roles } = await ensureBuiltInRoles(org._id);
     const custom = await Role.create({
@@ -232,16 +248,13 @@ describe('identity models and repositories', () => {
     const user = await createUserInRepo(org._id, {
       email: 'list@example.com',
       displayName: 'L',
-    });
-    await createMembership(org._id, {
-      userId: user._id,
       roleIds: [roles[0]._id],
     });
     await softDeleteRoleInRepo(org._id, custom._id);
-    await softDeleteMembership(org._id, user._id);
+    await softDeleteUser(org._id, user._id);
     const rolesLeft = await listRoles(org._id);
     expect(rolesLeft.some((r) => r.name === 'Custom')).toBe(false);
-    expect(await listMemberships(org._id)).toHaveLength(0);
+    expect((await listUsersInRepo(org._id)).items).toHaveLength(0);
   });
 
   it('soft-deletes an organization without removing its _id from history', async () => {

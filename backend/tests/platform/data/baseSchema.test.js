@@ -40,6 +40,15 @@ const harness = createMongoHarness({
   uri: TEST_APP_CONFIG.mongo.uri,
 });
 
+describe('createBaseSchema ObjectId refs', () => {
+  it('declares User and Organization refs on actor and tenant ObjectIds', () => {
+    expect(tenantSchema.path('createdBy').options.ref).toBe('User');
+    expect(tenantSchema.path('updatedBy').options.ref).toBe('User');
+    expect(tenantSchema.path('orgId').options.ref).toBe('Organization');
+    expect(platformSchema.path('orgId')).toBeUndefined();
+  });
+});
+
 describe('createBaseSchema', () => {
   beforeAll(async () => {
     await harness.beforeAll();

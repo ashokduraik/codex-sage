@@ -6,7 +6,6 @@ import { assertOrgId, ROW_STATUS_ACTIVE } from '../../platform/data/index.js';
 import { ApiError } from '../../platform/errors.js';
 import {
   findUserById,
-  findMembership,
   findActiveUsersByEmailWithPassword,
   touchLastLoginAt,
   updateUserPasswordHash,
@@ -565,17 +564,17 @@ function toUserSummary(user, roleIds) {
 }
 
 /**
- * Loads role ids for a user membership; empty when missing.
+ * Loads role ids for a user; empty when missing.
  * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
  * @param {import('mongoose').Types.ObjectId | string} userId User id.
  * @returns {Promise<string[]>}
  */
 async function loadRoleIds(orgId, userId) {
-  const membership = await findMembership(orgId, userId);
-  if (!membership?.roleIds?.length) {
+  const user = await findUserById(orgId, userId);
+  if (!user?.roleIds?.length) {
     return [];
   }
-  return membership.roleIds.map((id) => String(id));
+  return user.roleIds.map((id) => String(id));
 }
 
 /**
@@ -952,8 +951,7 @@ export async function authRoutes(app) {
       if (!user || user.userStatus !== 'active') {
         throw ApiError.fromCode('UNAUTHENTICATED');
       }
-      const membership = await findMembership(principal.orgId, principal.userId);
-      const roleIds = (membership?.roleIds ?? []).map((id) => String(id));
+      const roleIds = (user.roleIds ?? []).map((id) => String(id));
       const permissions = await resolveEffectivePermissions(principal.orgId, roleIds);
       return {
         id: String(user._id),

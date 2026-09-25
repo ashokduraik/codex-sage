@@ -17,7 +17,6 @@ import {
   DEFAULT_ADMIN_PASSWORD,
   DEFAULT_ORG_SLUG,
   IDENTITY_MODELS,
-  createMembership,
   createUser, createUserInRepo,
   ensureBuiltInRoles,
   findOrganizationBySlug,
@@ -109,8 +108,8 @@ describe('authorization routes', () => {
       userStatus: 'active',
       passwordHash: await hashPassword(password),
       passwordUpdatedAt: new Date(),
-    });
-    await createMembership(org._id, { userId: user._id, roleIds: [viewer._id] });
+          roleIds: [viewer._id]
+        });
 
     app = await readyApp();
     const adminToken = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
@@ -149,8 +148,8 @@ describe('authorization routes', () => {
       userStatus: 'active',
       passwordHash: await hashPassword(password),
       passwordUpdatedAt: new Date(),
-    });
-    await createMembership(org._id, { userId: user._id, roleIds: [role._id] });
+          roleIds: [role._id]
+        });
     const admin = await findUserByEmail(org._id, DEFAULT_ADMIN_EMAIL);
 
     app = await readyApp();
@@ -192,8 +191,8 @@ describe('authorization routes', () => {
       userStatus: 'active',
       passwordHash: await hashPassword(password),
       passwordUpdatedAt: new Date(),
-    });
-    await createMembership(org._id, { userId: user._id, roleIds: [role._id] });
+          roleIds: [role._id]
+        });
 
     const authService = createAuthService(TEST_APP_CONFIG.auth.jwtAccessTokenSecret);
     const loginResult = await authService.login(

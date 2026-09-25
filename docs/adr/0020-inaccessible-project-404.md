@@ -15,7 +15,7 @@ which project ids are real.
 ## Decision
 
 - When `resolveProjectPermissions` yields `NO_ACCESS` (missing project, other org,
-  inactive user, membership missing, access mode denies visibility, or soft-deleted
+  inactive user, access mode denies visibility, or soft-deleted
   member/project), project-scoped routes respond with **`404 PROJECT_NOT_FOUND`** —
   identical to a genuinely missing id.
 - Once the caller is **visible** on the project but lacks the required effective

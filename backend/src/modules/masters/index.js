@@ -4,8 +4,6 @@
 import { userRoutes } from './users.js';
 import { roleRoutes } from './roles.js';
 import { Job } from '../../models/job.model.js';
-import { JobEvent } from '../../models/jobEvent.model.js';
-import { Membership } from '../../models/membership.model.js';
 import { Organization } from '../../models/organization.model.js';
 import { Project } from '../../models/projects.model.js';
 import { ProjectMember } from '../../models/projectMembers.model.js';
@@ -26,9 +24,8 @@ export {
   bumpOrganizationAclVersion,
 } from './organizations.js';
 export { Organization, SLUG_PATTERN } from '../../models/organization.model.js';
-export { User, USER_STATUS_VALUES } from '../../models/user.model.js';
+export { User, USER_STATUS_VALUES, PROJECT_ACCESS_MODE_VALUES } from '../../models/user.model.js';
 export { Role, BUILT_IN_ROLES, BUILT_IN_ROLE_KEYS, isBuiltInRoleKey } from '../../models/role.model.js';
-export { Membership, PROJECT_ACCESS_MODE_VALUES } from '../../models/membership.model.js';
 export {
   findUserByEmail,
   findUserById,
@@ -47,6 +44,10 @@ export {
   IDENTITY_LIST_PAGE_SIZE_MAX,
   clampIdentityListLimit,
   userRoutes,
+  replaceUserRoles,
+  wouldRemoveLastAdmin,
+  isRoleReferencedByActiveUser,
+  assertRolesExistInOrg,
 } from './users.js';
 export {
   findBuiltInRole,
@@ -62,15 +63,6 @@ export {
   isDuplicateKeyError,
   roleRoutes,
 } from './roles.js';
-export {
-  findMembership,
-  createMembership,
-  listMemberships,
-  softDeleteMembership,
-  replaceMembershipRoleIds,
-  isRoleReferencedByActiveMembership,
-  updateMembershipProjectAccessMode,
-} from './memberships.js';
 export {
   Project,
   LIFECYCLE_STATUS_VALUES,
@@ -150,7 +142,6 @@ export {
   projectMemberRoutes,
 } from './projectMembers.js';
 export { Job } from '../../models/job.model.js';
-export { JobEvent } from '../../models/jobEvent.model.js';
 export {
   JOB_DEFAULT_MAX_ATTEMPTS,
   JOB_ENQUEUED_MESSAGE,
@@ -221,7 +212,7 @@ export async function identityRoutes(app) {
 /** @deprecated Prefer {@link identityRoutes}; kept for existing unit tests. */
 export { identityRoutes as adminPasswordResetRoutes };
 
-export const IDENTITY_MODELS = Object.freeze([Organization, User, Role, Membership]);
+export const IDENTITY_MODELS = Object.freeze([Organization, User, Role]);
 export const PROJECT_MODELS = Object.freeze([Project]);
 export const PROJECT_MEMBER_MODELS = Object.freeze([ProjectMember]);
-export const JOB_MODELS = Object.freeze([Job, JobEvent]);
+export const JOB_MODELS = Object.freeze([Job]);

@@ -6,7 +6,6 @@ import mongoose from 'mongoose';
 import { createMongoHarness } from '../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../appConfig.js';
 import { Job } from '../../src/models/job.model.js';
-import { JobEvent } from '../../src/models/jobEvent.model.js';
 import { insertPendingJob, listEventsForJob } from '../../src/modules/masters/index.js';
 import { clearJobHandlersForTests, registerJobHandler } from '../../src/worker/handlerRegistry.js';
 import { claimNextJob } from '../../src/worker/jobClaim.js';
@@ -26,7 +25,7 @@ import {
 } from '../../src/worker/worker.events.js';
 
 const harness = createMongoHarness({
-  models: [Job, JobEvent, ProjectJobLock],
+  models: [Job, ProjectJobLock],
   uri: TEST_APP_CONFIG.mongo.uri,
 });
 
@@ -104,10 +103,10 @@ describe('worker process integration', () => {
 
     await vi.waitFor(
       async () => {
-        const events = await JobEvent.find({
-          orgId,
-          eventCode: WORKER_EVENT_PROJECT_BUSY_REQUEUED,
-        }).exec();
+        const jobs = await Job.find({ orgId }).lean().exec();
+        const events = jobs
+          .flatMap((row) => row.events ?? [])
+          .filter((entry) => entry.eventCode === WORKER_EVENT_PROJECT_BUSY_REQUEUED);
         expect(events.length).toBeGreaterThanOrEqual(1);
       },
       { timeout: 10_000 },
@@ -326,10 +325,10 @@ describe('worker process integration', () => {
     const [a, b] = await Promise.all([sweepExpiredLeases(), sweepExpiredLeases()]);
     expect(a.requeued + b.requeued).toBe(1);
 
-    const events = await JobEvent.find({
-      jobId: job._id,
-      eventCode: WORKER_EVENT_INTERRUPTED_REQUEUED,
-    }).exec();
+    const fresh = await Job.findById(job._id).lean().exec();
+    const events = (fresh?.events ?? []).filter(
+      (entry) => entry.eventCode === WORKER_EVENT_INTERRUPTED_REQUEUED,
+    );
     expect(events).toHaveLength(1);
   });
 

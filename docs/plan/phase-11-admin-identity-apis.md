@@ -1,5 +1,8 @@
 # Phase 11 — Admin identity APIs: users, roles, memberships
 
+> **Later change (ADR 0028):** role assignment is stored on the user document
+> (`roleIds`), not a `memberships` row. HTTP shapes in this phase are unchanged.
+
 - **Layer:** BE
 - **Depends on:** Phase 09 (RBAC engine, permission catalog, route guard), Phase 10 (audit writer)
 - **Unblocks:** Phase 15 (frontend admin users & roles), Phase 18 (project ACL reuses the

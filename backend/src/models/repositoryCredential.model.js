@@ -1,30 +1,33 @@
 /**
- * `repositoryCredentials` — encrypted host tokens for a repository connection.
- * Never joined into list DTOs; decrypt only in memory when a worker needs them.
+ * `repositoryCredentials` — the encrypted GitHub/GitLab token for one
+ * connection. The raw token is never stored. Workers decrypt it in
+ * memory only when they sync. List APIs must not return these fields.
  */
 import mongoose from 'mongoose';
 import { createBaseSchema, ROW_STATUS_ACTIVE } from '../platform/data/index.js';
 
+const ObjectId = mongoose.Schema.Types.ObjectId;
+
 export const CREDENTIAL_KIND_VALUES = Object.freeze(['pat']);
 
 const repositoryCredentialSchema = createBaseSchema({
-  // Project the secret belongs to
-  projectId: { type: mongoose.Schema.Types.ObjectId, required: true },
-  // Repository connection this credential authenticates
-  connectionId: { type: mongoose.Schema.Types.ObjectId, required: true },
-  // AES-GCM ciphertext of the token (never stored in the clear)
+  // Project this secret belongs to
+  projectId: { type: ObjectId, ref: 'Project', required: true },
+  // Repository connection this token opens
+  connectionId: { type: ObjectId, ref: 'RepositoryConnection', required: true },
+  // Encrypted token (never the raw token)
   ciphertext: { type: String, required: true },
-  // Initialization vector used to encrypt the token
+  // Random value used when encrypting; needed to decrypt
   iv: { type: String, required: true },
-  // GCM auth tag that proves the ciphertext was not tampered with
+  // Check that the ciphertext was not tampered with
   authTag: { type: String, required: true },
-  // Which wrapping key encrypted this blob, for rotation
+  // Which encryption key was used, so keys can be rotated
   keyId: { type: String, required: true, trim: true },
-  // Kind of secret stored (currently personal access token)
+  // What kind of secret this is (currently a personal access token)
   credentialKind: { type: String, enum: CREDENTIAL_KIND_VALUES, required: true, default: 'pat' },
-  // Last time the token was proven valid against the host
+  // Last time the token still worked against GitHub/GitLab
   lastValidatedAt: { type: Date, default: null },
-  // When the credential was revoked and must not be used
+  // When the token was revoked and must not be used again
   revokedAt: { type: Date, default: null },
 });
 

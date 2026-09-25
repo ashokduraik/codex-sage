@@ -4,11 +4,11 @@
 import {
   FAILURE_CLASS_VALUES,
   JOB_DEFAULT_MAX_ATTEMPTS,
+  JOB_EVENT_SEVERITY_VALUES,
   JOB_STATUS_VALUES,
   JOB_TYPE_VALUES,
   Job,
 } from '../../models/job.model.js';
-import { JOB_EVENT_SEVERITY_VALUES, JobEvent } from '../../models/jobEvent.model.js';
 import { assertOrgId, decodeCursor, encodeCursor, ROW_STATUS_ACTIVE } from '../../platform/data/index.js';
 import { ApiError } from '../../platform/errors.js';
 import mongoose from 'mongoose';
@@ -568,7 +568,7 @@ function ensureSingleCurrent(stages, jobStatus) {
 /**
  * Projects the human-readable progress block for job detail.
  * @param {object} job Job document or lean object.
- * @param {object[]} [events] Ordered JobEvent documents.
+ * @param {object[]} [events] Ordered embedded timeline lines.
  * @param {{ maxUserRetries?: number }} [options] Projection options.
  * @returns {object}
  */
@@ -668,6 +668,46 @@ export function assertJobEventMessageLength(message) {
 }
 
 /**
+ * Builds one timeline line to $push onto a job.
+ * @param {{
+ *   eventCode: string,
+ *   severity: string,
+ *   message: string,
+ *   data?: object,
+ *   correlationId?: string | null,
+ *   createdAt?: Date,
+ * }} input Event fields.
+ * @returns {object}
+ */
+function buildJobEventSubdoc(input) {
+  return {
+    _id: new mongoose.Types.ObjectId(),
+    eventCode: input.eventCode,
+    severity: input.severity,
+    message: input.message,
+    data: input.data && typeof input.data === 'object' ? input.data : {},
+    correlationId: input.correlationId ?? null,
+    createdAt: input.createdAt instanceof Date ? input.createdAt : new Date(),
+  };
+}
+
+/**
+ * Returns timeline lines oldest first.
+ * @param {object[] | undefined} events Embedded events.
+ * @returns {object[]}
+ */
+function sortJobEventsOldestFirst(events) {
+  return [...(events ?? [])].sort((left, right) => {
+    const leftTime = new Date(left.createdAt ?? 0).getTime();
+    const rightTime = new Date(right.createdAt ?? 0).getTime();
+    if (leftTime !== rightTime) {
+      return leftTime - rightTime;
+    }
+    return String(left._id ?? '').localeCompare(String(right._id ?? ''));
+  });
+}
+
+/**
  * Inserts a pending job and its initial enqueued event.
  * @param {{
  *   orgId: import('mongoose').Types.ObjectId | string,
@@ -680,7 +720,7 @@ export function assertJobEventMessageLength(message) {
  *   scheduledAt?: Date,
  * }} input Create fields.
  * @param {{ session?: import('mongoose').ClientSession }} [options] Optional session.
- * @returns {Promise<{ job: import('mongoose').Document, event: import('mongoose').Document }>}
+ * @returns {Promise<{ job: import('mongoose').Document, event: object }>}
  */
 export async function insertPendingJob(input, options = {}) {
   assertOrgId(input.orgId);
@@ -689,6 +729,16 @@ export async function insertPendingJob(input, options = {}) {
     typeof input.maxAttempts === 'number' && input.maxAttempts >= 1
       ? input.maxAttempts
       : JOB_DEFAULT_MAX_ATTEMPTS;
+
+  assertJobEventMessageLength(JOB_ENQUEUED_MESSAGE);
+  const event = buildJobEventSubdoc({
+    eventCode: JOB_EVENT_CODE_ENQUEUED,
+    severity: 'info',
+    message: JOB_ENQUEUED_MESSAGE,
+    data: {},
+    correlationId: input.correlationId ?? null,
+    createdAt: now,
+  });
 
   const job = new Job({
     orgId: input.orgId,
@@ -724,30 +774,10 @@ export async function insertPendingJob(input, options = {}) {
     lastRetryMode: null,
     startedAt: null,
     completedAt: null,
+    events: [event],
   });
 
-  assertJobEventMessageLength(JOB_ENQUEUED_MESSAGE);
-
-  const event = new JobEvent({
-    orgId: input.orgId,
-    projectId: input.projectId,
-    jobId: job._id,
-    eventCode: JOB_EVENT_CODE_ENQUEUED,
-    severity: 'info',
-    message: JOB_ENQUEUED_MESSAGE,
-    data: {},
-    correlationId: input.correlationId ?? null,
-    createdBy: input.createdBy ?? null,
-    updatedBy: input.createdBy ?? null,
-  });
-
-  if (options.session) {
-    await job.save({ session: options.session });
-    await event.save({ session: options.session });
-  } else {
-    await job.save();
-    await event.save();
-  }
+  await job.save({ session: options.session });
 
   return { job, event };
 }
@@ -827,27 +857,29 @@ export async function listJobsByProject(orgId, projectId, filters = {}) {
 }
 
 /**
- * Lists active events for a job in ascending createdAt order.
+ * Lists timeline lines for a job in ascending createdAt order.
  * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
  * @param {string} jobId Job id.
- * @returns {Promise<import('mongoose').Document[]>}
+ * @returns {Promise<object[]>}
  */
 export async function listEventsForJob(orgId, jobId) {
   assertOrgId(orgId);
   if (!mongoose.isValidObjectId(jobId)) {
     return [];
   }
-  return JobEvent.find({
+  const job = await Job.findOne({
+    _id: jobId,
     orgId,
-    jobId: new mongoose.Types.ObjectId(String(jobId)),
     status: ROW_STATUS_ACTIVE,
   })
-    .sort({ createdAt: 1, _id: 1 })
+    .select('events')
+    .lean()
     .exec();
+  return sortJobEventsOldestFirst(job?.events);
 }
 
 /**
- * Appends a job event (used by createPendingJob and later worker phases).
+ * Appends a timeline line with $push (does not load or rewrite the job).
  * @param {{
  *   orgId: import('mongoose').Types.ObjectId | string,
  *   projectId: import('mongoose').Types.ObjectId | string,
@@ -860,27 +892,32 @@ export async function listEventsForJob(orgId, jobId) {
  *   createdBy?: import('mongoose').Types.ObjectId | string | null,
  * }} input Event fields.
  * @param {{ session?: import('mongoose').ClientSession }} [options] Optional session.
- * @returns {Promise<import('mongoose').Document>}
+ * @returns {Promise<object>}
  */
 export async function appendJobEvent(input, options = {}) {
   assertOrgId(input.orgId);
   assertJobEventMessageLength(input.message);
-  const event = new JobEvent({
-    orgId: input.orgId,
-    projectId: input.projectId,
-    jobId: input.jobId,
+  if (!mongoose.isValidObjectId(String(input.jobId))) {
+    throw ApiError.fromCode('JOB_NOT_FOUND');
+  }
+  const event = buildJobEventSubdoc({
     eventCode: input.eventCode,
     severity: input.severity,
     message: input.message,
-    data: input.data && typeof input.data === 'object' ? input.data : {},
+    data: input.data,
     correlationId: input.correlationId ?? null,
-    createdBy: input.createdBy ?? null,
-    updatedBy: input.createdBy ?? null,
   });
-  if (options.session) {
-    await event.save({ session: options.session });
-  } else {
-    await event.save();
+  const result = await Job.updateOne(
+    {
+      _id: input.jobId,
+      orgId: input.orgId,
+      status: ROW_STATUS_ACTIVE,
+    },
+    { $push: { events: event } },
+    { session: options.session },
+  );
+  if (result.matchedCount === 0) {
+    throw ApiError.fromCode('JOB_NOT_FOUND');
   }
   return event;
 }

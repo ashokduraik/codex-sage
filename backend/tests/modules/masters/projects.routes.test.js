@@ -14,7 +14,6 @@ import {
   DEFAULT_ADMIN_EMAIL,
   DEFAULT_ADMIN_PASSWORD,
   IDENTITY_MODELS,
-  createMembership,
   createUser, createUserInRepo,
   findBuiltInRole,
   findOrganizationBySlug,
@@ -112,11 +111,8 @@ describe('projects.routes', () => {
       displayName: 'Member',
       userStatus: 'active',
       passwordHash,
-    });
-    await createMembership(org._id, {
-      userId: member._id,
-      roleIds: [memberRole._id],
-    });
+          roleIds: [memberRole._id]
+        });
 
     app = await readyApp();
     const unauth = await app.inject({

@@ -1,26 +1,29 @@
 /**
- * `documentSections` — searchable slices of documentation extracted from a
- * source snapshot, used to retrieve evidence for grounded answers.
+ * `documentSections` — one searchable chunk of a docs file.
+ * Example: the "## Auth" section of README.md, lines 40–80.
+ * Chat retrieval finds these chunks as evidence for an answer.
  */
 import mongoose from 'mongoose';
 import { createBaseSchema, ROW_STATUS_ACTIVE } from '../platform/data/index.js';
 
+const ObjectId = mongoose.Schema.Types.ObjectId;
+
 const documentSectionSchema = createBaseSchema({
-  // Project this documentation slice belongs to
-  projectId: { type: mongoose.Schema.Types.ObjectId, required: true },
-  // Snapshot the section was extracted from
-  sourceVersionId: { type: mongoose.Schema.Types.ObjectId, required: true },
-  // Source file path this section came from
+  // Project this docs chunk belongs to
+  projectId: { type: ObjectId, ref: 'Project', required: true },
+  // Snapshot the chunk was cut from
+  sourceVersionId: { type: ObjectId, ref: 'SourceVersion', required: true },
+  // File the chunk came from, e.g. README.md
   path: { type: String, required: true, trim: true },
-  // Heading that starts the section, when one exists
+  // Heading at the start of the chunk, e.g. "## Auth"; null if none
   heading: { type: String, default: null },
-  // First line of the section in the source file
+  // First line of the chunk in that file
   startLine: { type: Number, required: true, min: 1 },
-  // Last line of the section in the source file
+  // Last line of the chunk in that file
   endLine: { type: Number, required: true, min: 1 },
-  // Searchable section body
+  // Searchable body of the chunk
   text: { type: String, required: true, default: '' },
-  // Order of this section within the file
+  // Position of this chunk among others in the same file (0, 1, 2…)
   sectionIndex: { type: Number, required: true, min: 0 },
 });
 
@@ -37,7 +40,7 @@ documentSectionSchema.index(
   { partialFilterExpression: { status: ROW_STATUS_ACTIVE } },
 );
 
-// Text index for phase 38 FTS; compound tenant filters applied at query time.
+// Full-text search on heading + body; org/project filters are applied in the query.
 documentSectionSchema.index(
   { text: 'text', heading: 'text' },
   {

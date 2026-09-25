@@ -14,7 +14,6 @@ import {
   DEFAULT_ADMIN_PASSWORD,
   DEFAULT_ORG_SLUG,
   IDENTITY_MODELS,
-  createMembership,
   createOrganization,
   createUser, createUserInRepo,
   ensureBuiltInRoles,
@@ -90,8 +89,8 @@ describe('audit routes', () => {
       userStatus: 'active',
       passwordHash: await hashPassword(password),
       passwordUpdatedAt: new Date(),
-    });
-    await createMembership(org._id, { userId: user._id, roleIds: [viewer._id] });
+          roleIds: [viewer._id]
+        });
 
     app = await readyApp();
     const unauth = await app.inject({
@@ -125,8 +124,8 @@ describe('audit routes', () => {
       userStatus: 'active',
       passwordHash: await hashPassword(passwordB),
       passwordUpdatedAt: new Date(),
-    });
-    await createMembership(orgB._id, { userId: userB._id, roleIds: [adminB._id] });
+          roleIds: [adminB._id]
+        });
 
     const actorA = new mongoose.Types.ObjectId();
     for (let i = 0; i < 3; i += 1) {
@@ -361,8 +360,8 @@ describe('audit routes', () => {
       userStatus: 'active',
       passwordHash: await hashPassword(password),
       passwordUpdatedAt: new Date(),
-    });
-    await createMembership(org._id, { userId: user._id, roleIds: [viewer._id] });
+          roleIds: [viewer._id]
+        });
 
     app = await readyApp();
     const token = await login(app, user.email, password);

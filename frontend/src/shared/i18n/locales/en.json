@@ -760,7 +760,7 @@
       "IDENTITY_DUPLICATE_EMAIL": "A user with this email already exists in the organization.",
       "IDENTITY_DUPLICATE_ROLE_NAME": "A role with this name already exists in the organization.",
       "BUILT_IN_ROLE_IMMUTABLE": "Built-in roles cannot be renamed, re-permissioned, or removed.",
-      "ROLE_IN_USE": "The role is assigned to one or more active memberships.",
+      "ROLE_IN_USE": "The role is assigned to one or more active users.",
       "UNKNOWN_PERMISSION": "One or more permission keys are not in the catalog.",
       "CONFLICT": "The request conflicts with the current state.",
       "PROJECT_NAME_TAKEN": "A project with that name already exists.",

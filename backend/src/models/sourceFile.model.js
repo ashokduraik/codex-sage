@@ -1,9 +1,14 @@
 /**
- * `sourcefiles` — one accepted path inside a source snapshot. Points at the
- * GridFS bytes and records whether the file is in the knowledge graph.
+ * `sourcefiles` — one file inside one snapshot.
+ * Example: src/auth.js in upload #3. The bytes live in GridFS
+ * (`gridFsId`); this row is the path, size, hash, and whether
+ * knowledge should include it.
  */
 import mongoose from 'mongoose';
 import { createBaseSchema, ROW_STATUS_ACTIVE } from '../platform/data/index.js';
+
+const ObjectId = mongoose.Schema.Types.ObjectId;
+
 export const SOURCE_FILE_KIND_VALUES = Object.freeze(['code', 'config', 'doc']);
 export const SOURCE_FILE_STATE_VALUES = Object.freeze([
   'stored',
@@ -16,26 +21,26 @@ export const SOURCE_FILE_STATE_CORRUPT = 'corrupt';
 
 const sourceFileSchema = createBaseSchema({
   // Project this file belongs to
-  projectId: { type: mongoose.Schema.Types.ObjectId, required: true },
-  // Snapshot that contains this path
-  sourceVersionId: { type: mongoose.Schema.Types.ObjectId, required: true },
-  // Repo-relative path of the file
+  projectId: { type: ObjectId, ref: 'Project', required: true },
+  // Snapshot this file is part of (upload #3)
+  sourceVersionId: { type: ObjectId, ref: 'SourceVersion', required: true },
+  // Path inside the snapshot, e.g. src/auth.js
   path: { type: String, required: true, trim: true },
-  // Content hash used for change detection
+  // Content hash; used to see if the file changed in the next snapshot
   sha256: { type: String, required: true, trim: true },
-  // Stored size in bytes
+  // Size of the stored bytes
   byteLength: { type: Number, required: true, min: 0 },
-  // How the file is classified: code, config, or doc
+  // code, config, or doc — how the file is classified
   kind: { type: String, enum: SOURCE_FILE_KIND_VALUES, required: true },
-  // GridFS object holding the file bytes
-  gridFsId: { type: mongoose.Schema.Types.ObjectId, required: true },
-  // True when this file is stored but not added to the knowledge graph
+  // Where the file bytes are stored (GridFS object id)
+  gridFsId: { type: ObjectId, required: true },
+  // True if the file is stored but knowledge must not use it
   excludedFromGraph: { type: Boolean, required: true, default: false },
-  // Why the file was excluded from the graph, when it was
+  // Why it was excluded, when excludedFromGraph is true
   exclusionReason: { type: String, default: null },
-  // Whether bytes are stored, missing, or corrupt
+  // stored = bytes are there; missing / corrupt = cannot be read
   fileState: { type: String, enum: SOURCE_FILE_STATE_VALUES, required: true, default: SOURCE_FILE_STATE_STORED },
-  // When the file became orphaned after a newer snapshot replaced it
+  // When a newer snapshot replaced this file and these bytes are leftover
   orphanedAt: { type: Date, default: null },
 });
 

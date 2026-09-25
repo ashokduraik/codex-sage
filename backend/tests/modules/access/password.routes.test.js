@@ -13,7 +13,6 @@ import {
   IDENTITY_MODELS,
   createOrganization,
   createUser, createUserInRepo,
-  createMembership,
   findBuiltInRole,
   findUserById,
   findUserByIdWithPassword,
@@ -22,6 +21,9 @@ import {
 } from '../../../src/modules/masters/index.js';
 import { Session } from '../../../src/models/session.model.js';
 import { hashPassword } from '../../../src/modules/access/auth.js';
+import mongoose from 'mongoose';
+
+const PLACEHOLDER_ROLE_ID = new mongoose.Types.ObjectId();
 
 const harness = createMongoHarness({
   models: [...IDENTITY_MODELS, ...AUTH_MODELS, ...AUDIT_MODELS],
@@ -200,14 +202,11 @@ describe('password.routes and adminPasswordReset.routes', () => {
   it('admin set-password completes, never echoes the secret, and activates invited users', async () => {
     const seed = await runBootstrapSeed(createMockLog());
     const orgId = seed.orgId;
+    const memberRole = await findBuiltInRole(orgId, 'member');
     const invited = await createUserInRepo(orgId, {
       email: 'invited@example.com',
       displayName: 'Invited',
       userStatus: 'invited',
-    });
-    const memberRole = await findBuiltInRole(orgId, 'member');
-    await createMembership(orgId, {
-      userId: invited._id,
       roleIds: [memberRole._id],
     });
 
@@ -271,6 +270,7 @@ describe('password.routes and adminPasswordReset.routes', () => {
       userStatus: 'active',
       passwordHash: await hashPassword('outsider'),
       passwordUpdatedAt: new Date(),
+      roleIds: [PLACEHOLDER_ROLE_ID],
     });
 
     app = await readyApp();
@@ -306,16 +306,13 @@ describe('password.routes and adminPasswordReset.routes', () => {
   it('admin set-password without users.manage returns 403', async () => {
     const seed = await runBootstrapSeed(createMockLog());
     const orgId = seed.orgId;
+    const memberRole = await findBuiltInRole(orgId, 'member');
     const member = await createUserInRepo(orgId, {
       email: 'member@example.com',
       displayName: 'Member',
       userStatus: 'active',
       passwordHash: await hashPassword('member1'),
       passwordUpdatedAt: new Date(),
-    });
-    const memberRole = await findBuiltInRole(orgId, 'member');
-    await createMembership(orgId, {
-      userId: member._id,
       roleIds: [memberRole._id],
     });
     const target = await createUserInRepo(orgId, {
@@ -324,6 +321,7 @@ describe('password.routes and adminPasswordReset.routes', () => {
       userStatus: 'active',
       passwordHash: await hashPassword('target1'),
       passwordUpdatedAt: new Date(),
+      roleIds: [PLACEHOLDER_ROLE_ID],
     });
 
     app = await readyApp();
@@ -347,6 +345,7 @@ describe('password.routes and adminPasswordReset.routes', () => {
       userStatus: 'active',
       passwordHash: await hashPassword('gone123'),
       passwordUpdatedAt: new Date(),
+      roleIds: [PLACEHOLDER_ROLE_ID],
     });
     await softDeleteUser(orgId, gone._id);
 
@@ -396,6 +395,7 @@ describe('password.routes and adminPasswordReset.routes', () => {
       userStatus: 'active',
       passwordHash: await hashPassword('target1'),
       passwordUpdatedAt: new Date(),
+      roleIds: [PLACEHOLDER_ROLE_ID],
     });
     app = await readyApp();
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
@@ -434,9 +434,6 @@ describe('password.routes and adminPasswordReset.routes', () => {
       userStatus: 'active',
       passwordHash: await hashPassword('manager1'),
       passwordUpdatedAt: new Date(),
-    });
-    await createMembership(orgId, {
-      userId: manager._id,
       roleIds: [managerRole._id],
     });
     const target = await createUserInRepo(orgId, {
@@ -445,6 +442,7 @@ describe('password.routes and adminPasswordReset.routes', () => {
       userStatus: 'active',
       passwordHash: await hashPassword('target1'),
       passwordUpdatedAt: new Date(),
+      roleIds: [PLACEHOLDER_ROLE_ID],
     });
 
     app = await readyApp();
@@ -468,6 +466,7 @@ describe('password.routes and adminPasswordReset.routes', () => {
       userStatus: 'active',
       passwordHash: await hashPassword('sameold'),
       passwordUpdatedAt: new Date(),
+      roleIds: [PLACEHOLDER_ROLE_ID],
     });
     app = await readyApp();
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);

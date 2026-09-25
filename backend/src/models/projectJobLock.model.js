@@ -1,23 +1,26 @@
 /**
- * `project_job_locks` — one live writer lock per project so ingest and sync
- * jobs do not run against the same project at the same time.
+ * `project_job_locks` — only one ingest or sync job may write a project
+ * at a time. When a worker starts ingest for Payments API, it takes
+ * this lock. Another sync waits until the lock is released or expires.
  */
 import mongoose from 'mongoose';
 import { createBaseSchema, ROW_STATUS_ACTIVE } from '../platform/data/index.js';
 import { PROJECT_JOB_LOCK_SCOPE } from '../worker/worker.constants.js';
 
+const ObjectId = mongoose.Schema.Types.ObjectId;
+
 const projectJobLockSchema = createBaseSchema({
-  // Project whose write work this lock serializes
-  projectId: { type: mongoose.Schema.Types.ObjectId, required: true },
-  // Job currently holding the lock
-  jobId: { type: mongoose.Schema.Types.ObjectId, required: true },
-  // Worker process that acquired the lock
+  // Project that must have only one writer (Payments API)
+  projectId: { type: ObjectId, ref: 'Project', required: true },
+  // Job currently writing that project
+  jobId: { type: ObjectId, ref: 'Job', required: true },
+  // Worker process that took the lock
   workerId: { type: String, required: true },
-  // Lock namespace so only one writer runs per project
+  // Always the project-writer scope; kept so only one lock exists per project
   lockScope: { type: String, required: true, default: PROJECT_JOB_LOCK_SCOPE, enum: [PROJECT_JOB_LOCK_SCOPE] },
   // When the lock was taken
   acquiredAt: { type: Date, required: true },
-  // When the lock expires if the worker stops heartbeating
+  // When another job may take over if this worker goes silent
   expiresAt: { type: Date, required: true },
 });
 

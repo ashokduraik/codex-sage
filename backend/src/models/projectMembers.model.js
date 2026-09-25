@@ -1,21 +1,25 @@
 /**
- * `project_members` — per-project access overlay on top of org membership.
- * Grants or restricts a user on one project via a role and extra permissions.
+ * `project_members` — Alice is allowed on this one project.
+ * Org membership is not enough when her access mode is "selected";
+ * this row is the extra grant (and can add a project role or extra
+ * permissions).
  */
 import mongoose from 'mongoose';
 import { createBaseSchema, ROW_STATUS_ACTIVE } from '../platform/data/index.js';
 
+const ObjectId = mongoose.Schema.Types.ObjectId;
+
 const projectMemberSchema = createBaseSchema({
-  // Project this ACL overlay applies to
-  projectId: { type: mongoose.Schema.Types.ObjectId, required: true },
-  // User granted or restricted on this project
-  userId: { type: mongoose.Schema.Types.ObjectId, required: true },
-  // Optional project-scoped role layered on org membership
-  roleId: { type: mongoose.Schema.Types.ObjectId, default: null },
-  // Extra or replacement permission strings for this project
+  // Project she can open, e.g. Payments API
+  projectId: { type: ObjectId, ref: 'Project', required: true },
+  // User being granted access (Alice)
+  userId: { type: ObjectId, ref: 'User', required: true },
+  // Optional project role on top of her org roles
+  roleId: { type: ObjectId, ref: 'Role', default: null },
+  // Extra permission strings for this project only
   permissions: { type: [String], default: () => [] },
-  // Admin who added this membership overlay
-  addedByUserId: { type: mongoose.Schema.Types.ObjectId, required: true },
+  // Admin who added Alice to this project
+  addedByUserId: { type: ObjectId, ref: 'User', required: true },
 });
 
 projectMemberSchema.index(

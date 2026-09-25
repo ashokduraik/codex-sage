@@ -12,7 +12,6 @@ import {
   DEFAULT_ADMIN_EMAIL,
   DEFAULT_ADMIN_PASSWORD,
   IDENTITY_MODELS,
-  createMembership,
   createUser, createUserInRepo,
   findBuiltInRole,
   findOrganizationBySlug,
@@ -206,12 +205,8 @@ describe('repository probe routes', () => {
       passwordHash: await hashPassword('ViewerPass1!'),
       userStatus: 'active',
       createdBy: null,
-    });
-    await createMembership(org._id, {
-      userId: viewer._id,
-      roleIds: [viewerRole._id],
-      createdBy: null,
-    });
+          roleIds: [viewerRole._id]
+        });
     await addProjectMember({
       orgId: String(org._id),
       projectId: project.id,
@@ -467,12 +462,8 @@ describe('repository attach routes', () => {
       passwordHash: await hashPassword('ViewerPass1!'),
       userStatus: 'active',
       createdBy: null,
-    });
-    await createMembership(org._id, {
-      userId: viewer._id,
-      roleIds: [viewerRole._id],
-      createdBy: null,
-    });
+          roleIds: [viewerRole._id]
+        });
     await addProjectMember({
       orgId: String(org._id),
       projectId: project.id,

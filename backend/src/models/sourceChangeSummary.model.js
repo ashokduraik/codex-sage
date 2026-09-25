@@ -1,9 +1,12 @@
 /**
- * `sourceChangeSummaries` — persisted path-and-hash diff between this source
- * snapshot and the previous one, used to drive incremental knowledge updates.
+ * `sourceChangeSummaries` — what changed between this snapshot and
+ * the last one (added, removed, changed, unchanged paths).
+ * Used so knowledge can update only the files that moved.
  */
 import mongoose from 'mongoose';
 import { createBaseSchema, ROW_STATUS_ACTIVE } from '../platform/data/index.js';
+
+const ObjectId = mongoose.Schema.Types.ObjectId;
 
 export const SOURCE_DIFF_STATUS_VALUES = Object.freeze([
   'pending',
@@ -13,13 +16,13 @@ export const SOURCE_DIFF_STATUS_VALUES = Object.freeze([
 
 const pathSetsSchema = new mongoose.Schema(
   {
-    // Paths present only in this snapshot
+    // Files that exist only in this snapshot (new)
     added: { type: [String], required: true, default: () => [] },
-    // Paths present only in the previous snapshot
+    // Files that existed only in the previous snapshot (deleted)
     removed: { type: [String], required: true, default: () => [] },
-    // Paths whose content hash changed
+    // Files whose content hash changed (edited)
     changed: { type: [String], required: true, default: () => [] },
-    // Paths whose content hash stayed the same
+    // Files whose content hash stayed the same
     unchanged: { type: [String], required: true, default: () => [] },
   },
   { _id: false },
@@ -27,34 +30,34 @@ const pathSetsSchema = new mongoose.Schema(
 
 const countsSchema = new mongoose.Schema(
   {
-    // Number of added paths
+    // How many files were added
     added: { type: Number, required: true, min: 0, default: 0 },
-    // Number of removed paths
+    // How many files were removed
     removed: { type: Number, required: true, min: 0, default: 0 },
-    // Number of changed paths
+    // How many files were edited
     changed: { type: Number, required: true, min: 0, default: 0 },
-    // Number of unchanged paths
+    // How many files stayed the same
     unchanged: { type: Number, required: true, min: 0, default: 0 },
   },
   { _id: false },
 );
 
 const sourceChangeSummarySchema = createBaseSchema({
-  // Project this diff belongs to
-  projectId: { type: mongoose.Schema.Types.ObjectId, required: true },
-  // Snapshot the diff was computed for
-  sourceVersionId: { type: mongoose.Schema.Types.ObjectId, required: true },
-  // Prior snapshot used as the diff baseline, if one exists
-  previousSourceVersionId: { type: mongoose.Schema.Types.ObjectId, default: null },
-  // Knowledge version published from this snapshot, when ready
-  knowledgeVersionId: { type: mongoose.Schema.Types.ObjectId, default: null },
-  // Added / removed / changed / unchanged path totals
+  // Project this comparison belongs to
+  projectId: { type: ObjectId, ref: 'Project', required: true },
+  // Newer snapshot being compared (this upload / this commit)
+  sourceVersionId: { type: ObjectId, ref: 'SourceVersion', required: true },
+  // Previous snapshot to compare against; null if this is the first
+  previousSourceVersionId: { type: ObjectId, ref: 'SourceVersion', default: null },
+  // Knowledge built from this snapshot, when it has been published
+  knowledgeVersionId: { type: ObjectId, ref: 'KnowledgeVersion', default: null },
+  // How many files were added, removed, changed, or unchanged
   counts: { type: countsSchema, required: true, default: () => ({ added: 0, removed: 0, changed: 0, unchanged: 0 }) },
-  // Path lists for each diff bucket
+  // The actual file paths in each bucket
   paths: { type: pathSetsSchema, required: true, default: () => ({ added: [], removed: [], changed: [], unchanged: [] }) },
-  // When the diff finished computing
+  // When the comparison finished
   computedAt: { type: Date, default: null },
-  // Whether the diff is pending, computed, or failed
+  // pending = not done yet; computed = ready; failed = could not compare
   diffStatus: { type: String, enum: SOURCE_DIFF_STATUS_VALUES, required: true, default: 'pending' },
 });
 

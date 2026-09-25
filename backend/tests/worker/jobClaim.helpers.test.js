@@ -6,7 +6,6 @@ import mongoose from 'mongoose';
 import { createMongoHarness } from '../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../appConfig.js';
 import { Job } from '../../src/models/job.model.js';
-import { JobEvent } from '../../src/models/jobEvent.model.js';
 import { insertPendingJob } from '../../src/modules/masters/index.js';
 import {
   claimNextJob,
@@ -25,7 +24,7 @@ import { runWorkerSmokeHandler } from '../../src/worker/handlers/workerSmokeHand
 import { refreshProjectJobLock, releaseProjectJobLock, acquireProjectJobLock } from '../../src/worker/projectJobLock.js';
 
 const harness = createMongoHarness({
-  models: [Job, JobEvent, ProjectJobLock],
+  models: [Job, ProjectJobLock],
   uri: TEST_APP_CONFIG.mongo.uri,
 });
 

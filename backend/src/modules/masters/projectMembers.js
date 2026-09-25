@@ -19,7 +19,6 @@ import {
   recordAuditEvent,
   buildAuditContextFromRequest,
 } from '../access/index.js';
-import { findMembership } from './memberships.js';
 import { bumpOrganizationAclVersion, findOrganizationById } from './organizations.js';
 import { findProjectById } from './projects.helper.js';
 import { findRoleById } from './roles.js';
@@ -306,12 +305,7 @@ async function computeProjectPermissions(orgId, userId, projectId) {
     return { result: PROJECT_ACL_NO_ACCESS, aclVersion };
   }
 
-  const membership = await findMembership(orgId, userId);
-  if (!membership) {
-    return { result: PROJECT_ACL_NO_ACCESS, aclVersion };
-  }
-
-  const projectAccessMode = membership.projectAccessMode ?? 'selected';
+  const projectAccessMode = user.projectAccessMode ?? 'selected';
   if (projectAccessMode === 'none') {
     return { result: PROJECT_ACL_NO_ACCESS, aclVersion };
   }
@@ -323,7 +317,7 @@ async function computeProjectPermissions(orgId, userId, projectId) {
   }
 
   // 'all' is visible even without a member row; optional overlay may still grant extras.
-  const roleIds = (membership.roleIds ?? []).map((id) => String(id));
+  const roleIds = (user.roleIds ?? []).map((id) => String(id));
   const orgPermissions = await resolveEffectivePermissions(orgId, roleIds);
   const overlayPermissions = await overlayPermissionsFromMember(orgId, member);
   const permissions = [...new Set([...orgPermissions, ...overlayPermissions])];
@@ -397,11 +391,7 @@ export async function resolveAccessibleProjectFilter(orgId, userId) {
   if (!user || user.userStatus !== 'active') {
     return { mode: 'none' };
   }
-  const membership = await findMembership(orgId, userId);
-  if (!membership) {
-    return { mode: 'none' };
-  }
-  const projectAccessMode = membership.projectAccessMode ?? 'selected';
+  const projectAccessMode = user.projectAccessMode ?? 'selected';
   if (projectAccessMode === 'none') {
     return { mode: 'none' };
   }

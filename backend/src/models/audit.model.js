@@ -1,6 +1,10 @@
 /**
- * `auditevents` — append-only security trail of who did what to which resource
- * in a tenant. Updates and deletes are blocked except retention soft-delete.
+ * `auditevents` — one row per security-sensitive action (create user,
+ * change email, archive project, denied permission). Used later to
+ * answer "who did this, to which object, and did it succeed?"
+ *
+ * Rows are history: they cannot be edited or hard-deleted. A retention
+ * job may only hide old rows by setting status to D.
  */
 import mongoose from 'mongoose';
 import { ApiError } from '../platform/errors.js';
@@ -12,6 +16,7 @@ import {
 } from '../platform/data/index.js';
 
 const { Schema } = mongoose;
+const ObjectId = Schema.Types.ObjectId;
 
 /** Allowed audit result values. */
 export const AUDIT_RESULT_VALUES = Object.freeze(['success', 'denied', 'failed']);
@@ -101,27 +106,27 @@ function assertAppendOnly(query, kind) {
 
 const auditEventSchema = new Schema(
   {
-    // Tenant that owns this audit event
-    orgId: { type: Schema.Types.ObjectId, required: true },
-    // User who performed the action, when the actor is a signed-in person
-    actorUserId: { type: Schema.Types.ObjectId, default: undefined },
-    // What happened (for example user.email_changed or project.created)
+    // Organization this history belongs to (Acme)
+    orgId: { type: ObjectId, ref: 'Organization', required: true },
+    // Signed-in user who performed the action (the actor, not the target)
+    actorUserId: { type: ObjectId, ref: 'User', default: undefined },
+    // What happened: user.email_changed, project.archive, authz.denied
     action: { type: String, required: true, trim: true },
-    // Kind of thing the action targeted (user, project, role, and so on)
+    // What was acted on: user, project, route, etc. (not the URL)
     resourceType: { type: String, required: true, trim: true },
-    // Target id of the audited resource, when the action has one
+    // Which one: Alice's user id, a project id, or a route label
     resourceId: { type: String, default: undefined },
     // Whether the action succeeded, was denied, or failed
     result: { type: String, enum: AUDIT_RESULT_VALUES, required: true },
-    // Request id used to tie this event to logs and other records
+    // Same as request.id / X-Correlation-Id; joins this row to logs for one HTTP call
     correlationId: { type: String, required: true, trim: true },
-    // Client IP captured for security review
+    // Client IP of the request, for security review
     ip: { type: String, default: undefined },
-    // Browser or client string captured for security review
+    // Browser / client string of the request, for security review
     userAgent: { type: String, default: undefined },
-    // Extra non-secret details needed to understand the action
+    // Extra non-secret details (old/new email). Secrets are stripped before save
     context: { type: Schema.Types.Mixed, default: undefined },
-    // Row visibility: A = active, D = soft-deleted for retention
+    // A = visible history; D = hidden by retention (not a user delete)
     status: { type: String, enum: ROW_STATUS_VALUES, required: true, default: ROW_STATUS_ACTIVE },
   },
   {

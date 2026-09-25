@@ -14,15 +14,15 @@ vi.mock('../../../src/modules/access/index.js', async (importOriginal) => {
   };
 });
 
-vi.mock('../../../src/modules/masters/memberships.js', () => ({
-  isRoleReferencedByActiveMembership: vi.fn(async () => false),
+vi.mock('../../../src/modules/masters/users.js', () => ({
+  isRoleReferencedByActiveUser: vi.fn(async () => false),
 }));
 
 vi.mock('../../../src/modules/masters/projectMembers.js', () => ({
   bumpProjectAclVersion: vi.fn(async () => {}),
 }));
 
-import { isRoleReferencedByActiveMembership } from '../../../src/modules/masters/memberships.js';
+import { isRoleReferencedByActiveUser } from '../../../src/modules/masters/users.js';
 import {
   assertKnownPermissions,
   createRole,
@@ -38,7 +38,7 @@ describe('role.service', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.restoreAllMocks();
-    isRoleReferencedByActiveMembership.mockResolvedValue(false);
+    isRoleReferencedByActiveUser.mockResolvedValue(false);
   });
 
   it('rejects a permission string absent from the catalog', () => {
@@ -83,7 +83,7 @@ describe('role.service', () => {
     ).rejects.toMatchObject({ code: 'BUILT_IN_ROLE_IMMUTABLE' });
   });
 
-  it('softDeleteRole throws ROLE_IN_USE when memberships reference it', async () => {
+  it('softDeleteRole throws ROLE_IN_USE when users reference it', async () => {
     vi.spyOn(Role, 'findOne').mockReturnValue({
       session() {
         return this;
@@ -94,7 +94,7 @@ describe('role.service', () => {
         isBuiltIn: false,
       }),
     });
-    isRoleReferencedByActiveMembership.mockResolvedValue(true);
+    isRoleReferencedByActiveUser.mockResolvedValue(true);
     await expect(
       softDeleteRole({
         orgId: ORG_ID,

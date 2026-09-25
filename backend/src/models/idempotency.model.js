@@ -1,31 +1,39 @@
 /**
- * `idempotencyRecords` — replay-safe claims for mutating API requests, shared
- * across workers so a retried request returns the original result.
+ * `idempotencyRecords` — remembers a mutating request so a retry does
+ * not run it twice. Example: POST Create user with Idempotency-Key
+ * create-alice-001. The first call creates Alice and stores the 201
+ * here; the same key again returns that stored body and does not
+ * insert another Alice.
+ *
+ * These rows are not users or projects. They expire after 24 hours.
  */
 import mongoose from 'mongoose';
 import { createBaseSchema, ROW_STATUS_ACTIVE } from '../platform/data/index.js';
 
-/** Domain lifecycle for an idempotency claim (separate from row status). */
+const ObjectId = mongoose.Schema.Types.ObjectId;
+
+/** processing = first request still running; completed = response stored. */
 export const IDEMPOTENCY_RECORD_STATE_VALUES = Object.freeze(['processing', 'completed']);
 
 const idempotencyRecordSchema = createBaseSchema({
-  // Caller whose idempotency key this claim belongs to
-  userId: { type: mongoose.Schema.Types.ObjectId, required: true },
-  // Route the key applies to so keys do not collide across endpoints
+  // Who sent the Idempotency-Key (Ashok). Same key from Bob is a different row
+  userId: { type: ObjectId, ref: 'User', required: true },
+  // Which endpoint the key is for. Same key on POST /users vs POST /projects
+  // is two different rows
   route: { type: String, required: true, trim: true, maxlength: 256 },
-  // Client-supplied idempotency key
+  // Value from the Idempotency-Key header, e.g. create-alice-001
   key: { type: String, required: true, trim: true, maxlength: 128 },
-  // Hash of the original request so a replay with a different body is rejected
+  // Hash of the first request body. Same key with a different body is rejected
   requestHash: { type: String, required: true, trim: true },
-  // Whether the first request is still running or the stored response is ready
+  // processing = first request still running; completed = stored response ready
   recordState: { type: String, enum: IDEMPOTENCY_RECORD_STATE_VALUES, required: true, default: 'processing' },
-  // HTTP status to replay once the first request completes
+  // HTTP status from the first request (e.g. 201), returned on retry
   responseStatus: { type: Number, default: null },
-  // Response body to replay once the first request completes
+  // JSON body from the first request, returned on retry
   responseBody: { type: mongoose.Schema.Types.Mixed, default: null },
-  // Created resource id, when the original request created one
-  resourceId: { type: mongoose.Schema.Types.ObjectId, default: null },
-  // When Mongo may expire this claim
+  // Id of the object the first request created (Alice's user id)
+  resourceId: { type: ObjectId, default: null },
+  // When this row is deleted (24 hours). After that the same key is a new request
   expiresAt: { type: Date, required: true },
 });
 
@@ -39,5 +47,5 @@ export const IdempotencyRecord =
   mongoose.models.IdempotencyRecord ??
   mongoose.model('IdempotencyRecord', idempotencyRecordSchema, 'idempotencyRecords');
 
-/** Models whose indexes must be synced for this platform concern. */
+/** Models this file owns; used when syncing Mongo indexes. */
 export const IDEMPOTENCY_MODELS = Object.freeze([IdempotencyRecord]);

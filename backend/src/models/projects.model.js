@@ -1,11 +1,18 @@
 /**
- * `projects` — workspaces that hold source, published knowledge, and chat.
- * Tracks lifecycle, knowledge freshness, and cached counts for the UI.
+ * `projects` — one workspace inside an org (e.g. "Payments API").
+ * Holds how source arrives, whether knowledge is ready for chat, and
+ * cached file/conversation counts for the project list.
+ *
+ * `lifecycleStatus` is setup/ingest progress (awaiting source, processing,
+ * knowledge ready, archived). `knowledgeHealth` is whether chat has good
+ * knowledge (none, ready, stale). Those two can differ.
  */
 import mongoose from 'mongoose';
 import { createBaseSchema, ROW_STATUS_ACTIVE } from '../platform/data/index.js';
 
-/** Project lifecycle states (backend §9). */
+const ObjectId = mongoose.Schema.Types.ObjectId;
+
+/** Setup/ingest progress for a project. */
 export const LIFECYCLE_STATUS_VALUES = Object.freeze([
   'creating',
   'awaiting_source',
@@ -19,7 +26,7 @@ export const LIFECYCLE_STATUS_VALUES = Object.freeze([
   'archived',
 ]);
 
-/** Knowledge freshness enum (orthogonal to lifecycle). */
+/** Whether chat has usable knowledge (independent of lifecycleStatus). */
 export const KNOWLEDGE_HEALTH_VALUES = Object.freeze([
   'none',
   'updating',
@@ -29,28 +36,28 @@ export const KNOWLEDGE_HEALTH_VALUES = Object.freeze([
   'failed',
 ]);
 
-/** How the project expects its first source. */
+/** How files arrive: Alice uploads a zip, or a Git repo is connected. */
 export const SOURCE_TYPE_VALUES = Object.freeze(['upload', 'repository']);
 
 const sourceConfigSchema = new mongoose.Schema(
   {
-    // Whether the project is fed by upload or a connected repository
+    // How files arrive: Alice uploads a zip, or a Git repo is connected
     sourceType: { type: String, enum: SOURCE_TYPE_VALUES, required: true },
-    // Attached repository, when sourceType is repository
-    repositoryConnectionId: { type: mongoose.Schema.Types.ObjectId, default: null },
-    // Latest accepted source snapshot used for knowledge
-    currentSourceVersionId: { type: mongoose.Schema.Types.ObjectId, default: null },
+    // The connected Git repo, when sourceType is repository
+    repositoryConnectionId: { type: ObjectId, ref: 'RepositoryConnection', default: null },
+    // Latest accepted file snapshot this project is using
+    currentSourceVersionId: { type: ObjectId, ref: 'SourceVersion', default: null },
   },
   { _id: false },
 );
 
 const countsSchema = new mongoose.Schema(
   {
-    // How many source snapshots this project has accepted
+    // How many file snapshots this project has accepted
     sourceVersions: { type: Number, required: true, default: 0, min: 0 },
-    // How many stored files are in the current snapshot
+    // How many files are in the current snapshot
     files: { type: Number, required: true, default: 0, min: 0 },
-    // How many files were kept but left out of the knowledge graph
+    // How many of those files are stored but left out of knowledge
     excludedFiles: { type: Number, required: true, default: 0, min: 0 },
     // How many chat threads belong to this project
     conversations: { type: Number, required: true, default: 0, min: 0 },
@@ -59,27 +66,27 @@ const countsSchema = new mongoose.Schema(
 );
 
 const projectSchema = createBaseSchema({
-  // Project title shown in lists and headers
+  // Title shown in lists, e.g. "Payments API"
   name: { type: String, required: true, trim: true, minlength: 1, maxlength: 120 },
   // Optional longer summary of what the project is
   description: { type: String, default: '', trim: true, maxlength: 2000 },
-  // Where the project is in ingest and knowledge readiness
+  // Setup/ingest progress: creating, awaiting source, processing, ready, archived
   lifecycleStatus: { type: String, enum: LIFECYCLE_STATUS_VALUES, required: true, default: 'creating' },
-  // Lifecycle to restore when un-archiving
+  // Status to put back when someone un-archives the project
   preArchiveLifecycleStatus: { type: String, enum: LIFECYCLE_STATUS_VALUES, default: null },
-  // Machine reason the lifecycle last changed (failure or transition)
+  // Machine reason the last lifecycle change happened (e.g. ingest failed)
   lifecycleStatusReasonCode: { type: String, default: null },
   // When lifecycleStatus last changed
   lifecycleStatusChangedAt: { type: Date, default: () => new Date() },
-  // Freshness of published knowledge, orthogonal to lifecycle
+  // Whether chat has usable knowledge: none, updating, ready, stale, failed
   knowledgeHealth: { type: String, enum: KNOWLEDGE_HEALTH_VALUES, required: true, default: 'none' },
-  // Published knowledge snapshot currently serving chat
-  currentKnowledgeVersionId: { type: mongoose.Schema.Types.ObjectId, default: null },
-  // How source arrives and which snapshot is current
+  // Published knowledge chat is answering from right now
+  currentKnowledgeVersionId: { type: ObjectId, ref: 'KnowledgeVersion', default: null },
+  // How files arrive and which snapshot is current
   sourceConfig: { type: sourceConfigSchema, required: true },
-  // Project-level preferences that do not need dedicated columns
+  // Extra project preferences that do not need their own column
   settings: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
-  // Cached totals for list and detail views
+  // Cached totals shown on the project list and detail pages
   counts: {
     type: countsSchema,
     required: true,
@@ -90,9 +97,9 @@ const projectSchema = createBaseSchema({
       conversations: 0,
     }),
   },
-  // When the project was archived, if it is archived
+  // When the project was archived; null if it is still open
   archivedAt: { type: Date, default: null },
-  // Last time a member opened this project (sorts recents)
+  // Last time a member opened this project (sorts "recent")
   lastAccessedAt: { type: Date, default: null },
 });
 

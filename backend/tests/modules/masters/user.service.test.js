@@ -21,17 +21,14 @@ vi.mock('../../../src/modules/access/index.js', () => ({
   PASSWORD_MIN_LENGTH: 6,
 }));
 
-vi.mock('../../../src/modules/masters/memberships.js', () => ({
+vi.mock('../../../src/modules/masters/users.helper.js', () => ({
   assertRolesExistInOrg: vi.fn(async (_orgId, roleIds) =>
     roleIds.map((id) => ({ _id: id, name: 'Role', isBuiltIn: false })),
   ),
   wouldRemoveLastAdmin: vi.fn(async () => false),
-  createMembership: vi.fn(async () => ({})),
-  findMembership: vi.fn(async () => ({
-    roleIds: ['role-admin'],
-  })),
-  replaceMembershipRoleIds: vi.fn(async () => ({})),
-  softDeleteMembership: vi.fn(async () => ({ modifiedCount: 1 })),
+  isRoleReferencedByActiveUser: vi.fn(async () => false),
+  countActiveUsersManageHolders: vi.fn(async () => 0),
+  holdsUsersManage: vi.fn(() => false),
 }));
 
 vi.mock('../../../src/modules/masters/roles.js', () => ({
@@ -62,7 +59,7 @@ vi.mock('mongoose', async (importOriginal) => {
 });
 
 import { recordAuditEvent, revokeAllSessionsForUser } from '../../../src/modules/access/index.js';
-import { wouldRemoveLastAdmin } from '../../../src/modules/masters/memberships.js';
+import { wouldRemoveLastAdmin } from '../../../src/modules/masters/users.helper.js';
 import {
   containsForbiddenSecretKey,
   createUser,

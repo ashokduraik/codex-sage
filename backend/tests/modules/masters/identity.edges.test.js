@@ -17,11 +17,6 @@ import {
   findBuiltInRole,
   updateRoleInRepo,
 } from '../../../src/modules/masters/roles.js';
-import {
-  createMembership,
-  findMembership,
-  softDeleteMembership,
-} from '../../../src/modules/masters/memberships.js';
 import { isBuiltInRoleKey, Role } from '../../../src/models/role.model.js';
 import { SLUG_PATTERN } from '../../../src/models/organization.model.js';
 
@@ -51,9 +46,11 @@ describe('identity edge coverage', () => {
 
   it('findUserById returns a user within the org only', async () => {
     const org = await createOrganization({ name: 'U', slug: 'user-by-id' });
+    const { roles } = await ensureBuiltInRoles(org._id);
     const user = await createUserInRepo(org._id, {
       email: 'id@example.com',
       displayName: 'Id',
+      roleIds: [roles[0]._id],
     });
     expect(await findUserById(org._id, user._id)).toBeTruthy();
     const other = await createOrganization({ name: 'O', slug: 'other-org' });
@@ -123,20 +120,16 @@ describe('identity edge coverage', () => {
     ).rejects.toThrow();
   });
 
-  it('softDeleteMembership and softDeleteUser succeed', async () => {
+  it('softDeleteUser succeeds', async () => {
     const org = await createOrganization({ name: 'S', slug: 'soft-mem' });
     const { roles } = await ensureBuiltInRoles(org._id);
     const user = await createUserInRepo(org._id, {
       email: 'soft@example.com',
       displayName: 'Soft',
-    });
-    await createMembership(org._id, {
-      userId: user._id,
       roleIds: [roles[0]._id],
     });
-    expect((await softDeleteMembership(org._id, user._id)).modifiedCount).toBe(1);
-    expect(await findMembership(org._id, user._id)).toBeNull();
     expect((await softDeleteUser(org._id, user._id)).modifiedCount).toBe(1);
+    expect(await findUserById(org._id, user._id)).toBeNull();
   });
 
   it('findBuiltInRole returns org_admin after ensure', async () => {

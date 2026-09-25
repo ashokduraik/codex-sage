@@ -13,7 +13,6 @@ import { TEST_APP_CONFIG } from '../../appConfig.js';
 import * as documents from '../../../src/modules/knowledge/documents.js';
 import { DocumentSection } from '../../../src/modules/knowledge/documents.js';
 import { Job } from '../../../src/models/job.model.js';
-import { JobEvent } from '../../../src/models/jobEvent.model.js';
 import { insertPendingJob } from '../../../src/modules/masters/jobs.helper.js';
 import {
   SourceFile,
@@ -31,7 +30,7 @@ import { runMaterializeDocsStage, WORKSPACE_MATERIALIZE_BATCH_SIZE } from '../..
 let workspaceRoot;
 
 const harness = createMongoHarness({
-  models: [Job, JobEvent, SourceVersion, SourceFile, DocumentSection],
+  models: [Job, SourceVersion, SourceFile, DocumentSection],
   uri: TEST_APP_CONFIG.mongo.uri,
 });
 

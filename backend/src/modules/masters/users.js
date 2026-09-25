@@ -1,7 +1,6 @@
 /**
  * masters/users.js — merged resource file.
  */
-import { Membership } from '../../models/membership.model.js';
 import { User } from '../../models/user.model.js';
 import { assertOrgId, decodeCursor, encodeCursor, softDelete } from '../../platform/data/index.js';
 import { ApiError } from '../../platform/errors.js';
@@ -17,15 +16,18 @@ import { z } from 'zod';
 import {
   assertRolesExistInOrg,
   wouldRemoveLastAdmin,
-  createMembership,
-  findMembership,
-  replaceMembershipRoleIds,
-  replaceUserRoles,
-  softDeleteMembership,
-} from './memberships.js';
+} from './users.helper.js';
 import { bumpProjectAclVersion } from './projectMembers.js';
 import { findRolesByIds, isDuplicateKeyError } from './roles.js';
 import mongoose from 'mongoose';
+
+export {
+  assertRolesExistInOrg,
+  countActiveUsersManageHolders,
+  holdsUsersManage,
+  isRoleReferencedByActiveUser,
+  wouldRemoveLastAdmin,
+} from './users.helper.js';
 
 // --- from identity/user.repository.js ---
 /**
@@ -163,6 +165,8 @@ export async function findUserByIdWithPassword(orgId, userId, options = {}) {
  *   userStatus?: string,
  *   passwordHash?: string,
  *   passwordUpdatedAt?: Date,
+ *   roleIds: Array<import('mongoose').Types.ObjectId | string>,
+ *   projectAccessMode?: 'all' | 'selected' | 'none',
  *   createdBy?: import('mongoose').Types.ObjectId | null,
  *   updatedBy?: import('mongoose').Types.ObjectId | null,
  * }} input User fields.
@@ -177,9 +181,13 @@ export async function createUserInRepo(orgId, input, options = {}) {
     email: input.email,
     displayName: input.displayName,
     userStatus: input.userStatus ?? 'invited',
+    roleIds: input.roleIds,
     createdBy: input.createdBy ?? null,
     updatedBy: input.updatedBy ?? null,
   };
+  if (input.projectAccessMode !== undefined) {
+    doc.projectAccessMode = input.projectAccessMode;
+  }
   if (input.passwordHash !== undefined) {
     doc.passwordHash = input.passwordHash;
   }
@@ -201,6 +209,8 @@ export async function createUserInRepo(orgId, input, options = {}) {
  *   displayName?: string,
  *   email?: string,
  *   userStatus?: string,
+ *   roleIds?: Array<import('mongoose').Types.ObjectId | string>,
+ *   projectAccessMode?: 'all' | 'selected' | 'none',
  *   updatedBy?: import('mongoose').Types.ObjectId | string | null,
  * }} patch Fields to set.
  * @param {{ session?: import('mongoose').ClientSession }} [options] Optional session.
@@ -218,6 +228,12 @@ export async function updateUser(orgId, userId, patch, options = {}) {
   }
   if (patch.userStatus !== undefined) {
     $set.userStatus = patch.userStatus;
+  }
+  if (patch.roleIds !== undefined) {
+    $set.roleIds = patch.roleIds;
+  }
+  if (patch.projectAccessMode !== undefined) {
+    $set.projectAccessMode = patch.projectAccessMode;
   }
   if (patch.updatedBy !== undefined) {
     $set.updatedBy = patch.updatedBy ?? null;
@@ -382,14 +398,7 @@ export async function listUsersInRepo(orgId, filters = {}) {
         details: [{ path: 'roleId', message: 'roleId must be a valid ObjectId' }],
       });
     }
-    const memberships = await Membership.find({
-      orgId,
-      roleIds: filters.roleId,
-    })
-      .select({ userId: 1 })
-      .exec();
-    const userIds = memberships.map((row) => row.userId);
-    query._id = { $in: userIds };
+    query.roleIds = filters.roleId;
   }
 
   if (filters.cursor) {
@@ -528,24 +537,21 @@ export function mapUserToDto(user, roles = []) {
 }
 
 /**
- * Loads membership roles for a user (empty array when no membership).
+ * Loads role documents for a user's roleIds (empty when none).
  * @param {string} orgId Tenant id.
- * @param {string} userId User id.
+ * @param {{ roleIds?: Array<import('mongoose').Types.ObjectId | string> }} user User doc.
  * @returns {Promise<import('mongoose').Document[]>}
  */
-async function loadRolesForUser(orgId, userId) {
-  const membership = await findMembership(orgId, userId);
-  if (!membership) {
+async function loadRolesForUser(orgId, user) {
+  const roleIds = (user.roleIds ?? []).map((id) => String(id));
+  if (roleIds.length === 0) {
     return [];
   }
-  return findRolesByIds(
-    orgId,
-    membership.roleIds.map((id) => String(id)),
-  );
+  return findRolesByIds(orgId, roleIds);
 }
 
 /**
- * Creates an invited user with membership roles.
+ * Creates an invited user with org roles.
  * @param {{
  *   orgId: string,
  *   actorUserId: string,
@@ -563,70 +569,47 @@ export async function createUser(input) {
   const roleIds = [...new Set(input.roleIds.map(String))];
   const roles = await assertRolesExistInOrg(input.orgId, roleIds);
 
-  const mongoSession = await mongoose.startSession();
+  /** @type {import('mongoose').Document} */
+  let createdUser;
   try {
-    /** @type {import('mongoose').Document | undefined} */
-    let createdUser;
-    await mongoSession.withTransaction(async () => {
-      try {
-        createdUser = await createUserInRepo(
-          input.orgId,
-          {
-            email: input.email,
-            displayName: input.displayName,
-            userStatus: 'invited',
-            createdBy: input.actorUserId,
-            updatedBy: input.actorUserId,
-          },
-          { session: mongoSession },
-        );
-      } catch (err) {
-        if (isDuplicateKeyError(err)) {
-          throw ApiError.fromCode('IDENTITY_DUPLICATE_EMAIL');
-        }
-        throw err;
-      }
-      await createMembership(
-        input.orgId,
-        {
-          userId: createdUser._id,
-          roleIds,
-          createdBy: input.actorUserId,
-          updatedBy: input.actorUserId,
-        },
-        { session: mongoSession },
-      );
+    createdUser = await createUserInRepo(input.orgId, {
+      email: input.email,
+      displayName: input.displayName,
+      userStatus: 'invited',
+      roleIds,
+      createdBy: input.actorUserId,
+      updatedBy: input.actorUserId,
     });
-    if (!createdUser) {
-      throw ApiError.fromCode('INTERNAL_ERROR');
+  } catch (err) {
+    if (isDuplicateKeyError(err)) {
+      throw ApiError.fromCode('IDENTITY_DUPLICATE_EMAIL');
     }
-
-    await bumpProjectAclVersion(input.orgId);
-
-    await recordAuditEvent(
-      {
-        orgId: input.orgId,
-        actorUserId: input.actorUserId,
-        action: 'user.create',
-        resourceType: 'user',
-        resourceId: String(createdUser._id),
-        result: 'success',
-        correlationId: input.correlationId,
-        ip: input.ip,
-        userAgent: input.userAgent,
-        context: {
-          email: createdUser.email,
-          userStatus: createdUser.userStatus,
-          roleIds,
-        },
-      },
-      { log: input.log },
-    );
-
-    return mapUserToDto(createdUser, roles);
-  } finally {
-    await mongoSession.endSession();
+    throw err;
   }
+
+  await bumpProjectAclVersion(input.orgId);
+
+  await recordAuditEvent(
+    {
+      orgId: input.orgId,
+      actorUserId: input.actorUserId,
+      action: 'user.create',
+      resourceType: 'user',
+      resourceId: String(createdUser._id),
+      result: 'success',
+      correlationId: input.correlationId,
+      ip: input.ip,
+      userAgent: input.userAgent,
+      context: {
+        email: createdUser.email,
+        userStatus: createdUser.userStatus,
+        roleIds,
+      },
+    },
+    { log: input.log },
+  );
+
+  return mapUserToDto(createdUser, roles);
 }
 
 /**
@@ -645,7 +628,7 @@ export async function listUsers(orgId, filters = {}) {
   const page = await listUsersInRepo(orgId, filters);
   const items = [];
   for (const user of page.items) {
-    const roles = await loadRolesForUser(orgId, String(user._id));
+    const roles = await loadRolesForUser(orgId, user);
     items.push(mapUserToDto(user, roles));
   }
   return { items, pageInfo: page.pageInfo };
@@ -662,7 +645,7 @@ export async function getUser(orgId, userId) {
   if (!user) {
     throw ApiError.fromCode('NOT_FOUND', { message: 'User not found.' });
   }
-  const roles = await loadRolesForUser(orgId, userId);
+  const roles = await loadRolesForUser(orgId, user);
   return mapUserToDto(user, roles);
 }
 
@@ -683,7 +666,7 @@ export async function getUser(orgId, userId) {
  * @returns {Promise<object>}
  */
 export async function updateUserDetails(input) {
-  const user = await findUserById(input.orgId, input.targetUserId);
+  let user = await findUserById(input.orgId, input.targetUserId);
   if (!user) {
     throw ApiError.fromCode('NOT_FOUND', { message: 'User not found.' });
   }
@@ -691,10 +674,7 @@ export async function updateUserDetails(input) {
   const previousEmail = user.email;
 
   if (input.roleIds) {
-    const membership = await findMembership(input.orgId, input.targetUserId);
-    const previousRoleIds = membership
-      ? membership.roleIds.map((id) => String(id))
-      : [];
+    const previousRoleIds = (user.roleIds ?? []).map((id) => String(id));
     const nextRoleIds = [...new Set(input.roleIds.map(String))];
     if (
       await wouldRemoveLastAdmin(input.orgId, {
@@ -705,12 +685,14 @@ export async function updateUserDetails(input) {
       throw ApiError.fromCode('LAST_ADMIN_REQUIRED');
     }
     await assertRolesExistInOrg(input.orgId, nextRoleIds);
-    if (!membership) {
-      throw ApiError.fromCode('NOT_FOUND', { message: 'Membership not found.' });
-    }
-    await replaceMembershipRoleIds(input.orgId, input.targetUserId, nextRoleIds, {
+    const rolesUpdated = await updateUser(input.orgId, input.targetUserId, {
+      roleIds: nextRoleIds,
       updatedBy: input.actorUserId,
     });
+    if (!rolesUpdated) {
+      throw ApiError.fromCode('NOT_FOUND', { message: 'User not found.' });
+    }
+    user = rolesUpdated;
     await bumpProjectAclVersion(input.orgId);
     await recordAuditEvent(
       {
@@ -797,10 +779,9 @@ export async function updateUserDetails(input) {
     );
   }
 
-  // Reload roles after possible replace (membership already updated).
   const roles = input.roleIds
     ? await findRolesByIds(input.orgId, input.roleIds.map(String))
-    : await loadRolesForUser(input.orgId, input.targetUserId);
+    : await loadRolesForUser(input.orgId, updated ?? user);
 
   return mapUserToDto(updated ?? user, roles);
 }
@@ -847,7 +828,7 @@ export async function activateUser(input) {
     },
     { log: input.log },
   );
-  const roles = await loadRolesForUser(input.orgId, input.targetUserId);
+  const roles = await loadRolesForUser(input.orgId, updated);
   return mapUserToDto(updated, roles);
 }
 
@@ -905,12 +886,12 @@ export async function deactivateUser(input) {
     },
     { log: input.log },
   );
-  const roles = await loadRolesForUser(input.orgId, input.targetUserId);
+  const roles = await loadRolesForUser(input.orgId, updated);
   return mapUserToDto(updated, roles);
 }
 
 /**
- * Soft-removes a user and tombstones membership; revokes sessions.
+ * Soft-removes a user and revokes sessions.
  * @param {{
  *   orgId: string,
  *   actorUserId: string,
@@ -942,10 +923,6 @@ export async function removeUser(input) {
   const mongoSession = await mongoose.startSession();
   try {
     await mongoSession.withTransaction(async () => {
-      await softDeleteMembership(input.orgId, input.targetUserId, {
-        updatedBy: input.actorUserId,
-        session: mongoSession,
-      });
       await softDeleteUser(input.orgId, input.targetUserId, {
         updatedBy: input.actorUserId,
         session: mongoSession,
@@ -980,6 +957,67 @@ export async function removeUser(input) {
   );
 }
 
+/**
+ * Replaces a user's organization role set.
+ * @param {{
+ *   orgId: string,
+ *   actorUserId: string,
+ *   targetUserId: string,
+ *   roleIds: string[],
+ *   correlationId: string,
+ *   ip?: string,
+ *   userAgent?: string,
+ *   log?: { error?: Function },
+ * }} input Replace inputs.
+ * @returns {Promise<object>} Updated user DTO.
+ */
+export async function replaceUserRoles(input) {
+  const user = await findUserById(input.orgId, input.targetUserId);
+  if (!user) {
+    throw ApiError.fromCode('NOT_FOUND', { message: 'User not found.' });
+  }
+
+  const previousRoleIds = (user.roleIds ?? []).map((id) => String(id));
+  const nextRoleIds = [...new Set(input.roleIds.map(String))];
+
+  if (
+    await wouldRemoveLastAdmin(input.orgId, {
+      targetUserId: input.targetUserId,
+      nextRoleIds,
+    })
+  ) {
+    throw ApiError.fromCode('LAST_ADMIN_REQUIRED');
+  }
+
+  const roles = await assertRolesExistInOrg(input.orgId, nextRoleIds);
+  const updated = await updateUser(input.orgId, input.targetUserId, {
+    roleIds: nextRoleIds,
+    updatedBy: input.actorUserId,
+  });
+  if (!updated) {
+    throw ApiError.fromCode('NOT_FOUND', { message: 'User not found.' });
+  }
+
+  await bumpProjectAclVersion(input.orgId);
+
+  await recordAuditEvent(
+    {
+      orgId: input.orgId,
+      actorUserId: input.actorUserId,
+      action: 'user.roles_changed',
+      resourceType: 'user',
+      resourceId: String(input.targetUserId),
+      result: 'success',
+      correlationId: input.correlationId,
+      ip: input.ip,
+      userAgent: input.userAgent,
+      context: { previousRoleIds, nextRoleIds },
+    },
+    { log: input.log },
+  );
+
+  return mapUserToDto(updated, roles);
+}
 
 const objectIdStringSchema = z
   .string()

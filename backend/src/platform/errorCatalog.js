@@ -149,7 +149,7 @@ export const ERROR_CATALOG = Object.freeze({
     class: 'user',
     httpStatus: 409,
     retryability: 'user_action_required',
-    message: 'The role is assigned to one or more active memberships.',
+    message: 'The role is assigned to one or more active users.',
   }),
   UNKNOWN_PERMISSION: Object.freeze({
     class: 'user',

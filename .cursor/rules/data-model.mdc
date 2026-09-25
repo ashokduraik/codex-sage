@@ -9,8 +9,11 @@ alwaysApply: false
 - **Tenant key:** `orgId` (not `organizationId`) on tenant-scoped documents, repository
   args, request context / `principal`, and API JSON. JWT claim key stays short `org` and
   carries that id. The `organizations` collection opts out (its `_id` *is* the org id).
-- **Actors:** every domain document has `createdBy` / `updatedBy` (ObjectId → user); null
+- **Actors:** every domain document has `createdBy` / `updatedBy` (ObjectId → `User`); null
   allowed for system/bootstrap writes.
+- **ObjectId fields:** declare `const ObjectId = mongoose.Schema.Types.ObjectId` at the
+  top of the schema file. Use `type: ObjectId` (never `mongoose.Schema.Types.ObjectId`
+  inline) and set `ref` to the registered Mongoose model name. See `mongoose-objectid.mdc`.
 - **Indexes:** declare on the Mongoose schema (`schema.index(...)`). Production uses
   `autoIndex: false`. Development startup and the integration-test harness call
   `syncSchemaIndexes`. Tenant list/unique indexes lead with `orgId` and use a partial

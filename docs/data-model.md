@@ -21,14 +21,23 @@ land; every document inherits the base fields below.
 | Field | Notes |
 |---|---|
 | `createdAt` / `updatedAt` | UTC BSON Dates (ISO-8601 with `Z` at the API edge) |
-| `createdBy` / `updatedBy` | ObjectId → user, or `null` for system/bootstrap writes |
+| `createdBy` / `updatedBy` | ObjectId → `User`, or `null` for system/bootstrap writes |
 
 ## Tenant key
 
-- Tenant-scoped collections require `orgId` (ObjectId).
+- Tenant-scoped collections require `orgId` (ObjectId → `Organization`).
 - `organizations` opts out: its `_id` **is** the org id other collections store as `orgId`.
 - Repositories for tenant collections require `orgId` on every read/write
   (`TENANT_SCOPE_MISSING` when omitted).
+
+## ObjectId fields
+
+- Declare `const ObjectId = mongoose.Schema.Types.ObjectId` once at the top of each
+  schema file. Field definitions use `type: ObjectId`, not `mongoose.Schema.Types.ObjectId`.
+- Every ObjectId that points at a domain document sets `ref` to the registered Mongoose
+  model name (`User`, `Project`, `Organization`, `Job`, …).
+- Omit `ref` only for non-document ids (GridFS `gridFsId`) or polymorphic ids with no
+  single model (`resourceId` on idempotency records).
 
 ## Indexes
 
@@ -62,12 +71,14 @@ plus base fields. Unique partial index on `{ slug: 1 }` where `status: 'A'`.
 Tenant-scoped. Fields: `email`, `displayName`, `passwordHash` (`select: false`),
 `passwordUpdatedAt`, `mustChangePassword` (boolean, default `false`; set on admin-set
 password, cleared on self-service change), `userStatus` (`active` \| `invited` \|
-`disabled`), `lastLoginAt`, plus base fields. Unique partial index on
-`{ orgId: 1, email: 1 }` where `status: 'A'`. List/keyset indexes:
+`disabled`), `lastLoginAt`, `roleIds` (one or more org roles), `projectAccessMode`
+(`all` \| `selected` \| `none`, default `selected`), plus base fields. Unique partial
+index on `{ orgId: 1, email: 1 }` where `status: 'A'`. List/keyset indexes:
 `{ orgId: 1, status: 1, createdAt: -1, _id: -1 }`, `{ orgId: 1, displayName: 1 }`,
 plus `{ orgId: 1, status: 1, _id: -1 }` and `{ orgId: 1, userStatus: 1, _id: -1 }`.
-Email is mutable after create (admin `PATCH`); no `passwordHistory` in this slice
-(`PASSWORD_HISTORY_LENGTH = 0`).
+Role-in-use / list-by-role index: `{ orgId: 1, roleIds: 1 }`. Email is mutable after
+create (admin `PATCH`); no `passwordHistory` in this slice
+(`PASSWORD_HISTORY_LENGTH = 0`). See ADR 0028.
 
 ### `roles`
 
@@ -77,11 +88,6 @@ Tenant-scoped. Built-in roles use `isBuiltIn: true` and `builtInKey` (`org_admin
 indexes on `{ orgId: 1, name: 1 }` and `{ orgId: 1, builtInKey: 1 }` (built-ins only).
 Keyset list index: `{ orgId: 1, status: 1, createdAt: -1, _id: -1 }`. Built-in roles may
 change `description` only; name, permissions, and soft-delete are immutable.
-
-### `memberships`
-
-Tenant-scoped. Fields: `userId`, `roleIds` (one or more), plus base fields. Unique partial
-index on `{ orgId: 1, userId: 1 }` where `status: 'A'`.
 
 ### `sessions`
 
@@ -223,21 +229,21 @@ Fields: `projectId`, `jobType` (`ingest` \| `reingest` \| `repo_sync` \| `worker
 `completedAt`, plus base fields. `workerId` is operational and is **not** returned on read
 APIs.
 
+`events[]` is the user-readable timeline on the same document (stage lines such as
+`job.enqueued`, `source.validated`). Each line has `eventCode`, `severity`
+(`info` \| `warning` \| `error`), `message` (user language, capped; never truncated),
+`data` (allowlisted keys), `correlationId`, and `createdAt`. Append with `$push` only;
+do not rewrite the array on heartbeat or claim. Soft-deleting the job hides the timeline.
+A leftover `job_events` collection from before this embed may be dropped.
+
 Indexes (partial `status: 'A'`): `{ orgId, projectId, createdAt: -1, _id: -1 }` (list
 keyset), `{ orgId, projectId, jobStatus }` (dashboard), `{ orgId, projectId, jobStatus,
 currentStage }` (stage filter), `{ status, jobStatus, jobType,
 scheduledAt }` (claim), `{ status, jobStatus, leaseExpiresAt }` (sweep).
 
-Internal `createPendingJob` inserts `pending` + a `job.enqueued` event. Phase 21 claims,
-heartbeats, sweeps expired leases, and serializes exclusive writers via
+Internal `createPendingJob` inserts `pending` with a `job.enqueued` line in `events`.
+Phase 21 claims, heartbeats, sweeps expired leases, and serializes exclusive writers via
 `project_job_locks`. Cancel/retry HTTP control is Phase 22.
-
-### `job_events`
-
-Append-only history for a job (Phase 20). Fields: `projectId`, `jobId`, `eventCode`,
-`severity` (`info` \| `warning` \| `error`), `message` (user language, capped; never
-truncated), `data` (structured allowlisted keys), `correlationId`, plus base fields.
-Index (partial `status: 'A'`): `{ orgId, jobId, createdAt: 1 }`.
 
 ### `project_job_locks`
 
@@ -318,5 +324,5 @@ Indexes (partial `status: 'A'`): `{ orgId, conversationId, createdAt: 1, _id: 1 
 
 On API startup the process ensures the default organization, four built-in roles, admin
 user (password hashed from the named constant `DEFAULT_ADMIN_PASSWORD`, `userStatus: 'active'`),
-and org_admin membership exist (ADR 0011). Defaults are named constants — not env vars.
+and org_admin user exist (ADR 0011). Defaults are named constants — not env vars.
 Worker processes do not seed.

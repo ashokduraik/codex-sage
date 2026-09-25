@@ -6,7 +6,6 @@ import mongoose from 'mongoose';
 import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
 import { Job } from '../../../src/models/job.model.js';
-import { JobEvent } from '../../../src/models/jobEvent.model.js';
 import { createPendingJob, getJobById } from '../../../src/modules/masters/jobs.js';
 import { findJobById, listEventsForJob, appendJobEvent, insertPendingJob } from '../../../src/modules/masters/jobs.helper.js';
 import { JOB_EVENT_CODE_ENQUEUED } from '../../../src/modules/masters/jobs.helper.js';
@@ -22,7 +21,7 @@ vi.mock('../../../src/modules/masters/projectMembers.js', async (importOriginal)
 import { resolveProjectPermissions } from '../../../src/modules/masters/projectMembers.js';
 
 const harness = createMongoHarness({
-  models: [Job, JobEvent],
+  models: [Job],
   uri: TEST_APP_CONFIG.mongo.uri,
 });
 
@@ -57,6 +56,27 @@ describe('jobs.service', () => {
     expect(job?.stageCheckpoint).toBeNull();
     const events = await listEventsForJob(orgId, result.jobId);
     expect(events[0]?.eventCode).toBe(JOB_EVENT_CODE_ENQUEUED);
+  });
+
+  it('getJobById returns the embedded timeline from the job row', async () => {
+    const orgId = new mongoose.Types.ObjectId().toHexString();
+    const projectId = new mongoose.Types.ObjectId().toHexString();
+    const { jobId } = await createPendingJob({
+      orgId,
+      projectId,
+      jobType: 'ingest',
+    });
+    resolveProjectPermissions.mockResolvedValueOnce({
+      kind: 'OK',
+      visible: true,
+      permissions: ['projects.view'],
+    });
+    const detail = await getJobById(
+      orgId,
+      new mongoose.Types.ObjectId().toHexString(),
+      jobId,
+    );
+    expect(detail.events[0]?.eventCode).toBe(JOB_EVENT_CODE_ENQUEUED);
   });
 
   it('getJobById returns FORBIDDEN when visible but missing projects.view', async () => {
@@ -113,6 +133,16 @@ describe('jobs.service', () => {
       data: { count: 2 },
     });
     expect(event.data).toEqual({ count: 2 });
+    const coerced = await appendJobEvent({
+      orgId,
+      projectId,
+      jobId: job._id,
+      eventCode: 'job.test_plain',
+      severity: 'info',
+      message: 'No data object.',
+      data: 'not-an-object',
+    });
+    expect(coerced.data).toEqual({});
     expect(await listEventsForJob(orgId, 'not-an-id')).toEqual([]);
   });
 });

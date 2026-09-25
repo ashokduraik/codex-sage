@@ -5,6 +5,7 @@ import mongoose from 'mongoose';
 import { ApiError } from '../errors.js';
 
 const { Schema } = mongoose;
+const ObjectId = Schema.Types.ObjectId;
 
 /** Active (visible) row. */
 export const ROW_STATUS_ACTIVE = 'A';
@@ -124,18 +125,21 @@ export function createBaseSchema(definition, options = {}) {
       default: ROW_STATUS_ACTIVE,
     },
     createdBy: {
-      type: Schema.Types.ObjectId,
+      type: ObjectId,
+      ref: 'User',
       default: null,
     },
     updatedBy: {
-      type: Schema.Types.ObjectId,
+      type: ObjectId,
+      ref: 'User',
       default: null,
     },
   };
 
   if (tenantScoped) {
     fields.orgId = {
-      type: Schema.Types.ObjectId,
+      type: ObjectId,
+      ref: 'Organization',
       required: true,
     };
   }

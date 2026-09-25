@@ -11,8 +11,8 @@ import {
   recordAuditEvent,
   buildAuditContextFromRequest,
 } from '../access/index.js';
-import { isRoleReferencedByActiveMembership } from './memberships.js';
 import { bumpProjectAclVersion } from './projectMembers.js';
+import { isRoleReferencedByActiveUser } from './users.js';
 import { z } from 'zod';
 import mongoose from 'mongoose';
 
@@ -571,7 +571,7 @@ export async function softDeleteRole(input) {
   if (role.isBuiltIn) {
     throw ApiError.fromCode('BUILT_IN_ROLE_IMMUTABLE');
   }
-  if (await isRoleReferencedByActiveMembership(input.orgId, input.roleId)) {
+  if (await isRoleReferencedByActiveUser(input.orgId, input.roleId)) {
     throw ApiError.fromCode('ROLE_IN_USE');
   }
 

@@ -12,7 +12,6 @@ import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
 import { DocumentSection, countSectionsForVersion, listSectionsForPath } from '../../../src/modules/knowledge/documents.js';
 import { Job } from '../../../src/models/job.model.js';
-import { JobEvent } from '../../../src/models/jobEvent.model.js';
 import { insertPendingJob, listEventsForJob } from '../../../src/modules/masters/jobs.helper.js';
 import { Project } from '../../../src/models/projects.model.js';
 import { KnowledgeVersion } from '../../../src/models/knowledgeVersion.model.js';
@@ -38,7 +37,6 @@ let workspaceRoot;
 const harness = createMongoHarness({
   models: [
     Job,
-    JobEvent,
     SourceVersion,
     SourceFile,
     SourceChangeSummary,

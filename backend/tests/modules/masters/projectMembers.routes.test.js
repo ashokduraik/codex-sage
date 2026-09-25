@@ -14,7 +14,6 @@ import {
   DEFAULT_ADMIN_EMAIL,
   DEFAULT_ADMIN_PASSWORD,
   IDENTITY_MODELS,
-  createMembership,
   createOrganization,
   createUser, createUserInRepo,
   ensureBuiltInRoles,
@@ -22,7 +21,7 @@ import {
   findOrganizationBySlug,
   findUserByEmail,
   runBootstrapSeed,
-  updateMembershipProjectAccessMode,
+  updateUser,
 } from '../../../src/modules/masters/index.js';
 import { PROJECT_MODELS, createProjectInRepo } from '../../../src/modules/masters/projects.js';
 import { PROJECT_MEMBER_MODELS, findActiveProjectMember } from '../../../src/modules/masters/projectMembers.js';
@@ -108,12 +107,9 @@ describe('projectMembers.routes', () => {
       displayName: 'Target',
       userStatus: 'active',
       passwordHash,
-    });
-    await createMembership(org._id, {
-      userId: target._id,
-      roleIds: [memberRole._id],
-      projectAccessMode: 'selected',
-    });
+          roleIds: [memberRole._id],
+          projectAccessMode: 'selected'
+        });
 
     const headers = { authorization: `Bearer ${accessToken}` };
 
@@ -221,24 +217,18 @@ describe('projectMembers.routes', () => {
       displayName: 'Selected',
       userStatus: 'active',
       passwordHash,
-    });
-    await createMembership(org._id, {
-      userId: selectedUser._id,
-      roleIds: [memberRole._id],
-      projectAccessMode: 'selected',
-    });
+          roleIds: [memberRole._id],
+          projectAccessMode: 'selected'
+        });
 
     const noneUser = await createUserInRepo(org._id, {
       email: 'none@example.com',
       displayName: 'None',
       userStatus: 'active',
       passwordHash: await hashPassword('nonepass12'),
-    });
-    await createMembership(org._id, {
-      userId: noneUser._id,
-      roleIds: [memberRole._id],
-      projectAccessMode: 'none',
-    });
+          roleIds: [memberRole._id],
+          projectAccessMode: 'none'
+        });
 
     const a = await createProject(app, adminToken, 'Project A', 'idem-list-a-1');
     const b = await createProject(app, adminToken, 'Project B', 'idem-list-b-1');
@@ -307,12 +297,9 @@ describe('projectMembers.routes', () => {
       displayName: 'Other',
       userStatus: 'active',
       passwordHash: await hashPassword('otherpass1'),
-    });
-    await createMembership(other._id, {
-      userId: otherUser._id,
-      roleIds: [otherAdminRole._id],
-      projectAccessMode: 'all',
-    });
+          roleIds: [otherAdminRole._id],
+          projectAccessMode: 'all'
+        });
 
     const foreignProject = await createProjectInRepo(other._id, {
       name: 'Foreign',
@@ -356,12 +343,9 @@ describe('projectMembers.routes', () => {
       displayName: 'Viewer',
       userStatus: 'active',
       passwordHash,
-    });
-    await createMembership(org._id, {
-      userId: viewer._id,
-      roleIds: [viewerRole._id],
-      projectAccessMode: 'selected',
-    });
+          roleIds: [viewerRole._id],
+          projectAccessMode: 'selected'
+        });
     await app.inject({
       method: 'POST',
       url: `${API_BASE_PATH}/projects/${project.id}/members`,
@@ -389,12 +373,9 @@ describe('projectMembers.routes', () => {
       displayName: 'NoAccess',
       userStatus: 'active',
       passwordHash: await hashPassword('nopass123'),
-    });
-    await createMembership(org._id, {
-      userId: noAccessUser._id,
-      roleIds: [viewerRole._id],
-      projectAccessMode: 'selected',
-    });
+          roleIds: [viewerRole._id],
+          projectAccessMode: 'selected'
+        });
     const { accessToken: noAccessToken } = await login(
       app,
       'noaccess@example.com',
@@ -414,7 +395,7 @@ describe('projectMembers.routes', () => {
     });
     expect(badId.statusCode).toBe(400);
 
-    await updateMembershipProjectAccessMode(org._id, viewer._id, 'selected');
+    await updateUser(org._id, viewer._id, { projectAccessMode: 'selected' });
     await app.inject({
       method: 'DELETE',
       url: `${API_BASE_PATH}/projects/${project.id}/members/${viewer._id}`,

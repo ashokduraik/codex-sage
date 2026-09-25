@@ -1,9 +1,13 @@
 /**
- * `jobs` — project-scoped background work (ingest, reingest, repo sync) that
- * workers claim, heartbeat, and complete without blocking HTTP handlers.
+ * `jobs` — one background task for a project (ingest uploaded files,
+ * reingest, or sync a Git repo). The HTTP handler only creates this
+ * row; a worker picks it up later so the request does not wait minutes.
+ * `events[]` is the user-readable timeline for this job.
  */
 import mongoose from 'mongoose';
 import { createBaseSchema, ROW_STATUS_ACTIVE } from '../platform/data/index.js';
+
+const ObjectId = mongoose.Schema.Types.ObjectId;
 
 export const JOB_DEFAULT_MAX_ATTEMPTS = 5;
 export const JOB_STATUS_VALUES = Object.freeze([
@@ -27,64 +31,84 @@ export const FAILURE_CLASS_VALUES = Object.freeze([
   'user_action_required',
 ]);
 
+/** info = progress, warning = problem but continued, error = failure. */
+export const JOB_EVENT_SEVERITY_VALUES = Object.freeze(['info', 'warning', 'error']);
+
 const stageCheckpointSchema = new mongoose.Schema(
   {
-    // Last pipeline stage that finished so a retry can resume
+    // Last finished step, so a retry can skip work already done
     lastCompletedStage: { type: String, default: null },
-    // Opaque resume position inside the current or next stage
+    // Position inside the current step (e.g. last file processed)
     cursor: { type: mongoose.Schema.Types.Mixed, required: false },
-    // When this checkpoint was last written
+    // When this resume point was last saved
     updatedAt: { type: Date, default: null },
   },
   { _id: false },
 );
 
+const jobEventSchema = new mongoose.Schema(
+  {
+    // Machine code, e.g. job.enqueued or source.validated
+    eventCode: { type: String, required: true, trim: true, maxlength: 120 },
+    // info = progress, warning = problem but continued, error = failure
+    severity: { type: String, enum: JOB_EVENT_SEVERITY_VALUES, required: true },
+    // Text shown in the timeline, e.g. "Source received"
+    message: { type: String, required: true, trim: true },
+    // Extra details (counts, stage name) — not secrets
+    data: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
+    // Same request id as the parent job and the original API call
+    correlationId: { type: String, default: null },
+    // When this line was appended
+    createdAt: { type: Date, required: true, default: () => new Date() },
+  },
+);
+
 const progressCountersSchema = new mongoose.Schema(
   {
-    // Items the worker finished successfully
+    // Files or items finished successfully
     itemsProcessed: { type: Number, required: true, default: 0, min: 0 },
     // Items that failed and were not retried in this run
     itemsFailed: { type: Number, required: true, default: 0, min: 0 },
-    // Non-fatal issues recorded while the job ran
+    // Problems that did not stop the job
     warningCount: { type: Number, required: true, default: 0, min: 0 },
-    // Items skipped because they are excluded from processing
+    // Items skipped on purpose (excluded from knowledge)
     excludedCount: { type: Number, required: true, default: 0, min: 0 },
   },
   { _id: false },
 );
 
 const jobSchema = createBaseSchema({
-  // Project this background job belongs to
-  projectId: { type: mongoose.Schema.Types.ObjectId, required: true },
-  // Kind of work (ingest, reingest, repo_sync, worker_smoke)
+  // Project this work is for (Payments API)
+  projectId: { type: ObjectId, ref: 'Project', required: true },
+  // What to do: ingest, reingest, repo_sync, or worker_smoke (health check)
   jobType: { type: String, enum: JOB_TYPE_VALUES, required: true },
-  // Queue/runtime state the worker and API read
+  // pending → running → completed / failed / cancelled (or retrying)
   jobStatus: { type: String, enum: JOB_STATUS_VALUES, required: true, default: 'pending' },
-  // Source snapshot this job is building or refreshing
-  sourceVersionId: { type: mongoose.Schema.Types.ObjectId, default: null },
-  // Request id tying job rows and events to the originating API call
+  // File snapshot this job is building or refreshing
+  sourceVersionId: { type: ObjectId, ref: 'SourceVersion', default: null },
+  // Same as the API request id; joins this job to logs and audit
   correlationId: { type: String, default: null },
-  // Worker currently leasing this job
+  // Worker process currently running this job
   workerId: { type: String, default: null },
-  // How many times a worker has claimed this job
+  // How many times a worker has picked this job up
   attempt: { type: Number, required: true, default: 0, min: 0 },
-  // Cap on claims before the job is permanently failed
+  // After this many picks, the job is permanently failed
   maxAttempts: { type: Number, required: true, default: JOB_DEFAULT_MAX_ATTEMPTS, min: 1 },
-  // Last time the holding worker proved it is still alive
+  // Last time the running worker said "I am still alive"
   heartbeatAt: { type: Date, default: null },
-  // When another worker may steal the job if the holder is silent
+  // After this time another worker may take the job if this one is silent
   leaseExpiresAt: { type: Date, default: null },
-  // Earliest time a worker should pick up this job
+  // Earliest time a worker should start this job
   scheduledAt: { type: Date, required: true, default: () => new Date() },
-  // Retryability of the last failure (temporary, permanent, user action)
+  // Last failure type: temporary (retry), permanent, or needs a person
   failureClass: { type: String, enum: FAILURE_CLASS_VALUES, default: null },
-  // Stable machine code for the last failure
+  // Machine code for the last failure (shown in the UI / logs)
   failureCode: { type: String, default: null },
-  // Pipeline stage the worker is in right now
+  // Step the worker is in right now (e.g. parse, index)
   currentStage: { type: String, default: null },
-  // Resume point so retries do not redo finished stages
+  // Saved progress so a retry does not redo finished steps
   stageCheckpoint: { type: stageCheckpointSchema, default: null },
-  // Running totals shown on job progress
+  // Running totals shown on the job progress screen
   progressCounters: {
     type: progressCountersSchema,
     required: true,
@@ -97,22 +121,24 @@ const jobSchema = createBaseSchema({
   },
   // True when some items succeeded even if the job ended with warnings or failure
   partialSuccess: { type: Boolean, required: true, default: false },
-  // When a user asked to cancel this job
+  // When a user clicked cancel
   cancelRequestedAt: { type: Date, default: null },
-  // User who requested cancel
-  cancelRequestedBy: { type: mongoose.Schema.Types.ObjectId, default: null },
-  // When a user asked to retry this job
+  // Who clicked cancel
+  cancelRequestedBy: { type: ObjectId, ref: 'User', default: null },
+  // When a user clicked retry
   retryRequestedAt: { type: Date, default: null },
-  // User who requested retry
-  retryRequestedBy: { type: mongoose.Schema.Types.ObjectId, default: null },
-  // How many user- or system-initiated retries have run
+  // Who clicked retry
+  retryRequestedBy: { type: ObjectId, ref: 'User', default: null },
+  // How many retries have run (user or system)
   retryCount: { type: Number, required: true, default: 0, min: 0 },
-  // Whether the last retry resumed from checkpoint or started over
+  // Last retry: resume from the saved checkpoint, or start over (full)
   lastRetryMode: { type: String, enum: ['resume', 'full', null], default: null },
-  // When a worker actually began executing
+  // When a worker actually started running
   startedAt: { type: Date, default: null },
-  // When the job reached a terminal status
+  // When the job finished (success, failure, or cancel)
   completedAt: { type: Date, default: null },
+  // User-readable timeline (stage lines). Append with $push only
+  events: { type: [jobEventSchema], required: true, default: () => [] },
 });
 
 jobSchema.index(

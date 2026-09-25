@@ -155,12 +155,12 @@ Worker process
   Scheduled git sync (default every 30 minutes)
 
 MongoDB
-  Orgs (`aclVersion` for project ACL cache), users, roles, memberships
-  (`projectAccessMode`: all | selected | none), sessions (refresh-token families),
+  Orgs (`aclVersion` for project ACL cache), users (`roleIds`,
+  `projectAccessMode`: all | selected | none), roles, sessions (refresh-token families),
   projects (`lifecycleStatus`, `knowledgeHealth`, `sourceConfig`, `counts`, `settings`;
   soft-delete via `status: 'A'|'D'`), project_members (per-project ACL overlay)  Source versions/files, document sections (text index), knowledge metadata
-  Jobs and job events (`jobs` / `job_events`; Phase 20 read APIs; Phase 21 worker claim —
-  ADR 0004)
+  Jobs (`jobs` with embedded `events[]` timeline; Phase 20 read APIs; Phase 21 worker
+  claim — ADR 0004)
   Project job locks (`project_job_locks`; one live `project_writer` lock per project —
   ADR 0022)
   Conversations (`ownerUserId`, `title`, `titleSource`, `searchText`,

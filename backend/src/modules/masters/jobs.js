@@ -8,7 +8,6 @@ import {
   JOB_STATUS_VALUES,
   findJobById,
   insertPendingJob,
-  listEventsForJob,
   listJobsByProject,
   projectJobProgress,
   JOB_MAX_USER_RETRIES,
@@ -23,7 +22,6 @@ import {
 import { resolveProjectPermissions } from './projectMembers.js';
 import { findProjectById } from './projects.js';
 import { Job } from '../../models/job.model.js';
-import { JobEvent } from '../../models/jobEvent.model.js';
 import { z } from 'zod';
 
 // --- from jobs/jobs.routes.js ---
@@ -260,8 +258,8 @@ function mapStageCheckpoint(checkpoint) {
 }
 
 /**
- * Maps a JobEvent document to the API event DTO.
- * @param {object} event JobEvent document or lean object.
+ * Maps a job timeline line to the API event DTO.
+ * @param {object} event Embedded event or lean object.
  * @returns {{
  *   eventCode: string,
  *   severity: string,
@@ -308,7 +306,7 @@ export function mapJobToListDto(job) {
  * Maps a job document plus events to the detail DTO.
  * Does not expose workerId (operational, not user-facing).
  * @param {object} job Job document or lean object.
- * @param {object[]} [events] Ordered JobEvent documents.
+ * @param {object[]} [events] Ordered embedded timeline lines.
  * @returns {object}
  */
 export function mapJobToDetailDto(job, events = []) {
@@ -399,8 +397,7 @@ export async function getJobById(orgId, userId, jobId, options = {}) {
     throw ApiError.fromCode('FORBIDDEN');
   }
 
-  const events = await listEventsForJob(orgId, jobId);
-  return mapJobToDetailDto(job, events);
+  return mapJobToDetailDto(job, job.events ?? []);
 }
 
 // --- from jobs/jobControl.service.js ---
@@ -893,5 +890,4 @@ export {
 } from './jobs.helper.js';
 
 export { Job } from '../../models/job.model.js';
-export { JobEvent } from '../../models/jobEvent.model.js';
-export const JOB_MODELS = Object.freeze([Job, JobEvent]);
+export const JOB_MODELS = Object.freeze([Job]);

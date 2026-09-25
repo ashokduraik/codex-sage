@@ -1,11 +1,15 @@
 /**
- * `sessions` — rotating refresh-token families that keep a user signed in.
- * Reuse or revoke of one token can invalidate the whole family.
+ * `sessions` — keeps Alice signed in after login. Each row is one
+ * refresh token. When she gets a new token, this row is marked rotated
+ * and a new row is created. If an old token is used again (stolen),
+ * every token from that login (`familyId`) is revoked.
  */
 import mongoose from 'mongoose';
 import { createBaseSchema, ROW_STATUS_ACTIVE } from '../platform/data/index.js';
 
-/** Reasons a session (or family) may be revoked. */
+const ObjectId = mongoose.Schema.Types.ObjectId;
+
+/** Why a token (or its whole login family) was invalidated. */
 export const SESSION_REVOKED_REASONS = Object.freeze([
   'logout',
   'reuse_detected',
@@ -15,23 +19,23 @@ export const SESSION_REVOKED_REASONS = Object.freeze([
 ]);
 
 const sessionSchema = createBaseSchema({
-  // User this refresh-token session belongs to
-  userId: { type: mongoose.Schema.Types.ObjectId, required: true },
-  // Rotation family so reuse of an old token can revoke the whole chain
+  // User who is signed in (Alice)
+  userId: { type: ObjectId, ref: 'User', required: true },
+  // Groups every token from one login. Logout or theft kills all of them
   familyId: { type: String, required: true, trim: true },
-  // Hash of the current refresh token (never the raw token)
+  // Stored refresh token (never the raw token)
   refreshTokenHash: { type: String, required: true },
-  // When this session row was created
+  // When this token was issued
   issuedAt: { type: Date, required: true },
-  // When the refresh token stops being accepted
+  // When this token stops being accepted
   expiresAt: { type: Date, required: true },
-  // When this token was rotated to a successor session
+  // When this token was replaced by a newer one
   rotatedAt: { type: Date, default: undefined },
-  // Session that replaced this one after rotation
-  replacedBySessionId: { type: mongoose.Schema.Types.ObjectId, default: undefined },
-  // When the session or family was revoked
+  // The newer session row that replaced this token
+  replacedBySessionId: { type: ObjectId, ref: 'Session', default: undefined },
+  // When this token (or its whole family) was invalidated
   revokedAt: { type: Date, default: undefined },
-  // Why the session was revoked (logout, reuse, password or email change, disable)
+  // Why: logout, stolen-token reuse, password/email change, or account disabled
   revokedReason: { type: String, enum: SESSION_REVOKED_REASONS, default: undefined },
 });
 

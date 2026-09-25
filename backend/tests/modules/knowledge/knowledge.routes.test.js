@@ -13,7 +13,6 @@ import {
   DEFAULT_ADMIN_EMAIL,
   DEFAULT_ADMIN_PASSWORD,
   IDENTITY_MODELS,
-  createMembership,
   createRoleInRepo,
   createUser, createUserInRepo,
   findOrganizationBySlug,
@@ -368,12 +367,8 @@ describe('knowledge browse routes', () => {
       passwordHash,
       userStatus: 'active',
       createdBy: null,
-    });
-    await createMembership(org._id, {
-      userId: user._id,
-      roleIds: [role._id],
-      createdBy: null,
-    });
+          roleIds: [role._id]
+        });
     await addProjectMember({
       orgId: String(org._id),
       projectId: project.id,

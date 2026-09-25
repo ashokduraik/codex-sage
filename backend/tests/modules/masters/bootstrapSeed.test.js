@@ -14,7 +14,6 @@ import {
   listRoles,
   runBootstrapSeed,
 } from '../../../src/modules/masters/index.js';
-import { Membership } from '../../../src/models/membership.model.js';
 import { Organization } from '../../../src/models/organization.model.js';
 
 const harness = createMongoHarness({
@@ -47,7 +46,7 @@ describe('runBootstrapSeed', () => {
     await harness.afterAll();
   });
 
-  it('creates organization, four roles, admin user and membership on first seed', async () => {
+  it('creates organization, four roles, and admin user on first seed', async () => {
     const log = createMockLog();
     const result = await runBootstrapSeed(log);
     expect(result.result).toBe('created');
@@ -67,8 +66,8 @@ describe('runBootstrapSeed', () => {
     const admin = await findUserByEmail(org._id, DEFAULT_ADMIN_EMAIL);
     expect(admin).toBeTruthy();
     expect(admin.userStatus).toBe('active');
-    const memberships = await Membership.find({ orgId: org._id });
-    expect(memberships).toHaveLength(1);
+    expect(admin.roleIds).toHaveLength(1);
+    expect(admin.projectAccessMode).toBe('all');
 
     expect(log.info).toHaveBeenCalledTimes(1);
     expect(log.info.mock.calls[0][1]).toBe('bootstrap seed succeeded');
@@ -120,14 +119,14 @@ describe('runBootstrapSeed', () => {
     );
   });
 
-  it('leaves no organization behind when the membership insert fails', async () => {
+  it('leaves no organization behind when the admin user insert fails', async () => {
     const log = createMockLog();
-    const membershipRepo = await import('../../../src/modules/masters/memberships.js');
+    const usersRepo = await import('../../../src/modules/masters/users.js');
     const spy = vi
-      .spyOn(membershipRepo, 'createMembership')
+      .spyOn(usersRepo, 'createUserInRepo')
       .mockRejectedValue(
         ApiError.fromCode('BOOTSTRAP_FAILED', {
-          message: 'Administrator membership could not be ensured.',
+          message: 'Administrator user could not be ensured.',
         }),
       );
 

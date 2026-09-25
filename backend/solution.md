@@ -298,11 +298,11 @@ Prefer also filtering on the client before upload; **server must still enforce**
 | Mongoose `SourceVersion` | one ingest event + result |
 | Mongoose `DocumentSection` | org/project/version scope, path, heading/lines, searchable text, `status` |
 | Mongoose `KnowledgeVersion` | source linkage, graph identity/hash, exclusions, health; only current graph queryable |
-| Mongoose `Job` / `JobEvent` | stages humans can read |
+| Mongoose `Job` with embedded `events[]` | stages humans can read |
 
 ### 4.6 Ingest stages, failures, and what survives
 
-Pipeline stages (each writes a `JobEvent`; job stores `currentStage` + checkpoint):
+Pipeline stages (each `$push`es a timeline line onto `job.events`; job stores `currentStage` + checkpoint):
 
 ```text
 S0 validate_upload
@@ -855,7 +855,7 @@ See [ADR 0003](../docs/adr/0003-mongoose-and-gridfs.md).
 
 Use **Mongoose** for:
 
-- All domain CRUD (organizations, users, roles, memberships, projects, source versions/files, jobs, conversations, messages, clarifications, knowledge versions, document sections)
+- All domain CRUD (organizations, users, roles, projects, source versions/files, jobs, conversations, messages, clarifications, knowledge versions, document sections)
 - Platform ops models: `AuditEvent`, `Notification`, `UsageEvent` / `UsageRollup`, `IdempotencyRecord`
 - Schema validation and tenant-scoped text/index keys for documents, conversations, jobs, and metadata
 - Soft-delete helpers (`status: 'D'`) and query defaults (`status: 'A'`)
@@ -875,7 +875,7 @@ See [ADR 0004](../docs/adr/0004-mongo-jobs-no-redis.md).
 pending → running → completed | completed_with_warnings | failed | retrying | cancelled
 ```
 
-Worker: atomic claim → run ingest stages → write `JobEvent` lines → complete or fail with stage checkpoint.  
+Worker: atomic claim → run ingest stages → `$push` timeline lines onto the job → complete or fail with stage checkpoint.  
 Serialize knowledge writers per project (one active knowledge/sync job).  
 **Lease sweeper:** `running` jobs with expired `heartbeatAt` → requeue or fail (crash recovery).  
 **Scheduled:** `repo_sync` due every **30 minutes** per connected repo (Mongo `scheduledAt` / worker tick) — see §4.8.  
@@ -892,9 +892,8 @@ Retry: only temporary failures auto-backoff; permanent / user_action_required wa
 | Model | Key fields | Notes |
 |-------|------------|-------|
 | `Organization` | name, slug, config, `status` | Tenant root |
-| `User` | orgId, email, passwordHash, `userStatus` (`active`\|`invited`\|`disabled`), `status` | Soft-delete via `status:'D'` |
+| `User` | orgId, email, passwordHash, `userStatus` (`active`\|`invited`\|`disabled`), `roleIds[]`, `projectAccessMode`, `status` | Soft-delete via `status:'D'`; org roles live on the user (ADR 0028) |
 | `Role` | orgId, name, permissions[] | Built-in + custom |
-| `Membership` | orgId, userId, roleIds[] | User belongs to one org in MVP |
 | `ProjectMember` | orgId, projectId, userId, permissions[] \| roleId | Project ACL overlay |
 
 **Row visibility:** all list/detail queries default `status:'A'`. Domain lifecycle uses separate fields (`userStatus`, `lifecycleStatus`, etc.).

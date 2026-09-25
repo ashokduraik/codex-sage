@@ -6,13 +6,13 @@ import { BUILT_IN_ROLE_KEYS } from '../../models/role.model.js';
 import { softDelete } from '../../platform/data/index.js';
 import { ApiError } from '../../platform/errors.js';
 import { hashPassword } from '../access/index.js';
-import { createMembership, findMembership } from './memberships.js';
 import { ensureBuiltInRoles } from './roles.js';
 import {
   createUserInRepo,
   findUserByEmail,
   findUserByIdWithPassword,
   setPasswordHashIfMissing,
+  updateUser,
 } from './users.js';
 import mongoose from 'mongoose';
 
@@ -149,7 +149,7 @@ export const DEFAULT_ADMIN_PASSWORD = 'abc123';
  */
 
 /**
- * Ensures the default organization, built-in roles, admin user, and membership exist.
+ * Ensures the default organization, built-in roles, and admin user exist.
  * @param {SeedLogger} log Structured logger (info always; debug per step).
  * @returns {Promise<BootstrapSeedResult>}
  * @throws {ApiError} BOOTSTRAP_FAILED when the seed cannot complete.
@@ -225,6 +225,8 @@ export async function runBootstrapSeed(log) {
               email: DEFAULT_ADMIN_EMAIL,
               displayName: DEFAULT_ADMIN_NAME,
               userStatus: 'invited',
+              roleIds: [orgAdmin._id],
+              projectAccessMode: 'all',
               createdBy: null,
               updatedBy: null,
             },
@@ -240,56 +242,33 @@ export async function runBootstrapSeed(log) {
           debug({ step: 'admin_user', outcome: 'already_present' }, 'bootstrap seed step');
         }
       } else {
-        debug({ step: 'admin_user', outcome: 'already_present' }, 'bootstrap seed step');
-      }
-
-      if (!adminUser) {
-        throw ApiError.fromCode('BOOTSTRAP_FAILED', {
-          message: 'Administrator user could not be ensured.',
-        });
-      }
-
-      let membership = await findMembership(orgId, adminUser._id, { session });
-      if (!membership) {
-        try {
-          membership = await createMembership(
+        const hasOrgAdminRole = (adminUser.roleIds ?? []).some(
+          (id) => String(id) === String(orgAdmin._id),
+        );
+        if (!hasOrgAdminRole || adminUser.projectAccessMode !== 'all') {
+          adminUser = await updateUser(
             orgId,
+            adminUser._id,
             {
-              userId: adminUser._id,
-              roleIds: [orgAdmin._id],
+              roleIds: hasOrgAdminRole ? adminUser.roleIds : [orgAdmin._id],
               projectAccessMode: 'all',
-              createdBy: null,
               updatedBy: null,
             },
             { session },
           );
           insertedAny = true;
-          debug({ step: 'membership', outcome: 'created' }, 'bootstrap seed step');
-        } catch (err) {
-          if (!isDuplicateKeyError(err)) {
-            throw err;
-          }
-          membership = await findMembership(orgId, adminUser._id, { session });
-          debug({ step: 'membership', outcome: 'already_present' }, 'bootstrap seed step');
-        }
-      } else {
-        if (membership.projectAccessMode !== 'all') {
-          membership.projectAccessMode = 'all';
-          membership.updatedBy = null;
-          await membership.save({ session });
-          insertedAny = true;
           debug(
-            { step: 'membership', outcome: 'project_access_mode_all' },
+            { step: 'admin_user', outcome: 'roles_and_project_access_ensured' },
             'bootstrap seed step',
           );
         } else {
-          debug({ step: 'membership', outcome: 'already_present' }, 'bootstrap seed step');
+          debug({ step: 'admin_user', outcome: 'already_present' }, 'bootstrap seed step');
         }
       }
 
-      if (!membership) {
+      if (!adminUser) {
         throw ApiError.fromCode('BOOTSTRAP_FAILED', {
-          message: 'Administrator membership could not be ensured.',
+          message: 'Administrator user could not be ensured.',
         });
       }
 

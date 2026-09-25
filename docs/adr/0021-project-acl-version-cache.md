@@ -19,7 +19,7 @@ Redis / a shared cache is out of scope (ADR 0004 / README §5).
 - Each organization document carries an integer **`aclVersion`** (default `0`).
 - The process-local project ACL cache stores `{ kind, permissions?, aclVersion }` and
   discards an entry when the organization’s current `aclVersion` differs.
-- Callers that change membership roles, `projectAccessMode`, custom role permissions,
+- Callers that change user roles, `projectAccessMode`, custom role permissions,
   or `ProjectMember` rows **increment** `aclVersion` and invalidate the local cache for
   that org.
 - Caching is **disabled when `NODE_ENV=test`** so authorization tests never pass on
@@ -40,4 +40,5 @@ Redis / a shared cache is out of scope (ADR 0004 / README §5).
 - **Disable ACL cache until Redis** — rejected; memo + versioned LRU is enough for MVP
   load with correct security semantics.
 - **Put aclVersion on Membership** — rejected; one org-wide counter invalidates all
-  project ACL entries for that tenant with a single bump.
+  project ACL entries for that tenant with a single bump. (`memberships` was later
+  removed; roles live on `users` — ADR 0028.)

@@ -15,7 +15,6 @@ import {
   DEFAULT_ADMIN_EMAIL,
   DEFAULT_ADMIN_PASSWORD,
   IDENTITY_MODELS,
-  createMembership,
   createUser, createUserInRepo,
   findBuiltInRole,
   findOrganizationBySlug,
@@ -342,11 +341,8 @@ describe('jobs.routes', () => {
       displayName: 'Viewer Jobs',
       userStatus: 'active',
       passwordHash,
-    });
-    await createMembership(org._id, {
-      userId: viewer._id,
-      roleIds: [viewerRole._id],
-    });
+          roleIds: [viewerRole._id]
+        });
 
     app = await readyApp();
     const admin = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);

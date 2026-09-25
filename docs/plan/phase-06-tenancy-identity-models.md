@@ -1,5 +1,9 @@
 # Phase 06 — Tenancy & identity models with bootstrap seed
 
+> **Later change (ADR 0028):** org `roleIds` and `projectAccessMode` now live on
+> `users`. The `memberships` collection was removed. Historical sections below
+> still describe the original four-collection design.
+
 - **Layer:** BE
 - **Depends on:** Phase 03 (base schema, repository conventions, integration-test harness)
 - **Unblocks:** Phase 07, 08, 09, 10, 11, 17, 18 — every tenant-scoped collection and route
