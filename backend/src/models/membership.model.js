@@ -1,5 +1,6 @@
 /**
- * Membership Mongoose model — links a user to an organization with roleIds.
+ * `memberships` — which users belong to an organization, which org roles they
+ * hold, and how that membership maps onto project visibility.
  */
 import mongoose from 'mongoose';
 import { createBaseSchema, ROW_STATUS_ACTIVE } from '../platform/data/index.js';
@@ -8,10 +9,9 @@ import { createBaseSchema, ROW_STATUS_ACTIVE } from '../platform/data/index.js';
 export const PROJECT_ACCESS_MODE_VALUES = Object.freeze(['all', 'selected', 'none']);
 
 const membershipSchema = createBaseSchema({
-  userId: {
-    type: mongoose.Schema.Types.ObjectId,
-    required: true,
-  },
+  // User granted membership in this organization
+  userId: { type: mongoose.Schema.Types.ObjectId, required: true },
+  // Organization roles this member holds (at least one)
   roleIds: {
     type: [mongoose.Schema.Types.ObjectId],
     required: true,
@@ -26,12 +26,8 @@ const membershipSchema = createBaseSchema({
       message: 'roleIds must contain at least one role',
     },
   },
-  projectAccessMode: {
-    type: String,
-    enum: PROJECT_ACCESS_MODE_VALUES,
-    required: true,
-    default: 'selected',
-  },
+  // How org membership maps to project visibility: all, selected, or none
+  projectAccessMode: { type: String, enum: PROJECT_ACCESS_MODE_VALUES, required: true, default: 'selected' },
 });
 
 membershipSchema.index(

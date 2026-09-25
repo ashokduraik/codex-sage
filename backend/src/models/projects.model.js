@@ -1,5 +1,6 @@
 /**
- * Project Mongoose model — tenant-scoped lifecycle and knowledge health.
+ * `projects` — workspaces that hold source, published knowledge, and chat.
+ * Tracks lifecycle, knowledge freshness, and cached counts for the UI.
  */
 import mongoose from 'mongoose';
 import { createBaseSchema, ROW_STATUS_ACTIVE } from '../platform/data/index.js';
@@ -33,84 +34,52 @@ export const SOURCE_TYPE_VALUES = Object.freeze(['upload', 'repository']);
 
 const sourceConfigSchema = new mongoose.Schema(
   {
-    sourceType: {
-      type: String,
-      enum: SOURCE_TYPE_VALUES,
-      required: true,
-    },
-    repositoryConnectionId: {
-      type: mongoose.Schema.Types.ObjectId,
-      default: null,
-    },
-    currentSourceVersionId: {
-      type: mongoose.Schema.Types.ObjectId,
-      default: null,
-    },
+    // Whether the project is fed by upload or a connected repository
+    sourceType: { type: String, enum: SOURCE_TYPE_VALUES, required: true },
+    // Attached repository, when sourceType is repository
+    repositoryConnectionId: { type: mongoose.Schema.Types.ObjectId, default: null },
+    // Latest accepted source snapshot used for knowledge
+    currentSourceVersionId: { type: mongoose.Schema.Types.ObjectId, default: null },
   },
   { _id: false },
 );
 
 const countsSchema = new mongoose.Schema(
   {
+    // How many source snapshots this project has accepted
     sourceVersions: { type: Number, required: true, default: 0, min: 0 },
+    // How many stored files are in the current snapshot
     files: { type: Number, required: true, default: 0, min: 0 },
+    // How many files were kept but left out of the knowledge graph
     excludedFiles: { type: Number, required: true, default: 0, min: 0 },
+    // How many chat threads belong to this project
     conversations: { type: Number, required: true, default: 0, min: 0 },
   },
   { _id: false },
 );
 
 const projectSchema = createBaseSchema({
-  name: {
-    type: String,
-    required: true,
-    trim: true,
-    minlength: 1,
-    maxlength: 120,
-  },
-  description: {
-    type: String,
-    default: '',
-    trim: true,
-    maxlength: 2000,
-  },
-  lifecycleStatus: {
-    type: String,
-    enum: LIFECYCLE_STATUS_VALUES,
-    required: true,
-    default: 'creating',
-  },
-  preArchiveLifecycleStatus: {
-    type: String,
-    enum: LIFECYCLE_STATUS_VALUES,
-    default: null,
-  },
-  lifecycleStatusReasonCode: {
-    type: String,
-    default: null,
-  },
-  lifecycleStatusChangedAt: {
-    type: Date,
-    default: () => new Date(),
-  },
-  knowledgeHealth: {
-    type: String,
-    enum: KNOWLEDGE_HEALTH_VALUES,
-    required: true,
-    default: 'none',
-  },
-  currentKnowledgeVersionId: {
-    type: mongoose.Schema.Types.ObjectId,
-    default: null,
-  },
-  sourceConfig: {
-    type: sourceConfigSchema,
-    required: true,
-  },
-  settings: {
-    type: mongoose.Schema.Types.Mixed,
-    default: () => ({}),
-  },
+  // Project title shown in lists and headers
+  name: { type: String, required: true, trim: true, minlength: 1, maxlength: 120 },
+  // Optional longer summary of what the project is
+  description: { type: String, default: '', trim: true, maxlength: 2000 },
+  // Where the project is in ingest and knowledge readiness
+  lifecycleStatus: { type: String, enum: LIFECYCLE_STATUS_VALUES, required: true, default: 'creating' },
+  // Lifecycle to restore when un-archiving
+  preArchiveLifecycleStatus: { type: String, enum: LIFECYCLE_STATUS_VALUES, default: null },
+  // Machine reason the lifecycle last changed (failure or transition)
+  lifecycleStatusReasonCode: { type: String, default: null },
+  // When lifecycleStatus last changed
+  lifecycleStatusChangedAt: { type: Date, default: () => new Date() },
+  // Freshness of published knowledge, orthogonal to lifecycle
+  knowledgeHealth: { type: String, enum: KNOWLEDGE_HEALTH_VALUES, required: true, default: 'none' },
+  // Published knowledge snapshot currently serving chat
+  currentKnowledgeVersionId: { type: mongoose.Schema.Types.ObjectId, default: null },
+  // How source arrives and which snapshot is current
+  sourceConfig: { type: sourceConfigSchema, required: true },
+  // Project-level preferences that do not need dedicated columns
+  settings: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
+  // Cached totals for list and detail views
   counts: {
     type: countsSchema,
     required: true,
@@ -121,14 +90,10 @@ const projectSchema = createBaseSchema({
       conversations: 0,
     }),
   },
-  archivedAt: {
-    type: Date,
-    default: null,
-  },
-  lastAccessedAt: {
-    type: Date,
-    default: null,
-  },
+  // When the project was archived, if it is archived
+  archivedAt: { type: Date, default: null },
+  // Last time a member opened this project (sorts recents)
+  lastAccessedAt: { type: Date, default: null },
 });
 
 projectSchema.index(

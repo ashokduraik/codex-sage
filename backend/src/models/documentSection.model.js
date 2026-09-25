@@ -1,47 +1,27 @@
 /**
- * DocumentSection Mongoose model — searchable doc slices for a source version.
+ * `documentSections` — searchable slices of documentation extracted from a
+ * source snapshot, used to retrieve evidence for grounded answers.
  */
 import mongoose from 'mongoose';
 import { createBaseSchema, ROW_STATUS_ACTIVE } from '../platform/data/index.js';
 
 const documentSectionSchema = createBaseSchema({
-  projectId: {
-    type: mongoose.Schema.Types.ObjectId,
-    required: true,
-  },
-  sourceVersionId: {
-    type: mongoose.Schema.Types.ObjectId,
-    required: true,
-  },
-  path: {
-    type: String,
-    required: true,
-    trim: true,
-  },
-  heading: {
-    type: String,
-    default: null,
-  },
-  startLine: {
-    type: Number,
-    required: true,
-    min: 1,
-  },
-  endLine: {
-    type: Number,
-    required: true,
-    min: 1,
-  },
-  text: {
-    type: String,
-    required: true,
-    default: '',
-  },
-  sectionIndex: {
-    type: Number,
-    required: true,
-    min: 0,
-  },
+  // Project this documentation slice belongs to
+  projectId: { type: mongoose.Schema.Types.ObjectId, required: true },
+  // Snapshot the section was extracted from
+  sourceVersionId: { type: mongoose.Schema.Types.ObjectId, required: true },
+  // Source file path this section came from
+  path: { type: String, required: true, trim: true },
+  // Heading that starts the section, when one exists
+  heading: { type: String, default: null },
+  // First line of the section in the source file
+  startLine: { type: Number, required: true, min: 1 },
+  // Last line of the section in the source file
+  endLine: { type: Number, required: true, min: 1 },
+  // Searchable section body
+  text: { type: String, required: true, default: '' },
+  // Order of this section within the file
+  sectionIndex: { type: Number, required: true, min: 0 },
 });
 
 documentSectionSchema.index(

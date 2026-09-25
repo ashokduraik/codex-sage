@@ -1,5 +1,6 @@
 /**
- * Append-only AuditEvent Mongoose model (solution §9.1 + row status).
+ * `auditevents` — append-only security trail of who did what to which resource
+ * in a tenant. Updates and deletes are blocked except retention soft-delete.
  */
 import mongoose from 'mongoose';
 import { ApiError } from '../platform/errors.js';
@@ -100,56 +101,28 @@ function assertAppendOnly(query, kind) {
 
 const auditEventSchema = new Schema(
   {
-    orgId: {
-      type: Schema.Types.ObjectId,
-      required: true,
-    },
-    actorUserId: {
-      type: Schema.Types.ObjectId,
-      default: undefined,
-    },
-    action: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    resourceType: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    resourceId: {
-      type: String,
-      default: undefined,
-    },
-    result: {
-      type: String,
-      enum: AUDIT_RESULT_VALUES,
-      required: true,
-    },
-    correlationId: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    ip: {
-      type: String,
-      default: undefined,
-    },
-    userAgent: {
-      type: String,
-      default: undefined,
-    },
-    context: {
-      type: Schema.Types.Mixed,
-      default: undefined,
-    },
-    status: {
-      type: String,
-      enum: ROW_STATUS_VALUES,
-      required: true,
-      default: ROW_STATUS_ACTIVE,
-    },
+    // Tenant that owns this audit event
+    orgId: { type: Schema.Types.ObjectId, required: true },
+    // User who performed the action, when the actor is a signed-in person
+    actorUserId: { type: Schema.Types.ObjectId, default: undefined },
+    // What happened (for example user.email_changed or project.created)
+    action: { type: String, required: true, trim: true },
+    // Kind of thing the action targeted (user, project, role, and so on)
+    resourceType: { type: String, required: true, trim: true },
+    // Target id of the audited resource, when the action has one
+    resourceId: { type: String, default: undefined },
+    // Whether the action succeeded, was denied, or failed
+    result: { type: String, enum: AUDIT_RESULT_VALUES, required: true },
+    // Request id used to tie this event to logs and other records
+    correlationId: { type: String, required: true, trim: true },
+    // Client IP captured for security review
+    ip: { type: String, default: undefined },
+    // Browser or client string captured for security review
+    userAgent: { type: String, default: undefined },
+    // Extra non-secret details needed to understand the action
+    context: { type: Schema.Types.Mixed, default: undefined },
+    // Row visibility: A = active, D = soft-deleted for retention
+    status: { type: String, enum: ROW_STATUS_VALUES, required: true, default: ROW_STATUS_ACTIVE },
   },
   {
     timestamps: { createdAt: true, updatedAt: false },

@@ -1,5 +1,6 @@
 /**
- * Role Mongoose model — built-in and custom roles per organization.
+ * `roles` — named permission sets for an organization. Built-in roles are
+ * code-defined; custom roles store their permission strings here.
  */
 import mongoose from 'mongoose';
 import { createBaseSchema, ROW_STATUS_ACTIVE } from '../platform/data/index.js';
@@ -47,31 +48,16 @@ export function isBuiltInRoleKey(key) {
 }
 
 const roleSchema = createBaseSchema({
-  name: {
-    type: String,
-    required: true,
-    trim: true,
-    minlength: 1,
-    maxlength: 120,
-  },
-  description: {
-    type: String,
-    trim: true,
-    default: undefined,
-  },
-  isBuiltIn: {
-    type: Boolean,
-    required: true,
-    default: false,
-  },
-  builtInKey: {
-    type: String,
-    default: undefined,
-  },
-  permissions: {
-    type: [String],
-    default: () => [],
-  },
+  // Human-readable role name unique within the organization
+  name: { type: String, required: true, trim: true, minlength: 1, maxlength: 120 },
+  // Short explanation of what this role is for
+  description: { type: String, trim: true, default: undefined },
+  // True for the four code-defined roles that cannot change name or permissions
+  isBuiltIn: { type: Boolean, required: true, default: false },
+  // Stable key for a built-in role (org_admin, project_admin, member, viewer)
+  builtInKey: { type: String, default: undefined },
+  // Custom-role permission strings; built-in roles keep this empty in Mongo
+  permissions: { type: [String], default: () => [] },
 });
 
 roleSchema.pre('validate', function validateBuiltInRoleShape() {

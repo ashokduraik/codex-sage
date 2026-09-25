@@ -1,5 +1,6 @@
 /**
- * Organization Mongoose model — opts out of the tenant orgId plugin.
+ * `organizations` — tenant accounts. Each org owns users, projects, and
+ * roles; its `_id` is the tenant key used everywhere else as `orgId`.
  */
 import mongoose from 'mongoose';
 import { createBaseSchema, ROW_STATUS_ACTIVE } from '../platform/data/index.js';
@@ -9,13 +10,9 @@ export const SLUG_PATTERN = /^[a-z0-9-]{2,64}$/;
 
 const organizationSchema = createBaseSchema(
   {
-    name: {
-      type: String,
-      required: true,
-      trim: true,
-      minlength: 1,
-      maxlength: 200,
-    },
+    // Display name of the tenant organization
+    name: { type: String, required: true, trim: true, minlength: 1, maxlength: 200 },
+    // Unique URL-safe handle used to identify the organization
     slug: {
       type: String,
       required: true,
@@ -32,17 +29,10 @@ const organizationSchema = createBaseSchema(
         message: 'slug must match [a-z0-9-]{2,64}',
       },
     },
-    config: {
-      type: mongoose.Schema.Types.Mixed,
-      default: () => ({}),
-    },
-    /** Bumped when RBAC / project ACL inputs change; project ACL cache keys on this. */
-    aclVersion: {
-      type: Number,
-      required: true,
-      default: 0,
-      min: 0,
-    },
+    // Tenant-level settings that do not need a dedicated column
+    config: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
+    // Bumped when RBAC or project ACL inputs change so ACL caches invalidate
+    aclVersion: { type: Number, required: true, default: 0, min: 0 },
   },
   { tenantScoped: false },
 );
