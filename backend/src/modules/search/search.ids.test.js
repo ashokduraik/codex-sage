@@ -2,7 +2,7 @@
  * Unit tests for search result ids, snippets, and cursors.
  */
 import { describe, expect, it } from 'vitest';
-import { SEARCH_SNIPPET_MAX_CHARS } from './search.constants.js';
+import { SEARCH_SNIPPET_MAX_CHARS } from './search.ids.js';
 import {
   compareSearchItems,
   decodeOpaqueKey,

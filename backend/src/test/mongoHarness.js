@@ -9,7 +9,7 @@ import {
   MONGODB_SERVER_SELECTION_TIMEOUT_MS,
   MONGODB_SOCKET_TIMEOUT_MS,
 } from '../platform/mongo.js';
-import { syncSchemaIndexes } from '../platform/data/syncIndexes.js';
+import { syncSchemaIndexes } from '../platform/data/index.js';
 
 /** Database name substituted into MONGODB_URI for integration tests. */
 export const TEST_DATABASE_NAME = 'codex_sage_test';

@@ -11,14 +11,11 @@ vi.mock('../auth/session.repository.js', () => ({
   revokeAllSessionsForUser: vi.fn(async () => ({})),
 }));
 
-vi.mock('./lastAdminGuard.js', () => ({
-  wouldRemoveLastAdmin: vi.fn(async () => false),
-}));
-
 vi.mock('./membership.service.js', () => ({
   assertRolesExistInOrg: vi.fn(async (_orgId, roleIds) =>
     roleIds.map((id) => ({ _id: id, name: 'Role', isBuiltIn: false })),
   ),
+  wouldRemoveLastAdmin: vi.fn(async () => false),
 }));
 
 vi.mock('./membership.repository.js', () => ({
@@ -47,7 +44,7 @@ vi.mock('./user.repository.js', () => ({
   updateUser: vi.fn(),
 }));
 
-vi.mock('../projectMembers/bumpProjectAclVersion.js', () => ({
+vi.mock('../projectMembers/projectAclCache.js', () => ({
   bumpProjectAclVersion: vi.fn(async () => {}),
 }));
 
@@ -62,11 +59,13 @@ vi.mock('mongoose', () => ({
 
 import { recordAuditEvent } from '../audit/index.js';
 import { revokeAllSessionsForUser } from '../auth/session.repository.js';
-import { wouldRemoveLastAdmin } from './lastAdminGuard.js';
+import { wouldRemoveLastAdmin } from './membership.service.js';
 import { createUser as createUserInRepo, findUserById, updateUser } from './user.repository.js';
 import {
+  containsForbiddenSecretKey,
   createUser,
   deactivateUser,
+  mapUserToDto,
   removeUser,
   updateUserDetails,
 } from './user.service.js';
@@ -166,5 +165,47 @@ describe('user.service', () => {
       expect.anything(),
     );
     expect(dto.email).toBe('new@example.com');
+  });
+});
+
+describe('mapUserToDto', () => {
+  it('maps a user without passwordHash or token-shaped keys', () => {
+    const dto = mapUserToDto(
+      {
+        _id: '6712f0b1c9a41d2f8e4b3a04',
+        email: 'ada@acme.example',
+        displayName: 'Ada',
+        userStatus: 'invited',
+        lastLoginAt: null,
+        createdAt: new Date('2026-09-11T09:14:22.481Z'),
+        passwordHash: 'should-not-leak',
+      },
+      [{ _id: '6712f0b1c9a41d2f8e4b3a03', name: 'Member', isBuiltIn: true }],
+    );
+    expect(dto.passwordResetStatus).toBe('none');
+    expect(containsForbiddenSecretKey(dto)).toBe(false);
+    expect(dto).not.toHaveProperty('passwordHash');
+  });
+
+  it('maps passwordResetStatus completed when passwordUpdatedAt is set', () => {
+    const completedAt = new Date('2026-09-11T09:20:00.000Z');
+    const dto = mapUserToDto(
+      {
+        _id: '6712f0b1c9a41d2f8e4b3a04',
+        email: 'ada@acme.example',
+        displayName: 'Ada',
+        userStatus: 'active',
+        passwordUpdatedAt: completedAt,
+        createdAt: completedAt,
+      },
+      [],
+    );
+    expect(dto.passwordResetStatus).toBe('completed');
+    expect(dto.passwordResetCompletedAt).toBe(completedAt.toISOString());
+  });
+
+  it('detects forbidden secret keys nested in objects', () => {
+    expect(containsForbiddenSecretKey({ nested: { passwordHash: 'x' } })).toBe(true);
+    expect(containsForbiddenSecretKey({ id: '1' })).toBe(false);
   });
 });

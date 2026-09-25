@@ -4,8 +4,7 @@
 import { z } from 'zod';
 import { requireProjectPermission } from '../../http/preHandlers/requireProjectPermission.js';
 import { ApiError } from '../../platform/errors.js';
-import { KNOWLEDGE_SYMBOL_QUERY_MIN_LEN } from './knowledge.constants.js';
-import { loadKnowledgeBrowse } from './knowledge.browse.service.js';
+import { KNOWLEDGE_SYMBOL_QUERY_MIN_LEN, loadKnowledgeBrowse } from './knowledge.browse.service.js';
 
 const listQuerySchema = z.object({
   cursor: z.string().min(1).optional(),

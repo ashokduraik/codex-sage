@@ -1,7 +1,6 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { ApiError } from '@/shared/api';
-import { listAuditEvents } from './auditApi.js';
-import { adminAuditEventsQueryKey } from './adminKeys.js';
+import { adminAuditEventsQueryKey, listAuditEvents } from './auditApi.js';
 
 /**
  * True when the failure is an invalid/malformed pagination cursor.

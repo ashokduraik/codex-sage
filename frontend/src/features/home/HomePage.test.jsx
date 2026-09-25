@@ -12,17 +12,21 @@ import {
 
 const listProjects = vi.fn();
 
-vi.mock('@/features/projects/api/projectsApi.js', () => ({
-  listProjects: (...args) => listProjects(...args),
-  getProject: vi.fn(),
-  createProject: vi.fn(),
-  archiveProject: vi.fn(),
-  restoreProject: vi.fn(),
-  deleteProject: vi.fn(),
-  patchProject: vi.fn(),
-  getProjectDeletionPreview: vi.fn(),
-  recordProjectAccess: vi.fn(),
-}));
+vi.mock('@/features/projects/api/projectsApi.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    listProjects: (...args) => listProjects(...args),
+    getProject: vi.fn(),
+    createProject: vi.fn(),
+    archiveProject: vi.fn(),
+    restoreProject: vi.fn(),
+    deleteProject: vi.fn(),
+    patchProject: vi.fn(),
+    getProjectDeletionPreview: vi.fn(),
+    recordProjectAccess: vi.fn(),
+  };
+});
 
 import HomePage from './HomePage';
 

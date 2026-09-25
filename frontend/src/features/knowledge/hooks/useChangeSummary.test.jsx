@@ -9,14 +9,15 @@ const fetchChangeSummary = vi.fn();
 const fetchSourceFileMetadata = vi.fn();
 const fetchSourceSlice = vi.fn();
 
-vi.mock('../api/changesApi.js', () => ({
-  fetchChangeSummary: (...args) => fetchChangeSummary(...args),
-}));
-
-vi.mock('../api/previewApi.js', () => ({
-  fetchSourceFileMetadata: (...args) => fetchSourceFileMetadata(...args),
-  fetchSourceSlice: (...args) => fetchSourceSlice(...args),
-}));
+vi.mock('../api/knowledgeApi.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    fetchChangeSummary: (...args) => fetchChangeSummary(...args),
+    fetchSourceFileMetadata: (...args) => fetchSourceFileMetadata(...args),
+    fetchSourceSlice: (...args) => fetchSourceSlice(...args),
+  };
+});
 
 import { useChangeSummary } from './useChangeSummary.js';
 import { useSourcePreview } from './useSourcePreview.js';

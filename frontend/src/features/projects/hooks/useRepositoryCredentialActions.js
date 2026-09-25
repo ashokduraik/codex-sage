@@ -3,7 +3,7 @@
  */
 import { useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { projectDetailQueryKey } from '@/features/projects/api/projectKeys.js';
+import { projectDetailQueryKey } from '@/features/projects/api/projectsApi.js';
 import {
   replaceProjectRepositoryCredential,
   repositoryConnectionQueryKey,

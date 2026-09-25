@@ -7,11 +7,10 @@ export {
   PERMISSION_KEY_SET,
   isKnownPermissionKey,
   toPermissionsApiPayload,
-} from './permissionCatalog.js';
-export {
+  assertRolePermissionsInCatalog,
   BUILT_IN_ROLE_PERMISSIONS,
   getBuiltInRolePermissions,
-} from './builtInRolePermissions.js';
+} from './permissionCatalog.js';
 export {
   RBAC_ROLE_CACHE_MAX_ENTRIES,
   RBAC_ROLE_CACHE_TTL_SECONDS,
@@ -25,7 +24,6 @@ export {
   resolveEffectivePermissions,
 } from './permissionResolver.js';
 export { createAuthorizePreHandler } from './authorize.preHandler.js';
-export { assertOrganizationPathMatchesPrincipal } from './organizationScope.js';
 export {
   PUBLIC_ROUTE_PATHS,
   assertAllRoutesDeclareAccess,
@@ -34,5 +32,4 @@ export {
   isPublicAllowlistedPath,
   normalizeRoutePath,
 } from './routeDeclarationAudit.js';
-export { assertRolePermissionsInCatalog } from './roleCatalogAudit.js';
 export { permissionsRoutes } from './permissions.routes.js';

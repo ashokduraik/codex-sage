@@ -3,8 +3,11 @@
  */
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { fetchProjectSearch, KNOWLEDGE_SEARCH_DEBOUNCE_MS } from '../api/searchApi.js';
-import { projectSearchQueryKey } from '../api/knowledgeKeys.js';
+import {
+  fetchProjectSearch,
+  KNOWLEDGE_SEARCH_DEBOUNCE_MS,
+  projectSearchQueryKey,
+} from '../api/knowledgeApi.js';
 
 /**
  * Searches project knowledge after the query is long enough and debounced.

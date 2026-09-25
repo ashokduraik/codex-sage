@@ -24,8 +24,8 @@ vi.mock('../../codegraph/index.js', async () => {
   };
 });
 
-vi.mock('../../workspace/index.js', async () => {
-  const actual = await vi.importActual('../../workspace/index.js');
+vi.mock('../../sources/index.js', async () => {
+  const actual = await vi.importActual('../../sources/index.js');
   return {
     ...actual,
     resolveProjectWorkspacePath: (...args) => resolveProjectWorkspacePath(...args),

@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import AuthLayout from '@/features/auth/AuthLayout';
 import { useAuth } from '@/features/auth/AuthContext';
-import { correlationFromUnknown, messageFromUnknown } from '@/features/auth/authErrors';
+import { correlationFromUnknown, messageFromUnknown } from '@/shared/api';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';

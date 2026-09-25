@@ -10,17 +10,21 @@ import {
   seedAuthSession,
 } from '@/test/renderWithProviders';
 
-vi.mock('@/features/projects/api/projectsApi.js', () => ({
-  createProject: vi.fn(),
-  listProjects: vi.fn(),
-  getProject: vi.fn(),
-  archiveProject: vi.fn(),
-  restoreProject: vi.fn(),
-  deleteProject: vi.fn(),
-  patchProject: vi.fn(),
-  getProjectDeletionPreview: vi.fn(),
-  recordProjectAccess: vi.fn(),
-}));
+vi.mock('@/features/projects/api/projectsApi.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    createProject: vi.fn(),
+    listProjects: vi.fn(),
+    getProject: vi.fn(),
+    archiveProject: vi.fn(),
+    restoreProject: vi.fn(),
+    deleteProject: vi.fn(),
+    patchProject: vi.fn(),
+    getProjectDeletionPreview: vi.fn(),
+    recordProjectAccess: vi.fn(),
+  };
+});
 
 import { createProject } from '@/features/projects/api/projectsApi.js';
 import { CreateProjectDialog } from './CreateProjectDialog';

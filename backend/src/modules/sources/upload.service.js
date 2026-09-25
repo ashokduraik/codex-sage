@@ -10,6 +10,12 @@ import { ApiError } from '../../platform/errors.js';
 import { recordAuditEvent } from '../audit/index.js';
 import { createPendingJob } from '../jobs/index.js';
 import { findProjectById, transitionLifecycle } from '../projects/index.js';
+import {
+  ACCEPTED_CODE_EXTENSIONS,
+  ACCEPTED_CONFIG_BASENAMES,
+  ACCEPTED_CONFIG_EXTENSIONS,
+  ACCEPTED_DOC_EXTENSIONS,
+} from './exclusions/exclusions.constants.js';
 import { inspectZip, summarizeInspection } from './exclusions/index.js';
 import { normalizeArchivePath } from './exclusions/pathSafety.js';
 import {
@@ -17,13 +23,61 @@ import {
   getSourceFilesBucket,
   markGridFsFilesOrphaned,
 } from './gridfs.js';
-import { kindForSourcePath } from './sourceFileKind.js';
 import {
   insertSourceFiles,
   insertSourceVersion,
   setSourceVersionJobId,
 } from './sources.repository.js';
 import { GRIDFS_SOURCE_BUCKET, UPLOAD_HASH_ALGORITHM } from './sources.constants.js';
+
+/**
+ * Returns the final path segment.
+ * @param {string} normalizedPath Relative path.
+ * @returns {string}
+ */
+function basenameOf(normalizedPath) {
+  const slash = normalizedPath.lastIndexOf('/');
+  return slash === -1 ? normalizedPath : normalizedPath.slice(slash + 1);
+}
+
+/**
+ * Lowercased extension including the leading dot, or empty string.
+ * @param {string} basename File basename.
+ * @returns {string}
+ */
+function extensionOf(basename) {
+  const dot = basename.lastIndexOf('.');
+  if (dot <= 0) {
+    return '';
+  }
+  return basename.slice(dot).toLowerCase();
+}
+
+/**
+ * Classifies an accepted path as code, config, or doc.
+ * @param {string} normalizedPath Relative archive path.
+ * @returns {'code' | 'config' | 'doc'}
+ */
+export function kindForSourcePath(normalizedPath) {
+  const basename = basenameOf(normalizedPath);
+  const basenameLower = basename.toLowerCase();
+  const extension = extensionOf(basename);
+
+  if (
+    ACCEPTED_CONFIG_BASENAMES.includes(basename) ||
+    ACCEPTED_CONFIG_EXTENSIONS.includes(extension) ||
+    ACCEPTED_CONFIG_EXTENSIONS.some((ext) => basenameLower.endsWith(ext))
+  ) {
+    return 'config';
+  }
+  if (ACCEPTED_DOC_EXTENSIONS.includes(extension)) {
+    return 'doc';
+  }
+  if (ACCEPTED_CODE_EXTENSIONS.includes(extension)) {
+    return 'code';
+  }
+  return 'code';
+}
 
 /**
  * Creates a transform that updates a hash and counts bytes while passing data through.

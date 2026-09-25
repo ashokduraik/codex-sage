@@ -2,7 +2,7 @@
  * Unit tests for document FTS mapping.
  */
 import { describe, expect, it } from 'vitest';
-import { searchProjectDocuments } from './search.repository.js';
+import { searchProjectDocuments } from './search.service.js';
 
 describe('searchProjectDocuments', () => {
   it('maps FTS rows and drops incomplete sections', async () => {

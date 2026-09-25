@@ -12,9 +12,9 @@ import { DOCUMENT_MODELS } from '../modules/documents/index.js';
 import { PROJECT_MODELS } from '../modules/projects/index.js';
 import { KNOWLEDGE_MODELS } from '../modules/knowledge/index.js';
 import { REPOSITORY_MODELS } from '../modules/repositories/index.js';
-import { registerProcessHandlers } from '../platform/processHandlers.js';
 import {
   attachShutdownSignals,
+  registerProcessHandlers,
   registerShutdownHook,
 } from '../platform/shutdown.js';
 import { clearJobHandlersForTests, registerJobHandler } from './handlerRegistry.js';

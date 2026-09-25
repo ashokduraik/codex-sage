@@ -19,7 +19,7 @@ import {
   resetProjectWorkspaceSubtree,
   resolveProjectWorkspacePath,
   resolveSafeWorkspaceFilePath,
-} from '../../workspace/index.js';
+} from '../../sources/index.js';
 import {
   buildDocumentationIdentifiedEvent,
   buildWorkspaceMaterializedEvent,

@@ -8,7 +8,7 @@ import {
   assertConversationArchiveAllowed,
   assertConversationRestoreAllowed,
   assertConversationWritable,
-} from './conversations.lifecycle.js';
+} from './conversations.service.js';
 
 const ownerId = new mongoose.Types.ObjectId();
 const otherId = new mongoose.Types.ObjectId();

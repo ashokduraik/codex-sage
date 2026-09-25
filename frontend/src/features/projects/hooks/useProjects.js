@@ -2,8 +2,7 @@
  * Infinite keyset list of projects.
  */
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { listProjects } from '@/features/projects/api/projectsApi.js';
-import { projectsListQueryKey } from '@/features/projects/api/projectKeys.js';
+import { listProjects, projectsListQueryKey } from '@/features/projects/api/projectsApi.js';
 
 /**
  * Infinite projects list for the given filters.

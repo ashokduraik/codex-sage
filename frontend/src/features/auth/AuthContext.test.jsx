@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthProvider, useAuth } from '@/features/auth/AuthContext';
-import { CURRENT_USER_QUERY_KEY } from '@/features/auth/api/authKeys.js';
+import { CURRENT_USER_QUERY_KEY } from '@/features/auth/api/authApi.js';
 import { clearSession, getAccessToken, setAccessToken } from '@/shared/api';
 import { resetRefreshClientForTests } from '@/shared/api/refreshClient.js';
 import {

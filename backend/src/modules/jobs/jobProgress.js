@@ -3,7 +3,7 @@
  */
 import { listStagesForJobType } from './jobStageCatalog.js';
 import { describeRetryAvailability } from './jobRetryMode.js';
-import { JOB_MAX_USER_RETRIES } from './jobControl.constants.js';
+import { JOB_MAX_USER_RETRIES } from './jobs.constants.js';
 
 /**
  * Formats a date as ISO-8601, or null when missing.

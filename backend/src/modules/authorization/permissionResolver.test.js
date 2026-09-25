@@ -12,7 +12,7 @@ import {
 import { Role } from '../identity/role.model.js';
 import { ALL_PERMISSION_KEYS } from './permissionCatalog.js';
 import { createRoleCache } from './roleCache.js';
-import { resolveEffectivePermissions } from './permissionResolver.js';
+import { hasRequiredPermissions, resolveEffectivePermissions } from './permissionResolver.js';
 
 const harness = createMongoHarness({
   models: [...IDENTITY_MODELS],
@@ -139,5 +139,21 @@ describe('permissionResolver', () => {
       { cache },
     );
     expect(refreshed).toEqual(['chat.ask']);
+  });
+});
+
+describe('hasRequiredPermissions', () => {
+  it('requires all permissions by default', () => {
+    expect(hasRequiredPermissions(['a', 'b'], ['a', 'b'])).toBe(true);
+    expect(hasRequiredPermissions(['a'], ['a', 'b'])).toBe(false);
+  });
+
+  it('passes any mode when one permission matches', () => {
+    expect(hasRequiredPermissions(['b'], ['a', 'b'], 'any')).toBe(true);
+    expect(hasRequiredPermissions(['c'], ['a', 'b'], 'any')).toBe(false);
+  });
+
+  it('denies an empty required list', () => {
+    expect(hasRequiredPermissions(['a'], [])).toBe(false);
   });
 });

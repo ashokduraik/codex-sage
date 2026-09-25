@@ -14,8 +14,7 @@ import { useLocation, useNavigate, useParams, useSearchParams } from 'react-rout
 import { useAuth } from '@/features/auth/AuthContext';
 import { flattenProjectPages, useProjects } from '@/features/projects/hooks/useProjects.js';
 import { useProject } from '@/features/projects/hooks/useProject.js';
-import { useActiveProjectJob } from '@/features/processing/hooks/useActiveProjectJob.js';
-import { resolveProcessingProjectId } from '@/features/processing/resolveProcessingProjectId.js';
+import { useActiveProjectJob } from '@/features/projects/processing/hooks/useActiveProjectJob.js';
 import { useAppData } from '@/shared/mock-data';
 import { cn } from '@/shared/lib/utils';
 import {
@@ -27,6 +26,32 @@ import {
   DropdownMenuTrigger,
 } from '@/shared/ui/dropdown-menu';
 import ProcessingIndicator from './ProcessingIndicator';
+
+/**
+ * Picks a project id from the processing query string or a project route.
+ * @param {{
+ *   pathname?: string,
+ *   params?: { id?: string },
+ *   searchParams?: { get: (key: string) => string | null },
+ * }} input Location pieces.
+ * @returns {string} Project id, or empty when none is in context.
+ */
+export function resolveProcessingProjectId(input) {
+  const fromQuery = input.searchParams?.get('projectId');
+  if (fromQuery && fromQuery.trim()) {
+    return fromQuery.trim();
+  }
+  const pathname = input.pathname || '';
+  if (pathname.startsWith('/projects/')) {
+    const fromParams = input.params?.id;
+    if (fromParams && String(fromParams).trim()) {
+      return String(fromParams).trim();
+    }
+    const segment = pathname.split('/')[2];
+    return segment && segment.trim() ? segment.trim() : '';
+  }
+  return '';
+}
 
 /**
  * Top app bar with org/project switchers, search, notifications, and account menu.

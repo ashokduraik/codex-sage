@@ -1,7 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { login as loginRequest } from './authApi.js';
-import { CURRENT_USER_QUERY_KEY } from './authKeys.js';
-import { fetchCurrentUser } from './authApi.js';
+import { CURRENT_USER_QUERY_KEY, fetchCurrentUser, login as loginRequest } from './authApi.js';
 
 /**
  * Mutation that signs in and loads the current-user query.

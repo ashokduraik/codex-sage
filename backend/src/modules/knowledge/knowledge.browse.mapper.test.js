@@ -2,16 +2,16 @@
  * Unit tests for knowledge browse DTO mapping.
  */
 import { describe, expect, it } from 'vitest';
-import { KNOWLEDGE_SUMMARY_MAX_CHARS } from './knowledge.constants.js';
 import {
   buildExtractiveSummary,
   capSummaryText,
   emptyBrowseEnvelope,
+  KNOWLEDGE_SUMMARY_MAX_CHARS,
   mapApiItem,
   mapBrowseFacets,
   mapHealthDimensions,
   mapSymbolItem,
-} from './knowledge.browse.mapper.js';
+} from './knowledge.browse.service.js';
 
 describe('knowledge.browse.mapper', () => {
   it('omits empty facet categories', () => {

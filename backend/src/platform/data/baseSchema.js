@@ -3,13 +3,17 @@
  */
 import mongoose from 'mongoose';
 import { ApiError } from '../errors.js';
-import {
-  ROW_STATUS_ACTIVE,
-  ROW_STATUS_DELETED,
-  ROW_STATUS_VALUES,
-} from './rowStatus.js';
 
 const { Schema } = mongoose;
+
+/** Active (visible) row. */
+export const ROW_STATUS_ACTIVE = 'A';
+
+/** Soft-deleted (hidden) row. */
+export const ROW_STATUS_DELETED = 'D';
+
+/** Allowed values for the row `status` field. */
+export const ROW_STATUS_VALUES = Object.freeze([ROW_STATUS_ACTIVE, ROW_STATUS_DELETED]);
 
 /** Query option that opts out of the default active-only filter. */
 export const INCLUDE_DELETED_OPTION = 'includeDeleted';
@@ -151,5 +155,3 @@ export function createBaseSchema(definition, options = {}) {
 
   return schema;
 }
-
-export { ROW_STATUS_ACTIVE, ROW_STATUS_DELETED, ROW_STATUS_VALUES };

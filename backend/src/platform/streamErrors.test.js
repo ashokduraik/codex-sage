@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { ApiError } from './errors.js';
-import { buildStreamErrorEvent } from './streamErrors.js';
+import { buildStreamErrorEvent } from './errors.js';
 
 describe('buildStreamErrorEvent', () => {
   it('returns the error event with all five fields', () => {

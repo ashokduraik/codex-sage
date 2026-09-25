@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { getAccessToken } from '@/shared/api';
-import { fetchCurrentUser } from './authApi.js';
-import { CURRENT_USER_QUERY_KEY } from './authKeys.js';
+import { CURRENT_USER_QUERY_KEY, fetchCurrentUser } from './authApi.js';
 
 /** Current-user data is invalidated explicitly on login/logout; avoid idle refetches. */
 export const CURRENT_USER_STALE_TIME_MS = Number.POSITIVE_INFINITY;

@@ -22,8 +22,115 @@ import {
   updateProjectMetadata,
   updateProjectSettings,
 } from './projects.repository.js';
-import { validateProjectSettingsKeys } from './projects.settingsRegistry.js';
-import { mapProjectToDto } from './projects.types.js';
+/** Known setting keys accepted by PATCH /projects/:id/settings (empty in Phase 17). */
+export const PROJECT_SETTING_KEYS = Object.freeze([]);
+
+const PROJECT_SETTING_KEY_SET = new Set(PROJECT_SETTING_KEYS);
+
+/**
+ * Returns whether `key` is a registered project setting.
+ * @param {string} key Candidate setting key.
+ * @returns {boolean}
+ */
+export function isKnownProjectSettingKey(key) {
+  return typeof key === 'string' && PROJECT_SETTING_KEY_SET.has(key);
+}
+
+/**
+ * Validates a settings object against the registry.
+ * @param {Record<string, unknown>} settings Candidate settings patch.
+ * @returns {{ ok: true } | { ok: false, unknownKeys: string[] }}
+ */
+export function validateProjectSettingsKeys(settings) {
+  if (!settings || typeof settings !== 'object' || Array.isArray(settings)) {
+    return { ok: false, unknownKeys: ['settings'] };
+  }
+  const unknownKeys = Object.keys(settings).filter((key) => !isKnownProjectSettingKey(key));
+  if (unknownKeys.length > 0) {
+    return { ok: false, unknownKeys };
+  }
+  return { ok: true };
+}
+
+/**
+ * Formats a date field as ISO-8601, or empty string when missing.
+ * @param {unknown} value Date or string.
+ * @returns {string}
+ */
+function toIsoOrEmpty(value) {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  return String(value ?? '');
+}
+
+/**
+ * Formats a date field as ISO-8601, or null when missing.
+ * @param {unknown} value Date or string.
+ * @returns {string | null}
+ */
+function toIsoOrNull(value) {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  if (value == null || value === '') {
+    return null;
+  }
+  return String(value);
+}
+
+/**
+ * Maps a project document to the API DTO.
+ * @param {object} project Project document or lean object.
+ * @param {{ detail?: boolean }} [options] When detail, include archivedAt and version id.
+ * @returns {object}
+ */
+export function mapProjectToDto(project, options = {}) {
+  const detail = options.detail === true;
+  const counts = project.counts ?? {};
+  const sourceConfig = project.sourceConfig ?? {};
+  /** @type {Record<string, unknown>} */
+  const source = { sourceType: sourceConfig.sourceType };
+  if (sourceConfig.repositoryConnectionId) {
+    source.repositoryConnectionId = String(sourceConfig.repositoryConnectionId);
+  }
+  if (sourceConfig.currentSourceVersionId) {
+    source.currentSourceVersionId = String(sourceConfig.currentSourceVersionId);
+  }
+
+  /** @type {Record<string, unknown>} */
+  const dto = {
+    id: String(project._id ?? project.id),
+    name: project.name,
+    description: project.description ?? '',
+    lifecycleStatus: project.lifecycleStatus,
+    knowledgeHealth: project.knowledgeHealth,
+    sourceConfig: source,
+    counts: {
+      sourceVersions: counts.sourceVersions ?? 0,
+      files: counts.files ?? 0,
+      excludedFiles: counts.excludedFiles ?? 0,
+      conversations: counts.conversations ?? 0,
+    },
+    lastAccessedAt: toIsoOrNull(project.lastAccessedAt),
+    createdBy: project.createdBy ? String(project.createdBy) : null,
+    createdAt: toIsoOrEmpty(project.createdAt),
+    updatedAt: toIsoOrEmpty(project.updatedAt),
+  };
+
+  if (detail) {
+    dto.archivedAt = toIsoOrNull(project.archivedAt);
+    dto.currentKnowledgeVersionId = project.currentKnowledgeVersionId
+      ? String(project.currentKnowledgeVersionId)
+      : null;
+    dto.settings =
+      project.settings && typeof project.settings === 'object' ? { ...project.settings } : {};
+    dto.lifecycleStatusReasonCode = project.lifecycleStatusReasonCode ?? null;
+    dto.lifecycleStatusChangedAt = toIsoOrNull(project.lifecycleStatusChangedAt);
+  }
+
+  return dto;
+}
 
 /** Retention defaults mirrored from solution §12.3 for deletion-preview. */
 export const DELETION_PREVIEW_CONSEQUENCES = Object.freeze([

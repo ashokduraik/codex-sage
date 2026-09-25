@@ -125,7 +125,9 @@ Taken from `AGENTS.md` and `.cursor/rules/`. Repeated here so a phase document d
 ### Code
 
 - JavaScript only. No Python anywhere in the repo.
-- Files stay under 1000 lines; names under 60 characters; intention-revealing names.
+- Files stay under 1000 code lines (comments/blanks do not count); names under 60
+  characters; intention-revealing names. If a file would go over, move work into
+  another existing owner — do not invent a new file.
 - `async`/`await` only — no callback APIs, no `.then` chains.
 - Every function carries JSDoc (purpose, params, returns, throws).
 - Comments explain *why*, never narrate *what*.

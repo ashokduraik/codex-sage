@@ -2,8 +2,7 @@
  * Resolves role ids to an effective permission set for one organization.
  */
 import { Role } from '../identity/role.model.js';
-import { getBuiltInRolePermissions } from './builtInRolePermissions.js';
-import { isKnownPermissionKey } from './permissionCatalog.js';
+import { getBuiltInRolePermissions, isKnownPermissionKey } from './permissionCatalog.js';
 import { roleCache } from './roleCache.js';
 
 /**

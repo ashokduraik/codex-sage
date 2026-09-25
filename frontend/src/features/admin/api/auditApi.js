@@ -1,7 +1,37 @@
 /**
- * Admin audit HTTP calls over the shared API client (Phase 16).
+ * Admin audit HTTP calls and React Query keys (Phase 16).
  */
 import { apiRequest } from '@/shared/api';
+
+/**
+ * Builds the audit-events infinite-query key from filter state (cursor is not in the key).
+ * @param {{
+ *   from?: string,
+ *   to?: string,
+ *   actor?: string,
+ *   action?: string,
+ *   resourceType?: string,
+ *   limit?: number,
+ * }} filters List filters.
+ * @returns {readonly unknown[]}
+ */
+export function adminAuditEventsQueryKey(filters = {}) {
+  return Object.freeze([
+    'admin',
+    'audit-events',
+    {
+      from: filters.from ?? '',
+      to: filters.to ?? '',
+      actor: filters.actor ?? '',
+      action: filters.action ?? '',
+      resourceType: filters.resourceType ?? '',
+      limit: filters.limit ?? null,
+    },
+  ]);
+}
+
+/** Prefix for invalidating every audit-events query. */
+export const ADMIN_AUDIT_EVENTS_QUERY_ROOT = Object.freeze(['admin', 'audit-events']);
 
 /**
  * Builds a query string from defined filter values.

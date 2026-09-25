@@ -2,16 +2,74 @@ import { Loader2, ShieldCheck } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/features/auth/AuthContext';
-import {
-  correlationFromError,
-  hasPermission,
-  messageFromError,
-} from '@/features/admin/adminErrors.js';
+import { correlationFromUnknown, messageFromUnknown } from '@/shared/api';
 import { usePermissionsCatalog } from '@/features/admin/api/usePermissionsCatalog.js';
 import { useRoles } from '@/features/admin/api/useRoles.js';
-import { buildPermissionMatrixRows } from '@/features/admin/permissionMatrix.js';
 import { cn } from '@/shared/lib/utils';
 import { Button } from '@/shared/ui/button';
+
+/**
+ * Builds matrix rows from the catalog plus unknown keys found on roles.
+ * @param {{
+ *   groups?: Array<{
+ *     id: string,
+ *     label: string,
+ *     permissions: Array<{ key: string, label: string, description?: string }>,
+ *   }>,
+ * }} catalog Permissions catalog payload.
+ * @param {object[]} roles Role DTOs.
+ * @param {string} otherGroupLabel Localized "other" group title.
+ * @param {string} unknownPermissionLabel Localized generic permission label.
+ * @returns {Array<{
+ *   groupId: string,
+ *   groupLabel: string,
+ *   permissions: Array<{ key: string, label: string, description?: string }>,
+ * }>}
+ */
+export function buildPermissionMatrixRows(
+  catalog,
+  roles,
+  otherGroupLabel,
+  unknownPermissionLabel,
+) {
+  const groups = Array.isArray(catalog?.groups) ? catalog.groups : [];
+  /** @type {Map<string, { key: string, label: string, description?: string }>} */
+  const knownByKey = new Map();
+  for (const group of groups) {
+    for (const permission of group.permissions ?? []) {
+      knownByKey.set(permission.key, permission);
+    }
+  }
+
+  /** @type {Set<string>} */
+  const unknownKeys = new Set();
+  for (const role of roles) {
+    for (const key of role.permissions ?? []) {
+      if (typeof key === 'string' && key && !knownByKey.has(key)) {
+        unknownKeys.add(key);
+      }
+    }
+  }
+
+  const rows = groups.map((group) => ({
+    groupId: group.id,
+    groupLabel: group.label,
+    permissions: [...(group.permissions ?? [])],
+  }));
+
+  if (unknownKeys.size > 0) {
+    rows.push({
+      groupId: 'other',
+      groupLabel: otherGroupLabel,
+      permissions: [...unknownKeys].sort().map((key) => ({
+        key,
+        label: unknownPermissionLabel,
+      })),
+    });
+  }
+
+  return rows;
+}
 
 /**
  * Read-only roles and permissions matrix from the real APIs.
@@ -21,7 +79,7 @@ import { Button } from '@/shared/ui/button';
 export default function AdminRoles() {
   const { t } = useTranslation();
   const { user: currentUser } = useAuth();
-  const canManageRoles = hasPermission(currentUser?.permissions, 'roles.manage');
+  const canManageRoles = Boolean(currentUser?.permissions?.includes('roles.manage'));
 
   const rolesQuery = useRoles({ enabled: canManageRoles });
   const catalogQuery = usePermissionsCatalog({ enabled: canManageRoles });
@@ -41,13 +99,13 @@ export default function AdminRoles() {
   const isLoading = rolesQuery.isPending || catalogQuery.isPending;
   const isError = rolesQuery.isError || catalogQuery.isError;
   const errorMessage = isError
-    ? messageFromError(
+    ? messageFromUnknown(
         rolesQuery.error ?? catalogQuery.error,
         t('errors.unexpected'),
       )
     : '';
   const correlationId = isError
-    ? correlationFromError(rolesQuery.error ?? catalogQuery.error)
+    ? correlationFromUnknown(rolesQuery.error ?? catalogQuery.error)
     : '';
 
   const gridTemplate = useMemo(() => {

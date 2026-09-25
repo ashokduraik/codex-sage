@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   isSecretShapedAuditContextKey,
   selectRenderableAuditContext,
-} from './auditFieldPolicy.js';
+} from './AdminAudit.jsx';
 
 describe('isSecretShapedAuditContextKey', () => {
   it('rejects password, token, secret, credential, and authorization substrings', () => {

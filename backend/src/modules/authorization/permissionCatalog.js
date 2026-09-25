@@ -224,3 +224,81 @@ export function toPermissionsApiPayload() {
     })),
   };
 }
+
+/**
+ * Scans active roles for permission keys missing from the catalog.
+ * Built-in roles store empty arrays; unknown custom keys fail startup.
+ * @returns {Promise<void>}
+ * @throws {Error} When any stored permission is unknown.
+ */
+export async function assertRolePermissionsInCatalog() {
+  const { Role } = await import('../identity/role.model.js');
+  const roles = await Role.find({}).select({ permissions: 1, name: 1, orgId: 1 }).exec();
+  /** @type {string[]} */
+  const unknown = [];
+  for (const role of roles) {
+    const permissions = Array.isArray(role.permissions) ? role.permissions : [];
+    for (const key of permissions) {
+      if (typeof key === 'string' && key.length > 0 && !isKnownPermissionKey(key)) {
+        unknown.push(`${role.orgId}/${role.name}:${key}`);
+      }
+    }
+  }
+  if (unknown.length > 0) {
+    throw new Error(
+      `Role permission catalog drift: unknown keys ${unknown.slice(0, 20).join(', ')}`,
+    );
+  }
+}
+
+/** Shared read + ask surface for viewer and above. */
+const VIEWER_PERMISSIONS = Object.freeze([
+  'org.view',
+  'projects.view',
+  'knowledge.view',
+  'knowledge.browse',
+  'sources.preview',
+  'chat.ask',
+  'conversations.view',
+  'conversations.search',
+  'search.run',
+  'notifications.view',
+]);
+
+/** Standard member: viewer plus upload and conversation archive. */
+const MEMBER_PERMISSIONS = Object.freeze([
+  ...VIEWER_PERMISSIONS,
+  'conversations.archive',
+  'sources.upload',
+]);
+
+/** Project admin: member plus project/source/knowledge write capabilities. */
+const PROJECT_ADMIN_PERMISSIONS = Object.freeze([
+  ...MEMBER_PERMISSIONS,
+  'projects.create',
+  'projects.update',
+  'projects.delete',
+  'repos.connect',
+  'knowledge.trigger',
+]);
+
+/**
+ * Map of builtInKey → frozen permission array.
+ * Built-in roles store empty arrays in Mongo; permissions resolve from this map.
+ * @type {Readonly<Record<string, ReadonlyArray<string>>>}
+ */
+export const BUILT_IN_ROLE_PERMISSIONS = Object.freeze({
+  org_admin: ALL_PERMISSION_KEYS,
+  project_admin: PROJECT_ADMIN_PERMISSIONS,
+  member: MEMBER_PERMISSIONS,
+  viewer: VIEWER_PERMISSIONS,
+});
+
+/**
+ * Returns the code-resolved permission list for a built-in role key.
+ * @param {string} builtInKey Built-in role key.
+ * @returns {ReadonlyArray<string> | undefined}
+ */
+export function getBuiltInRolePermissions(builtInKey) {
+  return BUILT_IN_ROLE_PERMISSIONS[builtInKey];
+}

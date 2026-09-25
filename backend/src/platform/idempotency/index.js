@@ -7,10 +7,26 @@ export {
   IDEMPOTENCY_KEY_MAX_LENGTH,
   IDEMPOTENCY_KEY_MIN_LENGTH,
   IDEMPOTENCY_KEY_PATTERN,
+  hashIdempotencyRequestBody,
+  measureJsonBodyBytes,
+  readIdempotencyKey,
+  idempotencyOnSend,
+  idempotencyPreHandler,
+  registerIdempotency,
+  IdempotencyReplay,
+  releaseOwnedIdempotencyClaim,
+} from './idempotency.middleware.js';
+export {
+  isIdempotencyReplayError,
+  releaseIdempotencyClaimOnError,
+  setIdempotencyErrorHooks,
+  resetIdempotencyErrorHooks,
+} from '../errors.js';
+export {
   IDEMPOTENCY_POLL_INTERVAL_MS,
   IDEMPOTENCY_RECORD_TTL_MS,
   IDEMPOTENCY_WAIT_MS,
-} from './idempotency.constants.js';
+} from './idempotency.repository.js';
 export { IDEMPOTENCY_MODELS, IdempotencyRecord } from './idempotency.model.js';
 export {
   beginIdempotencyClaim,
@@ -21,15 +37,3 @@ export {
   releaseExpiredIdempotencyRecord,
   releaseIdempotencyClaim,
 } from './idempotency.repository.js';
-export {
-  hashIdempotencyRequestBody,
-  measureJsonBodyBytes,
-  readIdempotencyKey,
-} from './idempotencyKey.js';
-export {
-  idempotencyOnSend,
-  idempotencyPreHandler,
-  registerIdempotency,
-} from './idempotency.middleware.js';
-export { IdempotencyReplay } from './idempotencyReplay.js';
-export { releaseOwnedIdempotencyClaim } from './idempotencyRelease.js';

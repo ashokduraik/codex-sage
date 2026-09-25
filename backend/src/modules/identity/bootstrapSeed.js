@@ -3,14 +3,7 @@
  */
 import mongoose from 'mongoose';
 import { ApiError } from '../../platform/errors.js';
-import { BUILT_IN_ROLE_KEYS } from './builtInRoles.js';
-import {
-  DEFAULT_ADMIN_EMAIL,
-  DEFAULT_ADMIN_NAME,
-  DEFAULT_ADMIN_PASSWORD,
-  DEFAULT_ORG_NAME,
-  DEFAULT_ORG_SLUG,
-} from './bootstrapDefaults.js';
+import { BUILT_IN_ROLE_KEYS } from './role.model.js';
 import {
   createOrganization,
   findOrganizationBySlug,
@@ -27,6 +20,24 @@ import {
   findMembership,
 } from './membership.repository.js';
 import { hashPassword } from '../auth/passwordHasher.js';
+
+/** Display name of the first organization. */
+export const DEFAULT_ORG_NAME = 'Default Organization';
+
+/** Tenant handle (slug) of the first organization. */
+export const DEFAULT_ORG_SLUG = 'default';
+
+/** First administrator email (stored lowercase). */
+export const DEFAULT_ADMIN_EMAIL = 'admin@localhost';
+
+/** First administrator display name. */
+export const DEFAULT_ADMIN_NAME = 'Administrator';
+
+/**
+ * Default plaintext password for the bootstrap administrator (local/MVP).
+ * Hashed at seed; change after first login (Phase 08). Never log this value.
+ */
+export const DEFAULT_ADMIN_PASSWORD = 'abc123';
 
 /**
  * @typedef {object} BootstrapSeedResult

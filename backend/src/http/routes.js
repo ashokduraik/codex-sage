@@ -1,4 +1,4 @@
-import { healthRoutes } from '../modules/health/health.routes.js';
+import { healthRoutes } from './health.routes.js';
 import { authRoutes } from '../modules/auth/auth.routes.js';
 import { passwordRoutes } from '../modules/auth/password.routes.js';
 import { identityRoutes } from '../modules/identity/identity.routes.js';

@@ -6,7 +6,7 @@ vi.mock('@/features/projects/api/projectsApi.js', async () => {
   return fixtures.defaultProjectsApiMock;
 });
 
-vi.mock('@/features/processing/api/jobsApi.js', async (importOriginal) => {
+vi.mock('@/features/projects/processing/api/jobsApi.js', async (importOriginal) => {
   const actual = await importOriginal();
   return {
     ...actual,
@@ -20,7 +20,7 @@ vi.mock('@/features/processing/api/jobsApi.js', async (importOriginal) => {
   };
 });
 
-import { listProjectJobs } from '@/features/processing/api/jobsApi.js';
+import { listProjectJobs } from '@/features/projects/processing/api/jobsApi.js';
 import { clearAuthSession, renderWithProviders, seedAuthSession, } from '@/test/renderWithProviders';
 import ProjectDetailPage from './ProjectDetailPage';
 import ProjectOverview from './ProjectOverview';

@@ -2,7 +2,7 @@
  * Probe status mapping and token-page URL construction.
  */
 import { describe, expect, it } from 'vitest';
-import { mapProbeResult, tokenPageUrl } from './repositoryProbeMap.js';
+import { mapProbeResult, tokenPageUrl } from './ConnectRepositoryDialog.jsx';
 
 describe('mapProbeResult', () => {
   it('maps connected to confirm', () => {

@@ -34,7 +34,7 @@ vi.mock('./role.repository.js', () => ({
   updateRole: vi.fn(),
 }));
 
-vi.mock('../projectMembers/bumpProjectAclVersion.js', () => ({
+vi.mock('../projectMembers/projectAclCache.js', () => ({
   bumpProjectAclVersion: vi.fn(async () => {}),
 }));
 
@@ -48,6 +48,7 @@ import {
 import {
   assertKnownPermissions,
   createRole,
+  mapRoleToDto,
   softDeleteRole,
   updateRole,
 } from './role.service.js';
@@ -108,5 +109,20 @@ describe('role.service', () => {
       }),
     ).rejects.toMatchObject({ code: 'ROLE_IN_USE' });
     expect(softDeleteRoleInRepo).not.toHaveBeenCalled();
+  });
+
+  it('maps a built-in role with code-resolved permissions', () => {
+    const dto = mapRoleToDto({
+      _id: '6712f0b1c9a41d2f8e4b3a03',
+      name: 'Viewer',
+      description: 'Read only',
+      isBuiltIn: true,
+      builtInKey: 'viewer',
+      permissions: [],
+      createdAt: new Date('2026-09-11T09:14:22.481Z'),
+    });
+    expect(dto.permissions).toContain('org.view');
+    expect(dto.isBuiltIn).toBe(true);
+    expect(dto).not.toHaveProperty('passwordHash');
   });
 });

@@ -14,23 +14,27 @@ const getProject = vi.fn(async (id) => {
   const fixtures = await import('@/features/projects/test/projectApiFixtures.js');
   return fixtures.resolveTestProject(id);
 });
-vi.mock('@/features/projects/api/projectsApi.js', () => ({
-  listProjects: (...args) => listProjects(...args),
-  getProject: (...args) => getProject(...args),
-  createProject: vi.fn(),
-  archiveProject: vi.fn(),
-  restoreProject: vi.fn(),
-  deleteProject: vi.fn(),
-  patchProject: vi.fn(),
-  getProjectDeletionPreview: vi.fn(),
-  recordProjectAccess: vi.fn(async (id) => getProject(id)),
-}));
+vi.mock('@/features/projects/api/projectsApi.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    listProjects: (...args) => listProjects(...args),
+    getProject: (...args) => getProject(...args),
+    createProject: vi.fn(),
+    archiveProject: vi.fn(),
+    restoreProject: vi.fn(),
+    deleteProject: vi.fn(),
+    patchProject: vi.fn(),
+    getProjectDeletionPreview: vi.fn(),
+    recordProjectAccess: vi.fn(async (id) => getProject(id)),
+  };
+});
 
 const listProjectJobs = vi.fn(async () => ({
   items: [],
   pageInfo: { nextCursor: null, hasMore: false },
 }));
-vi.mock('@/features/processing/api/jobsApi.js', async (importOriginal) => {
+vi.mock('@/features/projects/processing/api/jobsApi.js', async (importOriginal) => {
   const actual = await importOriginal();
   return {
     ...actual,
@@ -42,7 +46,7 @@ vi.mock('@/features/processing/api/jobsApi.js', async (importOriginal) => {
 });
 
 import { clearAuthSession, renderWithProviders, seedAuthSession, } from '@/test/renderWithProviders';
-import Header from './Header';
+import Header, { resolveProcessingProjectId } from './Header';
 afterEach(() => {
     cleanup();
 });
@@ -126,4 +130,44 @@ describe('Header', () => {
         expect(await screen.findByText(/Project structure analyzed · Atlas Commerce/)).toBeTruthy();
         expect(screen.queryByText(/%/)).toBeNull();
     });
+});
+
+describe('resolveProcessingProjectId', () => {
+  it('prefers the projectId query string', () => {
+    const searchParams = new URLSearchParams('projectId=from-query');
+    expect(
+      resolveProcessingProjectId({
+        pathname: '/projects/from-route',
+        params: { id: 'from-params' },
+        searchParams,
+      }),
+    ).toBe('from-query');
+  });
+
+  it('uses the project route when no query is present', () => {
+    expect(
+      resolveProcessingProjectId({
+        pathname: '/projects/prj_atlas/sources',
+        params: { id: 'prj_atlas' },
+        searchParams: new URLSearchParams(),
+      }),
+    ).toBe('prj_atlas');
+  });
+
+  it('returns empty on Home and admin', () => {
+    expect(
+      resolveProcessingProjectId({
+        pathname: '/',
+        params: {},
+        searchParams: new URLSearchParams(),
+      }),
+    ).toBe('');
+    expect(
+      resolveProcessingProjectId({
+        pathname: '/processing',
+        params: {},
+        searchParams: new URLSearchParams(),
+      }),
+    ).toBe('');
+  });
 });

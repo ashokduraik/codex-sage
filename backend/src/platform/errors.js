@@ -8,10 +8,63 @@ import {
   getCatalogEntry,
   isKnownErrorCode,
 } from './errorCatalog.js';
-import {
-  isIdempotencyReplayError,
-  releaseIdempotencyClaimOnError,
-} from './idempotency/idempotencyErrorHooks.js';
+
+/**
+ * Default replay detector (name check only — no class import).
+ * @param {unknown} error Thrown value.
+ * @returns {boolean}
+ */
+function defaultIsReplayError(error) {
+  return Boolean(
+    error &&
+      typeof error === 'object' &&
+      /** @type {{ name?: string }} */ (error).name === 'IdempotencyReplay',
+  );
+}
+
+/** @type {(error: unknown) => boolean} */
+let isReplayError = defaultIsReplayError;
+
+/** @type {(request: import('fastify').FastifyRequest) => Promise<void>} */
+let releaseOwnedClaim = async () => {};
+
+/**
+ * Wires idempotency release / replay detection after the module graph is ready.
+ * @param {{
+ *   isReplayError: (error: unknown) => boolean,
+ *   releaseOwnedClaim: (request: import('fastify').FastifyRequest) => Promise<void>,
+ * }} hooks Hook implementations.
+ */
+export function setIdempotencyErrorHooks(hooks) {
+  isReplayError = hooks.isReplayError;
+  releaseOwnedClaim = hooks.releaseOwnedClaim;
+}
+
+/**
+ * Restores default hooks (test helper).
+ */
+export function resetIdempotencyErrorHooks() {
+  isReplayError = defaultIsReplayError;
+  releaseOwnedClaim = async () => {};
+}
+
+/**
+ * True when the thrown value is an idempotency replay signal.
+ * @param {unknown} error Thrown value.
+ * @returns {boolean}
+ */
+export function isIdempotencyReplayError(error) {
+  return isReplayError(error);
+}
+
+/**
+ * Releases an owned in-flight claim when present on the request.
+ * @param {import('fastify').FastifyRequest} request Incoming request.
+ * @returns {Promise<void>}
+ */
+export async function releaseIdempotencyClaimOnError(request) {
+  await releaseOwnedClaim(request);
+}
 
 /**
  * Intentional API error. Prefer {@link ApiError.fromCode} so status/class stay catalog-aligned.
@@ -255,4 +308,47 @@ export function registerErrorHandler(app, options = {}) {
 
     return reply.status(mapped.statusCode).send(mapped.body);
   });
+}
+
+/**
+ * @typedef {object} StreamErrorData
+ * @property {string} code
+ * @property {string} class
+ * @property {string} retryability
+ * @property {string} message
+ * @property {string} reference
+ * @property {unknown} [details]
+ */
+
+/**
+ * Builds the terminal SSE error event payload from an error-like value.
+ *
+ * @param {{ code?: string, message?: string, details?: unknown, statusCode?: number }} error
+ *   Error-like object (typically an ApiError).
+ * @param {string} correlationId Reference to embed (same as X-Correlation-Id).
+ * @returns {{ event: 'error', data: StreamErrorData }}
+ */
+export function buildStreamErrorEvent(error, correlationId) {
+  const rawCode = typeof error?.code === 'string' ? error.code : 'INTERNAL_ERROR';
+  const code = isKnownErrorCode(rawCode) ? rawCode : 'INTERNAL_ERROR';
+  const entry = getCatalogEntry(code) ?? ERROR_CATALOG.INTERNAL_ERROR;
+  const message =
+    entry.httpStatus >= 500 && code === 'INTERNAL_ERROR'
+      ? entry.message
+      : error?.message || entry.message;
+
+  /** @type {StreamErrorData} */
+  const data = {
+    code,
+    class: entry.class,
+    retryability: entry.retryability,
+    message,
+    reference: correlationId,
+  };
+
+  if (allowsErrorDetails(code) && error?.details !== undefined) {
+    data.details = error.details;
+  }
+
+  return { event: 'error', data };
 }

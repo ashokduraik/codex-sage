@@ -2,15 +2,19 @@
  * Unit tests for idempotency onSend / preHandler edge cases.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ApiError } from '../errors.js';
-import { IDEMPOTENCY_BODY_MAX_BYTES } from './idempotency.constants.js';
-import { idempotencyOnSend, idempotencyPreHandler } from './idempotency.middleware.js';
 import {
+  ApiError,
   isIdempotencyReplayError,
   setIdempotencyErrorHooks,
-} from './idempotencyErrorHooks.js';
-import { IdempotencyReplay } from './idempotencyReplay.js';
-import { releaseOwnedIdempotencyClaim } from './idempotencyRelease.js';
+} from '../errors.js';
+import {
+  IDEMPOTENCY_BODY_MAX_BYTES,
+  IdempotencyReplay,
+  hashIdempotencyRequestBody,
+  idempotencyOnSend,
+  idempotencyPreHandler,
+  releaseOwnedIdempotencyClaim,
+} from './idempotency.middleware.js';
 
 vi.mock('./idempotency.repository.js', () => ({
   beginIdempotencyClaim: vi.fn(),
@@ -20,16 +24,9 @@ vi.mock('./idempotency.repository.js', () => ({
   completeIdempotencyRecord: vi.fn(),
   findActiveIdempotencyRecord: vi.fn(),
   releaseIdempotencyClaim: vi.fn(async () => {}),
+  IDEMPOTENCY_WAIT_MS: 50,
+  IDEMPOTENCY_POLL_INTERVAL_MS: 5,
 }));
-
-vi.mock('./idempotency.constants.js', async (importOriginal) => {
-  const actual = await importOriginal();
-  return {
-    ...actual,
-    IDEMPOTENCY_WAIT_MS: 50,
-    IDEMPOTENCY_POLL_INTERVAL_MS: 5,
-  };
-});
 
 import {
   beginIdempotencyClaim,
@@ -37,7 +34,6 @@ import {
   findActiveIdempotencyRecord,
   releaseIdempotencyClaim,
 } from './idempotency.repository.js';
-import { hashIdempotencyRequestBody } from './idempotencyKey.js';
 
 describe('idempotencyOnSend', () => {
   beforeEach(() => {

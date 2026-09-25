@@ -43,7 +43,7 @@ import {
   consumeSourceArchivePreHandler,
 } from '../modules/sources/index.js';
 import { registerRoutes } from './routes.js';
-import { healthRoutes } from '../modules/health/health.routes.js';
+import { healthRoutes } from './health.routes.js';
 import {
   registerStaticAssets,
   resolveProductionDistRoot,

@@ -9,12 +9,10 @@ export {
   CODEGRAPH_MAX_SYNC_RETRY_ATTEMPTS,
   CODEGRAPH_READ_LEASE_TTL_MS,
   CODEGRAPH_QUERY_SURFACE_METHODS,
-} from './codegraph.adapter.js';
-export {
   configureCodegraphTelemetryOff,
   isCodegraphTelemetryConfigured,
   CODEGRAPH_TELEMETRY_ENV_KEYS,
-} from './codegraph.telemetry.js';
+} from './codegraph.adapter.js';
 export {
   acquireWriter,
   buildWriterLockKey,

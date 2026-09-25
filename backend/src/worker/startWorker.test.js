@@ -3,8 +3,10 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { TEST_APP_CONFIG } from '../test/appConfig.js';
-import { resetProcessHandlersForTests } from '../platform/processHandlers.js';
-import { resetShutdownForTests } from '../platform/shutdown.js';
+import {
+  resetProcessHandlersForTests,
+  resetShutdownForTests,
+} from '../platform/shutdown.js';
 import { clearJobHandlersForTests } from './handlerRegistry.js';
 import { startWorker, WORKER_HEARTBEAT_INTERVAL_MS } from './startWorker.js';
 

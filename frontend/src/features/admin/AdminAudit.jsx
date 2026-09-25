@@ -8,11 +8,9 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/features/auth/AuthContext';
-import { AUDIT_ACTIONS, AUDIT_RESOURCE_TYPES } from '@/features/admin/auditCatalog.js';
-import { selectRenderableAuditContext } from '@/features/admin/auditFieldPolicy.js';
 import { useUsers } from '@/features/admin/api/useUsers.js';
 import { useAuditEvents } from '@/features/admin/api/useAuditEvents.js';
-import { ApiError } from '@/shared/api';
+import { ApiError, correlationFromUnknown, messageFromUnknown } from '@/shared/api';
 import { formatDateTime } from '@/shared/lib/format';
 import { cn } from '@/shared/lib/utils';
 import { Button } from '@/shared/ui/button';
@@ -26,41 +24,141 @@ import {
 } from '@/shared/ui/select';
 
 /**
- * Resolves a user-facing error message.
- * @param {unknown} error Caught value.
- * @param {string} fallback Localized fallback.
- * @returns {string}
+ * Frontend mirror of the backend audit action / resource-type catalogs (Phase 10).
+ * Keep in sync with backend/src/modules/audit/audit.actions.js when new actions ship.
  */
-function messageFromError(error, fallback) {
-  if (error instanceof ApiError && error.message) {
-    return error.message;
-  }
-  if (error instanceof Error && error.message) {
-    return error.message;
-  }
-  return fallback;
-}
+
+/** Known `<domain>.<verb>` audit actions offered in filter selects. */
+export const AUDIT_ACTIONS = Object.freeze([
+  'user.create',
+  'user.update',
+  'user.email_changed',
+  'user.activate',
+  'user.deactivate',
+  'user.remove',
+  'user.roles_changed',
+  'user.password_changed',
+  'user.password_set_by_admin',
+  'role.create',
+  'role.update',
+  'role.remove',
+  'membership.update',
+  'authz.denied',
+  'project.create',
+  'project.update',
+  'project.settings_changed',
+  'project.archive',
+  'project.restore',
+  'project.delete',
+]);
+
+/** Known resource types paired with catalog actions. */
+export const AUDIT_RESOURCE_TYPES = Object.freeze([
+  'user',
+  'role',
+  'membership',
+  'route',
+  'project',
+]);
 
 /**
- * Correlation id from an API error when present.
- * @param {unknown} error Caught value.
- * @returns {string}
+ * Context keys the UI knows how to present (identity / authz writers today).
+ * Extend only when a known backend writer adds a safe scalar key.
  */
-function correlationFromError(error) {
-  if (error instanceof ApiError && error.correlationId) {
-    return error.correlationId;
-  }
-  return '';
-}
+export const AUDIT_CONTEXT_ALLOWLIST = Object.freeze([
+  'previousStatus',
+  'nextStatus',
+  'previousEmail',
+  'nextEmail',
+  'roleIds',
+  'addedRoleIds',
+  'removedRoleIds',
+  'permissionKey',
+  'route',
+  'method',
+  'contextTruncated',
+]);
+
+const ALLOWLIST_SET = new Set(AUDIT_CONTEXT_ALLOWLIST);
 
 /**
- * True when the permission set includes the given key.
- * @param {string[] | undefined} permissions Caller permissions.
- * @param {string} permission Required permission.
+ * Secret-shaped key substrings (case-insensitive). Aligns with the backend sanitizer;
+ * bare "key" is matched as a whole token so `permissionKey` is not false-positive.
+ */
+const SECRET_KEY_SUBSTRINGS = Object.freeze([
+  'password',
+  'token',
+  'secret',
+  'credential',
+  'authorization',
+  'apikey',
+  'privatekey',
+  'cookie',
+  'hash',
+]);
+
+/**
+ * Returns whether a context key looks secret-shaped and must never be rendered.
+ * @param {string} key Object key.
  * @returns {boolean}
  */
-function hasPermission(permissions, permission) {
-  return Array.isArray(permissions) && permissions.includes(permission);
+export function isSecretShapedAuditContextKey(key) {
+  if (typeof key !== 'string' || key.length === 0) {
+    return true;
+  }
+  const lower = key.toLowerCase();
+  if (SECRET_KEY_SUBSTRINGS.some((fragment) => lower.includes(fragment))) {
+    return true;
+  }
+  return /(^|[^a-z0-9])key([^a-z0-9]|$)/.test(lower);
+}
+
+/**
+ * Returns whether a value is safe to render as a context cell.
+ * @param {unknown} value Candidate value.
+ * @returns {boolean}
+ */
+function isRenderableScalar(value) {
+  const type = typeof value;
+  return type === 'string' || type === 'number' || type === 'boolean';
+}
+
+/**
+ * Filters event context down to allowlisted, non-secret, scalar (or scalar-array) entries.
+ * Nested objects and unknown keys are dropped — never rendered as JSON.
+ * @param {unknown} context Raw `context` from an audit event DTO.
+ * @returns {Array<{ key: string, value: string | number | boolean | Array<string | number | boolean> }>}
+ */
+export function selectRenderableAuditContext(context) {
+  if (context === undefined || context === null) {
+    return [];
+  }
+  if (typeof context !== 'object' || Array.isArray(context)) {
+    return [];
+  }
+
+  /** @type {Array<{ key: string, value: string | number | boolean | Array<string | number | boolean> }>} */
+  const rows = [];
+
+  for (const [key, raw] of Object.entries(context)) {
+    if (!ALLOWLIST_SET.has(key) || isSecretShapedAuditContextKey(key)) {
+      continue;
+    }
+    if (Array.isArray(raw)) {
+      const items = raw.filter(isRenderableScalar);
+      if (items.length === 0) {
+        continue;
+      }
+      rows.push({ key, value: items });
+      continue;
+    }
+    if (!isRenderableScalar(raw)) {
+      continue;
+    }
+    rows.push({ key, value: raw });
+  }
+
+  return rows;
 }
 
 /**
@@ -217,8 +315,8 @@ export default function AdminAudit() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [openEventId, setOpenEventId] = useState(/** @type {string | null} */ (null));
 
-  const canViewAudit = hasPermission(currentUser?.permissions, 'audit.view');
-  const canManageUsers = hasPermission(currentUser?.permissions, 'users.manage');
+  const canViewAudit = Boolean(currentUser?.permissions?.includes('audit.view'));
+  const canManageUsers = Boolean(currentUser?.permissions?.includes('users.manage'));
 
   const fromDate = searchParams.get('from') ?? '';
   const toDate = searchParams.get('to') ?? '';
@@ -257,10 +355,10 @@ export default function AdminAudit() {
     auditQuery.error.status === 403;
 
   const listErrorMessage = auditQuery.isError
-    ? messageFromError(auditQuery.error, t('errors.unexpected'))
+    ? messageFromUnknown(auditQuery.error, t('errors.unexpected'))
     : '';
   const listCorrelationId = auditQuery.isError
-    ? correlationFromError(auditQuery.error)
+    ? correlationFromUnknown(auditQuery.error)
     : '';
 
   /**

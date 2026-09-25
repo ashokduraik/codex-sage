@@ -2,7 +2,7 @@
  * Unit tests for syncSchemaIndexes argument validation (no Mongo required).
  */
 import { describe, expect, it, vi } from 'vitest';
-import { syncSchemaIndexes } from './syncIndexes.js';
+import { syncSchemaIndexes } from './index.js';
 
 describe('syncSchemaIndexes', () => {
   it('calls syncIndexes on each model in order', async () => {

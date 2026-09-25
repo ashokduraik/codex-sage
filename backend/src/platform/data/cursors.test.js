@@ -3,7 +3,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { ApiError } from '../errors.js';
-import { decodeCursor, encodeCursor } from './cursors.js';
+import { decodeCursor, encodeCursor } from './index.js';
 
 describe('encodeCursor / decodeCursor', () => {
   it('round-trips a valid cursor payload', () => {

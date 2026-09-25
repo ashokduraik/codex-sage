@@ -3,7 +3,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { I18nextProvider } from 'react-i18next';
 import { AuthProvider } from '@/features/auth/AuthContext';
-import { CURRENT_USER_QUERY_KEY } from '@/features/auth/api/authKeys.js';
+import { CURRENT_USER_QUERY_KEY } from '@/features/auth/api/authApi.js';
 import { setAccessToken } from '@/shared/api';
 import { resetApiSessionForTests } from '@/shared/api/apiSession.js';
 import { queryClientInstance } from '@/shared/lib/query-client';

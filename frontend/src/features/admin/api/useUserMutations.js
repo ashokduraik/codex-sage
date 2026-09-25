@@ -6,8 +6,8 @@ import {
   patchUser,
   removeUser,
   resetUserPassword,
+  ADMIN_USERS_QUERY_ROOT,
 } from './adminIdentityApi.js';
-import { ADMIN_USERS_QUERY_ROOT } from './adminKeys.js';
 
 /**
  * Optimistically patches a user inside every cached users list page.

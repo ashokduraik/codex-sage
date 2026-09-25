@@ -18,10 +18,10 @@ import { ConnectRepositoryDialog } from './ConnectRepositoryDialog';
 import { SourceUploadDialog } from './SourceUploadDialog';
 import { useCreateProject } from './hooks/useProjectMutations.js';
 import {
-  correlationFromProjectError,
-  messageFromProjectError,
-  retryAfterFromProjectError,
-} from './projectErrors.js';
+  correlationFromUnknown,
+  messageFromUnknown,
+  retryAfterFromUnknown,
+} from '@/shared/api';
 
 /**
  * Dialog to create a project and continue into repo connect or upload.
@@ -74,10 +74,10 @@ export function CreateProjectDialog({ open, onOpenChange }) {
   };
 
   const errorMessage = createMutation.isError
-    ? messageFromProjectError(createMutation.error, t('projects.listFailed'))
+    ? messageFromUnknown(createMutation.error, t('projects.listFailed'))
     : '';
-  const correlationId = correlationFromProjectError(createMutation.error);
-  const retryAfter = retryAfterFromProjectError(createMutation.error);
+  const correlationId = correlationFromUnknown(createMutation.error);
+  const retryAfter = retryAfterFromUnknown(createMutation.error);
   const pending = createMutation.isPending;
 
   return (

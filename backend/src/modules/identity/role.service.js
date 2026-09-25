@@ -2,11 +2,13 @@
  * Role service — list, create, update, soft-delete with catalog and built-in guards.
  */
 import { ApiError } from '../../platform/errors.js';
-import { isKnownPermissionKey } from '../authorization/permissionCatalog.js';
+import {
+  getBuiltInRolePermissions,
+  isKnownPermissionKey,
+} from '../authorization/permissionCatalog.js';
 import { invalidateRole } from '../authorization/roleCache.js';
 import { recordAuditEvent } from '../audit/index.js';
-import { bumpProjectAclVersion } from '../projectMembers/bumpProjectAclVersion.js';
-import { mapRoleToDto } from './identity.mappers.js';
+import { bumpProjectAclVersion } from '../projectMembers/projectAclCache.js';
 import { isRoleReferencedByActiveMembership } from './membership.repository.js';
 import {
   createRole as createRoleInRepo,
@@ -15,6 +17,39 @@ import {
   softDeleteRole as softDeleteRoleInRepo,
   updateRole as updateRoleInRepo,
 } from './role.repository.js';
+
+/**
+ * Maps a role document (and optional code-resolved permissions) to a DTO.
+ * @param {object} role Role document or lean object.
+ * @returns {{
+ *   id: string,
+ *   name: string,
+ *   description: string | null,
+ *   permissions: string[],
+ *   isBuiltIn: boolean,
+ *   createdAt: string,
+ * }}
+ */
+export function mapRoleToDto(role) {
+  let permissions = Array.isArray(role.permissions) ? [...role.permissions] : [];
+  if (role.isBuiltIn && role.builtInKey) {
+    const fromCode = getBuiltInRolePermissions(role.builtInKey);
+    if (fromCode) {
+      permissions = [...fromCode];
+    }
+  }
+  return {
+    id: String(role._id ?? role.id),
+    name: role.name,
+    description: role.description ?? null,
+    permissions,
+    isBuiltIn: Boolean(role.isBuiltIn),
+    createdAt:
+      role.createdAt instanceof Date
+        ? role.createdAt.toISOString()
+        : String(role.createdAt ?? ''),
+  };
+}
 
 /**
  * Rejects permission keys absent from the Phase 09 catalog.

@@ -6,7 +6,7 @@ import {
   PROJECT_SETTING_KEYS,
   isKnownProjectSettingKey,
   validateProjectSettingsKeys,
-} from './projects.settingsRegistry.js';
+} from './projects.service.js';
 
 describe('projects.settingsRegistry', () => {
   it('starts with an empty key registry', () => {

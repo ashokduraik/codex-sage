@@ -14,7 +14,8 @@ alwaysApply: false
 - **Thin components, logic in hooks.** Keep components presentational.
 - **Always render citations / evidence** where an answer is shown; handle the unknown /
   abstain path.
-- One component/hook per file; descriptive names; colocated `*.test.jsx`. No secrets.
+- One component/hook per file; descriptive names; colocated `*.test.jsx`. Plain helpers
+  follow `file-colocation.mdc`. No secrets.
 
 ```jsx
 // ❌ BAD: logic + ad-hoc fetch buried in the component

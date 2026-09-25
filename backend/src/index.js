@@ -18,9 +18,9 @@ import { syncSchemaIndexes } from './platform/data/index.js';
 import { IDEMPOTENCY_MODELS } from './platform/idempotency/index.js';
 import { createAppLogger } from './platform/logger.js';
 import { connectMongo, disconnectMongo } from './platform/mongo.js';
-import { registerProcessHandlers } from './platform/processHandlers.js';
 import {
   attachShutdownSignals,
+  registerProcessHandlers,
   registerShutdownHook,
 } from './platform/shutdown.js';
 

@@ -9,12 +9,10 @@ import {
   fetchKnowledgeSummary,
   fetchKnowledgeSymbols,
   fetchKnowledgeWorkflows,
-} from '../api/knowledgeApi.js';
-import {
   knowledgeFacetQueryKey,
   knowledgeFacetsQueryKey,
   knowledgeHealthQueryKey,
-} from '../api/knowledgeKeys.js';
+} from '../api/knowledgeApi.js';
 
 /**
  * Loads GET /knowledge facets.

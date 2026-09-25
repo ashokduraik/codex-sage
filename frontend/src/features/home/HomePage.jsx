@@ -6,10 +6,7 @@ import { Button } from '@/shared/ui/button';
 import { formatRelative } from '@/shared/lib/format';
 import { useAppData, SUGGESTED_QUESTIONS } from '@/shared/mock-data';
 import { flattenProjectPages, useProjects } from '@/features/projects/hooks/useProjects.js';
-import {
-  correlationFromProjectError,
-  messageFromProjectError,
-} from '@/features/projects/projectErrors.js';
+import { correlationFromUnknown, messageFromUnknown } from '@/shared/api';
 
 /**
  * Home dashboard with suggested questions, recent projects, and conversations.
@@ -115,12 +112,12 @@ export default function HomePage() {
               {recentQuery.isError ? (
                 <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm">
                   <p>
-                    {messageFromProjectError(recentQuery.error, t('home.projectsFailed'))}
+                    {messageFromUnknown(recentQuery.error, t('home.projectsFailed'))}
                   </p>
-                  {correlationFromProjectError(recentQuery.error) ? (
+                  {correlationFromUnknown(recentQuery.error) ? (
                     <p className="mt-1 text-xs text-muted-foreground">
                       {t('projects.correlationReference', {
-                        reference: correlationFromProjectError(recentQuery.error),
+                        reference: correlationFromUnknown(recentQuery.error),
                       })}
                     </p>
                   ) : null}

@@ -18,7 +18,7 @@ vi.mock('../audit/index.js', () => ({
 }));
 
 import { adminSetPassword } from '../auth/password.service.js';
-import { adminPasswordResetRoutes } from './adminPasswordReset.routes.js';
+import { adminPasswordResetRoutes } from './identity.routes.js';
 
 /**
  * @returns {{

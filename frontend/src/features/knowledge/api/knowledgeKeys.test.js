@@ -9,7 +9,7 @@ import {
   knowledgeHealthQueryKey,
   projectSearchQueryKey,
   sourcePreviewQueryKey,
-} from './knowledgeKeys.js';
+} from './knowledgeApi.js';
 
 describe('knowledge query keys', () => {
   it('builds frozen keys including default preview range slots', () => {

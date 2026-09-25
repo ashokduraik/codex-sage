@@ -61,13 +61,15 @@ export {
   listSourceVersionsByProject,
   clampSourceVersionListLimit,
 } from './sources.repository.js';
-export { mapSourceVersionToListDto } from './sources.types.js';
-export { kindForSourcePath } from './sourceFileKind.js';
 export { consumeSourceArchivePreHandler } from './consumeSourceArchive.js';
-export { persistSourceUpload, storeAcceptedZipEntries } from './upload.service.js';
+export { kindForSourcePath, persistSourceUpload, storeAcceptedZipEntries } from './upload.service.js';
 export { sourceUploadRoutes } from './upload.routes.js';
 export { sourceRoutes } from './sources.routes.js';
-export { enqueueSourceReingest, listProjectSourceVersions } from './sources.service.js';
+export {
+  enqueueSourceReingest,
+  listProjectSourceVersions,
+  mapSourceVersionToListDto,
+} from './sources.service.js';
 export {
   SOURCE_DIFF_BATCH_SIZE,
   classifySourceDiff,
@@ -83,13 +85,24 @@ export {
 } from './sourceChangeSummary.repository.js';
 export { sourcePreviewRoutes } from './sourcePreview.routes.js';
 export { changeSummaryRoutes } from './changeSummary.routes.js';
-export { loadSourceFileMetadata, loadSourceFileSlice } from './sourcePreview.service.js';
-export { loadLatestChangeSummary, mapChangeSummaryDto } from './changeSummary.service.js';
 export {
+  loadSourceFileMetadata,
+  loadSourceFileSlice,
   SOURCE_PREVIEW_MAX_BYTES,
   SOURCE_PREVIEW_MAX_LINES,
   SOURCE_PATH_MAX_LENGTH,
-} from './sources.preview.constants.js';
+} from './sourcePreview.service.js';
+export { loadLatestChangeSummary, mapChangeSummaryDto } from './changeSummary.service.js';
+export {
+  resolveProjectWorkspacePath,
+  resolveSafeWorkspaceFilePath,
+  assertPathInsideRoot,
+} from './workspacePaths.js';
+export {
+  resetProjectWorkspaceSubtree,
+  deleteWorkspaceRelativePath,
+  materializeGridFsFileToDisk,
+} from './workspaceMaterialize.js';
 
 import { SourceFile } from './sourceFile.model.js';
 import { SourceVersion } from './sourceVersion.model.js';

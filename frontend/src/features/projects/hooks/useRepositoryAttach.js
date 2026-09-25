@@ -7,7 +7,7 @@ import {
   attachProjectRepository,
   repositoryConnectionQueryKey,
 } from '@/features/projects/api/repositoriesApi.js';
-import { projectDetailQueryKey } from '@/features/projects/api/projectKeys.js';
+import { projectDetailQueryKey } from '@/features/projects/api/projectsApi.js';
 
 /**
  * Attaches a repository and seeds the connection cache.
@@ -19,7 +19,7 @@ import { projectDetailQueryKey } from '@/features/projects/api/projectKeys.js';
  *     accessToken?: string,
  *     idempotencyKey: string,
  *     signal?: AbortSignal,
- *   }) => Promise<import('../api/repositoryTypes.js').RepositoryAttachResult>,
+ *   }) => Promise<import('../api/repositoriesApi.js').RepositoryAttachResult>,
  *   isPending: boolean,
  *   error: unknown,
  *   reset: Function,

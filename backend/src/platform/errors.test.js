@@ -287,7 +287,7 @@ describe('registerErrorHandler (integration via buildApp)', () => {
       status: vi.fn().mockReturnThis(),
       send: vi.fn(),
     };
-    const { IdempotencyReplay } = await import('./idempotency/idempotencyReplay.js');
+    const { IdempotencyReplay } = await import('./idempotency/idempotency.middleware.js');
     const replay = new IdempotencyReplay(201, { id: 'u1' });
     await app.errorHandler(replay, request, reply);
     expect(reply.send).not.toHaveBeenCalled();
@@ -300,9 +300,7 @@ describe('registerErrorHandler (integration via buildApp)', () => {
   it('warns when releasing an idempotency claim fails', async () => {
     app = buildApp(TEST_APP_CONFIG);
     await app.ready();
-    const { setIdempotencyErrorHooks } = await import(
-      './idempotency/idempotencyErrorHooks.js'
-    );
+    const { setIdempotencyErrorHooks } = await import('./errors.js');
     setIdempotencyErrorHooks({
       isReplayError: () => false,
       releaseOwnedClaim: async () => {

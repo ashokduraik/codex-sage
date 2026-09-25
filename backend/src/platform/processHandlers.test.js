@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { registerProcessHandlers, resetProcessHandlersForTests, } from './processHandlers.js';
+import { registerProcessHandlers, resetProcessHandlersForTests, } from './shutdown.js';
 describe('registerProcessHandlers', () => {
     beforeEach(() => {
         resetProcessHandlersForTests();

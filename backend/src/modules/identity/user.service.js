@@ -4,11 +4,13 @@
 import mongoose from 'mongoose';
 import { ApiError } from '../../platform/errors.js';
 import { recordAuditEvent } from '../audit/index.js';
+import { getPasswordResetStatus } from '../auth/password.service.js';
 import { revokeAllSessionsForUser } from '../auth/session.repository.js';
-import { bumpProjectAclVersion } from '../projectMembers/bumpProjectAclVersion.js';
-import { mapUserToDto } from './identity.mappers.js';
-import { wouldRemoveLastAdmin } from './lastAdminGuard.js';
-import { assertRolesExistInOrg } from './membership.service.js';
+import { bumpProjectAclVersion } from '../projectMembers/projectAclCache.js';
+import {
+  assertRolesExistInOrg,
+  wouldRemoveLastAdmin,
+} from './membership.service.js';
 import {
   createMembership,
   findMembership,
@@ -24,6 +26,74 @@ import {
   softDeleteUser,
   updateUser,
 } from './user.repository.js';
+
+/** Keys that must never appear on identity response DTOs. */
+const FORBIDDEN_RESPONSE_KEYS = Object.freeze([
+  'passwordHash',
+  'password',
+  'newPassword',
+  'refreshToken',
+  'refreshTokenHash',
+  'token',
+  'resetToken',
+  'passwordResetToken',
+]);
+
+/**
+ * Returns whether a plain object contains a forbidden credential-shaped key.
+ * @param {unknown} value Candidate object.
+ * @returns {boolean}
+ */
+export function containsForbiddenSecretKey(value) {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const stack = [value];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    if (!current || typeof current !== 'object') {
+      continue;
+    }
+    for (const [key, child] of Object.entries(current)) {
+      if (FORBIDDEN_RESPONSE_KEYS.includes(key)) {
+        return true;
+      }
+      if (child && typeof child === 'object') {
+        stack.push(child);
+      }
+    }
+  }
+  return false;
+}
+
+/**
+ * Maps a user document plus role docs to the admin user DTO.
+ * @param {object} user User document.
+ * @param {object[]} roles Role documents (org-scoped).
+ * @returns {object}
+ */
+export function mapUserToDto(user, roles = []) {
+  const reset = getPasswordResetStatus(user);
+  return {
+    id: String(user._id ?? user.id),
+    email: user.email,
+    displayName: user.displayName,
+    userStatus: user.userStatus,
+    roles: roles.map((role) => ({
+      id: String(role._id ?? role.id),
+      name: role.name,
+      isBuiltIn: Boolean(role.isBuiltIn),
+    })),
+    lastLoginAt:
+      user.lastLoginAt instanceof Date ? user.lastLoginAt.toISOString() : null,
+    passwordResetStatus: reset.state,
+    passwordResetCompletedAt: reset.completedAt,
+    createdAt:
+      user.createdAt instanceof Date
+        ? user.createdAt.toISOString()
+        : String(user.createdAt ?? ''),
+  };
+}
 
 /**
  * Loads membership roles for a user (empty array when no membership).

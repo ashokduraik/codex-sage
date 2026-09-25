@@ -19,7 +19,8 @@ instead of doing that work inline.
   and update these rules.
 - **Security:** encrypt tokens at rest, enforce RBAC + tenant isolation, audit-log sensitive
   actions.
-- Small files, descriptive names, colocated `*.test.js`. No secrets in code.
+- Descriptive names, colocated `*.test.js`. Helpers stay in the owning file
+  (`file-colocation.mdc`). No secrets in code.
 - **Node ESM:** relative imports must include the `.js` extension (`import { x } from './foo.js'`).
 
 ```js

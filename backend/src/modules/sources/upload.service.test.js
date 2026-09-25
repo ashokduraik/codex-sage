@@ -9,15 +9,14 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 import mongoose from 'mongoose';
 import { createMongoHarness } from '../../test/mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../test/appConfig.js';
-import { kindForSourcePath } from './sourceFileKind.js';
 import { GRAPH_FILE_MAX_BYTES } from './exclusions/exclusions.constants.js';
-import { summarizeInspection } from './exclusions/summarizeInspection.js';
+import { summarizeInspection } from './exclusions/pathDecision.js';
 import {
   clearSourceFilesBucket,
   getSourceFilesBucket,
   GRIDFS_SOURCE_BUCKET,
 } from './index.js';
-import { storeAcceptedZipEntries } from './upload.service.js';
+import { kindForSourcePath, storeAcceptedZipEntries } from './upload.service.js';
 import { SourceFile, SourceVersion } from './index.js';
 
 const fixturesDir = path.join(

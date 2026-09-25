@@ -9,8 +9,11 @@ Objective: code must be **production-grade, enterprise-grade, and easy to mainta
 
 ## Language & structure
 - **JavaScript for all application code** (`.js` / `.jsx`); no TypeScript sources.
-- Follow **clean code** principles; small, single-purpose units.
-- A file must **not exceed 1000 lines** — split before it does.
+- Follow **clean code** principles; small, single-purpose units inside existing files
+  (see `file-colocation.mdc` — do not add a file per function).
+- A file must **not exceed 1000 code lines** (blank lines, `//` comments, and
+  `/* */` / JSDoc do not count). If it would go over, move work into another
+  existing owner — do not invent a new file (see `file-colocation.mdc`).
 - **Prefer `async/await`** over callbacks/`.then` chains.
 - Write **comprehensive error handling** (no empty catches; fail loud or handle deliberately).
 

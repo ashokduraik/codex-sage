@@ -1,0 +1,47 @@
+---
+description: Colocate helpers in the owning file; do not add a file per function
+alwaysApply: true
+---
+
+# File colocation
+
+A new source file is allowed only when one of these is true:
+
+- It is a real boundary: route, service, repository, model, worker handler, React
+  component, or React hook (one component/hook per file stays).
+- The same non-trivial logic is used by two or more other files, and those files
+  should not each own a copy.
+
+Otherwise the function goes in the file that calls it, or in the existing file
+that already owns that concern. Do not add a file that nothing in production
+calls. Do not copy the same helper under a new name.
+
+Prefer fewer modules/folders when two folders are the same concern.
+
+## Line cap (code only)
+
+A file must not exceed **1000 code lines**. Do not count blank lines, `//` comments,
+or `/* */` / JSDoc blocks.
+
+If a file would go over 1000 code lines, **do not create a new file**. Move the extra
+concern into another **existing** file that already owns related work. Only add a
+file if no existing owner can take it without mixing unrelated concerns.
+
+```js
+// BAD — one unused helper, own file
+// organizationScope.js
+export function assertOrganizationPathMatchesPrincipal(pathOrgId, principal) {
+  if (String(pathOrgId) !== String(principal.orgId)) {
+    throw ApiError.fromCode('NOT_FOUND');
+  }
+}
+
+// GOOD — live in the caller or the file that already owns the concern
+export function createAuthorizePreHandler(requiredPermissions) {
+  return async function authorize(request) {
+    if (String(request.params.orgId) !== String(request.principal.orgId)) {
+      throw ApiError.fromCode('NOT_FOUND');
+    }
+  };
+}
+```

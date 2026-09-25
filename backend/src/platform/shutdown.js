@@ -92,3 +92,41 @@ export function attachShutdownSignals(deps) {
     proc.on('SIGTERM', onSignal);
     proc.on('SIGINT', onSignal);
 }
+
+let processHandlersRegistered = false;
+
+/**
+ * Registers `unhandledRejection` and `uncaughtException` handlers once per process.
+ *
+ * - `unhandledRejection`: log and keep the process alive.
+ * - `uncaughtException`: log then exit(1) — sync state may be corrupt.
+ *
+ * @param deps - Logger and optional process/exit overrides for tests.
+ */
+export function registerProcessHandlers(deps) {
+    if (processHandlersRegistered) {
+        return;
+    }
+    processHandlersRegistered = true;
+    const proc = deps.proc ?? process;
+    const exitFn = deps.exit ?? ((code) => process.exit(code));
+    proc.on('unhandledRejection', (reason) => {
+        const err = reason instanceof Error
+            ? { message: reason.message, name: reason.name, stack: reason.stack }
+            : { reason: String(reason) };
+        deps.logError('unhandledRejection — process kept alive', { err });
+    });
+    proc.on('uncaughtException', (error) => {
+        deps.logError('uncaughtException — exiting', {
+            err: { message: error.message, name: error.name, stack: error.stack },
+        });
+        exitFn(1);
+    });
+}
+
+/**
+ * Resets the one-shot registration guard. For unit tests only.
+ */
+export function resetProcessHandlersForTests() {
+    processHandlersRegistered = false;
+}

@@ -11,10 +11,7 @@ import { useTranslation } from 'react-i18next';
 import { EmptyState } from '@/shared/components';
 import { Button } from '@/shared/ui/button';
 import { flattenProjectPages, useProjects } from './hooks/useProjects.js';
-import {
-  correlationFromProjectError,
-  messageFromProjectError,
-} from './projectErrors.js';
+import { correlationFromUnknown, messageFromUnknown } from '@/shared/api';
 
 const TAB_META = {
   chat: {
@@ -57,8 +54,8 @@ export default function ProjectPickerPage({ tab }) {
   }
 
   if (listQuery.isError) {
-    const message = messageFromProjectError(listQuery.error, t('projects.listFailed'));
-    const correlationId = correlationFromProjectError(listQuery.error);
+    const message = messageFromUnknown(listQuery.error, t('projects.listFailed'));
+    const correlationId = correlationFromUnknown(listQuery.error);
     return (
       <div className="flex h-full items-center justify-center px-6">
         <div role="alert" className="max-w-md text-center text-sm">

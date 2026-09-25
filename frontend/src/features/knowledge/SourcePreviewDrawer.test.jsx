@@ -7,10 +7,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const fetchSourceFileMetadata = vi.fn();
 const fetchSourceSlice = vi.fn();
 
-vi.mock('./api/previewApi.js', () => ({
-  fetchSourceFileMetadata: (...args) => fetchSourceFileMetadata(...args),
-  fetchSourceSlice: (...args) => fetchSourceSlice(...args),
-}));
+vi.mock('./api/knowledgeApi.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    fetchSourceFileMetadata: (...args) => fetchSourceFileMetadata(...args),
+    fetchSourceSlice: (...args) => fetchSourceSlice(...args),
+  };
+});
 
 import { renderWithProviders } from '@/test/renderWithProviders';
 import SourcePreviewDrawer from './SourcePreviewDrawer.jsx';

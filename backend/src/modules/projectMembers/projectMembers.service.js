@@ -7,7 +7,7 @@ import { recordAuditEvent } from '../audit/index.js';
 import { findRoleById } from '../identity/role.repository.js';
 import { findUserById } from '../identity/user.repository.js';
 import { findProjectById } from '../projects/projects.repository.js';
-import { bumpProjectAclVersion } from './bumpProjectAclVersion.js';
+import { bumpProjectAclVersion } from './projectAclCache.js';
 import {
   createProjectMember,
   findActiveProjectMember,

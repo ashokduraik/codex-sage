@@ -12,14 +12,18 @@ const fetchKnowledgeWorkflows = vi.fn();
 const fetchKnowledgeApis = vi.fn();
 const fetchKnowledgeSymbols = vi.fn();
 
-vi.mock('../api/knowledgeApi.js', () => ({
-  fetchKnowledgeFacets: (...args) => fetchKnowledgeFacets(...args),
-  fetchKnowledgeHealth: (...args) => fetchKnowledgeHealth(...args),
-  fetchKnowledgeSummary: (...args) => fetchKnowledgeSummary(...args),
-  fetchKnowledgeWorkflows: (...args) => fetchKnowledgeWorkflows(...args),
-  fetchKnowledgeApis: (...args) => fetchKnowledgeApis(...args),
-  fetchKnowledgeSymbols: (...args) => fetchKnowledgeSymbols(...args),
-}));
+vi.mock('../api/knowledgeApi.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    fetchKnowledgeFacets: (...args) => fetchKnowledgeFacets(...args),
+    fetchKnowledgeHealth: (...args) => fetchKnowledgeHealth(...args),
+    fetchKnowledgeSummary: (...args) => fetchKnowledgeSummary(...args),
+    fetchKnowledgeWorkflows: (...args) => fetchKnowledgeWorkflows(...args),
+    fetchKnowledgeApis: (...args) => fetchKnowledgeApis(...args),
+    fetchKnowledgeSymbols: (...args) => fetchKnowledgeSymbols(...args),
+  };
+});
 
 import { useKnowledgeFacet, useKnowledgeFacets, useKnowledgeHealth } from './useKnowledgeFacets.js';
 

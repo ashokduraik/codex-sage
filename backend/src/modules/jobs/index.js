@@ -12,12 +12,10 @@ export {
   JOB_STATUS_VALUES,
   JOB_TYPE_VALUES,
   FAILURE_CLASS_VALUES,
-} from './jobs.constants.js';
-export {
   ACTIVE_JOB_STATUSES,
   JOB_CANCEL_GRACE_MS,
   JOB_MAX_USER_RETRIES,
-} from './jobControl.constants.js';
+} from './jobs.constants.js';
 export { Job } from './job.model.js';
 export { JobEvent } from './jobEvent.model.js';
 export {
@@ -38,16 +36,23 @@ export {
   promoteRetryingJobToPending,
   requestRunningJobCancel,
 } from './jobs.repository.js';
-export { createPendingJob, getJobById, listProjectJobs } from './jobs.service.js';
-export { cancelJob, retryJob } from './jobControl.service.js';
-export { mapJobEventToDto, mapJobToDetailDto, mapJobToListDto } from './jobs.types.js';
-export { jobRoutes } from './jobs.routes.js';
-export { jobControlRoutes } from './jobControl.routes.js';
+export {
+  createPendingJob,
+  getJobById,
+  listProjectJobs,
+  mapJobEventToDto,
+  mapJobToDetailDto,
+  mapJobToListDto,
+} from './jobs.service.js';
 export {
   ALLOWED_JOB_TRANSITIONS,
   assertJobTransition,
+  cancelJob,
   isAllowedJobTransition,
-} from './jobTransitions.js';
+  retryJob,
+} from './jobControl.service.js';
+export { jobRoutes } from './jobs.routes.js';
+export { jobControlRoutes } from './jobControl.routes.js';
 export {
   INGEST_STAGE_DEFINITIONS,
   JOB_STAGE_CATALOG,

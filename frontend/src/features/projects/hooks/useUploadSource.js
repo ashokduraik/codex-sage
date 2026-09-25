@@ -7,7 +7,7 @@ import {
   sourceVersionsQueryKey,
   uploadProjectSource,
 } from '@/features/projects/api/sourcesApi.js';
-import { projectDetailQueryKey } from '@/features/projects/api/projectKeys.js';
+import { projectDetailQueryKey } from '@/features/projects/api/projectsApi.js';
 
 /**
  * @param {string} projectId Project id.

@@ -7,7 +7,7 @@ import {
   ALLOWED_JOB_TRANSITIONS,
   assertJobTransition,
   isAllowedJobTransition,
-} from './jobTransitions.js';
+} from './jobControl.service.js';
 import { JOB_STATUS_VALUES } from './jobs.constants.js';
 
 describe('jobTransitions', () => {

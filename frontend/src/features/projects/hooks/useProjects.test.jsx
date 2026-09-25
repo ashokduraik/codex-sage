@@ -5,13 +5,17 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('@/features/projects/api/projectsApi.js', () => ({
-  listProjects: vi.fn(),
-}));
+vi.mock('@/features/projects/api/projectsApi.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    listProjects: vi.fn(),
+  };
+});
 
 import { listProjects } from '@/features/projects/api/projectsApi.js';
 import { flattenProjectPages, useProjects } from './useProjects.js';
-import { projectsListQueryKey } from '@/features/projects/api/projectKeys.js';
+import { projectsListQueryKey } from '@/features/projects/api/projectsApi.js';
 
 /**
  * @param {import('@tanstack/react-query').QueryClient} queryClient

@@ -8,7 +8,7 @@ import {
   mapConversationToListDto,
   mapConversationToSearchDto,
   mapMessageToDto,
-} from './conversations.types.js';
+} from './conversations.service.js';
 
 describe('conversations.types', () => {
   it('maps detail, list, and search shapes', () => {

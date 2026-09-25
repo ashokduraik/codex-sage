@@ -14,7 +14,7 @@ vi.mock('@/features/projects/api/sourcesApi.js', () => ({
 
 import { uploadProjectSource } from '@/features/projects/api/sourcesApi.js';
 import { useUploadSource } from './useUploadSource.js';
-import { projectDetailQueryKey } from '@/features/projects/api/projectKeys.js';
+import { projectDetailQueryKey } from '@/features/projects/api/projectsApi.js';
 
 /**
  * @param {import('@tanstack/react-query').QueryClient} queryClient Client.

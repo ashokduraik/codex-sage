@@ -7,7 +7,7 @@ import {
   releaseIdempotencyClaimOnError,
   resetIdempotencyErrorHooks,
   setIdempotencyErrorHooks,
-} from './idempotencyErrorHooks.js';
+} from '../errors.js';
 
 describe('idempotencyErrorHooks', () => {
   afterEach(() => {

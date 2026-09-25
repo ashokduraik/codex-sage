@@ -21,13 +21,13 @@ export {
   projectAclCache,
   invalidateProjectAclCache,
   configureProjectAclCache,
+  bumpProjectAclVersion,
 } from './projectAclCache.js';
 export {
   PROJECT_ACL_NO_ACCESS,
   resolveProjectPermissions,
   resolveAccessibleProjectFilter,
 } from './projectAccess.js';
-export { bumpProjectAclVersion } from './bumpProjectAclVersion.js';
 export {
   mapProjectMemberToDto,
   listMembers,

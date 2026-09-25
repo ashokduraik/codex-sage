@@ -9,7 +9,7 @@ import {
   useSetUserStatus,
   useUpdateUserRoles,
 } from './useUserMutations.js';
-import { adminUsersQueryKey } from './adminKeys.js';
+import { adminUsersQueryKey } from './adminIdentityApi.js';
 import { ApiError } from '@/shared/api';
 
 afterEach(() => {

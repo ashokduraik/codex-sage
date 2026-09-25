@@ -14,6 +14,7 @@ import { SOURCE_MODELS, SourceVersion, clearSourceFilesBucket } from '../../sour
 import { insertConnection } from '../repositories.repository.js';
 import { RepositoryConnection } from '../repositoryConnection.model.js';
 import {
+  createArchiveRootRewriter,
   deferRepoSyncJob,
   enqueueManualRepositorySync,
   isProjectSyncBlocked,
@@ -244,5 +245,27 @@ describe('repoSync.service', () => {
     });
     expect(deferred?.jobStatus).toBe('pending');
     expect(deferred?.attempt).toBe(2);
+  });
+});
+
+describe('createArchiveRootRewriter', () => {
+  it('strips a shared first segment when nested files exist', () => {
+    const rewrite = createArchiveRootRewriter([
+      'payments-abc/src/a.js',
+      'payments-abc/README.md',
+    ]);
+    expect(rewrite('payments-abc/src/a.js')).toBe('src/a.js');
+    expect(rewrite('payments-abc/README.md')).toBe('README.md');
+  });
+
+  it('leaves paths unchanged when there is no shared nested root', () => {
+    const mixed = createArchiveRootRewriter(['src/a.js', 'docs/b.md']);
+    expect(mixed('src/a.js')).toBe('src/a.js');
+
+    const flat = createArchiveRootRewriter(['README.md']);
+    expect(flat('README.md')).toBe('README.md');
+
+    const empty = createArchiveRootRewriter([]);
+    expect(empty('src/a.js')).toBe('src/a.js');
   });
 });

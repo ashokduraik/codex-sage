@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppRoutes } from '@/app/routes';
 import { AuthProvider } from '@/features/auth/AuthContext';
 import LoginPage from '@/features/auth/LoginPage';
-import { CURRENT_USER_QUERY_KEY } from '@/features/auth/api/authKeys.js';
+import { CURRENT_USER_QUERY_KEY } from '@/features/auth/api/authApi.js';
 import { resetApiSessionForTests } from '@/shared/api/apiSession.js';
 import { resetRefreshClientForTests } from '@/shared/api/refreshClient.js';
 import '@/shared/i18n';

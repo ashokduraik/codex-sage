@@ -1,17 +1,17 @@
 /**
  * Public surface of the identity module.
  */
-export { BUILT_IN_ROLES, BUILT_IN_ROLE_KEYS, isBuiltInRoleKey } from './builtInRoles.js';
 export {
   DEFAULT_ORG_NAME,
   DEFAULT_ORG_SLUG,
   DEFAULT_ADMIN_EMAIL,
   DEFAULT_ADMIN_NAME,
   DEFAULT_ADMIN_PASSWORD,
-} from './bootstrapDefaults.js';
+  runBootstrapSeed,
+} from './bootstrapSeed.js';
 export { Organization, SLUG_PATTERN } from './organization.model.js';
 export { User, USER_STATUS_VALUES } from './user.model.js';
-export { Role } from './role.model.js';
+export { Role, BUILT_IN_ROLES, BUILT_IN_ROLE_KEYS, isBuiltInRoleKey } from './role.model.js';
 export { Membership, PROJECT_ACCESS_MODE_VALUES } from './membership.model.js';
 export {
   findOrganizationBySlug,
@@ -37,8 +37,7 @@ export {
   IDENTITY_LIST_PAGE_SIZE_MAX,
   clampIdentityListLimit,
 } from './user.repository.js';
-export { identityRoutes } from './identity.routes.js';
-export { adminPasswordResetRoutes } from './adminPasswordReset.routes.js';
+export { identityRoutes, adminPasswordResetRoutes } from './identity.routes.js';
 export {
   findBuiltInRole,
   findRoleById,
@@ -60,7 +59,6 @@ export {
   isRoleReferencedByActiveMembership,
   updateMembershipProjectAccessMode,
 } from './membership.repository.js';
-export { runBootstrapSeed } from './bootstrapSeed.js';
 
 import { Membership } from './membership.model.js';
 import { Organization } from './organization.model.js';

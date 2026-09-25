@@ -7,13 +7,11 @@ import {
   createProject,
   deleteProject,
   patchProject,
-  restoreProject,
-} from '@/features/projects/api/projectsApi.js';
-import {
   PROJECTS_DETAIL_QUERY_ROOT,
   PROJECTS_LIST_QUERY_ROOT,
   projectDetailQueryKey,
-} from '@/features/projects/api/projectKeys.js';
+  restoreProject,
+} from '@/features/projects/api/projectsApi.js';
 
 /**
  * Invalidates project list caches.

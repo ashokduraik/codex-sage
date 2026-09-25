@@ -11,7 +11,7 @@ import {
   seedAuthSession,
 } from '@/test/renderWithProviders';
 
-vi.mock('@/features/processing/api/jobsApi.js', async (importOriginal) => {
+vi.mock('@/features/projects/processing/api/jobsApi.js', async (importOriginal) => {
   const actual = await importOriginal();
   return {
     ...actual,
@@ -25,16 +25,19 @@ vi.mock('@/features/processing/api/jobsApi.js', async (importOriginal) => {
   };
 });
 
-vi.mock('@/features/projects/api/projectsApi.js', () => ({
-  getProject: vi.fn(),
-  listProjects: vi.fn(),
-  createProject: vi.fn(),
-  archiveProject: vi.fn(),
-  restoreProject: vi.fn(),
-  deleteProject: vi.fn(),
-  patchProject: vi.fn(),
-  getProjectDeletionPreview: vi.fn(),
-  recordProjectAccess: vi.fn(async () => ({
+vi.mock('@/features/projects/api/projectsApi.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    getProject: vi.fn(),
+    listProjects: vi.fn(),
+    createProject: vi.fn(),
+    archiveProject: vi.fn(),
+    restoreProject: vi.fn(),
+    deleteProject: vi.fn(),
+    patchProject: vi.fn(),
+    getProjectDeletionPreview: vi.fn(),
+    recordProjectAccess: vi.fn(async () => ({
       id: 'p1',
       name: 'Atlas Commerce',
       description: 'Checkout',
@@ -46,7 +49,8 @@ vi.mock('@/features/projects/api/projectsApi.js', () => ({
       updatedAt: '2026-01-02T00:00:00.000Z',
       lastAccessedAt: '2026-01-03T00:00:00.000Z',
     })),
-}));
+  };
+});
 
 import {
   archiveProject,

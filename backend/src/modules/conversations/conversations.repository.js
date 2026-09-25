@@ -10,7 +10,6 @@ import {
   softDelete,
   ROW_STATUS_ACTIVE,
 } from '../../platform/data/index.js';
-import { buildOwnConversationFilter } from './conversations.access.js';
 import {
   CONVERSATION_DEFAULT_TITLE,
   CONVERSATION_SEARCH_DEFAULT_LIMIT,
@@ -23,6 +22,28 @@ import {
 } from './conversations.constants.js';
 import { Conversation } from './conversations.model.js';
 import { Message } from './messages.model.js';
+
+/**
+ * Builds the tenant + owner filter used by every conversation read.
+ * `conversations.view` does not expand this set.
+ * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
+ * @param {import('mongoose').Types.ObjectId | string} projectId Project id.
+ * @param {import('mongoose').Types.ObjectId | string} userId Conversation owner.
+ * @returns {{
+ *   orgId: import('mongoose').Types.ObjectId | string,
+ *   projectId: import('mongoose').Types.ObjectId,
+ *   ownerUserId: import('mongoose').Types.ObjectId,
+ *   status: string,
+ * }}
+ */
+export function buildOwnConversationFilter(orgId, projectId, userId) {
+  return {
+    orgId,
+    projectId: new mongoose.Types.ObjectId(String(projectId)),
+    ownerUserId: new mongoose.Types.ObjectId(String(userId)),
+    status: ROW_STATUS_ACTIVE,
+  };
+}
 
 /**
  * Clamps a conversation list page size.

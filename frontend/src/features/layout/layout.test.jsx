@@ -16,23 +16,27 @@ const getProject = vi.fn(async (id) => {
   const fixtures = await import('@/features/projects/test/projectApiFixtures.js');
   return fixtures.resolveTestProject(id);
 });
-vi.mock('@/features/projects/api/projectsApi.js', () => ({
-  listProjects: (...args) => listProjects(...args),
-  getProject: (...args) => getProject(...args),
-  createProject: vi.fn(),
-  archiveProject: vi.fn(),
-  restoreProject: vi.fn(),
-  deleteProject: vi.fn(),
-  patchProject: vi.fn(),
-  getProjectDeletionPreview: vi.fn(),
-  recordProjectAccess: vi.fn(async (id) => getProject(id)),
-}));
+vi.mock('@/features/projects/api/projectsApi.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    listProjects: (...args) => listProjects(...args),
+    getProject: (...args) => getProject(...args),
+    createProject: vi.fn(),
+    archiveProject: vi.fn(),
+    restoreProject: vi.fn(),
+    deleteProject: vi.fn(),
+    patchProject: vi.fn(),
+    getProjectDeletionPreview: vi.fn(),
+    recordProjectAccess: vi.fn(async (id) => getProject(id)),
+  };
+});
 
 const listProjectJobs = vi.fn(async () => ({
   items: [],
   pageInfo: { nextCursor: null, hasMore: false },
 }));
-vi.mock('@/features/processing/api/jobsApi.js', async (importOriginal) => {
+vi.mock('@/features/projects/processing/api/jobsApi.js', async (importOriginal) => {
   const actual = await importOriginal();
   return {
     ...actual,
@@ -44,7 +48,7 @@ vi.mock('@/features/processing/api/jobsApi.js', async (importOriginal) => {
 });
 
 import { AuthProvider } from '@/features/auth/AuthContext';
-import { CURRENT_USER_QUERY_KEY } from '@/features/auth/api/authKeys.js';
+import { CURRENT_USER_QUERY_KEY } from '@/features/auth/api/authApi.js';
 import AppShell from '@/features/layout/AppShell';
 import Header from '@/features/layout/Header';
 import ProcessingIndicator from '@/features/layout/ProcessingIndicator';

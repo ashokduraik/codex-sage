@@ -1,5 +1,5 @@
 /**
- * Auth HTTP calls over the shared API client (Phase 14).
+ * Auth HTTP calls and React Query keys (Phase 14).
  */
 import {
   apiRequest,
@@ -7,6 +7,9 @@ import {
   readCsrfTokenFromCookie,
   setAccessToken,
 } from '@/shared/api';
+
+/** React Query key for the signed-in current-user document. */
+export const CURRENT_USER_QUERY_KEY = Object.freeze(['auth', 'me']);
 
 /**
  * Builds CSRF headers for cookie-authenticated auth mutations.

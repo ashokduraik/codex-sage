@@ -14,17 +14,21 @@ const getProject = vi.fn(async (id) => {
   const fixtures = await import('@/features/projects/test/projectApiFixtures.js');
   return fixtures.resolveTestProject(id);
 });
-vi.mock('@/features/projects/api/projectsApi.js', () => ({
-  listProjects: (...args) => listProjects(...args),
-  getProject: (...args) => getProject(...args),
-  createProject: vi.fn(),
-  archiveProject: vi.fn(),
-  restoreProject: vi.fn(),
-  deleteProject: vi.fn(),
-  patchProject: vi.fn(),
-  getProjectDeletionPreview: vi.fn(),
-  recordProjectAccess: vi.fn(async (id) => getProject(id)),
-}));
+vi.mock('@/features/projects/api/projectsApi.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    listProjects: (...args) => listProjects(...args),
+    getProject: (...args) => getProject(...args),
+    createProject: vi.fn(),
+    archiveProject: vi.fn(),
+    restoreProject: vi.fn(),
+    deleteProject: vi.fn(),
+    patchProject: vi.fn(),
+    getProjectDeletionPreview: vi.fn(),
+    recordProjectAccess: vi.fn(async (id) => getProject(id)),
+  };
+});
 
 import { clearAuthSession, renderWithProviders, seedAuthSession, } from '@/test/renderWithProviders';
 import Sidebar from './Sidebar';

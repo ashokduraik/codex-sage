@@ -2,8 +2,10 @@
  * Deletion-preview query for the delete confirmation dialog.
  */
 import { useQuery } from '@tanstack/react-query';
-import { getProjectDeletionPreview } from '@/features/projects/api/projectsApi.js';
-import { projectDeletionPreviewQueryKey } from '@/features/projects/api/projectKeys.js';
+import {
+  getProjectDeletionPreview,
+  projectDeletionPreviewQueryKey,
+} from '@/features/projects/api/projectsApi.js';
 
 /**
  * Loads deletion consequences for a project while the dialog is open.

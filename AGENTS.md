@@ -27,7 +27,11 @@ Additional docs and ADRs live under [`docs/`](./docs/).
 
 ## Code style & structure
 
-- **Small, single-purpose files** with descriptive names.
+- **Descriptive file names.** Helpers live in the file that owns them — see
+  `.cursor/rules/file-colocation.mdc`. Do not add a file per function. Cap is
+  1000 code lines (comments/blanks do not count); if a file would go over, move
+  work into another existing owner. Prefer fewer modules when they are the same
+  concern.
 - **No deep cross-module imports.** Modules expose a public surface; internals stay private.
 - **JavaScript** for all application code (frontend and backend); JSX for React.
 - **Tests colocated:** `*.test.js` / `*.test.jsx` next to code; cross-app E2E via Playwright

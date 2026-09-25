@@ -22,20 +22,11 @@ export {
 } from './conversations.constants.js';
 export { Conversation } from './conversations.model.js';
 export { Message } from './messages.model.js';
-export { buildOwnConversationFilter } from './conversations.access.js';
 export {
+  archiveConversation,
   assertConversationArchiveAllowed,
   assertConversationRestoreAllowed,
   assertConversationWritable,
-} from './conversations.lifecycle.js';
-export {
-  mapConversationToDto,
-  mapConversationToListDto,
-  mapConversationToSearchDto,
-  mapMessageToDto,
-} from './conversations.types.js';
-export {
-  archiveConversation,
   createConversation,
   deleteConversation,
   getConversation,
@@ -43,17 +34,20 @@ export {
   listConversations,
   listRecentMessages,
   loadConversationForUser,
+  mapConversationToDto,
+  mapConversationToListDto,
+  mapConversationToSearchDto,
+  mapMessageToDto,
   restoreConversation,
+  scheduleConversationAutoTitle,
   searchConversations,
+  truncateUserTextTitle,
   updateConversationTitle,
 } from './conversations.service.js';
 export {
+  buildOwnConversationFilter,
   refreshConversationSearchText,
 } from './conversations.repository.js';
-export {
-  scheduleConversationAutoTitle,
-  truncateUserTextTitle,
-} from './conversations.autoTitle.js';
 export { conversationRoutes } from './conversations.routes.js';
 
 import { Conversation } from './conversations.model.js';

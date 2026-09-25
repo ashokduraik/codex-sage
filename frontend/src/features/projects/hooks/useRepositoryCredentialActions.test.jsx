@@ -24,7 +24,7 @@ import {
   revokeProjectRepositoryCredential,
   retestProjectRepositoryConnection,
 } from '@/features/projects/api/repositoriesApi.js';
-import { projectDetailQueryKey } from '@/features/projects/api/projectKeys.js';
+import { projectDetailQueryKey } from '@/features/projects/api/projectsApi.js';
 import { useRepositoryCredentialActions } from './useRepositoryCredentialActions.js';
 
 /**

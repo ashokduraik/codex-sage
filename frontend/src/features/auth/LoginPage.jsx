@@ -4,11 +4,50 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import AuthLayout from '@/features/auth/AuthLayout';
 import { useAuth } from '@/features/auth/AuthContext';
-import { correlationFromUnknown, messageFromUnknown } from '@/features/auth/authErrors';
-import { safeReturnTo } from '@/features/auth/authReturnTo';
+import { correlationFromUnknown, messageFromUnknown } from '@/shared/api';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
+
+/**
+ * Resolve `?returnTo=` to a safe same-origin path, else `/`.
+ *
+ * The same-origin check alone is not enough: a value like `/.//evil.com` or
+ * `/\evil.com` parses same-origin but normalizes to a protocol-relative
+ * `//evil.com` when assigned to `location.href` — an open redirect. So require the
+ * resolved path to be exactly one leading slash (no `//` prefix, no backslash).
+ *
+ * @returns {string} A same-origin path+search string safe for client-side navigation.
+ */
+export function safeReturnTo() {
+  const raw = new URLSearchParams(window.location.search).get('returnTo');
+  if (!raw) {
+    return '/';
+  }
+  try {
+    const url = new URL(raw, window.location.origin);
+    if (url.origin !== window.location.origin) {
+      return '/';
+    }
+    for (const param of [
+      'access_token',
+      'clear_access_token',
+      'app_id',
+      'app_base_url',
+      'functions_version',
+      'from_url',
+    ]) {
+      url.searchParams.delete(param);
+    }
+    const path = url.pathname + url.search;
+    if (!path.startsWith('/') || path.startsWith('//') || path.includes('\\')) {
+      return '/';
+    }
+    return path;
+  } catch {
+    return '/';
+  }
+}
 
 /**
  * Reads a one-shot notice reason from the current URL search string.

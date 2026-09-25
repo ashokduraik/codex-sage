@@ -6,13 +6,17 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/shared/api';
 
-vi.mock('@/features/projects/api/projectsApi.js', () => ({
-  createProject: vi.fn(),
-  patchProject: vi.fn(),
-  archiveProject: vi.fn(),
-  restoreProject: vi.fn(),
-  deleteProject: vi.fn(),
-}));
+vi.mock('@/features/projects/api/projectsApi.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    createProject: vi.fn(),
+    patchProject: vi.fn(),
+    archiveProject: vi.fn(),
+    restoreProject: vi.fn(),
+    deleteProject: vi.fn(),
+  };
+});
 
 import {
   archiveProject,
@@ -28,7 +32,7 @@ import {
   usePatchProject,
   useRestoreProject,
 } from './useProjectMutations.js';
-import { projectDetailQueryKey, projectsListQueryKey } from '@/features/projects/api/projectKeys.js';
+import { projectDetailQueryKey, projectsListQueryKey } from '@/features/projects/api/projectsApi.js';
 
 /**
  * @param {import('@tanstack/react-query').QueryClient} queryClient

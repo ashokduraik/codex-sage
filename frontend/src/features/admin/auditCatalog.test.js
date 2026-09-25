@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AUDIT_ACTIONS, AUDIT_RESOURCE_TYPES } from './auditCatalog.js';
+import { AUDIT_ACTIONS, AUDIT_RESOURCE_TYPES } from './AdminAudit.jsx';
 
 describe('auditCatalog', () => {
   it('mirrors the known action and resource-type vocabularies', () => {

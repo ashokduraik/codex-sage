@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { listAllRoles } from './adminIdentityApi.js';
-import { ADMIN_ROLES_QUERY_KEY } from './adminKeys.js';
+import { ADMIN_ROLES_QUERY_KEY, listAllRoles } from './adminIdentityApi.js';
 
 /**
  * Loads all organization roles for pickers and the permissions matrix.

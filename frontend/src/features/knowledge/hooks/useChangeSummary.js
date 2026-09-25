@@ -2,8 +2,7 @@
  * Latest change-summary query (404 is empty).
  */
 import { useQuery } from '@tanstack/react-query';
-import { fetchChangeSummary } from '../api/changesApi.js';
-import { changeSummaryQueryKey } from '../api/knowledgeKeys.js';
+import { changeSummaryQueryKey, fetchChangeSummary } from '../api/knowledgeApi.js';
 
 /**
  * Loads GET /knowledge/updates/latest.

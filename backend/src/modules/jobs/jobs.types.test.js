@@ -3,7 +3,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import mongoose from 'mongoose';
-import { mapJobToDetailDto, mapJobToListDto, mapJobEventToDto } from './jobs.types.js';
+import { mapJobToDetailDto, mapJobToListDto, mapJobEventToDto } from './jobs.service.js';
 
 describe('jobs.types', () => {
   const jobId = new mongoose.Types.ObjectId();

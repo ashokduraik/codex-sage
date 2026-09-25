@@ -13,7 +13,7 @@ import { probeProjectRepository } from '@/features/projects/api/repositoriesApi.
  *     repositoryUrl: string,
  *     accessToken?: string,
  *     signal?: AbortSignal,
- *   }) => Promise<import('../api/repositoryTypes.js').RepositoryProbeDto>,
+ *   }) => Promise<import('../api/repositoriesApi.js').RepositoryProbeDto>,
  *   isPending: boolean,
  *   error: unknown,
  *   reset: Function,

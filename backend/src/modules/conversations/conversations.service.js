@@ -5,33 +5,290 @@ import { ApiError } from '../../platform/errors.js';
 import { recordAuditEvent } from '../audit/index.js';
 import { adjustProjectConversationCount } from '../projects/index.js';
 import {
+  CONVERSATION_AUTO_TITLE_MAX_INPUT_CHARS,
   CONVERSATION_DEFAULT_TITLE,
+  CONVERSATION_SEARCH_MIN_QUERY_LENGTH,
+  CONVERSATION_SEARCH_SNIPPET_MAX_CHARS,
   CONVERSATION_TITLE_MAX_LENGTH,
+  CONVERSATION_TRUNCATED_TITLE_MAX_CHARS,
 } from './conversations.constants.js';
 import {
-  assertConversationArchiveAllowed,
-  assertConversationRestoreAllowed,
-  assertConversationWritable,
-} from './conversations.lifecycle.js';
-import {
   archiveOwnConversation,
+  findConversationInProject,
   findOwnConversation,
   insertConversation,
   listMessagesForConversation,
   listOwnConversations,
   listRecentMessages as listRecentMessagesInRepo,
+  refreshConversationSearchText,
   restoreOwnConversation,
   searchOwnConversations,
   softDeleteOwnConversation,
   updateConversationTitleFields,
 } from './conversations.repository.js';
-import { parseConversationSearchQuery, buildConversationSnippet } from './conversations.search.js';
-import {
-  mapConversationToDto,
-  mapConversationToListDto,
-  mapConversationToSearchDto,
-  mapMessageToDto,
-} from './conversations.types.js';
+
+/**
+ * Formats a date as ISO-8601, or empty string when missing.
+ * @param {unknown} value Date or string.
+ * @returns {string}
+ */
+function toIsoOrEmpty(value) {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  return String(value ?? '');
+}
+
+/**
+ * Formats a date as ISO-8601, or null when missing.
+ * @param {unknown} value Date or string.
+ * @returns {string | null}
+ */
+function toIsoOrNull(value) {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  if (value == null || value === '') {
+    return null;
+  }
+  return String(value);
+}
+
+/**
+ * Maps a conversation row to the create/get/patch header.
+ * @param {object} conversation Conversation document or lean object.
+ * @returns {object}
+ */
+export function mapConversationToDto(conversation) {
+  return {
+    id: String(conversation._id ?? conversation.id),
+    projectId: String(conversation.projectId),
+    title: conversation.title,
+    titleSource: conversation.titleSource,
+    lifecycleStatus: conversation.lifecycleStatus,
+    ownerUserId: String(conversation.ownerUserId),
+    messageCount: conversation.messageCount ?? 0,
+    lastMessageAt: toIsoOrNull(conversation.lastMessageAt),
+    archivedAt: toIsoOrNull(conversation.archivedAt),
+    createdAt: toIsoOrEmpty(conversation.createdAt),
+    updatedAt: toIsoOrEmpty(conversation.updatedAt),
+  };
+}
+
+/**
+ * Maps a conversation row to the list item (no ownerUserId).
+ * @param {object} conversation Conversation document or lean object.
+ * @returns {object}
+ */
+export function mapConversationToListDto(conversation) {
+  return {
+    id: String(conversation._id ?? conversation.id),
+    title: conversation.title,
+    lifecycleStatus: conversation.lifecycleStatus,
+    messageCount: conversation.messageCount ?? 0,
+    lastMessageAt: toIsoOrNull(conversation.lastMessageAt),
+    updatedAt: toIsoOrEmpty(conversation.updatedAt),
+  };
+}
+
+/**
+ * Maps a message row to the thread list item. Null reserved fields are omitted.
+ * @param {object} message Message document or lean object.
+ * @returns {object}
+ */
+export function mapMessageToDto(message) {
+  /** @type {Record<string, unknown>} */
+  const dto = {
+    id: String(message._id ?? message.id),
+    role: message.role,
+    content: message.content,
+    messageStatus: message.messageStatus,
+    createdAt: toIsoOrEmpty(message.createdAt),
+  };
+  if (message.evidence != null) {
+    dto.evidence = message.evidence;
+  }
+  if (message.usage != null) {
+    dto.usage = message.usage;
+  }
+  if (message.contextMetrics != null) {
+    dto.contextMetrics = message.contextMetrics;
+  }
+  return dto;
+}
+
+/**
+ * Maps a conversation row to a search hit with a snippet.
+ * @param {object} conversation Conversation document or lean object.
+ * @param {string} snippet Plain-text snippet.
+ * @returns {object}
+ */
+export function mapConversationToSearchDto(conversation, snippet) {
+  return {
+    id: String(conversation._id ?? conversation.id),
+    title: conversation.title,
+    snippet,
+    updatedAt: toIsoOrEmpty(conversation.updatedAt),
+    titleSource: conversation.titleSource,
+  };
+}
+
+/**
+ * Throws when an archived conversation cannot accept writes (Phase 50).
+ * Cross-owner and missing rows are 404, not 403.
+ * @param {object | null | undefined} conversation Loaded conversation row.
+ * @param {import('mongoose').Types.ObjectId | string} userId Caller user id.
+ * @throws {import('../../platform/errors.js').ApiError}
+ */
+export function assertConversationWritable(conversation, userId) {
+  if (!conversation) {
+    throw ApiError.fromCode('CONVERSATION_NOT_FOUND');
+  }
+  if (String(conversation.ownerUserId) !== String(userId)) {
+    throw ApiError.fromCode('CONVERSATION_NOT_FOUND');
+  }
+  if (conversation.lifecycleStatus !== 'active') {
+    throw ApiError.fromCode('INVALID_STATE_TRANSITION', {
+      details: { from: conversation.lifecycleStatus, to: 'write' },
+    });
+  }
+}
+
+/**
+ * Throws unless the conversation can move to archived.
+ * @param {object} conversation Loaded conversation row.
+ * @throws {import('../../platform/errors.js').ApiError} INVALID_STATE_TRANSITION
+ */
+export function assertConversationArchiveAllowed(conversation) {
+  if (conversation.lifecycleStatus !== 'active') {
+    throw ApiError.fromCode('INVALID_STATE_TRANSITION', {
+      details: { from: conversation.lifecycleStatus, to: 'archived' },
+    });
+  }
+}
+
+/**
+ * Throws unless the conversation can move back to active.
+ * @param {object} conversation Loaded conversation row.
+ * @throws {import('../../platform/errors.js').ApiError} INVALID_STATE_TRANSITION
+ */
+export function assertConversationRestoreAllowed(conversation) {
+  if (conversation.lifecycleStatus !== 'archived') {
+    throw ApiError.fromCode('INVALID_STATE_TRANSITION', {
+      details: { from: conversation.lifecycleStatus, to: 'active' },
+    });
+  }
+}
+
+/**
+ * Normalizes and validates a search query string.
+ * @param {unknown} raw Raw `q` value.
+ * @returns {string}
+ * @throws {import('../../platform/errors.js').ApiError} VALIDATION_ERROR
+ */
+export function parseConversationSearchQuery(raw) {
+  if (typeof raw !== 'string') {
+    throw ApiError.fromCode('VALIDATION_ERROR', {
+      details: [{ path: 'q', message: 'q is required' }],
+    });
+  }
+  const query = raw.trim();
+  if (query.length < CONVERSATION_SEARCH_MIN_QUERY_LENGTH) {
+    throw ApiError.fromCode('VALIDATION_ERROR', {
+      details: [
+        {
+          path: 'q',
+          message: `q must be at least ${CONVERSATION_SEARCH_MIN_QUERY_LENGTH} characters`,
+        },
+      ],
+    });
+  }
+  return query;
+}
+
+/**
+ * Builds a plain-text snippet from title or searchText, capped and ellipsized.
+ * @param {{ title?: string, searchText?: string }} conversation Conversation fields.
+ * @param {string} query Search query.
+ * @param {number} [maxChars] Snippet cap.
+ * @returns {string}
+ */
+export function buildConversationSnippet(conversation, query, maxChars) {
+  const cap = maxChars ?? CONVERSATION_SEARCH_SNIPPET_MAX_CHARS;
+  const title = typeof conversation.title === 'string' ? conversation.title : '';
+  const searchText = typeof conversation.searchText === 'string' ? conversation.searchText : '';
+  const needle = query.toLowerCase();
+  const source = title.toLowerCase().includes(needle) ? title : searchText || title;
+  if (source.length <= cap) {
+    return source;
+  }
+  if (cap <= 3) {
+    return source.slice(0, cap);
+  }
+  return `${source.slice(0, cap - 3)}...`;
+}
+
+/**
+ * Truncates user text into a title-safe string.
+ * @param {string} text Source text.
+ * @param {number} maxChars Cap.
+ * @returns {string}
+ */
+export function truncateUserTextTitle(text, maxChars) {
+  const collapsed = text.replace(/\s+/g, ' ').trim();
+  if (!collapsed) {
+    return '';
+  }
+  if (collapsed.length <= maxChars) {
+    return collapsed;
+  }
+  return collapsed.slice(0, maxChars).trimEnd();
+}
+
+/**
+ * Sets a truncated first-user-message title when the row still has the default title.
+ * Does not call a model. Missing rows and non-default titles are no-ops so `done` is never blocked.
+ * @param {{
+ *   orgId: import('mongoose').Types.ObjectId | string,
+ *   projectId: string,
+ *   conversationId: string,
+ *   firstUserContent?: string,
+ *   assistantMessageId?: string,
+ * }} input Auto-title inputs.
+ * @returns {Promise<void>}
+ */
+export async function scheduleConversationAutoTitle(input) {
+  const raw =
+    typeof input.firstUserContent === 'string'
+      ? input.firstUserContent.slice(0, CONVERSATION_AUTO_TITLE_MAX_INPUT_CHARS)
+      : '';
+  const title = truncateUserTextTitle(raw, CONVERSATION_TRUNCATED_TITLE_MAX_CHARS);
+  if (!title) {
+    return;
+  }
+
+  const conversation = await findConversationInProject(
+    input.orgId,
+    input.projectId,
+    input.conversationId,
+  );
+  if (!conversation || conversation.titleSource !== 'default') {
+    return;
+  }
+
+  await updateConversationTitleFields({
+    orgId: input.orgId,
+    projectId: input.projectId,
+    conversationId: input.conversationId,
+    title,
+    titleSource: 'truncated_user_text',
+  });
+  await refreshConversationSearchText({
+    orgId: input.orgId,
+    projectId: input.projectId,
+    conversationId: input.conversationId,
+  });
+}
 
 /**
  * Loads a conversation the caller owns or throws CONVERSATION_NOT_FOUND.
@@ -409,4 +666,4 @@ export async function searchConversations(input) {
   };
 }
 
-export { assertConversationWritable, CONVERSATION_DEFAULT_TITLE };
+export { CONVERSATION_DEFAULT_TITLE };

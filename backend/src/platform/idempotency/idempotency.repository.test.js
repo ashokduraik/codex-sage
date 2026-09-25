@@ -6,7 +6,7 @@ import {
   buildIdempotencyRouteLabel,
   isMongoDuplicateKeyError,
 } from './idempotency.repository.js';
-import { IdempotencyReplay } from './idempotencyReplay.js';
+import { IdempotencyReplay } from './idempotency.middleware.js';
 
 describe('buildIdempotencyRouteLabel', () => {
   it('uppercases the method and keeps the path template', () => {

@@ -1,6 +1,5 @@
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import { listUsers } from './adminIdentityApi.js';
-import { adminUsersQueryKey } from './adminKeys.js';
+import { adminUsersQueryKey, listUsers } from './adminIdentityApi.js';
 
 /**
  * Lists admin users for the given filters/cursor (filters belong in the query key).

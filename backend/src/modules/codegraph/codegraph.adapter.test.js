@@ -6,11 +6,14 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  CODEGRAPH_TELEMETRY_ENV_KEYS,
+  configureCodegraphTelemetryOff,
   createCodegraphAdapter,
   inspectQuerySurface,
+  isCodegraphTelemetryConfigured,
   mapCodegraphLibraryError,
+  resetCodegraphTelemetryConfiguredFlag,
 } from './codegraph.adapter.js';
-import { resetCodegraphTelemetryConfiguredFlag } from './codegraph.telemetry.js';
 import { resetWriterLocksForTests } from './codegraph.writerLock.js';
 
 describe('codegraph.adapter', () => {
@@ -451,5 +454,27 @@ describe('codegraph.adapter', () => {
   it('isCodegraphLoadable returns true when the package imports', async () => {
     const { isCodegraphLoadable } = await import('./codegraph.adapter.js');
     await expect(isCodegraphLoadable()).resolves.toBe(true);
+  });
+});
+
+describe('codegraph telemetry', () => {
+  afterEach(() => {
+    resetCodegraphTelemetryConfiguredFlag();
+  });
+
+  it('sets telemetry-off env keys and marks configured', () => {
+    expect(isCodegraphTelemetryConfigured()).toBe(false);
+    configureCodegraphTelemetryOff();
+    expect(process.env.CODEGRAPH_TELEMETRY).toBe('0');
+    expect(process.env.DO_NOT_TRACK).toBe('1');
+    expect(isCodegraphTelemetryConfigured()).toBe(true);
+    expect(CODEGRAPH_TELEMETRY_ENV_KEYS).toContain('CODEGRAPH_TELEMETRY');
+  });
+
+  it('is idempotent across repeated configure calls', () => {
+    configureCodegraphTelemetryOff();
+    configureCodegraphTelemetryOff();
+    expect(process.env.CODEGRAPH_TELEMETRY).toBe('0');
+    expect(isCodegraphTelemetryConfigured()).toBe(true);
   });
 });

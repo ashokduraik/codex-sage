@@ -2,7 +2,7 @@
  * Project DTO mapping.
  */
 import { describe, expect, it } from 'vitest';
-import { mapProjectToDto } from './projects.types.js';
+import { mapProjectToDto } from './projects.service.js';
 
 describe('mapProjectToDto', () => {
   const base = {

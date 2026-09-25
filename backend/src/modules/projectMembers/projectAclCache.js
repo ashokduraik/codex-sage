@@ -2,6 +2,7 @@
  * Process-local TTL cache for resolved project ACL entries.
  * Entries are tagged with organization.aclVersion; stale versions are discarded on read.
  */
+import { bumpOrganizationAclVersion } from '../identity/organization.repository.js';
 
 /** Worst-case staleness when aclVersion is unchanged (milliseconds). */
 export const PROJECT_ACL_CACHE_TTL_MS = 5000;
@@ -193,4 +194,15 @@ export function invalidateProjectAclCache(orgId) {
  */
 export function configureProjectAclCache(env) {
   projectAclCache.setEnabled(!env.isTest);
+}
+
+/**
+ * Increments organization.aclVersion and invalidates the local project ACL cache.
+ * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
+ * @param {{ session?: import('mongoose').ClientSession }} [options] Optional session.
+ * @returns {Promise<void>}
+ */
+export async function bumpProjectAclVersion(orgId, options = {}) {
+  await bumpOrganizationAclVersion(orgId, options);
+  invalidateProjectAclCache(String(orgId));
 }

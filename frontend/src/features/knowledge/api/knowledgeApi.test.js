@@ -15,16 +15,17 @@ vi.mock('@/shared/api', async () => {
 });
 
 import {
+  fetchChangeSummary,
   fetchKnowledgeApis,
   fetchKnowledgeFacets,
   fetchKnowledgeHealth,
   fetchKnowledgeSummary,
   fetchKnowledgeSymbols,
   fetchKnowledgeWorkflows,
+  fetchProjectSearch,
+  fetchSourceFileMetadata,
+  fetchSourceSlice,
 } from './knowledgeApi.js';
-import { fetchProjectSearch } from './searchApi.js';
-import { fetchSourceFileMetadata, fetchSourceSlice } from './previewApi.js';
-import { fetchChangeSummary } from './changesApi.js';
 
 describe('knowledge HTTP fetchers', () => {
   afterEach(() => {

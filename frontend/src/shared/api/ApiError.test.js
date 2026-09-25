@@ -4,10 +4,17 @@ import {
   ApiError,
   apiErrorFromNetworkFailure,
   apiErrorFromResponse,
+  correlationFromUnknown,
+  ERROR_CODE_MESSAGES,
+  getErrorMessageEntry,
+  isForbiddenApiError,
+  isNotFoundApiError,
   isRequestAbortedError,
+  messageFromUnknown,
   parseRetryAfterSeconds,
   RequestAbortedError,
   resolveRetryAfterSeconds,
+  retryAfterFromUnknown,
 } from './ApiError.js';
 
 /**
@@ -118,5 +125,78 @@ describe('ApiError helpers', () => {
     expect(isRequestAbortedError(new ApiError({ status: 0, code: 'NETWORK', message: 'x' }))).toBe(
       false,
     );
+  });
+});
+
+describe('errorMessages', () => {
+  it('maps every known catalog code to an i18n key and category', () => {
+    expect(ERROR_CODE_MESSAGES.VALIDATION_ERROR.category).toBe('validation');
+    expect(ERROR_CODE_MESSAGES.UNAUTHENTICATED.category).toBe('authorization');
+    expect(ERROR_CODE_MESSAGES.RATE_LIMITED.category).toBe('rate_limited');
+    expect(ERROR_CODE_MESSAGES.SERVICE_UNAVAILABLE.category).toBe('temporary');
+    expect(ERROR_CODE_MESSAGES.INTERNAL_ERROR.category).toBe('system');
+    expect(getErrorMessageEntry('SESSION_EXPIRED').i18nKey).toBe(
+      'errors.codes.SESSION_EXPIRED',
+    );
+  });
+
+  it('falls back to the generic unexpected entry for unknown codes', () => {
+    const entry = getErrorMessageEntry('SOME_FUTURE_CODE');
+    expect(entry.i18nKey).toBe('errors.unexpected');
+    expect(entry.category).toBe('system');
+  });
+});
+
+describe('unknownError', () => {
+  it('prefers ApiError message then Error.message then fallback', () => {
+    expect(
+      messageFromUnknown(
+        new ApiError({ status: 401, code: 'X', message: 'from-api' }),
+        'fallback',
+      ),
+    ).toBe('from-api');
+    expect(messageFromUnknown(new Error('plain'), 'fallback')).toBe('plain');
+    expect(messageFromUnknown('nope', 'fallback')).toBe('fallback');
+    expect(messageFromUnknown(new Error(''), 'fallback')).toBe('fallback');
+    expect(
+      messageFromUnknown(new ApiError({ status: 400, code: 'X', message: '' }), 'fallback'),
+    ).toBe('fallback');
+  });
+
+  it('reads correlation and retry-after only from ApiError', () => {
+    const api = new ApiError({
+      status: 429,
+      code: 'RATE_LIMITED',
+      message: 'slow',
+      correlationId: 'corr-1',
+      retryAfterSeconds: 12,
+    });
+    expect(correlationFromUnknown(api)).toBe('corr-1');
+    expect(retryAfterFromUnknown(api)).toBe(12);
+    expect(correlationFromUnknown(new Error('x'))).toBe('');
+    expect(correlationFromUnknown(null)).toBe('');
+    expect(
+      correlationFromUnknown(new ApiError({ status: 401, code: 'X', message: 'm' })),
+    ).toBe('');
+    expect(retryAfterFromUnknown(new Error('x'))).toBeUndefined();
+  });
+
+  it('detects forbidden and not-found by status or code', () => {
+    expect(
+      isForbiddenApiError(new ApiError({ status: 403, code: 'X', message: 'n' })),
+    ).toBe(true);
+    expect(
+      isForbiddenApiError(new ApiError({ status: 400, code: 'FORBIDDEN', message: 'n' })),
+    ).toBe(true);
+    expect(isForbiddenApiError(new ApiError({ status: 400, code: 'X', message: 'n' }))).toBe(
+      false,
+    );
+    expect(isNotFoundApiError(new ApiError({ status: 404, code: 'X', message: 'n' }))).toBe(
+      true,
+    );
+    expect(
+      isNotFoundApiError(new ApiError({ status: 400, code: 'NOT_FOUND', message: 'n' })),
+    ).toBe(true);
+    expect(isNotFoundApiError(new Error('x'))).toBe(false);
   });
 });

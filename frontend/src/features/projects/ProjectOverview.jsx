@@ -12,9 +12,9 @@ import {
 import { useTranslation } from 'react-i18next';
 import { EmptyState, KnowledgeHealthBadge } from '@/shared/components';
 import { Button } from '@/shared/ui/button';
-import { useActiveProjectJob } from '@/features/processing/hooks/useActiveProjectJob.js';
-import { jobTypeLabelKey, stageLabelKey } from '@/features/processing/jobProgressMap.js';
-import { isProjectAskable } from './projectStatusMap.js';
+import { useActiveProjectJob } from '@/features/projects/processing/hooks/useActiveProjectJob.js';
+import { jobTypeLabelKey, stageLabelKey } from '@/features/projects/processing/jobProgressMap.js';
+import { isProjectAskable } from '@/shared/components/StatusBadge.jsx';
 
 const SECTION_DEFS = [
   { key: 'Workflow', labelKey: 'projects.workflows', icon: Workflow },

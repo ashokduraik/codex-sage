@@ -12,7 +12,7 @@ import {
   UploadCloud,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { ApiError } from '@/shared/api';
+import { ApiError, correlationFromUnknown, messageFromUnknown } from '@/shared/api';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
@@ -37,14 +37,30 @@ import {
 import { formatDateTime } from '@/shared/lib/format';
 import { SourceUploadDialog } from './SourceUploadDialog';
 import { ConnectRepositoryDialog } from './ConnectRepositoryDialog';
-import { connectionStatusLabelKey } from './connectionStatusMap.js';
 import { flattenSourceVersionPages, useSourceVersions } from './hooks/useSourceVersions.js';
 import { useRepositoryConnection } from './hooks/useRepositoryConnection.js';
 import { useRepositoryCredentialActions } from './hooks/useRepositoryCredentialActions.js';
-import {
-  correlationFromProjectError,
-  messageFromProjectError,
-} from './projectErrors.js';
+
+/** @type {Readonly<Record<string, string>>} */
+const CONNECTION_STATUS_LABEL_KEYS = Object.freeze({
+  connected: 'sources.connectionStatus.connected',
+  authentication_required: 'sources.connectionStatus.authenticationRequired',
+  access_denied: 'sources.connectionStatus.accessDenied',
+  not_found: 'sources.connectionStatus.notFound',
+  unreachable: 'sources.connectionStatus.unreachable',
+});
+
+/**
+ * i18n key for a connection status, or the unknown fallback.
+ * @param {string | null | undefined} code Backend connectionStatus.
+ * @returns {string}
+ */
+export function connectionStatusLabelKey(code) {
+  if (typeof code !== 'string' || code.length === 0) {
+    return 'sources.connectionStatus.unknown';
+  }
+  return CONNECTION_STATUS_LABEL_KEYS[code] ?? 'sources.connectionStatus.unknown';
+}
 
 /**
  * Label/value row for source metadata.
@@ -152,10 +168,10 @@ export default function SourcesPanel() {
 
         {listError ? (
           <div role="alert" className="mt-5 text-sm">
-            <p>{messageFromProjectError(listError, t('sources.listFailed'))}</p>
-            {correlationFromProjectError(listError) ? (
+            <p>{messageFromUnknown(listError, t('sources.listFailed'))}</p>
+            {correlationFromUnknown(listError) ? (
               <p className="mt-1 text-xs text-muted-foreground">
-                {t('errors.correlationId', { id: correlationFromProjectError(listError) })}
+                {t('errors.correlationId', { id: correlationFromUnknown(listError) })}
               </p>
             ) : null}
             <Button
@@ -262,7 +278,7 @@ export default function SourcesPanel() {
             <div role="alert" className="mt-2 text-xs text-red-700">
               {actionError instanceof ApiError && actionError.status === 403
                 ? t('errors.forbidden')
-                : messageFromProjectError(actionError, t('sources.actionFailed'))}
+                : messageFromUnknown(actionError, t('sources.actionFailed'))}
             </div>
           ) : null}
         </div>

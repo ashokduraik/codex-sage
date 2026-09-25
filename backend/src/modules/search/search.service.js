@@ -4,10 +4,10 @@
 import { ROW_STATUS_ACTIVE } from '../../platform/data/index.js';
 import { ApiError } from '../../platform/errors.js';
 import { createCodegraphAdapter } from '../codegraph/index.js';
+import { searchDocumentSections } from '../documents/index.js';
 import { assertKnowledgeReadable, findKnowledgeVersionById } from '../knowledge/index.js';
 import { findProjectById } from '../projects/index.js';
-import { resolveProjectWorkspacePath } from '../workspace/index.js';
-import { SEARCH_GRAPH_MAX_RESULTS, SEARCH_GRAPH_TYPES } from './search.constants.js';
+import { resolveProjectWorkspacePath } from '../sources/index.js';
 import {
   compareSearchItems,
   decodeSearchCursor,
@@ -17,13 +17,57 @@ import {
 import {
   isFileLikeNode,
   mapApiSearchItem,
+  mapDocSearchItem,
   mapGraphSearchItem,
   mapWorkflowSearchItem,
   matchesQueryText,
   unwrapGraphNode,
 } from './search.mapper.js';
-import { searchProjectDocuments } from './search.repository.js';
 import { parseSearchQuery } from './search.schemas.js';
+
+export {
+  SEARCH_PAGE_SIZE,
+  SEARCH_QUERY_MIN_LEN,
+  SEARCH_TYPES,
+} from './search.schemas.js';
+export { SEARCH_SNIPPET_MAX_CHARS, SEARCH_TYPE_ORDER } from './search.ids.js';
+
+/** Per-type CodeGraph cap before merge. */
+export const SEARCH_GRAPH_MAX_RESULTS = 15;
+
+/** Document FTS cap before merge. */
+export const SEARCH_DOC_MAX_RESULTS = 15;
+
+/** Graph-backed type tokens. */
+export const SEARCH_GRAPH_TYPES = Object.freeze(['code', 'symbol', 'workflow', 'api']);
+
+/**
+ * Runs scoped document FTS and maps hits to search items.
+ * @param {{
+ *   orgId: string,
+ *   projectId: string,
+ *   sourceVersionId: string,
+ *   knowledgeVersionId: string,
+ *   q: string,
+ *   limit?: number,
+ * }} input Scope + query.
+ * @param {{
+ *   searchSections?: typeof searchDocumentSections,
+ * }} [deps] Test seams.
+ * @returns {Promise<object[]>}
+ */
+export async function searchProjectDocuments(input, deps = {}) {
+  const searchSections = deps.searchSections ?? searchDocumentSections;
+  const rows = await searchSections(
+    {
+      orgId: input.orgId,
+      projectId: input.projectId,
+      sourceVersionId: input.sourceVersionId,
+    },
+    { q: input.q, limit: input.limit ?? SEARCH_DOC_MAX_RESULTS },
+  );
+  return rows.map((row) => mapDocSearchItem(row, input.knowledgeVersionId)).filter(Boolean);
+}
 
 /**
  * Maps a gate action to the search wrapper state.

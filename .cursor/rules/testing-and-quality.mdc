@@ -8,7 +8,7 @@ alwaysApply: true
 - **Testing frameworks + ≥ 80% coverage:** see `testing-standards.mdc` and `test-coverage.mdc`.
   Colocate tests; cross-app E2E goes in a Playwright suite when present.
 - Test the **public surface** of a module, not its internals.
-- **Small, single-purpose files** with descriptive names over large grab-bag files.
+- **Descriptive file names.** Helpers stay in the owning file; see `file-colocation.mdc`.
 - **No deep cross-module imports** — modules expose a public surface (`index.js`).
 - **Document every function** with JSDoc (purpose, params, returns). Other comments explain
   **why / intent**, not a line-by-line narration of what the code does.

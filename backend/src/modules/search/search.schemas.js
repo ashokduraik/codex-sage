@@ -3,11 +3,15 @@
  */
 import { z } from 'zod';
 import { ApiError } from '../../platform/errors.js';
-import {
-  SEARCH_PAGE_SIZE,
-  SEARCH_QUERY_MIN_LEN,
-  SEARCH_TYPES,
-} from './search.constants.js';
+
+/** Minimum search query length. */
+export const SEARCH_QUERY_MIN_LEN = 2;
+
+/** Default and max page size for search results. */
+export const SEARCH_PAGE_SIZE = 25;
+
+/** Supported search type tokens. */
+export const SEARCH_TYPES = Object.freeze(['code', 'doc', 'symbol', 'workflow', 'api']);
 
 /**
  * Maps zod issues to VALIDATION_ERROR details.
@@ -73,13 +77,6 @@ export function clampSearchLimit(limit) {
   return Math.min(Math.floor(parsed), SEARCH_PAGE_SIZE);
 }
 
-const searchQuerySchema = z.object({
-  q: z.string().trim().min(SEARCH_QUERY_MIN_LEN),
-  types: z.string().optional(),
-  cursor: z.string().min(1).optional(),
-  limit: z.coerce.number().int().optional(),
-});
-
 /**
  * Parses and validates the search query string.
  * @param {unknown} query Fastify query object.
@@ -87,6 +84,12 @@ const searchQuerySchema = z.object({
  * @throws {ApiError}
  */
 export function parseSearchQuery(query) {
+  const searchQuerySchema = z.object({
+    q: z.string().trim().min(SEARCH_QUERY_MIN_LEN),
+    types: z.string().optional(),
+    cursor: z.string().min(1).optional(),
+    limit: z.coerce.number().int().optional(),
+  });
   const parsed = searchQuerySchema.safeParse(query ?? {});
   if (!parsed.success) {
     throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });

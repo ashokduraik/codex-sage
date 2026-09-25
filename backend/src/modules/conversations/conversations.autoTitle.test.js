@@ -11,7 +11,7 @@ import {
 import {
   scheduleConversationAutoTitle,
   truncateUserTextTitle,
-} from './conversations.autoTitle.js';
+} from './conversations.service.js';
 import { Conversation } from './conversations.model.js';
 import { Message } from './messages.model.js';
 import { insertConversation } from './conversations.repository.js';

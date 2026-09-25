@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { fetchPermissionsCatalog } from './adminIdentityApi.js';
-import { ADMIN_PERMISSIONS_QUERY_KEY } from './adminKeys.js';
+import { ADMIN_PERMISSIONS_QUERY_KEY, fetchPermissionsCatalog } from './adminIdentityApi.js';
 
 /**
  * Loads the backend permission catalog (labels/groups for AdminRoles).

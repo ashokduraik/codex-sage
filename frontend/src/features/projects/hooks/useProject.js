@@ -2,8 +2,7 @@
  * Project detail query.
  */
 import { useQuery } from '@tanstack/react-query';
-import { getProject } from '@/features/projects/api/projectsApi.js';
-import { projectDetailQueryKey } from '@/features/projects/api/projectKeys.js';
+import { getProject, projectDetailQueryKey } from '@/features/projects/api/projectsApi.js';
 
 /**
  * Loads one project by id.

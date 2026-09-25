@@ -6,8 +6,7 @@ import { createCodegraphAdapter } from '../codegraph/index.js';
 import { findDocumentSectionById } from '../documents/index.js';
 import { assertKnowledgeReadable, findKnowledgeVersionById } from '../knowledge/index.js';
 import { findProjectById } from '../projects/index.js';
-import { resolveProjectWorkspacePath } from '../workspace/index.js';
-import { SEARCH_GRAPH_MAX_RESULTS, SEARCH_TYPES } from './search.constants.js';
+import { resolveProjectWorkspacePath } from '../sources/index.js';
 import { decodeOpaqueKey, parseSearchResultId } from './search.ids.js';
 import {
   mapApiSearchItem,
@@ -16,7 +15,11 @@ import {
   mapWorkflowSearchItem,
   toResolverEvidence,
 } from './search.mapper.js';
-import { collectGraphSearchItems } from './search.service.js';
+import { SEARCH_TYPES } from './search.schemas.js';
+import {
+  collectGraphSearchItems,
+  SEARCH_GRAPH_MAX_RESULTS,
+} from './search.service.js';
 
 /**
  * @typedef {{

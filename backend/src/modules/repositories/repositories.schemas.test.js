@@ -8,7 +8,7 @@ import {
   patchBranchBodySchema,
   probeBodySchema,
   replaceCredentialBodySchema,
-} from './repositories.schemas.js';
+} from './repositories.routes.js';
 
 describe('repositories.schemas', () => {
   it('accepts a probe body with or without a token', () => {

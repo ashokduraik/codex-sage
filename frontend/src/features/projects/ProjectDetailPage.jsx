@@ -21,7 +21,11 @@ import {
   useNavigate,
   useParams,
 } from 'react-router-dom';
-import { ProjectLifecycleBadge } from '@/shared/components';
+import {
+  ProjectLifecycleBadge,
+  isProjectArchived,
+  isProjectAskable,
+} from '@/shared/components/StatusBadge.jsx';
 import { useAppData } from '@/shared/mock-data';
 import { cn } from '@/shared/lib/utils';
 import {
@@ -36,7 +40,6 @@ import {
 } from '@/shared/ui/alert-dialog';
 import { Button } from '@/shared/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/shared/ui/popover';
-import { buildMockProjectBridge } from './buildMockProjectBridge.js';
 import { ProjectDeleteDialog } from './ProjectDeleteDialog.jsx';
 import { useProject } from './hooks/useProject.js';
 import {
@@ -45,13 +48,12 @@ import {
 } from './hooks/useProjectMutations.js';
 import { useRecordProjectAccess } from './hooks/useRecordProjectAccess.js';
 import {
-  correlationFromProjectError,
-  isForbiddenProjectError,
-  isNotFoundProjectError,
-  messageFromProjectError,
-  retryAfterFromProjectError,
-} from './projectErrors.js';
-import { isProjectArchived, isProjectAskable } from './projectStatusMap.js';
+  correlationFromUnknown,
+  isForbiddenApiError,
+  isNotFoundApiError,
+  messageFromUnknown,
+  retryAfterFromUnknown,
+} from '@/shared/api';
 
 const PROJECT_TABS = [
   { to: '', labelKey: 'projects.overview', icon: LayoutDashboard },
@@ -62,6 +64,84 @@ const PROJECT_TABS = [
   { to: '/sources', labelKey: 'sources.title', icon: Database },
   { to: '/health', labelKey: 'health.title', icon: HeartPulse },
 ];
+
+/**
+ * Maps backend lifecycle codes onto legacy mock status display strings for panels.
+ * @param {string} lifecycleStatus Backend code.
+ * @returns {string}
+ */
+function mockStatusFromLifecycle(lifecycleStatus) {
+  /** @type {Record<string, string>} */
+  const map = {
+    creating: 'Creating',
+    awaiting_source: 'Awaiting source',
+    connecting_repository: 'Connecting repository',
+    source_received: 'Source received',
+    processing: 'Processing',
+    knowledge_ready: 'Knowledge ready',
+    updating: 'Updating',
+    failed: 'Failed',
+    partially_available: 'Partially available',
+    archived: 'Archived',
+  };
+  return map[lifecycleStatus] ?? 'Creating';
+}
+
+/**
+ * Maps backend knowledgeHealth onto legacy mock knowledge status strings.
+ * @param {string} knowledgeHealth Backend code.
+ * @returns {string}
+ */
+function mockKnowledgeFromHealth(knowledgeHealth) {
+  /** @type {Record<string, string>} */
+  const map = {
+    none: 'Needs attention',
+    updating: 'Updating',
+    ready: 'Ready',
+    partially_available: 'Partially available',
+    stale: 'Outdated',
+    failed: 'Needs attention',
+  };
+  return map[knowledgeHealth] ?? 'Needs attention';
+}
+
+/**
+ * Builds the mock-shaped project bridge for panels still on useAppData fields.
+ * @param {import('./api/projectsApi.js').ProjectDto} apiProject API project DTO.
+ * @param {object | undefined} mockFallback Optional mock project from AppData.
+ * @returns {object} Mock-compatible project for Sources/Health/Chat/Knowledge.
+ */
+export function buildMockProjectBridge(apiProject, mockFallback) {
+  if (mockFallback) {
+    return {
+      ...mockFallback,
+      id: apiProject.id,
+      name: apiProject.name,
+      description: apiProject.description ?? mockFallback.description,
+      status: mockStatusFromLifecycle(apiProject.lifecycleStatus),
+      knowledgeStatus: mockKnowledgeFromHealth(apiProject.knowledgeHealth),
+    };
+  }
+
+  const sourceType = apiProject.sourceConfig?.sourceType;
+  return {
+    id: apiProject.id,
+    name: apiProject.name,
+    description: apiProject.description ?? '',
+    status: mockStatusFromLifecycle(apiProject.lifecycleStatus),
+    knowledgeStatus: mockKnowledgeFromHealth(apiProject.knowledgeHealth),
+    knowledgeTree: [],
+    fileCount: apiProject.counts?.files ?? 0,
+    excludedCount: apiProject.counts?.excludedFiles ?? 0,
+    partial: (apiProject.counts?.excludedFiles ?? 0) > 0,
+    source:
+      sourceType === 'repository'
+        ? { type: 'repo', fullName: '', url: '', branch: '' }
+        : { type: 'upload', origin: 'Upload' },
+    createdAt: apiProject.createdAt,
+    createdBy: apiProject.createdBy ?? '',
+  };
+}
 
 /**
  * Project detail shell with sub-navigation and nested tab routes.
@@ -78,7 +158,7 @@ export default function ProjectDetailPage() {
   const archiveMutation = useArchiveProject();
   const restoreMutation = useRestoreProject();
   useRecordProjectAccess(id, {
-    enabled: detailQuery.isSuccess && !isNotFoundProjectError(detailQuery.error),
+    enabled: detailQuery.isSuccess && !isNotFoundApiError(detailQuery.error),
   });
 
   const [activeConvId, setActiveConvId] = useState(null);
@@ -117,7 +197,7 @@ export default function ProjectDetailPage() {
     );
   }
 
-  if (detailQuery.isError && isNotFoundProjectError(detailQuery.error)) {
+  if (detailQuery.isError && isNotFoundApiError(detailQuery.error)) {
     return (
       <div className="flex h-full items-center justify-center">
         <div className="text-center">
@@ -135,8 +215,8 @@ export default function ProjectDetailPage() {
   }
 
   if (detailQuery.isError || !apiProject || !id || !context) {
-    const message = messageFromProjectError(detailQuery.error, t('projects.detailFailed'));
-    const correlationId = correlationFromProjectError(detailQuery.error);
+    const message = messageFromUnknown(detailQuery.error, t('projects.detailFailed'));
+    const correlationId = correlationFromUnknown(detailQuery.error);
     return (
       <div className="flex h-full items-center justify-center px-6">
         <div role="alert" className="max-w-md text-center">
@@ -169,9 +249,9 @@ export default function ProjectDetailPage() {
       onSuccess: () => setArchiveOpen(false),
       onError: (error) => {
         setActionError(
-          isForbiddenProjectError(error)
+          isForbiddenApiError(error)
             ? t('projects.forbidden')
-            : messageFromProjectError(error, t('projects.detailFailed')),
+            : messageFromUnknown(error, t('projects.detailFailed')),
         );
       },
     });
@@ -185,9 +265,9 @@ export default function ProjectDetailPage() {
     restoreMutation.mutate(id, {
       onError: (error) => {
         setActionError(
-          isForbiddenProjectError(error)
+          isForbiddenApiError(error)
             ? t('projects.forbidden')
-            : messageFromProjectError(error, t('projects.detailFailed')),
+            : messageFromUnknown(error, t('projects.detailFailed')),
         );
       },
     });
@@ -328,11 +408,11 @@ export default function ProjectDetailPage() {
       {actionError ? (
         <div role="alert" className="border-b border-destructive/30 bg-destructive/5 px-4 py-2 text-sm sm:px-6">
           {actionError}
-          {typeof retryAfterFromProjectError(archiveMutation.error || restoreMutation.error) ===
+          {typeof retryAfterFromUnknown(archiveMutation.error || restoreMutation.error) ===
           'number' ? (
             <span className="ml-2 text-muted-foreground">
               {t('projects.retryAfter', {
-                seconds: retryAfterFromProjectError(
+                seconds: retryAfterFromUnknown(
                   archiveMutation.error || restoreMutation.error,
                 ),
               })}

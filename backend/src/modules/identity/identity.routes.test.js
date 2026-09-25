@@ -20,7 +20,7 @@ import {
   findBuiltInRole,
   runBootstrapSeed,
 } from './index.js';
-import { containsForbiddenSecretKey } from './identity.mappers.js';
+import { containsForbiddenSecretKey } from './user.service.js';
 
 const harness = createMongoHarness({
   models: [...IDENTITY_MODELS, ...AUTH_MODELS, ...AUDIT_MODELS, ...IDEMPOTENCY_MODELS],

@@ -19,19 +19,20 @@ const fetchKnowledgeSymbols = vi.fn();
 const fetchSourceFileMetadata = vi.fn();
 const fetchSourceSlice = vi.fn();
 
-vi.mock('./api/knowledgeApi.js', () => ({
-  fetchKnowledgeFacets: (...args) => fetchKnowledgeFacets(...args),
-  fetchKnowledgeHealth: (...args) => fetchKnowledgeHealth(...args),
-  fetchKnowledgeWorkflows: (...args) => fetchKnowledgeWorkflows(...args),
-  fetchKnowledgeSummary: (...args) => fetchKnowledgeSummary(...args),
-  fetchKnowledgeApis: (...args) => fetchKnowledgeApis(...args),
-  fetchKnowledgeSymbols: (...args) => fetchKnowledgeSymbols(...args),
-}));
-
-vi.mock('./api/previewApi.js', () => ({
-  fetchSourceFileMetadata: (...args) => fetchSourceFileMetadata(...args),
-  fetchSourceSlice: (...args) => fetchSourceSlice(...args),
-}));
+vi.mock('./api/knowledgeApi.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    fetchKnowledgeFacets: (...args) => fetchKnowledgeFacets(...args),
+    fetchKnowledgeHealth: (...args) => fetchKnowledgeHealth(...args),
+    fetchKnowledgeWorkflows: (...args) => fetchKnowledgeWorkflows(...args),
+    fetchKnowledgeSummary: (...args) => fetchKnowledgeSummary(...args),
+    fetchKnowledgeApis: (...args) => fetchKnowledgeApis(...args),
+    fetchKnowledgeSymbols: (...args) => fetchKnowledgeSymbols(...args),
+    fetchSourceFileMetadata: (...args) => fetchSourceFileMetadata(...args),
+    fetchSourceSlice: (...args) => fetchSourceSlice(...args),
+  };
+});
 
 import {
   clearAuthSession,

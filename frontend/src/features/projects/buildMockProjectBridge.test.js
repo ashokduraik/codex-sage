@@ -2,7 +2,7 @@
  * buildMockProjectBridge mapping coverage.
  */
 import { describe, expect, it } from 'vitest';
-import { buildMockProjectBridge } from './buildMockProjectBridge.js';
+import { buildMockProjectBridge } from './ProjectDetailPage.jsx';
 
 /**
  * @param {Partial<object>} overrides

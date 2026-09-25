@@ -22,8 +22,7 @@ import {
   findMembership,
   softDeleteMembership,
 } from './membership.repository.js';
-import { Role } from './role.model.js';
-import { isBuiltInRoleKey } from './builtInRoles.js';
+import { isBuiltInRoleKey, Role } from './role.model.js';
 import { SLUG_PATTERN } from './organization.model.js';
 
 const harness = createMongoHarness({

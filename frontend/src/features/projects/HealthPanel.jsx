@@ -11,7 +11,7 @@ import { useTranslation } from 'react-i18next';
 import { KnowledgeHealthBadge } from '@/shared/components';
 import { Button } from '@/shared/ui/button';
 import { useRepositoryConnection } from './hooks/useRepositoryConnection.js';
-import { isProjectAskable, mapKnowledgeHealth } from './projectStatusMap.js';
+import { isProjectAskable, mapKnowledgeHealth } from '@/shared/components/StatusBadge.jsx';
 
 /**
  * Knowledge health checks and status for the current project.

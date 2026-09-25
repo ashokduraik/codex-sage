@@ -2,7 +2,7 @@ import { Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { cn } from '@/shared/lib/utils';
-import { jobTypeLabelKey, stageLabelKey } from '@/features/processing/jobProgressMap.js';
+import { jobTypeLabelKey, stageLabelKey } from '@/features/projects/processing/jobProgressMap.js';
 
 /**
  * Compact header chip linking to the processing center while a job runs.

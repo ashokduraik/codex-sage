@@ -8,8 +8,7 @@ import {
   UPLOAD_MAX_ARCHIVE_BYTES,
   UPLOAD_MAX_ENTRY_COUNT,
 } from './exclusions.constants.js';
-import { evaluateUploadEntry } from './pathDecision.js';
-import { summarizeInspection } from './summarizeInspection.js';
+import { evaluateUploadEntry, summarizeInspection } from './pathDecision.js';
 import { inspectZip } from './zipInspect.js';
 
 export {

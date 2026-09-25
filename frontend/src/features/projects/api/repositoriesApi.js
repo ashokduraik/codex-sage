@@ -1,7 +1,62 @@
 /**
  * Repository probe and attach HTTP calls (Phase 30 / 31).
+ * Probe and attach DTO shapes.
  */
 import { apiRequest } from '@/shared/api';
+
+/**
+ * @typedef {'connected' | 'authentication_required' | 'access_denied' | 'not_found' | 'unreachable'} ProbeStatus
+ */
+
+/**
+ * @typedef {{
+ *   fullName: string,
+ *   webUrl?: string | null,
+ *   visibility?: string | null,
+ *   description?: string | null,
+ * }} ProbeRepository
+ */
+
+/**
+ * @typedef {{
+ *   probeStatus: ProbeStatus | string,
+ *   provider?: 'github' | 'gitlab' | string,
+ *   hostKind?: string,
+ *   baseUrl?: string | null,
+ *   repository?: ProbeRepository,
+ *   defaultBranch?: string,
+ *   branches?: string[],
+ *   branchesTruncated?: boolean,
+ *   tokenUsed?: boolean,
+ *   reason?: { code?: string, message?: string },
+ * }} RepositoryProbeDto
+ */
+
+/**
+ * @typedef {{
+ *   id: string,
+ *   provider: string,
+ *   hostKind: string,
+ *   baseUrl: string | null,
+ *   repository: { fullName: string, webUrl?: string | null, visibility?: string | null },
+ *   selectedBranch: string,
+ *   defaultBranch: string,
+ *   connectionStatus: string,
+ *   connectionStatusReasonCode?: string | null,
+ *   lastSuccessfulProbeAt?: string | null,
+ *   attachedAt?: string | null,
+ *   lastSyncedCommitSha?: string | null,
+ *   lastSyncedAt?: string | null,
+ *   nextDueAt?: string | null,
+ * }} RepositoryConnectionDto
+ */
+
+/**
+ * @typedef {{
+ *   connection: RepositoryConnectionDto,
+ *   project?: object,
+ * }} RepositoryAttachResult
+ */
 
 /**
  * Builds the connection cache key for a project.
@@ -20,7 +75,7 @@ export function repositoryConnectionQueryKey(projectId) {
  *   accessToken?: string,
  *   signal?: AbortSignal,
  * }} input Probe inputs.
- * @returns {Promise<import('./repositoryTypes.js').RepositoryProbeDto>}
+ * @returns {Promise<RepositoryProbeDto>}
  */
 export async function probeProjectRepository(input) {
   const body = { repositoryUrl: input.repositoryUrl };
@@ -47,7 +102,7 @@ export async function probeProjectRepository(input) {
  *   idempotencyKey: string,
  *   signal?: AbortSignal,
  * }} input Attach inputs.
- * @returns {Promise<import('./repositoryTypes.js').RepositoryAttachResult>}
+ * @returns {Promise<RepositoryAttachResult>}
  */
 export async function attachProjectRepository(input) {
   const body = {
@@ -69,7 +124,7 @@ export async function attachProjectRepository(input) {
  * Loads the active repository connection for a project.
  * @param {string} projectId Project id.
  * @param {{ signal?: AbortSignal }} [options] Request options.
- * @returns {Promise<{ connection: import('./repositoryTypes.js').RepositoryConnectionDto }>}
+ * @returns {Promise<{ connection: RepositoryConnectionDto }>}
  */
 export async function getProjectRepositoryConnection(projectId, options = {}) {
   return apiRequest(
@@ -85,7 +140,7 @@ export async function getProjectRepositoryConnection(projectId, options = {}) {
  *   selectedBranch: string,
  *   signal?: AbortSignal,
  * }} input Patch inputs.
- * @returns {Promise<{ connection: import('./repositoryTypes.js').RepositoryConnectionDto }>}
+ * @returns {Promise<{ connection: RepositoryConnectionDto }>}
  */
 export async function patchProjectRepositoryBranch(input) {
   return apiRequest(
@@ -105,7 +160,7 @@ export async function patchProjectRepositoryBranch(input) {
  *   accessToken: string,
  *   signal?: AbortSignal,
  * }} input Replace inputs.
- * @returns {Promise<{ connection: import('./repositoryTypes.js').RepositoryConnectionDto, connectionStatus?: string }>}
+ * @returns {Promise<{ connection: RepositoryConnectionDto, connectionStatus?: string }>}
  */
 export async function replaceProjectRepositoryCredential(input) {
   return apiRequest(

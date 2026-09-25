@@ -5,12 +5,19 @@ export { API_BASE_URL, resolveApiBaseUrl } from './apiConfig.js';
 export {
   ApiError,
   CORRELATION_ID_HEADER,
+  ERROR_CODE_MESSAGES,
   RequestAbortedError,
   apiErrorFromNetworkFailure,
   apiErrorFromResponse,
+  correlationFromUnknown,
+  getErrorMessageEntry,
+  isForbiddenApiError,
+  isNotFoundApiError,
   isRequestAbortedError,
+  messageFromUnknown,
   parseRetryAfterSeconds,
   resolveRetryAfterSeconds,
+  retryAfterFromUnknown,
 } from './ApiError.js';
 export {
   clearSession,
@@ -26,4 +33,3 @@ export {
   readCsrfTokenFromCookie,
   refreshAccessToken,
 } from './refreshClient.js';
-export { ERROR_CODE_MESSAGES, getErrorMessageEntry } from './errorMessages.js';

@@ -1,7 +1,11 @@
 /**
  * Stable search result ids and keyset cursors.
  */
-import { SEARCH_SNIPPET_MAX_CHARS, SEARCH_TYPE_ORDER } from './search.constants.js';
+/** Result snippet character cap. */
+export const SEARCH_SNIPPET_MAX_CHARS = 280;
+
+/** Sort order for merged results (type then title). */
+export const SEARCH_TYPE_ORDER = Object.freeze(['code', 'doc', 'symbol', 'workflow', 'api']);
 
 /**
  * Encodes a search result id for the current knowledge version.

@@ -48,13 +48,11 @@ export {
   restoreProject,
   getDeletionPreview,
   deleteProject,
-} from './projects.service.js';
-export { mapProjectToDto } from './projects.types.js';
-export {
+  mapProjectToDto,
   PROJECT_SETTING_KEYS,
   isKnownProjectSettingKey,
   validateProjectSettingsKeys,
-} from './projects.settingsRegistry.js';
+} from './projects.service.js';
 export { projectRoutes } from './projects.routes.js';
 
 import { Project } from './projects.model.js';

@@ -4,7 +4,15 @@
 import mongoose from 'mongoose';
 import { assertOrgId, softDelete } from '../data/index.js';
 import { IdempotencyRecord } from './idempotency.model.js';
-import { IDEMPOTENCY_RECORD_TTL_MS } from './idempotency.constants.js';
+
+/** How long an idempotency record remains usable for replay. */
+export const IDEMPOTENCY_RECORD_TTL_MS = 86_400_000;
+
+/** How long a duplicate waiter polls for the first writer's result. */
+export const IDEMPOTENCY_WAIT_MS = 5_000;
+
+/** Poll interval while waiting for an in-flight twin. */
+export const IDEMPOTENCY_POLL_INTERVAL_MS = 100;
 
 /**
  * Returns whether an error is a Mongo duplicate-key failure.

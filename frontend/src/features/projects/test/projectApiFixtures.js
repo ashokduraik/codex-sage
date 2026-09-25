@@ -81,4 +81,24 @@ export const defaultProjectsApiMock = {
   patchProject: vi.fn(),
   getProjectDeletionPreview: vi.fn(),
   recordProjectAccess: vi.fn(async (projectId) => resolveTestProject(projectId)),
+  projectsListQueryKey(filters = {}) {
+    return Object.freeze([
+      'projects',
+      'list',
+      {
+        q: filters.q ?? '',
+        includeArchived: Boolean(filters.includeArchived),
+        sort: filters.sort ?? 'updatedAt',
+        limit: filters.limit ?? null,
+      },
+    ]);
+  },
+  PROJECTS_LIST_QUERY_ROOT: Object.freeze(['projects', 'list']),
+  projectDetailQueryKey(projectId) {
+    return Object.freeze(['projects', 'detail', String(projectId)]);
+  },
+  PROJECTS_DETAIL_QUERY_ROOT: Object.freeze(['projects', 'detail']),
+  projectDeletionPreviewQueryKey(projectId) {
+    return Object.freeze(['projects', 'deletionPreview', String(projectId)]);
+  },
 };

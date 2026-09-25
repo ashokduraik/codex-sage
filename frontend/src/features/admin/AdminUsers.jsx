@@ -14,11 +14,7 @@ import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAuth } from '@/features/auth/AuthContext';
-import {
-  correlationFromError,
-  hasPermission,
-  messageFromError,
-} from '@/features/admin/adminErrors.js';
+import { correlationFromUnknown, messageFromUnknown } from '@/shared/api';
 import { useRoles } from '@/features/admin/api/useRoles.js';
 import { useUsers } from '@/features/admin/api/useUsers.js';
 import {
@@ -66,8 +62,8 @@ export default function AdminUsers() {
   const { user: currentUser } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const canManageUsers = hasPermission(currentUser?.permissions, 'users.manage');
-  const canManageRoles = hasPermission(currentUser?.permissions, 'roles.manage');
+  const canManageUsers = Boolean(currentUser?.permissions?.includes('users.manage'));
+  const canManageRoles = Boolean(currentUser?.permissions?.includes('roles.manage'));
 
   const urlQ = searchParams.get('q') ?? '';
   const userStatus = searchParams.get('userStatus') ?? '';
@@ -129,10 +125,10 @@ export default function AdminUsers() {
   const hasMore = Boolean(usersQuery.data?.pageInfo?.hasMore && nextCursor);
 
   const listErrorMessage = usersQuery.isError
-    ? messageFromError(usersQuery.error, t('errors.unexpected'))
+    ? messageFromUnknown(usersQuery.error, t('errors.unexpected'))
     : '';
   const listCorrelationId = usersQuery.isError
-    ? correlationFromError(usersQuery.error)
+    ? correlationFromUnknown(usersQuery.error)
     : '';
 
   /**
@@ -194,38 +190,38 @@ export default function AdminUsers() {
   const rolesEditBusy = updateRolesMutation.isPending;
 
   const createError = createMutation.isError
-    ? messageFromError(createMutation.error, t('errors.unexpected'))
+    ? messageFromUnknown(createMutation.error, t('errors.unexpected'))
     : '';
   const createCorrelation = createMutation.isError
-    ? correlationFromError(createMutation.error)
+    ? correlationFromUnknown(createMutation.error)
     : '';
 
   const resetError = resetMutation.isError
-    ? messageFromError(resetMutation.error, t('errors.unexpected'))
+    ? messageFromUnknown(resetMutation.error, t('errors.unexpected'))
     : '';
   const resetCorrelation = resetMutation.isError
-    ? correlationFromError(resetMutation.error)
+    ? correlationFromUnknown(resetMutation.error)
     : '';
 
   const removeError = removeMutation.isError
-    ? messageFromError(removeMutation.error, t('errors.unexpected'))
+    ? messageFromUnknown(removeMutation.error, t('errors.unexpected'))
     : '';
   const removeCorrelation = removeMutation.isError
-    ? correlationFromError(removeMutation.error)
+    ? correlationFromUnknown(removeMutation.error)
     : '';
 
   const rolesEditError = updateRolesMutation.isError
-    ? messageFromError(updateRolesMutation.error, t('errors.unexpected'))
+    ? messageFromUnknown(updateRolesMutation.error, t('errors.unexpected'))
     : '';
   const rolesEditCorrelation = updateRolesMutation.isError
-    ? correlationFromError(updateRolesMutation.error)
+    ? correlationFromUnknown(updateRolesMutation.error)
     : '';
 
   const rowActionError = useMemo(() => {
     if (statusMutation.isError) {
       return {
-        message: messageFromError(statusMutation.error, t('errors.unexpected')),
-        correlationId: correlationFromError(statusMutation.error),
+        message: messageFromUnknown(statusMutation.error, t('errors.unexpected')),
+        correlationId: correlationFromUnknown(statusMutation.error),
         userId: statusMutation.variables?.userId,
       };
     }

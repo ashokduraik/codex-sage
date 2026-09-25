@@ -15,7 +15,7 @@ import {
   attachProjectRepository,
   repositoryConnectionQueryKey,
 } from '@/features/projects/api/repositoriesApi.js';
-import { projectDetailQueryKey } from '@/features/projects/api/projectKeys.js';
+import { projectDetailQueryKey } from '@/features/projects/api/projectsApi.js';
 import { useRepositoryAttach } from './useRepositoryAttach.js';
 
 /**

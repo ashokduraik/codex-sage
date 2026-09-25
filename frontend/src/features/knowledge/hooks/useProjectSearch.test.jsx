@@ -7,10 +7,14 @@ import { describe, expect, it, vi } from 'vitest';
 
 const fetchProjectSearch = vi.fn();
 
-vi.mock('../api/searchApi.js', () => ({
-  KNOWLEDGE_SEARCH_DEBOUNCE_MS: 0,
-  fetchProjectSearch: (...args) => fetchProjectSearch(...args),
-}));
+vi.mock('../api/knowledgeApi.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    KNOWLEDGE_SEARCH_DEBOUNCE_MS: 0,
+    fetchProjectSearch: (...args) => fetchProjectSearch(...args),
+  };
+});
 
 import { useProjectSearch } from './useProjectSearch.js';
 

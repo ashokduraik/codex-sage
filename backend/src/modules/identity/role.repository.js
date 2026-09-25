@@ -9,8 +9,7 @@ import {
   encodeCursor,
   softDelete,
 } from '../../platform/data/index.js';
-import { BUILT_IN_ROLES } from './builtInRoles.js';
-import { Role } from './role.model.js';
+import { BUILT_IN_ROLES, Role } from './role.model.js';
 import {
   IDENTITY_LIST_PAGE_SIZE_DEFAULT,
   clampIdentityListLimit,

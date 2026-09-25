@@ -9,7 +9,7 @@ import {
   mapLifecycleStatus,
   KNOWLEDGE_HEALTH_MAP,
   LIFECYCLE_STATUS_MAP,
-} from './projectStatusMap.js';
+} from '@/shared/components/StatusBadge.jsx';
 
 describe('projectStatusMap', () => {
   it('maps every known lifecycle code to a distinct label key and tone', () => {

@@ -9,7 +9,7 @@ import { JOB_MODELS, Job } from '../jobs/index.js';
 import { EXCLUSION_RULESET_ID } from './exclusions/exclusions.constants.js';
 import { SourceFile, SourceVersion } from './index.js';
 import { insertSourceVersion } from './sources.repository.js';
-import { enqueueSourceReingest } from './sources.service.js';
+import { enqueueSourceReingest, mapSourceVersionToListDto } from './sources.service.js';
 
 const harness = createMongoHarness({
   models: [...JOB_MODELS, SourceVersion, SourceFile],
@@ -96,5 +96,28 @@ describe('enqueueSourceReingest', () => {
         actorUserId: String(new mongoose.Types.ObjectId()),
       }),
     ).rejects.toMatchObject({ code: 'SOURCE_VERSION_NOT_FOUND' });
+  });
+});
+
+describe('mapSourceVersionToListDto', () => {
+  it('maps ids and file counts with null-safe fallbacks', () => {
+    expect(
+      mapSourceVersionToListDto({
+        _id: '665a00000000000000000001',
+        origin: 'upload',
+        versionLifecycle: 'accepted',
+        createdAt: new Date('2026-01-02T00:00:00.000Z'),
+      }),
+    ).toEqual({
+      id: '665a00000000000000000001',
+      origin: 'upload',
+      versionLifecycle: 'accepted',
+      fileCounts: { accepted: 0, skipped: 0, excludedFromGraph: 0 },
+      jobId: null,
+      commitSha: null,
+      branch: null,
+      createdBy: null,
+      createdAt: '2026-01-02T00:00:00.000Z',
+    });
   });
 });

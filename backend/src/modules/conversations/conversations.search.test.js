@@ -8,7 +8,7 @@ import {
 import {
   buildConversationSnippet,
   parseConversationSearchQuery,
-} from './conversations.search.js';
+} from './conversations.service.js';
 
 describe('conversations.search', () => {
   it('rejects missing or short queries', () => {

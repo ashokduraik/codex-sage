@@ -13,11 +13,11 @@ import { Button } from '@/shared/ui/button';
 import { useDeleteProject } from './hooks/useProjectMutations.js';
 import { useProjectDeletionPreview } from './hooks/useProjectDeletionPreview.js';
 import {
-  correlationFromProjectError,
-  isForbiddenProjectError,
-  messageFromProjectError,
-  retryAfterFromProjectError,
-} from './projectErrors.js';
+  correlationFromUnknown,
+  isForbiddenApiError,
+  messageFromUnknown,
+  retryAfterFromUnknown,
+} from '@/shared/api';
 
 /**
  * Builds an i18n key for a deletion consequence row.
@@ -61,17 +61,17 @@ export function ProjectDeleteDialog({
   const deleteMutation = useDeleteProject();
 
   const previewError = previewQuery.isError
-    ? messageFromProjectError(previewQuery.error, t('projects.deletePreviewFailed'))
+    ? messageFromUnknown(previewQuery.error, t('projects.deletePreviewFailed'))
     : '';
   const deleteError = deleteMutation.isError
-    ? isForbiddenProjectError(deleteMutation.error)
+    ? isForbiddenApiError(deleteMutation.error)
       ? t('projects.forbidden')
-      : messageFromProjectError(deleteMutation.error, t('projects.detailFailed'))
+      : messageFromUnknown(deleteMutation.error, t('projects.detailFailed'))
     : '';
-  const correlationId = correlationFromProjectError(
+  const correlationId = correlationFromUnknown(
     deleteMutation.error || previewQuery.error,
   );
-  const retryAfter = retryAfterFromProjectError(deleteMutation.error);
+  const retryAfter = retryAfterFromUnknown(deleteMutation.error);
   const canConfirm =
     previewQuery.isSuccess && !previewQuery.isError && !deleteMutation.isPending;
 

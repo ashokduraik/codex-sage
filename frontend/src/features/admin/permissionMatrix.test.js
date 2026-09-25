@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildPermissionMatrixRows } from './permissionMatrix.js';
+import { buildPermissionMatrixRows } from './AdminRoles.jsx';
 
 const CATALOG = {
   groups: [

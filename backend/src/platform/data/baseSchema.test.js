@@ -10,8 +10,8 @@ import {
   includeDeleted,
   softDelete,
 } from './baseSchema.js';
-import { ROW_STATUS_ACTIVE, ROW_STATUS_DELETED } from './rowStatus.js';
-import { syncSchemaIndexes } from './syncIndexes.js';
+import { ROW_STATUS_ACTIVE, ROW_STATUS_DELETED } from './baseSchema.js';
+import { syncSchemaIndexes } from './index.js';
 import { createMongoHarness } from '../../test/mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../test/appConfig.js';
 

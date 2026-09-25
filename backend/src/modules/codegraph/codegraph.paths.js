@@ -3,7 +3,7 @@
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { assertPathInsideRoot } from '../workspace/index.js';
+import { assertPathInsideRoot } from '../sources/index.js';
 
 /** Default CodeGraph data directory name (library default; CODEGRAPH_DIR override not used). */
 export const CODEGRAPH_DIR_NAME = '.codegraph';

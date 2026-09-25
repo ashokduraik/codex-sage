@@ -8,7 +8,7 @@ import {
   codegraphIndexExists,
   createCodegraphAdapter,
 } from '../../codegraph/index.js';
-import { resolveProjectWorkspacePath } from '../../workspace/index.js';
+import { resolveProjectWorkspacePath } from '../../sources/index.js';
 import {
   buildCodeRelationshipsAnalyzedEvent,
   buildProjectStructureAnalyzedEvent,

@@ -2,7 +2,7 @@
  * Unit tests for search query parsing.
  */
 import { describe, expect, it } from 'vitest';
-import { SEARCH_PAGE_SIZE, SEARCH_TYPES } from './search.constants.js';
+import { SEARCH_PAGE_SIZE, SEARCH_TYPES } from './search.schemas.js';
 import { clampSearchLimit, parseSearchQuery, parseSearchTypes, zodDetails } from './search.schemas.js';
 
 describe('parseSearchTypes', () => {

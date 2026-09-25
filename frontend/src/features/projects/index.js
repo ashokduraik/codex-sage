@@ -2,7 +2,6 @@ export { default as CreateProjectDialog } from './CreateProjectDialog';
 export { default as ConnectRepositoryDialog } from './ConnectRepositoryDialog';
 export { default as SourceUploadDialog } from './SourceUploadDialog';
 export { default as SourcesPanel } from './SourcesPanel';
-export { default as ChangesPanel } from './ChangesPanel';
 export { default as HealthPanel } from './HealthPanel';
 export { default as ProjectOverview } from './ProjectOverview';
 export { default as ProjectDetailPage } from './ProjectDetailPage';
@@ -14,7 +13,7 @@ export {
   mapKnowledgeHealth,
   isProjectAskable,
   isProjectArchived,
-} from './projectStatusMap.js';
+} from '@/shared/components/StatusBadge.jsx';
 export { useProjects, flattenProjectPages } from './hooks/useProjects.js';
 export { useProject } from './hooks/useProject.js';
 export {
@@ -32,4 +31,4 @@ export { useRepositoryAttach } from './hooks/useRepositoryAttach.js';
 export { useSourceVersions, flattenSourceVersionPages } from './hooks/useSourceVersions.js';
 export { useRepositoryConnection } from './hooks/useRepositoryConnection.js';
 export { useRepositoryCredentialActions } from './hooks/useRepositoryCredentialActions.js';
-export { mapProbeResult, tokenPageUrl } from './repositoryProbeMap.js';
+export { mapProbeResult, tokenPageUrl } from './ConnectRepositoryDialog.jsx';

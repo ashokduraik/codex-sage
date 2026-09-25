@@ -13,10 +13,10 @@ import { formatRelative } from '@/shared/lib/format';
 import { CreateProjectDialog } from './CreateProjectDialog';
 import { flattenProjectPages, useProjects } from './hooks/useProjects.js';
 import {
-  correlationFromProjectError,
-  messageFromProjectError,
-  retryAfterFromProjectError,
-} from './projectErrors.js';
+  correlationFromUnknown,
+  messageFromUnknown,
+  retryAfterFromUnknown,
+} from '@/shared/api';
 
 /**
  * Projects list with server search, archive toggle, and create dialog.
@@ -45,10 +45,10 @@ export default function ProjectsPage() {
   );
   const isInitialLoading = listQuery.isLoading;
   const errorMessage = listQuery.isError
-    ? messageFromProjectError(listQuery.error, t('projects.listFailed'))
+    ? messageFromUnknown(listQuery.error, t('projects.listFailed'))
     : '';
-  const correlationId = correlationFromProjectError(listQuery.error);
-  const retryAfter = retryAfterFromProjectError(listQuery.error);
+  const correlationId = correlationFromUnknown(listQuery.error);
+  const retryAfter = retryAfterFromUnknown(listQuery.error);
 
   return (
     <div className="h-full overflow-y-auto scrollbar-thin">
