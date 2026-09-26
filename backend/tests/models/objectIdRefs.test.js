@@ -14,7 +14,7 @@ import { ProjectJobLock } from '../../src/models/projectJobLock.model.js';
 import { Project } from '../../src/models/projects.model.js';
 import { RepositoryConnection } from '../../src/models/repositoryConnection.model.js';
 import { Role } from '../../src/models/role.model.js';
-import { Session } from '../../src/models/session.model.js';
+import { LoginSession } from '../../src/models/loginSession.model.js';
 import { SourceChangeSummary } from '../../src/models/sourceChangeSummary.model.js';
 import { SourceFile } from '../../src/models/sourceFile.model.js';
 import { SourceVersion } from '../../src/models/sourceVersion.model.js';
@@ -67,7 +67,7 @@ const DOMAIN_MODELS = Object.freeze([
   ProjectJobLock,
   RepositoryConnection,
   Role,
-  Session,
+  LoginSession,
   SourceChangeSummary,
   SourceFile,
   SourceVersion,

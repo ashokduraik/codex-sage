@@ -19,7 +19,7 @@ vi.mock('../../../src/modules/access/auth.js', async (importOriginal) => {
     ...actual,
     hashPassword: vi.fn(async () => 'hashed'),
     verifyPassword: vi.fn(),
-    revokeAllSessionsForUser: vi.fn(async () => ({})),
+    revokeAllLoginSessionsForUser: vi.fn(async () => ({})),
   };
 });
 

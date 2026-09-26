@@ -1,7 +1,7 @@
 /**
  * access/auth.js — merged resource file.
  */
-import { Session } from '../../models/session.model.js';
+import { LoginSession } from '../../models/loginSession.model.js';
 import { assertOrgId, ROW_STATUS_ACTIVE } from '../../platform/data/index.js';
 import { ApiError } from '../../platform/errors.js';
 import {
@@ -14,7 +14,7 @@ import { resolveEffectivePermissions } from './permissions.js';
 import argon2 from 'argon2';
 import { createSigner, createVerifier, TokenError } from 'fast-jwt';
 import mongoose from 'mongoose';
-import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { z } from 'zod';
 
 // --- from auth/passwordHasher.js ---
@@ -120,7 +120,8 @@ export const CSRF_READABLE_COOKIE_PATH = '/';
  * @property {string} sub User id.
  * @property {string} org Organization id.
  * @property {string[]} rls Role ids.
- * @property {string} sid Session id.
+ * @property {string} sid Login-session id.
+ * @property {string} tid Current refresh-token entry id.
  * @property {'access'} typ Token type.
  * @property {number} [iat] Issued-at (seconds).
  * @property {number} [exp] Expiry (seconds).
@@ -151,7 +152,7 @@ export function createTokenService(secret) {
 
   /**
    * Signs a short-lived access JWT (role ids only — no permissions).
-   * @param {{ sub: string, org: string, rls: string[], sid: string }} claims Identity claims.
+   * @param {{ sub: string, org: string, rls: string[], sid: string, tid: string }} claims Identity claims.
    * @returns {string} Compact JWT.
    */
   function signAccessToken(claims) {
@@ -160,6 +161,7 @@ export function createTokenService(secret) {
       org: claims.org,
       rls: claims.rls,
       sid: claims.sid,
+      tid: claims.tid,
       typ: 'access',
     });
   }
@@ -180,6 +182,7 @@ export function createTokenService(secret) {
         typeof payload.sub !== 'string' ||
         typeof payload.org !== 'string' ||
         typeof payload.sid !== 'string' ||
+        typeof payload.tid !== 'string' ||
         !Array.isArray(payload.rls)
       ) {
         const err = new Error('Invalid access token claims');
@@ -235,35 +238,55 @@ export function hashEmailForLog(email) {
 
 // --- from auth/session.repository.js ---
 /**
- * Session repository — create, rotate, revoke refresh-token rows.
+ * Login-session repository — one document per sign-in, tokens embedded.
  */
 /**
- * Creates a new login session (start of a refresh-token family).
+ * Finds the token entry matching a refresh-token hash.
+ * @param {import('mongoose').Document | null | undefined} loginSession Login document.
+ * @param {string} refreshTokenHash SHA-256 hex of the opaque token.
+ * @returns {{ refreshTokenHash: string, issuedAt: Date, rotatedAt?: Date, _id: import('mongoose').Types.ObjectId } | undefined}
+ */
+function findTokenEntryByHash(loginSession, refreshTokenHash) {
+  if (!loginSession?.tokens) {
+    return undefined;
+  }
+  return loginSession.tokens.find((entry) => entry.refreshTokenHash === refreshTokenHash);
+}
+
+/**
+ * Returns the unrotated token entry (the current refresh token).
+ * @param {import('mongoose').Document} loginSession Login document.
+ * @returns {{ refreshTokenHash: string, issuedAt: Date, rotatedAt?: Date, _id: import('mongoose').Types.ObjectId } | undefined}
+ */
+function currentTokenEntry(loginSession) {
+  return loginSession.tokens.find((entry) => !entry.rotatedAt);
+}
+
+/**
+ * Creates a new login session with the first refresh-token entry.
  * @param {{
  *   orgId: import('mongoose').Types.ObjectId | string,
  *   userId: import('mongoose').Types.ObjectId | string,
  *   refreshTokenHash: string,
- *   familyId?: string,
  *   expiresAt?: Date,
- * }} input Session fields.
+ * }} input Login-session fields.
  * @param {{ session?: import('mongoose').ClientSession }} [options] Optional Mongo session.
  * @returns {Promise<import('mongoose').Document>}
  */
-export async function createSession(input, options = {}) {
+export async function createLoginSession(input, options = {}) {
   assertOrgId(input.orgId);
   const now = new Date();
   const expiresAt =
     input.expiresAt ??
     new Date(now.getTime() + JWT_REFRESH_TOKEN_TTL_SECONDS * 1000);
-  const [doc] = await Session.create(
+  const [doc] = await LoginSession.create(
     [
       {
         orgId: input.orgId,
         userId: input.userId,
-        familyId: input.familyId ?? randomUUID(),
-        refreshTokenHash: input.refreshTokenHash,
-        issuedAt: now,
+        loggedInAt: now,
         expiresAt,
+        tokens: [{ refreshTokenHash: input.refreshTokenHash, issuedAt: now }],
         createdBy: input.userId,
         updatedBy: input.userId,
       },
@@ -274,160 +297,174 @@ export async function createSession(input, options = {}) {
 }
 
 /**
- * Finds an active session by refresh-token hash.
+ * Finds a login session by a refresh-token hash.
  * @param {string} refreshTokenHash SHA-256 hex of the opaque token.
  * @returns {Promise<import('mongoose').Document | null>}
  */
-export async function findSessionByRefreshTokenHash(refreshTokenHash) {
-  return Session.findOne({ refreshTokenHash }).exec();
+export async function findLoginSessionByRefreshTokenHash(refreshTokenHash) {
+  return LoginSession.findOne({ 'tokens.refreshTokenHash': refreshTokenHash }).exec();
 }
 
 /**
- * Finds a session by id (active rows only by default).
- * @param {import('mongoose').Types.ObjectId | string} sessionId Session id.
+ * Finds a login session by id (active rows only by default).
+ * @param {import('mongoose').Types.ObjectId | string} loginSessionId Login-session id.
  * @returns {Promise<import('mongoose').Document | null>}
  */
-export async function findSessionById(sessionId) {
-  return Session.findOne({ _id: sessionId }).exec();
+export async function findLoginSessionById(loginSessionId) {
+  return LoginSession.findOne({ _id: loginSessionId }).exec();
 }
 
 /**
- * True when a session may still authorize Bearer access (`sid` check).
- * Rotated rows remain usable for residual access TTL until revoked/expired.
- * @param {import('mongoose').Document | null | undefined} session Session document.
+ * True when a login may still authorize Bearer access (`sid` check).
+ * Residual access tokens stay valid after rotate until logout, revoke, or expiry.
+ * @param {import('mongoose').Document | null | undefined} loginSession Login document.
  * @returns {boolean}
  */
-export function isSessionActiveForAccess(session) {
-  if (!session) {
+export function isLoginSessionActiveForAccess(loginSession) {
+  if (!loginSession) {
     return false;
   }
-  if (session.status !== ROW_STATUS_ACTIVE) {
+  if (loginSession.status !== ROW_STATUS_ACTIVE) {
     return false;
   }
-  if (session.revokedAt) {
+  if (loginSession.loggedOutAt) {
     return false;
   }
-  if (!(session.expiresAt instanceof Date) || session.expiresAt.getTime() <= Date.now()) {
+  if (loginSession.revokedAt) {
+    return false;
+  }
+  if (
+    !(loginSession.expiresAt instanceof Date) ||
+    loginSession.expiresAt.getTime() <= Date.now()
+  ) {
     return false;
   }
   return true;
 }
 
 /**
- * True when a session may be presented for refresh (not yet rotated or revoked).
- * @param {import('mongoose').Document | null | undefined} session Session document.
+ * True when the presented refresh hash may be rotated (parent open, entry unrotated).
+ * @param {import('mongoose').Document | null | undefined} loginSession Login document.
+ * @param {string} refreshTokenHash SHA-256 hex of the presented token.
  * @returns {boolean}
  */
-export function isSessionActiveForRefresh(session) {
-  if (!isSessionActiveForAccess(session)) {
+export function isLoginSessionActiveForRefresh(loginSession, refreshTokenHash) {
+  if (!isLoginSessionActiveForAccess(loginSession)) {
     return false;
   }
-  return !session.rotatedAt;
+  const entry = findTokenEntryByHash(loginSession, refreshTokenHash);
+  return Boolean(entry && !entry.rotatedAt);
 }
 
 /**
- * Rotates a session: marks the current row rotated and inserts a successor in the family.
- * @param {import('mongoose').Document} currentSession Current session document.
+ * Rotates the presented refresh hash and appends the successor on the same login.
+ * @param {import('mongoose').Document} loginSession Current login document.
+ * @param {string} currentRefreshTokenHash Hash of the presented refresh token.
  * @param {string} nextRefreshTokenHash Hash of the newly minted refresh token.
- * @returns {Promise<import('mongoose').Document>} The successor session.
+ * @returns {Promise<import('mongoose').Document | null>} Updated login, or null when the
+ *   presented hash was already rotated (caller treats as reuse).
  */
-export async function rotateSession(currentSession, nextRefreshTokenHash) {
-  const mongoSession = await mongoose.startSession();
-  try {
-    /** @type {import('mongoose').Document | undefined} */
-    let successor;
-    await mongoSession.withTransaction(async () => {
-      successor = await createSession(
-        {
-          orgId: currentSession.orgId,
-          userId: currentSession.userId,
-          familyId: currentSession.familyId,
-          refreshTokenHash: nextRefreshTokenHash,
-          expiresAt: currentSession.expiresAt,
+export async function rotateLoginSession(
+  loginSession,
+  currentRefreshTokenHash,
+  nextRefreshTokenHash,
+) {
+  const now = new Date();
+  const nextTokenId = new mongoose.Types.ObjectId();
+  return LoginSession.findOneAndUpdate(
+    {
+      _id: loginSession._id,
+      status: ROW_STATUS_ACTIVE,
+      revokedAt: null,
+      loggedOutAt: null,
+      tokens: {
+        $elemMatch: {
+          refreshTokenHash: currentRefreshTokenHash,
+          rotatedAt: null,
         },
-        { session: mongoSession },
-      );
-      await Session.updateOne(
-        {
-          _id: currentSession._id,
-          status: ROW_STATUS_ACTIVE,
-          $or: [{ rotatedAt: null }, { rotatedAt: { $exists: false } }],
-        },
-        {
-          $set: {
-            rotatedAt: new Date(),
-            replacedBySessionId: successor._id,
-            updatedBy: currentSession.userId,
-            updatedAt: new Date(),
+      },
+    },
+    [
+      {
+        $set: {
+          tokens: {
+            $concatArrays: [
+              {
+                $map: {
+                  input: '$tokens',
+                  as: 'entry',
+                  in: {
+                    $cond: [
+                      { $eq: ['$$entry.refreshTokenHash', currentRefreshTokenHash] },
+                      { $mergeObjects: ['$$entry', { rotatedAt: now }] },
+                      '$$entry',
+                    ],
+                  },
+                },
+              },
+              [
+                {
+                  _id: nextTokenId,
+                  refreshTokenHash: nextRefreshTokenHash,
+                  issuedAt: now,
+                },
+              ],
+            ],
           },
+          updatedBy: loginSession.userId,
+          updatedAt: now,
         },
-        { session: mongoSession },
-      );
-    });
-    if (!successor) {
-      throw new Error('Session rotation failed to create successor');
-    }
-    return successor;
-  } finally {
-    await mongoSession.endSession();
-  }
+      },
+    ],
+    { returnDocument: 'after', updatePipeline: true },
+  ).exec();
 }
 
 /**
- * Revokes a single session (logout).
- * @param {import('mongoose').Types.ObjectId | string} sessionId Session id.
- * @param {'logout' | 'reuse_detected' | 'password_changed' | 'user_disabled' | 'email_changed'} reason Revocation reason.
+ * Ends one login: logout sets `loggedOutAt`; other reasons set `revokedAt`.
+ * @param {import('mongoose').Types.ObjectId | string} loginSessionId Login-session id.
+ * @param {'logout' | 'reuse_detected' | 'password_changed' | 'user_disabled' | 'email_changed'} reason Why the login ended.
  * @returns {Promise<import('mongoose').UpdateResult>}
  */
-export async function revokeSession(sessionId, reason) {
-  return Session.updateOne(
-    { _id: sessionId, status: ROW_STATUS_ACTIVE, revokedAt: null },
-    {
-      $set: {
-        revokedAt: new Date(),
-        revokedReason: reason,
-        updatedAt: new Date(),
-      },
-    },
-  );
+export async function revokeLoginSession(loginSessionId, reason) {
+  const now = new Date();
+  const filter = {
+    _id: loginSessionId,
+    status: ROW_STATUS_ACTIVE,
+    revokedAt: null,
+    loggedOutAt: null,
+  };
+  const $set =
+    reason === 'logout'
+      ? { loggedOutAt: now, updatedAt: now }
+      : { revokedAt: now, revokedReason: reason, updatedAt: now };
+  return LoginSession.updateOne(filter, { $set });
 }
 
 /**
- * Revokes every session in a refresh-token family (reuse detection).
- * @param {string} familyId Family id shared by rotations of one login.
- * @param {'reuse_detected' | 'logout' | 'password_changed' | 'user_disabled' | 'email_changed'} reason Reason.
- * @returns {Promise<import('mongoose').UpdateResult>}
- */
-export async function revokeSessionFamily(familyId, reason) {
-  return Session.updateMany(
-    { familyId, status: ROW_STATUS_ACTIVE, revokedAt: null },
-    {
-      $set: {
-        revokedAt: new Date(),
-        revokedReason: reason,
-        updatedAt: new Date(),
-      },
-    },
-  );
-}
-
-/**
- * Revokes all active sessions for a user (password change / disable).
+ * Revokes all open logins for a user (password change / disable / email change).
  * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
  * @param {import('mongoose').Types.ObjectId | string} userId User id.
- * @param {'password_changed' | 'user_disabled' | 'logout' | 'email_changed'} reason Reason.
+ * @param {'password_changed' | 'user_disabled' | 'email_changed'} reason Reason.
  * @param {{ session?: import('mongoose').ClientSession }} [options] Optional Mongo session.
  * @returns {Promise<import('mongoose').UpdateResult>}
  */
-export async function revokeAllSessionsForUser(orgId, userId, reason, options = {}) {
+export async function revokeAllLoginSessionsForUser(orgId, userId, reason, options = {}) {
   assertOrgId(orgId);
-  const query = Session.updateMany(
-    { orgId, userId, status: ROW_STATUS_ACTIVE, revokedAt: null },
+  const now = new Date();
+  const query = LoginSession.updateMany(
+    {
+      orgId,
+      userId,
+      status: ROW_STATUS_ACTIVE,
+      revokedAt: null,
+      loggedOutAt: null,
+    },
     {
       $set: {
-        revokedAt: new Date(),
+        revokedAt: now,
         revokedReason: reason,
-        updatedAt: new Date(),
+        updatedAt: now,
       },
     },
   );
@@ -494,11 +531,14 @@ export function createAuthenticatePreHandler(tokenService) {
       throw ApiError.fromCode('SESSION_EXPIRED');
     }
 
-    const session = await findSessionById(claims.sid);
-    if (!isSessionActiveForAccess(session)) {
+    const loginSession = await findLoginSessionById(claims.sid);
+    if (!isLoginSessionActiveForAccess(loginSession)) {
       throw ApiError.fromCode('SESSION_EXPIRED');
     }
-    if (String(session.userId) !== String(user._id) || String(session.orgId) !== String(user.orgId)) {
+    if (
+      String(loginSession.userId) !== String(user._id) ||
+      String(loginSession.orgId) !== String(user.orgId)
+    ) {
       throw ApiError.fromCode('UNAUTHENTICATED');
     }
 
@@ -513,7 +553,7 @@ export function createAuthenticatePreHandler(tokenService) {
       userId: String(user._id),
       orgId: String(user.orgId),
       roleIds: claims.rls.map(String),
-      sessionId: String(session._id),
+      sessionId: String(loginSession._id),
     };
   };
 }
@@ -587,16 +627,21 @@ async function loadRoleIds(orgId, userId) {
  */
 async function issueAuthSuccess({ signAccessToken, user, roleIds }) {
   const refreshToken = mintRefreshToken();
-  const session = await createSession({
+  const loginSession = await createLoginSession({
     orgId: user.orgId,
     userId: user._id,
     refreshTokenHash: hashRefreshToken(refreshToken),
   });
+  const tokenEntry = currentTokenEntry(loginSession);
+  if (!tokenEntry) {
+    throw new Error('Login session missing current refresh token');
+  }
   const accessToken = signAccessToken({
     sub: String(user._id),
     org: String(user.orgId),
     rls: roleIds,
-    sid: String(session._id),
+    sid: String(loginSession._id),
+    tid: String(tokenEntry._id),
   });
   return {
     outcome: 'authenticated',
@@ -658,7 +703,7 @@ export function createAuthService(jwtSecret) {
   }
 
   /**
-   * Rotates a refresh token; detects reuse and revokes the family.
+   * Rotates a refresh token; detects reuse and revokes the login.
    * @param {string | undefined} refreshToken Opaque refresh token from cookie.
    * @param {{ log?: { info?: Function } }} [ctx] Optional logger.
    * @returns {Promise<AuthSuccessPayload | { outcome: AuthOutcomeCode }>}
@@ -668,38 +713,53 @@ export function createAuthService(jwtSecret) {
       return { outcome: 'session_expired' };
     }
     const tokenHash = hashRefreshToken(refreshToken);
-    const current = await findSessionByRefreshTokenHash(tokenHash);
+    const current = await findLoginSessionByRefreshTokenHash(tokenHash);
     if (!current) {
       return { outcome: 'session_expired' };
     }
 
-    if (current.rotatedAt || current.revokedAt) {
-      await revokeSessionFamily(current.familyId, 'reuse_detected');
+    const presented = findTokenEntryByHash(current, tokenHash);
+    if (presented?.rotatedAt || current.revokedAt || current.loggedOutAt) {
+      await revokeLoginSession(current._id, 'reuse_detected');
       ctx.log?.info?.(
-        { outcome: 'reuse_detected', familyId: current.familyId },
+        { outcome: 'reuse_detected', loginSessionId: String(current._id) },
         'auth refresh reuse detected',
       );
       return { outcome: 'reuse_detected' };
     }
 
-    if (!isSessionActiveForRefresh(current)) {
+    if (!isLoginSessionActiveForRefresh(current, tokenHash)) {
       return { outcome: 'session_expired' };
     }
 
     const user = await findUserById(current.orgId, current.userId);
     if (!user || user.userStatus !== 'active') {
-      await revokeSessionFamily(current.familyId, 'user_disabled');
+      await revokeLoginSession(current._id, 'user_disabled');
       return { outcome: 'session_expired' };
     }
 
     const nextRefreshToken = mintRefreshToken();
-    const successor = await rotateSession(current, hashRefreshToken(nextRefreshToken));
+    const nextHash = hashRefreshToken(nextRefreshToken);
+    const rotated = await rotateLoginSession(current, tokenHash, nextHash);
+    if (!rotated) {
+      await revokeLoginSession(current._id, 'reuse_detected');
+      ctx.log?.info?.(
+        { outcome: 'reuse_detected', loginSessionId: String(current._id) },
+        'auth refresh reuse detected',
+      );
+      return { outcome: 'reuse_detected' };
+    }
+    const nextEntry = findTokenEntryByHash(rotated, nextHash);
+    if (!nextEntry) {
+      throw new Error('Login session missing rotated refresh token');
+    }
     const roleIds = await loadRoleIds(user.orgId, user._id);
     const accessToken = signAccessToken({
       sub: String(user._id),
       org: String(user.orgId),
       rls: roleIds,
-      sid: String(successor._id),
+      sid: String(rotated._id),
+      tid: String(nextEntry._id),
     });
     ctx.log?.info?.({ outcome: 'authenticated' }, 'auth refresh succeeded');
     return {
@@ -712,17 +772,15 @@ export function createAuthService(jwtSecret) {
   }
 
   /**
-   * Revokes the session for the presented refresh token. Always succeeds for the client.
+   * Ends the login for the presented refresh token. Always succeeds for the client.
    * @param {string | undefined} refreshToken Opaque refresh token.
    * @returns {Promise<{ outcome: 'authenticated' }>}
    */
   async function logout(refreshToken) {
     if (refreshToken) {
-      const current = await findSessionByRefreshTokenHash(hashRefreshToken(refreshToken));
-      if (current && !current.revokedAt) {
-        await revokeSessionFamily(current.familyId, 'logout');
-      } else if (current) {
-        await revokeSession(current._id, 'logout');
+      const current = await findLoginSessionByRefreshTokenHash(hashRefreshToken(refreshToken));
+      if (current && !current.revokedAt && !current.loggedOutAt) {
+        await revokeLoginSession(current._id, 'logout');
       }
     }
     return { outcome: 'authenticated' };
@@ -966,5 +1024,5 @@ export async function authRoutes(app) {
   );
 }
 
-export { Session } from '../../models/session.model.js';
-export const AUTH_MODELS = Object.freeze([Session]);
+export { LoginSession } from '../../models/loginSession.model.js';
+export const AUTH_MODELS = Object.freeze([LoginSession]);

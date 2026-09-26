@@ -21,7 +21,7 @@ import {
 import { User } from '../../../src/models/user.model.js';
 import { hashPassword } from '../../../src/modules/access/auth.js';
 import { REFRESH_COOKIE_NAME, createTokenService } from '../../../src/modules/access/auth.js';
-import { revokeSession } from '../../../src/modules/access/auth.js';
+import { revokeLoginSession } from '../../../src/modules/access/auth.js';
 
 const harness = createMongoHarness({
   models: [...IDENTITY_MODELS, ...AUTH_MODELS],
@@ -128,7 +128,7 @@ describe('auth.routes', () => {
     expect(unauth.json().error.code).toBe('UNAUTHENTICATED');
   });
 
-  it('rotates refresh tokens and detects reuse by revoking the family', async () => {
+  it('rotates refresh tokens and detects reuse by revoking the login', async () => {
     await runBootstrapSeed(createMockLog());
     app = await readyApp();
     const login = await app.inject({
@@ -349,7 +349,7 @@ describe('auth.routes', () => {
     const claims2 = createTokenService(
       TEST_APP_CONFIG.auth.jwtAccessTokenSecret,
     ).verifyAccessToken(token2);
-    await revokeSession(claims2.sid, 'logout');
+    await revokeLoginSession(claims2.sid, 'logout');
     const meAfterRevoke = await app.inject({
       method: 'GET',
       url: `${API_BASE_PATH}/auth/me`,

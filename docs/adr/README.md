@@ -14,7 +14,7 @@
 | [0009](./0009-integration-tests-external-mongo.md) | Integration tests on the external replica set | Accepted |
 | [0010](./0010-structured-error-envelope.md) | Structured error envelope and correlation IDs | Accepted |
 | [0011](./0011-startup-bootstrap-seed.md) | Startup bootstrap seed (no public signup) | Accepted |
-| [0012](./0012-refresh-token-rotation.md) | Refresh-token rotation with strict reuse detection | Accepted |
+| [0012](./0012-refresh-token-rotation.md) | Refresh-token rotation with strict reuse detection | Superseded by 0030 |
 | [0013](./0013-admin-mediated-password-reset.md) | Admin-mediated password reset (no public token flow) | Accepted |
 | [0014](./0014-cross-tenant-404.md) | Cross-tenant resource misses return 404 | Accepted |
 | [0015](./0015-global-route-authorization.md) | Global route authorization via config declaration | Accepted |
@@ -32,6 +32,7 @@
 | [0027](./0027-conversation-owner-privacy.md) | Conversations are private to the owner until explicit share | Accepted |
 | [0028](./0028-roles-on-users.md) | Org roles and project access mode live on users | Accepted |
 | [0029](./0029-embed-repository-credential.md) | Repository credential lives on the connection | Accepted |
+| [0030](./0030-login-session-embedded-tokens.md) | Login session with embedded refresh-token hashes | Accepted |
 
 One decision = one ADR. Accepted ADRs are immutable; supersede with a new number rather
 than rewriting history.

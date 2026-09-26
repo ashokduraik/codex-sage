@@ -137,7 +137,7 @@ is active.
 API process
   Fastify routes: JWT access token → request.principal { userId, orgId, roleIds, sessionId }
     (verify signature/iss/aud/exp, load active user, reject if passwordUpdatedAt > iat,
-     load session by sid — must be active/not revoked; org never taken from path/query/body)
+     load login session by sid — must be open (not logged out / revoked / expired); org never taken from path/query/body)
   Global authorize preHandler (ADR 0015): routeAccess public | authenticated | requiredPermissions
     → resolve effective permissions from roles (org-scoped; built-ins from code catalog)
   Project routes (ADR 0020): routeAccess authenticated → requireProjectPermission
@@ -156,7 +156,7 @@ Worker process
 
 MongoDB
   Orgs (`aclVersion` for project ACL cache), users (`roleIds`,
-  `projectAccessMode`: all | selected | none), roles, sessions (refresh-token families),
+  `projectAccessMode`: all | selected | none), roles, login sessions (embedded refresh hashes),
   projects (`lifecycleStatus`, `knowledgeHealth`, `sourceConfig`, `counts`, `settings`,
   embedded `members[]` ACL overlay; soft-delete via `status: 'A'|'D'`)  Source versions/files, document sections (text index), knowledge metadata
   Jobs (`jobs` with embedded `events[]` timeline; Phase 20 read APIs; Phase 21 worker

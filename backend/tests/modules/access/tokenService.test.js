@@ -14,22 +14,43 @@ import {
 describe('tokenService', () => {
   const tokens = createTokenService(TEST_JWT_ACCESS_TOKEN_SECRET);
 
-  it('signs access tokens with sub, org, rls, sid, iss, aud and no permissions', () => {
+  it('signs access tokens with sub, org, rls, sid, tid, iss, aud and no permissions', () => {
     const jwt = tokens.signAccessToken({
       sub: 'u1',
       org: 'o1',
       rls: ['r1'],
       sid: 's1',
+      tid: 't1',
     });
     const claims = tokens.verifyAccessToken(jwt);
     expect(claims.sub).toBe('u1');
     expect(claims.org).toBe('o1');
     expect(claims.rls).toEqual(['r1']);
     expect(claims.sid).toBe('s1');
+    expect(claims.tid).toBe('t1');
     expect(claims.typ).toBe('access');
     expect(claims.iss).toBe(JWT_ISSUER);
     expect(claims.aud).toBe(JWT_AUDIENCE);
     expect(claims).not.toHaveProperty('permissions');
+  });
+
+  it('rejects an access token that omits tid', async () => {
+    const { createSigner } = await import('fast-jwt');
+    const signer = createSigner({
+      key: TEST_JWT_ACCESS_TOKEN_SECRET,
+      algorithm: 'HS256',
+      iss: JWT_ISSUER,
+      aud: JWT_AUDIENCE,
+      expiresIn: 60_000,
+    });
+    try {
+      tokens.verifyAccessToken(
+        signer({ sub: 'u1', org: 'o1', rls: [], sid: 's1', typ: 'access' }),
+      );
+      expect.unreachable('expected missing tid to fail');
+    } catch (err) {
+      expect(err.code).toBe('UNAUTHENTICATED');
+    }
   });
 
   it('rejects a wrong signature, wrong issuer, wrong audience, and expired tokens', async () => {
@@ -39,6 +60,7 @@ describe('tokenService', () => {
       org: 'o1',
       rls: [],
       sid: 's1',
+      tid: 't1',
     });
     try {
       other.verifyAccessToken(jwt);
@@ -56,7 +78,9 @@ describe('tokenService', () => {
       expiresIn: 60_000,
     });
     try {
-      tokens.verifyAccessToken(badIss({ sub: 'u1', org: 'o1', rls: [], sid: 's1', typ: 'access' }));
+      tokens.verifyAccessToken(
+        badIss({ sub: 'u1', org: 'o1', rls: [], sid: 's1', tid: 't1', typ: 'access' }),
+      );
       expect.unreachable('expected wrong issuer to fail');
     } catch (err) {
       expect(err.code).toBe('UNAUTHENTICATED');
@@ -70,7 +94,9 @@ describe('tokenService', () => {
       expiresIn: 60_000,
     });
     try {
-      tokens.verifyAccessToken(badAud({ sub: 'u1', org: 'o1', rls: [], sid: 's1', typ: 'access' }));
+      tokens.verifyAccessToken(
+        badAud({ sub: 'u1', org: 'o1', rls: [], sid: 's1', tid: 't1', typ: 'access' }),
+      );
       expect.unreachable('expected wrong audience to fail');
     } catch (err) {
       expect(err.code).toBe('UNAUTHENTICATED');
@@ -88,6 +114,7 @@ describe('tokenService', () => {
       org: 'o1',
       rls: [],
       sid: 's1',
+      tid: 't1',
       typ: 'access',
     });
     await new Promise((resolve) => setTimeout(resolve, 10));

@@ -15,7 +15,7 @@ vi.mock('../../../src/modules/access/index.js', () => ({
     }
     return ['users.manage', 'org.view'];
   }),
-  revokeAllSessionsForUser: vi.fn(async () => ({})),
+  revokeAllLoginSessionsForUser: vi.fn(async () => ({})),
   adminSetPassword: vi.fn(),
   buildAuditContextFromRequest: vi.fn(() => ({})),
   getPasswordResetStatus: () => ({ state: 'none', completedAt: null }),

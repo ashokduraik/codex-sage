@@ -4,7 +4,7 @@
 import { ApiError } from '../../platform/errors.js';
 import { applyPasswordUpdate, findUserById, findUserByIdWithPassword } from '../masters/index.js';
 import { buildAuditContextFromRequest, recordAuditEvent } from './audit.js';
-import { hashPassword, verifyPassword, revokeAllSessionsForUser } from './auth.js';
+import { hashPassword, verifyPassword, revokeAllLoginSessionsForUser } from './auth.js';
 import mongoose from 'mongoose';
 import { z } from 'zod';
 
@@ -145,7 +145,7 @@ export async function applyNewPassword(input) {
         throw ApiError.fromCode('NOT_FOUND', { message: 'User not found.' });
       }
       passwordUpdatedAt = updated.passwordUpdatedAt;
-      await revokeAllSessionsForUser(input.orgId, input.userId, 'password_changed', {
+      await revokeAllLoginSessionsForUser(input.orgId, input.userId, 'password_changed', {
         session: mongoSession,
       });
     });

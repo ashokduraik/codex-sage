@@ -54,7 +54,7 @@ describe('auth.service', () => {
     expect(bad.emailHash).toMatch(/^[a-f0-9]{64}$/);
   });
 
-  it('refresh rotates and logout revokes the family', async () => {
+  it('refresh rotates and logout ends the login', async () => {
     await runBootstrapSeed({ info: () => {}, debug: () => {} });
     const auth = createAuthService(TEST_JWT_ACCESS_TOKEN_SECRET);
     const login = await auth.login({

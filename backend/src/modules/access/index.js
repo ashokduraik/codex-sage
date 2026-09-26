@@ -22,20 +22,22 @@ export {
   CSRF_COOKIE_NAME,
   CSRF_SECRET_COOKIE_NAME,
   CSRF_READABLE_COOKIE_PATH,
-  createSession,
-  findSessionByRefreshTokenHash,
-  findSessionById,
-  isSessionActiveForAccess,
-  isSessionActiveForRefresh,
-  rotateSession,
-  revokeSession,
-  revokeSessionFamily,
-  revokeAllSessionsForUser,
+  createLoginSession,
+  findLoginSessionByRefreshTokenHash,
+  findLoginSessionById,
+  isLoginSessionActiveForAccess,
+  isLoginSessionActiveForRefresh,
+  rotateLoginSession,
+  revokeLoginSession,
+  revokeAllLoginSessionsForUser,
   createAuthService,
   createAuthenticatePreHandler,
   authRoutes,
 } from './auth.js';
-export { Session, SESSION_REVOKED_REASONS } from '../../models/session.model.js';
+export {
+  LoginSession,
+  LOGIN_SESSION_REVOKED_REASONS,
+} from '../../models/loginSession.model.js';
 export {
   PASSWORD_MIN_LENGTH,
   PASSWORD_HISTORY_LENGTH,
@@ -99,10 +101,10 @@ export {
 export { AuditEvent, AUDIT_RESULT_VALUES } from '../../models/audit.model.js';
 
 import { AuditEvent } from '../../models/audit.model.js';
-import { Session } from '../../models/session.model.js';
+import { LoginSession } from '../../models/loginSession.model.js';
 
 /** Models whose indexes are synced on development API startup. */
-export const AUTH_MODELS = Object.freeze([Session]);
+export const AUTH_MODELS = Object.freeze([LoginSession]);
 
 /** Models owned by audit (index sync). */
 export const AUDIT_MODELS = Object.freeze([AuditEvent]);

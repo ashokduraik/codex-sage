@@ -1,6 +1,6 @@
 # ADR 0012 — Refresh-token rotation with strict reuse detection
 
-- Status: Accepted
+- Status: Superseded by [0030](./0030-login-session-embedded-tokens.md)
 - Date: 2026-09-11
 - Deciders: product owner (Phase 07 review)
 

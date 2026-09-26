@@ -89,14 +89,15 @@ indexes on `{ orgId: 1, name: 1 }` and `{ orgId: 1, builtInKey: 1 }` (built-ins 
 Keyset list index: `{ orgId: 1, status: 1, createdAt: -1, _id: -1 }`. Built-in roles may
 change `description` only; name, permissions, and soft-delete are immutable.
 
-### `sessions`
+### `loginsessions`
 
-Tenant-scoped refresh-token rows (Phase 07 / ADR 0012). Fields: `userId`, `familyId`,
-`refreshTokenHash` (SHA-256 of the opaque token — never the raw value), `issuedAt`,
-`expiresAt`, optional `rotatedAt` / `replacedBySessionId`, optional `revokedAt` /
-`revokedReason` (`logout` \| `reuse_detected` \| `password_changed` \| `user_disabled` \|
-`email_changed`), plus base fields. Indexes: unique `{ refreshTokenHash: 1 }`;
-`{ orgId: 1, userId: 1, status: 1 }`; `{ familyId: 1 }`; `{ expiresAt: 1 }`.
+Tenant-scoped one-document-per-sign-in rows (Phase 07 / ADR 0030). Fields: `userId`,
+`loggedInAt`, `expiresAt` (absolute end of the login), `tokens[]` (`_id`,
+`refreshTokenHash` SHA-256 of the opaque token — never the raw value, `issuedAt`, optional
+`rotatedAt`), optional `loggedOutAt` (user logout only), optional `revokedAt` /
+`revokedReason` (`reuse_detected` \| `password_changed` \| `user_disabled` \|
+`email_changed`), plus base fields. Indexes: unique `{ tokens.refreshTokenHash: 1 }`;
+`{ orgId: 1, userId: 1, status: 1 }`; `{ expiresAt: 1 }`.
 
 ### `idempotencyRecords`
 

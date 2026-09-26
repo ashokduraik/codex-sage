@@ -10,7 +10,7 @@ import {
   getPasswordResetStatus,
   PASSWORD_MIN_LENGTH,
   recordAuditEvent,
-  revokeAllSessionsForUser,
+  revokeAllLoginSessionsForUser,
 } from '../access/index.js';
 import { z } from 'zod';
 import {
@@ -740,7 +740,7 @@ export async function updateUserDetails(input) {
   }
 
   if (emailChanged && updated) {
-    await revokeAllSessionsForUser(input.orgId, input.targetUserId, 'email_changed');
+    await revokeAllLoginSessionsForUser(input.orgId, input.targetUserId, 'email_changed');
     await recordAuditEvent(
       {
         orgId: input.orgId,
@@ -870,7 +870,7 @@ export async function deactivateUser(input) {
   if (!updated) {
     throw ApiError.fromCode('NOT_FOUND', { message: 'User not found.' });
   }
-  await revokeAllSessionsForUser(input.orgId, input.targetUserId, 'user_disabled');
+  await revokeAllLoginSessionsForUser(input.orgId, input.targetUserId, 'user_disabled');
   await recordAuditEvent(
     {
       orgId: input.orgId,
@@ -927,7 +927,7 @@ export async function removeUser(input) {
         updatedBy: input.actorUserId,
         session: mongoSession,
       });
-      await revokeAllSessionsForUser(
+      await revokeAllLoginSessionsForUser(
         input.orgId,
         input.targetUserId,
         'user_disabled',

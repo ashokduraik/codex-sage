@@ -19,7 +19,7 @@ import {
   runBootstrapSeed,
   softDeleteUser,
 } from '../../../src/modules/masters/index.js';
-import { Session } from '../../../src/models/session.model.js';
+import { LoginSession } from '../../../src/models/loginSession.model.js';
 import { hashPassword } from '../../../src/modules/access/auth.js';
 import mongoose from 'mongoose';
 
@@ -129,7 +129,7 @@ describe('password.routes and adminPasswordReset.routes', () => {
     });
     expect(JSON.stringify(change.json())).not.toMatch(/newpass1/);
 
-    const revoked = await Session.find({ userId: user.id, revokedAt: { $ne: null } });
+    const revoked = await LoginSession.find({ userId: user.id, revokedAt: { $ne: null } });
     expect(revoked.length).toBeGreaterThan(0);
     expect(revoked.every((row) => row.revokedReason === 'password_changed')).toBe(true);
 
@@ -166,9 +166,10 @@ describe('password.routes and adminPasswordReset.routes', () => {
     expect(change.statusCode).toBe(403);
     expect(change.json().error.code).toBe('INVALID_CURRENT_PASSWORD');
 
-    const active = await Session.find({
+    const active = await LoginSession.find({
       userId: user.id,
       revokedAt: null,
+      loggedOutAt: null,
     });
     expect(active.length).toBeGreaterThan(0);
 

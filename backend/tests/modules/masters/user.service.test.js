@@ -6,7 +6,7 @@ import { User } from '../../../src/models/user.model.js';
 
 vi.mock('../../../src/modules/access/index.js', () => ({
   recordAuditEvent: vi.fn(async () => {}),
-  revokeAllSessionsForUser: vi.fn(async () => ({})),
+  revokeAllLoginSessionsForUser: vi.fn(async () => ({})),
   adminSetPassword: vi.fn(),
   buildAuditContextFromRequest: vi.fn(() => ({})),
   getPasswordResetStatus: (user) => {
@@ -58,7 +58,7 @@ vi.mock('mongoose', async (importOriginal) => {
   };
 });
 
-import { recordAuditEvent, revokeAllSessionsForUser } from '../../../src/modules/access/index.js';
+import { recordAuditEvent, revokeAllLoginSessionsForUser } from '../../../src/modules/access/index.js';
 import { wouldRemoveLastAdmin } from '../../../src/modules/masters/users.helper.js';
 import {
   containsForbiddenSecretKey,
@@ -173,7 +173,7 @@ describe('user.service', () => {
       correlationId: 'c1',
     });
 
-    expect(revokeAllSessionsForUser).toHaveBeenCalledWith(
+    expect(revokeAllLoginSessionsForUser).toHaveBeenCalledWith(
       '665f1c9d4b2a8e0012a4f010',
       'target',
       'email_changed',

@@ -40,8 +40,8 @@ invalidate.
 - An argon2id hashing module: `hashPassword`, `verifyPassword`, `needsRehash`, with cost
   parameters read from named constants.
 - JWT access tokens signed and verified through `@fastify/jwt`, with a short TTL.
-- Opaque refresh tokens stored hashed in a new `sessions` collection, with rotation on every
-  use and reuse detection that revokes the whole session family.
+- Opaque refresh tokens stored hashed on a `loginsessions` document (one per sign-in), with
+  rotation on every use and reuse detection that revokes that login (ADR 0030).
 - `POST /api/v1/auth/login`, `POST /api/v1/auth/refresh`, `POST /api/v1/auth/logout`,
   `GET /api/v1/auth/me`.
 - An `authenticate` Fastify `preHandler` that verifies the token, loads the user, rejects
@@ -103,8 +103,9 @@ Two tokens with deliberately different properties:
 Access token claims are deliberately minimal:
 
 ```text
-sub  userId          org  (orgId value)      sid  sessionId
-rls  roleIds[]       typ  'access'            iss / aud / iat / exp
+sub  userId          org  (orgId value)      sid  loginSessionId
+rls  roleIds[]       typ  'access'            tid  refresh token-entry id
+                                              iss / aud / iat / exp
 ```
 
 Claim key `org` is short; `request.principal.orgId` is set from it. `rls` carries role ids, not
@@ -112,22 +113,22 @@ permissions. Permissions change when an administrator edits a role, and a token 
 them would keep granting access until it expired. Phase 09 resolves permissions per request from
 the role ids.
 
-The refresh token value is never stored. The `sessions` collection stores its SHA-256 hash, so
-a database read cannot be replayed as a login. SHA-256 is correct here and argon2 is not: the
-token is 256 bits of server-generated randomness, so there is nothing to brute-force, and the
-refresh path must stay fast.
+The refresh token value is never stored. The `loginsessions` collection stores its SHA-256
+hash on `tokens[]`, so a database read cannot be replayed as a login. SHA-256 is correct here
+and argon2 is not: the token is 256 bits of server-generated randomness, so there is nothing
+to brute-force, and the refresh path must stay fast.
 
 ### 4.3 Rotation and reuse detection
 
-Every successful refresh consumes the presented token and issues a new one in the same
-*family* (`familyId`, set at login). The consumed row keeps `rotatedAt` and the id of its
-successor.
+Every successful refresh consumes the presented token and appends a successor on the same
+login document (`tokens[]`). The consumed entry keeps `rotatedAt`. Access JWT `sid` is the
+login `_id`; `tid` is the current token-entry `_id`. Residual access tokens stay valid until
+their TTL while the login is open (`authenticate` checks `sid` only).
 
-If a token that has already been rotated is presented again, that means the value leaked — the
-legitimate client and an attacker now both hold tokens from one family. The response is not
-just a rejection: every session row in that family is revoked with
-`revokedReason: 'reuse_detected'`, forcing a fresh login. This is the standard defence for
-rotating refresh tokens and it is the reason rotation is worth the extra collection.
+If a token that has already been rotated is presented again, that means the value leaked —
+the legitimate client and an attacker now both hold tokens from one login. The response is
+not just a rejection: that login is revoked with `revokedReason: 'reuse_detected'`, forcing
+a fresh sign-in (ADR 0030).
 
 ### 4.4 Principal resolution
 
@@ -171,33 +172,30 @@ email or the password, and never returned to the client (backend §148, §149).
 
 ### 4.6 Session and logout
 
-`POST /auth/logout` revokes the current session (and, by extension, its family). It always
-returns `204`, even when the refresh token is already unknown — logout must never fail in a way
-that leaves a client believing it is still signed in. Access tokens issued for that session
-remain syntactically valid until they expire; the `sid` claim allows a future revocation check
-if the residual window proves unacceptable (section 12).
+`POST /auth/logout` sets `loggedOutAt` on the current login. It always returns `204`, even
+when the refresh token is already unknown — logout must never fail in a way that leaves a
+client believing it is still signed in. Access tokens issued for that login remain
+syntactically valid until they expire; `authenticate` rejects them via the `sid` check.
 
 ## 5. Data model changes
 
-One new collection, `sessions`, on the Phase 03 base schema.
+One collection, `loginsessions`, on the Phase 03 base schema (ADR 0030).
 
 | Field | Type | Notes |
 |---|---|---|
 | `orgId` | ObjectId, required | Tenant scope |
 | `userId` | ObjectId, required | Owner |
-| `familyId` | string, required | Shared by every rotation of one login |
-| `refreshTokenHash` | string, required | SHA-256 of the opaque token; the value itself is never stored |
-| `issuedAt` | Date, required | UTC |
-| `expiresAt` | Date, required | UTC; absolute expiry of the refresh token |
-| `rotatedAt` | Date, optional | Set when consumed by a refresh |
-| `replacedBySessionId` | ObjectId, optional | Successor in the family |
-| `revokedAt` | Date, optional | Set on logout, reuse detection, or password change |
-| `revokedReason` | `'logout' \| 'reuse_detected' \| 'password_changed' \| 'user_disabled'`, optional | |
+| `loggedInAt` | Date, required | When this sign-in started |
+| `expiresAt` | Date, required | UTC; absolute expiry of the login |
+| `tokens[]` | subdocuments | `_id`, `refreshTokenHash`, `issuedAt`, optional `rotatedAt` |
+| `loggedOutAt` | Date, optional | User logout only |
+| `revokedAt` | Date, optional | Reuse, password/email change, or disable |
+| `revokedReason` | `'reuse_detected' \| 'password_changed' \| 'user_disabled' \| 'email_changed'`, optional | |
 | `status` | `'A' \| 'D'` | Row visibility; retention (Phase 60) tombstones old rows |
 
-Indexes: unique `{ refreshTokenHash: 1 }`; `{ orgId: 1, userId: 1, status: 1 }` for
-"revoke all sessions of this user" (Phase 08); `{ familyId: 1 }` for reuse-driven family
-revocation; `{ expiresAt: 1 }` for the Phase 60 cleanup sweep.
+Indexes: unique `{ tokens.refreshTokenHash: 1 }`; `{ orgId: 1, userId: 1, status: 1 }` for
+`revokeAllLoginSessionsForUser` (Phase 08); `{ expiresAt: 1 }` for the Phase 60 cleanup
+sweep. Helpers: `createLoginSession`, `rotateLoginSession`, `revokeLoginSession`.
 
 Existing `users` fields written by this phase: `passwordHash`, `passwordUpdatedAt` (when a
 rehash occurs), `lastLoginAt`.
@@ -247,7 +245,7 @@ Errors: `400 VALIDATION_ERROR` (zod, missing or malformed field);
 ```
 
 Response `200`: same shape as login. Errors: `401 SESSION_EXPIRED` (unknown, expired, revoked
-or already-rotated token — uniform, and reuse additionally revokes the family).
+or already-rotated token — uniform, and reuse additionally revokes the login).
 
 ### `POST /api/v1/auth/logout`
 
@@ -321,9 +319,9 @@ Locked values from the Phase 07 implementation review:
 | `backend/src/modules/auth/passwordHasher.test.js` | **New** |
 | `backend/src/modules/auth/tokenService.js` | **New:** sign/verify access tokens, mint refresh tokens |
 | `backend/src/modules/auth/tokenService.test.js` | **New** |
-| `backend/src/modules/auth/session.model.js` | **New:** `sessions` schema and indexes |
-| `backend/src/modules/auth/session.repository.js` | **New:** create, findByHash, rotate, revoke, revokeFamily, revokeAllForUser |
-| `backend/src/modules/auth/session.repository.test.js` | **New** |
+| `backend/src/models/loginSession.model.js` | **New:** `loginsessions` schema and indexes |
+| `backend/src/modules/access/auth.js` | create/rotate/revoke login-session helpers |
+| `backend/tests/modules/access/loginSession.repository.test.js` | **New** |
 | `backend/src/modules/auth/auth.service.js` | **New:** login, refresh, logout as typed outcomes |
 | `backend/src/modules/auth/auth.service.test.js` | **New** |
 | `backend/src/modules/auth/auth.routes.js` | **New:** the four routes, zod-validated |
@@ -343,7 +341,7 @@ Locked values from the Phase 07 implementation review:
 - `hashPassword` output verifies with `verifyPassword` and differs across two calls (salted).
 - `verifyPassword` returns false for a wrong password and for a malformed stored hash.
 - `needsRehash` is true when the stored parameters are below the current constants.
-- Access tokens carry `sub`, `org`, `rls`, `sid`, `iss`, `aud`, and no permission claim.
+- Access tokens carry `sub`, `org`, `rls`, `sid`, `tid`, `iss`, `aud`, and no permission claim.
 - Token verification rejects a wrong signature, a wrong issuer, a wrong audience and an
   expired token, with the expired case mapping to `SESSION_EXPIRED`.
 - Refresh tokens are unique across many mints and are stored only as a hash.
@@ -353,8 +351,8 @@ Locked values from the Phase 07 implementation review:
 - Login with correct credentials returns `200` and a usable access token.
 - `/me` with that token returns the user; without it returns `401 UNAUTHENTICATED`.
 - Refresh returns a new pair, and the old refresh token then fails with `401 SESSION_EXPIRED`.
-- Presenting an already-rotated token revokes every session in the family, so the newest
-  token also stops working.
+- Presenting an already-rotated token revokes that login, so the newest refresh token
+  also stops working.
 - Logout returns `204`, and refresh afterwards fails.
 - Logout with an unknown refresh token still returns `204`.
 
@@ -377,7 +375,7 @@ Locked values from the Phase 07 implementation review:
 - [ ] Access tokens are short-lived, carry role ids rather than permissions, and are verified
       for issuer, audience and expiry.
 - [ ] Refresh tokens are opaque, stored only as a SHA-256 hash, rotated on every use, and reuse
-      revokes the family.
+      revokes the login.
 - [ ] `request.principal` is populated only from verified token claims plus a database read;
       never from a request parameter.
 - [ ] All five rejected login cases return an identical response.
@@ -400,7 +398,7 @@ Locked values from the Phase 07 implementation review:
   transport chosen in section 12) as an ADR — it is a security-architecture decision with
   consequences for CSRF and for the frontend client in Phase 13. Phase 04 owns the stack ADRs;
   this one is specific enough to belong to this phase.
-- `docs/data-model.md`: add the `sessions` collection.
+- `docs/data-model.md`: add the `loginsessions` collection.
 - `docs/architecture.md` §3: the line "JWT → org + user" now has a concrete shape; state where
   the principal comes from.
 - `backend/solution.md` §8.3: replace "httpOnly cookie or rotating store" with D14 (httpOnly
@@ -413,8 +411,8 @@ Locked values from the Phase 07 implementation review:
 1. **Refresh-token transport.** Decided (D14 / ADR 0008).
 2. **argon2id cost parameters.** OWASP minimum: `m=19456` KiB, `t=2`, `p=1` (named constants).
 3. **TTLs.** Access `900` s; refresh `86400` s (1 day).
-4. **Residual access after logout.** `authenticate` checks `sid` session is still active.
-5. **Concurrent refresh.** Strict reuse detection — no grace window (ADR 0012).
+4. **Residual access after logout.** `authenticate` checks `sid` login is still open.
+5. **Concurrent refresh.** Strict reuse detection — no grace window (ADR 0030).
 6. **Disabled user message.** Uniform `INVALID_CREDENTIALS` (including disabled).
 7. **Account lockout.** Not in Phase 07; in-app rate limiting is out of scope (Phase 12).
 8. **Session listing.** Deferred; not in this phase.

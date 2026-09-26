@@ -27,7 +27,7 @@ response).
 
 ## 2. Why this phase is here
 
-It sits directly on Phase 07: hashing, the `sessions` collection and the
+It sits directly on Phase 07: hashing, the `loginsessions` collection and the
 `passwordUpdatedAt`-versus-token-`iat` check all come from there, and this phase is the first
 consumer of all three. It comes before Phase 11 so that the admin user API has a reset
 operation to expose rather than being retrofitted, and before Phase 14 so the frontend auth
@@ -110,8 +110,8 @@ strictly inside `principal.orgId`, and returns a status object with
 
 ### 4.5 Session invalidation
 
-- **Refresh tokens:** every `sessions` row for that user is revoked with
-  `revokedReason: 'password_changed'`.
+- **Refresh tokens:** every open `loginsessions` document for that user is revoked with
+  `revokedReason: 'password_changed'` (`revokeAllLoginSessionsForUser`).
 - **Access tokens:** Phase 07 `authenticate` rejects a token whose `iat` predates
   `user.passwordUpdatedAt`.
 

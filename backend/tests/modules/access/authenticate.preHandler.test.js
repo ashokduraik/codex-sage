@@ -3,7 +3,7 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import { createAuthenticatePreHandler } from '../../../src/modules/access/auth.js';
-import { Session } from '../../../src/models/session.model.js';
+import { LoginSession } from '../../../src/models/loginSession.model.js';
 
 vi.mock('../../../src/modules/masters/index.js', async (importOriginal) => {
   const actual = await importOriginal();
@@ -16,12 +16,12 @@ vi.mock('../../../src/modules/masters/index.js', async (importOriginal) => {
 import { findUserById } from '../../../src/modules/masters/index.js';
 
 /**
- * @param {object} session Session fields.
+ * @param {object} loginSession Login-session fields.
  * @returns {void}
  */
-function mockSession(session) {
-  vi.spyOn(Session, 'findOne').mockReturnValue({
-    exec: vi.fn().mockResolvedValue(session),
+function mockLoginSession(loginSession) {
+  vi.spyOn(LoginSession, 'findOne').mockReturnValue({
+    exec: vi.fn().mockResolvedValue(loginSession),
   });
 }
 
@@ -68,12 +68,13 @@ describe('authenticate.preHandler', () => {
       mustChangePassword: true,
       passwordUpdatedAt: null,
     });
-    mockSession({
+    mockLoginSession({
       _id: 's1',
       userId: 'u1',
       orgId: 'o1',
       status: 'A',
       revokedAt: null,
+      loggedOutAt: null,
       expiresAt: new Date(Date.now() + 60_000),
     });
 
@@ -82,6 +83,7 @@ describe('authenticate.preHandler', () => {
         sub: 'u1',
         org: 'o1',
         sid: 's1',
+        tid: 't1',
         rls: [],
         iat: Math.floor(Date.now() / 1000),
       }),
@@ -106,12 +108,13 @@ describe('authenticate.preHandler', () => {
       mustChangePassword: true,
       passwordUpdatedAt: null,
     });
-    mockSession({
+    mockLoginSession({
       _id: 's1',
       userId: 'u1',
       orgId: 'o1',
       status: 'A',
       revokedAt: null,
+      loggedOutAt: null,
       expiresAt: new Date(Date.now() + 60_000),
     });
 
@@ -120,6 +123,7 @@ describe('authenticate.preHandler', () => {
         sub: 'u1',
         org: 'o1',
         sid: 's1',
+        tid: 't-old',
         rls: ['r1'],
         iat: Math.floor(Date.now() / 1000),
       }),
@@ -136,5 +140,93 @@ describe('authenticate.preHandler', () => {
       roleIds: ['r1'],
       sessionId: 's1',
     });
+  });
+
+  it('allows residual access after rotate when the login is still open', async () => {
+    findUserById.mockResolvedValue({
+      _id: 'u1',
+      orgId: 'o1',
+      userStatus: 'active',
+      mustChangePassword: false,
+      passwordUpdatedAt: null,
+    });
+    mockLoginSession({
+      _id: 's1',
+      userId: 'u1',
+      orgId: 'o1',
+      status: 'A',
+      revokedAt: null,
+      loggedOutAt: null,
+      expiresAt: new Date(Date.now() + 60_000),
+      tokens: [
+        { _id: 't-old', refreshTokenHash: 'h1', rotatedAt: new Date() },
+        { _id: 't-new', refreshTokenHash: 'h2' },
+      ],
+    });
+
+    const authenticate = createAuthenticatePreHandler({
+      verifyAccessToken: () => ({
+        sub: 'u1',
+        org: 'o1',
+        sid: 's1',
+        tid: 't-old',
+        rls: ['r1'],
+        iat: Math.floor(Date.now() / 1000),
+      }),
+    });
+
+    const request = {
+      headers: { authorization: 'Bearer tok' },
+      routeOptions: { config: {} },
+    };
+    await authenticate(request, {});
+    expect(request.principal.sessionId).toBe('s1');
+  });
+
+  it('rejects access after logout or reuse revoke', async () => {
+    findUserById.mockResolvedValue({
+      _id: 'u1',
+      orgId: 'o1',
+      userStatus: 'active',
+      mustChangePassword: false,
+      passwordUpdatedAt: null,
+    });
+    const authenticate = createAuthenticatePreHandler({
+      verifyAccessToken: () => ({
+        sub: 'u1',
+        org: 'o1',
+        sid: 's1',
+        tid: 't1',
+        rls: [],
+        iat: Math.floor(Date.now() / 1000),
+      }),
+    });
+
+    mockLoginSession({
+      _id: 's1',
+      userId: 'u1',
+      orgId: 'o1',
+      status: 'A',
+      revokedAt: null,
+      loggedOutAt: new Date(),
+      expiresAt: new Date(Date.now() + 60_000),
+    });
+    await expect(
+      authenticate({ headers: { authorization: 'Bearer tok' }, routeOptions: { config: {} } }, {}),
+    ).rejects.toMatchObject({ code: 'SESSION_EXPIRED' });
+
+    mockLoginSession({
+      _id: 's1',
+      userId: 'u1',
+      orgId: 'o1',
+      status: 'A',
+      revokedAt: new Date(),
+      revokedReason: 'reuse_detected',
+      loggedOutAt: null,
+      expiresAt: new Date(Date.now() + 60_000),
+    });
+    await expect(
+      authenticate({ headers: { authorization: 'Bearer tok' }, routeOptions: { config: {} } }, {}),
+    ).rejects.toMatchObject({ code: 'SESSION_EXPIRED' });
   });
 });

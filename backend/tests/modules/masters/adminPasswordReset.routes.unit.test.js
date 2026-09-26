@@ -12,7 +12,7 @@ vi.mock('../../../src/modules/access/index.js', () => ({
     userAgent: undefined,
   })),
   recordAuditEvent: vi.fn(async () => {}),
-  revokeAllSessionsForUser: vi.fn(async () => ({})),
+  revokeAllLoginSessionsForUser: vi.fn(async () => ({})),
   PASSWORD_MIN_LENGTH: 6,
 }));
 

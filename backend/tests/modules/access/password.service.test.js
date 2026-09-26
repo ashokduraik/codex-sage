@@ -12,7 +12,7 @@ vi.mock('../../../src/modules/masters/index.js', () => ({
 vi.mock('../../../src/modules/access/auth.js', () => ({
   hashPassword: vi.fn(async () => 'hashed'),
   verifyPassword: vi.fn(),
-  revokeAllSessionsForUser: vi.fn(async () => ({})),
+  revokeAllLoginSessionsForUser: vi.fn(async () => ({})),
 }));
 vi.mock('mongoose', async () => {
   const actual = await vi.importActual('mongoose');
