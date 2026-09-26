@@ -1,7 +1,11 @@
 /**
  * Public surface for shared data-layer helpers.
  */
+import mongoose from 'mongoose';
 import { ApiError } from '../errors.js';
+
+/** Leftover collection from before members lived on `projects`. */
+const PROJECT_MEMBERS_COLLECTION_NAME = 'project_members';
 
 export {
   ROW_STATUS_ACTIVE,
@@ -78,4 +82,21 @@ export async function syncSchemaIndexes(models) {
     }
     await model.syncIndexes();
   }
+  await dropProjectMembersCollectionIfPresent();
+}
+
+/**
+ * Drops leftover `project_members` when it still exists (no document copy).
+ * @returns {Promise<void>}
+ */
+export async function dropProjectMembersCollectionIfPresent() {
+  const db = mongoose.connection.db;
+  if (!db) {
+    return;
+  }
+  const existing = await db.listCollections({ name: PROJECT_MEMBERS_COLLECTION_NAME }).toArray();
+  if (existing.length === 0) {
+    return;
+  }
+  await db.dropCollection(PROJECT_MEMBERS_COLLECTION_NAME);
 }

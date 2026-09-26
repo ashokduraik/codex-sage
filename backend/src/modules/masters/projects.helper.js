@@ -271,6 +271,7 @@ function cursorTimestampForRow(row, sortField) {
  *   description?: string,
  *   sourceType: 'upload' | 'repository',
  *   createdBy: import('mongoose').Types.ObjectId | string | null,
+ *   members?: object[],
  * }} input Create fields.
  * @param {{ session?: import('mongoose').ClientSession }} [options] Optional session.
  * @returns {Promise<import('mongoose').Document>}
@@ -298,6 +299,7 @@ export async function createProject(orgId, input, options = {}) {
         settings: {},
         createdBy: input.createdBy ?? null,
         updatedBy: input.createdBy ?? null,
+        members: Array.isArray(input.members) ? input.members : [],
       },
     ],
     options.session ? { session: options.session } : undefined,

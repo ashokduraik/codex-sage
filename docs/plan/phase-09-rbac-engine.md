@@ -55,7 +55,7 @@ and after Phase 06 because roles and memberships are what the resolver reads.
 
 ### Out of scope (owner phase)
 
-- Project-scoped authorization (`ProjectMember`, per-project overlays) — **Phase 18**. The
+- Project-scoped authorization (`projects.members[]` overlays) — **Phase 18**. The
   factory here checks organization permissions only; Phase 18 adds a second `preHandler` that
   composes with it rather than replacing it.
 - Audit events for denied requests — **Phase 10**. Leave the hook: the factory throws a typed

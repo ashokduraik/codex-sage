@@ -11,7 +11,6 @@ import { KnowledgeVersion } from '../../src/models/knowledgeVersion.model.js';
 import { Message } from '../../src/models/messages.model.js';
 import { Organization } from '../../src/models/organization.model.js';
 import { ProjectJobLock } from '../../src/models/projectJobLock.model.js';
-import { ProjectMember } from '../../src/models/projectMembers.model.js';
 import { Project } from '../../src/models/projects.model.js';
 import { RepositoryConnection } from '../../src/models/repositoryConnection.model.js';
 import { Role } from '../../src/models/role.model.js';
@@ -66,7 +65,6 @@ const DOMAIN_MODELS = Object.freeze([
   Organization,
   Project,
   ProjectJobLock,
-  ProjectMember,
   RepositoryConnection,
   Role,
   Session,
@@ -100,6 +98,9 @@ describe('ObjectId refs on domain models', () => {
     expect(User.schema.path('roleIds').options.ref).toBe('Role');
     expect(Project.schema.path('sourceConfig').schema.path('repositoryConnectionId').options.ref)
       .toBe('RepositoryConnection');
+    expect(Project.schema.path('members').schema.path('userId').options.ref).toBe('User');
+    expect(Project.schema.path('members').schema.path('roleId').options.ref).toBe('Role');
+    expect(Project.schema.path('members').schema.path('addedByUserId').options.ref).toBe('User');
     expect(User.schema.path('orgId').options.ref).toBe('Organization');
     expect(User.schema.path('createdBy').options.ref).toBe('User');
     expect(Organization.schema.path('orgId')).toBeUndefined();

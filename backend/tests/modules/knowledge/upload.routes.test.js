@@ -23,7 +23,7 @@ import {
 } from '../../../src/modules/masters/index.js';
 import { IDEMPOTENCY_MODELS } from '../../../src/platform/idempotency/index.js';
 import { PROJECT_MODELS, Project } from '../../../src/modules/masters/projects.js';
-import { PROJECT_MEMBER_MODELS, addProjectMember } from '../../../src/modules/masters/projectMembers.js';
+import { addProjectMember } from '../../../src/modules/masters/projectMembers.js';
 import { JOB_MODELS, Job } from '../../../src/modules/masters/jobs.js';
 import {
   SOURCE_MODELS,
@@ -42,7 +42,6 @@ const harness = createMongoHarness({
     ...AUDIT_MODELS,
     ...IDEMPOTENCY_MODELS,
     ...PROJECT_MODELS,
-    ...PROJECT_MEMBER_MODELS,
     ...JOB_MODELS,
     ...SOURCE_MODELS,
   ],

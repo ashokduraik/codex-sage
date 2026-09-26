@@ -2,13 +2,9 @@
  * masters/projectMembers.js — merged resource file.
  */
 import { requireProjectPermission } from '../../http/preHandlers/requireProjectPermission.js';
-import { ProjectMember } from '../../models/projectMembers.model.js';
+import { Project } from '../../models/projects.model.js';
 import {
   assertOrgId,
-  decodeCursor,
-  encodeCursor,
-  includeDeleted,
-  softDelete,
   ROW_STATUS_ACTIVE,
   ROW_STATUS_DELETED,
 } from '../../platform/data/index.js';
@@ -265,7 +261,7 @@ function catalogPermissions(permissions) {
 }
 
 /**
- * Loads overlay permissions from an optional ProjectMember row.
+ * Loads overlay permissions from an optional project member grant.
  * Foreign/missing roleId contributes no permissions (grants only; no throw).
  * @param {string} orgId Tenant id.
  * @param {import('mongoose').Document | null} member Active member row.
@@ -310,7 +306,7 @@ async function computeProjectPermissions(orgId, userId, projectId) {
     return { result: PROJECT_ACL_NO_ACCESS, aclVersion };
   }
 
-  const member = await findActiveProjectMember(orgId, projectId, userId);
+  const member = findActiveMemberOnProject(project, userId);
 
   if (projectAccessMode === 'selected' && !member) {
     return { result: PROJECT_ACL_NO_ACCESS, aclVersion };
@@ -407,51 +403,52 @@ export async function resolveAccessibleProjectFilter(orgId, userId) {
 
 // --- from projectMembers/projectMembers.repository.js ---
 /**
- * ProjectMember repository — org-scoped queries and accessible-project id set.
+ * Project member overlay on `projects.members[]`.
  */
-/** Default page size for GET /projects/:projectId/members. */
-export const PROJECT_MEMBERS_LIST_DEFAULT_LIMIT = 20;
-
-/** Hard cap on members list `limit`. */
-export const PROJECT_MEMBERS_LIST_MAX_LIMIT = 100;
-
 /**
- * Clamps a requested page size into the allowed range.
- * @param {unknown} limit Raw limit.
- * @returns {number}
+ * Builds a member subdocument for $push or create.
+ * @param {{
+ *   userId: import('mongoose').Types.ObjectId | string,
+ *   roleId?: import('mongoose').Types.ObjectId | string | null,
+ *   permissions?: string[],
+ *   addedByUserId: import('mongoose').Types.ObjectId | string,
+ *   createdBy?: import('mongoose').Types.ObjectId | string | null,
+ * }} input Member fields.
+ * @returns {object}
  */
-export function clampProjectMembersListLimit(limit) {
-  if (limit === undefined || limit === null || limit === '') {
-    return PROJECT_MEMBERS_LIST_DEFAULT_LIMIT;
-  }
-  const parsed = typeof limit === 'number' ? limit : Number(limit);
-  if (!Number.isFinite(parsed) || parsed < 1) {
-    return PROJECT_MEMBERS_LIST_DEFAULT_LIMIT;
-  }
-  return Math.min(Math.floor(parsed), PROJECT_MEMBERS_LIST_MAX_LIMIT);
+export function buildProjectMemberSubdoc(input) {
+  const now = new Date();
+  const actorId = new mongoose.Types.ObjectId(String(input.createdBy ?? input.addedByUserId));
+  return {
+    _id: new mongoose.Types.ObjectId(),
+    userId: new mongoose.Types.ObjectId(String(input.userId)),
+    roleId: input.roleId ? new mongoose.Types.ObjectId(String(input.roleId)) : null,
+    permissions: input.permissions ?? [],
+    addedByUserId: new mongoose.Types.ObjectId(String(input.addedByUserId)),
+    status: ROW_STATUS_ACTIVE,
+    createdBy: actorId,
+    updatedBy: actorId,
+    createdAt: now,
+    updatedAt: now,
+  };
 }
 
 /**
- * Builds a keyset filter for createdAt/_id descending pages.
- * @param {{ t: string, i: string }} cursor Decoded cursor.
- * @returns {object}
+ * Finds the active grant for a user on an already-loaded project.
+ * @param {{ members?: object[] } | null | undefined} project Project document.
+ * @param {import('mongoose').Types.ObjectId | string} userId User id.
+ * @returns {object | null}
  */
-function keysetAfterFilter(cursor) {
-  const createdAt = new Date(cursor.t);
-  if (Number.isNaN(createdAt.getTime())) {
-    throw ApiError.fromCode('VALIDATION_ERROR', {
-      details: [{ path: 'cursor', message: 'cursor timestamp is invalid' }],
-    });
+export function findActiveMemberOnProject(project, userId) {
+  if (!project || !Array.isArray(project.members)) {
+    return null;
   }
-  if (!mongoose.isValidObjectId(cursor.i)) {
-    throw ApiError.fromCode('VALIDATION_ERROR', {
-      details: [{ path: 'cursor', message: 'cursor id is invalid' }],
-    });
-  }
-  const id = new mongoose.Types.ObjectId(cursor.i);
-  return {
-    $or: [{ createdAt: { $lt: createdAt } }, { createdAt, _id: { $lt: id } }],
-  };
+  const wanted = String(userId);
+  return (
+    project.members.find(
+      (member) => String(member.userId) === wanted && member.status === ROW_STATUS_ACTIVE,
+    ) ?? null
+  );
 }
 
 /**
@@ -460,27 +457,24 @@ function keysetAfterFilter(cursor) {
  * @param {string} projectId Project id.
  * @param {import('mongoose').Types.ObjectId | string} userId User id.
  * @param {{ session?: import('mongoose').ClientSession }} [options] Session.
- * @returns {Promise<import('mongoose').Document | null>}
+ * @returns {Promise<object | null>}
  */
 export async function findActiveProjectMember(orgId, projectId, userId, options = {}) {
   assertOrgId(orgId);
   if (!mongoose.isValidObjectId(projectId) || !mongoose.isValidObjectId(userId)) {
     return null;
   }
-  const query = ProjectMember.findOne({ orgId, projectId, userId });
-  if (options.session) {
-    query.session(options.session);
-  }
-  return query.exec();
+  const project = await findProjectById(orgId, projectId, options);
+  return findActiveMemberOnProject(project, userId);
 }
 
 /**
- * Finds a project member including soft-deleted rows (for reactivation).
+ * Finds a project member including soft-deleted grants (for reactivation).
  * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
  * @param {string} projectId Project id.
  * @param {import('mongoose').Types.ObjectId | string} userId User id.
  * @param {{ session?: import('mongoose').ClientSession }} [options] Session.
- * @returns {Promise<import('mongoose').Document | null>}
+ * @returns {Promise<object | null>}
  */
 export async function findProjectMemberIncludingDeleted(
   orgId,
@@ -492,13 +486,29 @@ export async function findProjectMemberIncludingDeleted(
   if (!mongoose.isValidObjectId(projectId) || !mongoose.isValidObjectId(userId)) {
     return null;
   }
-  const query = includeDeleted(
-    ProjectMember.findOne({ orgId, projectId, userId }).sort({ updatedAt: -1 }),
-  );
-  if (options.session) {
-    query.session(options.session);
+  const project = await findProjectById(orgId, projectId, options);
+  if (!project || !Array.isArray(project.members)) {
+    return null;
   }
-  return query.exec();
+  const wanted = String(userId);
+  const matches = project.members.filter((member) => String(member.userId) === wanted);
+  const active = matches.find((member) => member.status === ROW_STATUS_ACTIVE);
+  if (active) {
+    return active;
+  }
+  let newest = null;
+  for (const member of matches) {
+    if (!newest) {
+      newest = member;
+      continue;
+    }
+    const newestAt = newest.updatedAt instanceof Date ? newest.updatedAt.getTime() : 0;
+    const memberAt = member.updatedAt instanceof Date ? member.updatedAt.getTime() : 0;
+    if (memberAt > newestAt) {
+      newest = member;
+    }
+  }
+  return newest;
 }
 
 /**
@@ -513,56 +523,49 @@ export async function listAccessibleProjectIdsForUser(orgId, userId, options = {
   if (!mongoose.isValidObjectId(userId)) {
     return [];
   }
-  const query = ProjectMember.find({ orgId, userId })
-    .select({ projectId: 1 })
+  const query = Project.find({
+    orgId,
+    members: {
+      $elemMatch: {
+        userId: new mongoose.Types.ObjectId(String(userId)),
+        status: ROW_STATUS_ACTIVE,
+      },
+    },
+  })
+    .select({ _id: 1 })
     .lean();
   if (options.session) {
     query.session(options.session);
   }
   const rows = await query.exec();
-  return rows.map((row) => String(row.projectId));
+  return rows.map((row) => String(row._id));
 }
 
 /**
- * Lists active members for a project with keyset pagination.
+ * Lists all active members for a project.
  * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
  * @param {string} projectId Project id.
- * @param {{ cursor?: string, limit?: number }} [filters] List filters.
- * @returns {Promise<{
- *   items: import('mongoose').Document[],
- *   nextCursor: string | null,
- * }>}
+ * @returns {Promise<object[]>}
  */
-export async function listProjectMembers(orgId, projectId, filters = {}) {
+export async function listProjectMembers(orgId, projectId) {
   assertOrgId(orgId);
   if (!mongoose.isValidObjectId(projectId)) {
-    return { items: [], nextCursor: null };
+    return [];
   }
-  const limit = clampProjectMembersListLimit(filters.limit);
-  /** @type {Record<string, unknown>} */
-  const query = { orgId, projectId, status: ROW_STATUS_ACTIVE };
-
-  if (filters.cursor) {
-    const decoded = decodeCursor(filters.cursor);
-    Object.assign(query, keysetAfterFilter(decoded));
+  const project = await findProjectById(orgId, projectId);
+  if (!project || !Array.isArray(project.members)) {
+    return [];
   }
-
-  const rows = await ProjectMember.find(query)
-    .sort({ createdAt: -1, _id: -1 })
-    .limit(limit + 1)
-    .exec();
-
-  const hasMore = rows.length > limit;
-  const items = hasMore ? rows.slice(0, limit) : rows;
-  let nextCursor = null;
-  if (hasMore && items.length > 0) {
-    const last = items[items.length - 1];
-    nextCursor = encodeCursor({
-      t: last.createdAt.toISOString(),
-      i: String(last._id),
+  return [...project.members]
+    .filter((member) => member.status === ROW_STATUS_ACTIVE)
+    .sort((left, right) => {
+      const leftAt = left.createdAt instanceof Date ? left.createdAt.getTime() : 0;
+      const rightAt = right.createdAt instanceof Date ? right.createdAt.getTime() : 0;
+      if (rightAt !== leftAt) {
+        return rightAt - leftAt;
+      }
+      return String(right._id).localeCompare(String(left._id));
     });
-  }
-  return { items, nextCursor };
 }
 
 /**
@@ -577,32 +580,37 @@ export async function listProjectMembers(orgId, projectId, filters = {}) {
  *   createdBy?: import('mongoose').Types.ObjectId | string | null,
  * }} input Create fields.
  * @param {{ session?: import('mongoose').ClientSession }} [options] Session.
- * @returns {Promise<import('mongoose').Document>}
+ * @returns {Promise<object | null>}
  */
 export async function createProjectMember(orgId, input, options = {}) {
   assertOrgId(orgId);
-  const [doc] = await ProjectMember.create(
-    [
-      {
-        orgId,
-        projectId: input.projectId,
-        userId: input.userId,
-        roleId: input.roleId ?? null,
-        permissions: input.permissions ?? [],
-        addedByUserId: input.addedByUserId,
-        createdBy: input.createdBy ?? input.addedByUserId,
-        updatedBy: input.createdBy ?? input.addedByUserId,
-      },
-    ],
-    options.session ? { session: options.session } : undefined,
+  if (!mongoose.isValidObjectId(input.projectId) || !mongoose.isValidObjectId(input.userId)) {
+    return null;
+  }
+  const subdoc = buildProjectMemberSubdoc(input);
+  const userObjectId = new mongoose.Types.ObjectId(String(input.userId));
+  const query = Project.updateOne(
+    {
+      _id: input.projectId,
+      orgId,
+      members: { $not: { $elemMatch: { userId: userObjectId, status: ROW_STATUS_ACTIVE } } },
+    },
+    { $push: { members: subdoc } },
   );
-  return doc;
+  if (options.session) {
+    query.session(options.session);
+  }
+  const result = await query.exec();
+  if (result.matchedCount === 0) {
+    return null;
+  }
+  return subdoc;
 }
 
 /**
  * Reactivates a soft-deleted member and refreshes overlay fields.
  * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
- * @param {string} memberId ProjectMember _id.
+ * @param {string} memberId Member subdocument _id.
  * @param {{
  *   roleId?: import('mongoose').Types.ObjectId | string | null,
  *   permissions?: string[],
@@ -610,33 +618,40 @@ export async function createProjectMember(orgId, input, options = {}) {
  *   updatedBy?: import('mongoose').Types.ObjectId | string | null,
  * }} patch Overlay and actor.
  * @param {{ session?: import('mongoose').ClientSession }} [options] Session.
- * @returns {Promise<import('mongoose').Document | null>}
+ * @returns {Promise<object | null>}
  */
 export async function reactivateProjectMember(orgId, memberId, patch, options = {}) {
   assertOrgId(orgId);
   if (!mongoose.isValidObjectId(memberId)) {
     return null;
   }
-  const query = includeDeleted(
-    ProjectMember.findOneAndUpdate(
-      { _id: memberId, orgId, status: ROW_STATUS_DELETED },
-      {
-        $set: {
-          status: ROW_STATUS_ACTIVE,
-          roleId: patch.roleId ?? null,
-          permissions: patch.permissions ?? [],
-          addedByUserId: patch.addedByUserId,
-          updatedBy: patch.updatedBy ?? patch.addedByUserId,
-          updatedAt: new Date(),
-        },
+  const memberObjectId = new mongoose.Types.ObjectId(memberId);
+  const now = new Date();
+  const query = Project.findOneAndUpdate(
+    { orgId, members: { $elemMatch: { _id: memberObjectId, status: ROW_STATUS_DELETED } } },
+    {
+      $set: {
+        'members.$[elem].status': ROW_STATUS_ACTIVE,
+        'members.$[elem].roleId': patch.roleId ?? null,
+        'members.$[elem].permissions': patch.permissions ?? [],
+        'members.$[elem].addedByUserId': patch.addedByUserId,
+        'members.$[elem].updatedBy': patch.updatedBy ?? patch.addedByUserId,
+        'members.$[elem].updatedAt': now,
       },
-      { returnDocument: 'after' },
-    ),
+    },
+    {
+      arrayFilters: [{ 'elem._id': memberObjectId, 'elem.status': ROW_STATUS_DELETED }],
+      returnDocument: 'after',
+    },
   );
   if (options.session) {
     query.session(options.session);
   }
-  return query.exec();
+  const project = await query.exec();
+  if (!project || !Array.isArray(project.members)) {
+    return null;
+  }
+  return project.members.find((member) => String(member._id) === String(memberId)) ?? null;
 }
 
 /**
@@ -652,11 +667,32 @@ export async function reactivateProjectMember(orgId, memberId, patch, options = 
  */
 export async function softDeleteProjectMember(orgId, projectId, userId, options = {}) {
   assertOrgId(orgId);
-  return softDelete(
-    ProjectMember,
-    { orgId, projectId, userId },
-    { updatedBy: options.updatedBy ?? null, session: options.session },
+  if (!mongoose.isValidObjectId(projectId) || !mongoose.isValidObjectId(userId)) {
+    return { acknowledged: true, matchedCount: 0, modifiedCount: 0, upsertedCount: 0, upsertedId: null };
+  }
+  const now = new Date();
+  const userObjectId = new mongoose.Types.ObjectId(String(userId));
+  const query = Project.updateOne(
+    {
+      _id: projectId,
+      orgId,
+      members: { $elemMatch: { userId: userObjectId, status: ROW_STATUS_ACTIVE } },
+    },
+    {
+      $set: {
+        'members.$[elem].status': ROW_STATUS_DELETED,
+        'members.$[elem].updatedBy': options.updatedBy ?? null,
+        'members.$[elem].updatedAt': now,
+      },
+    },
+    {
+      arrayFilters: [{ 'elem.userId': userObjectId, 'elem.status': ROW_STATUS_ACTIVE }],
+    },
   );
+  if (options.session) {
+    query.session(options.session);
+  }
+  return query.exec();
 }
 
 // --- from projectMembers/projectMembers.service.js ---
@@ -664,8 +700,8 @@ export async function softDeleteProjectMember(orgId, projectId, userId, options 
  * Project members use cases — add/remove with audit and ACL invalidation.
  */
 /**
- * Maps a ProjectMember document to the API shape.
- * @param {import('mongoose').Document} member Member row.
+ * Maps a project member grant to the API shape.
+ * @param {object} member Member subdocument.
  * @returns {object}
  */
 export function mapProjectMemberToDto(member) {
@@ -718,14 +754,12 @@ function normalizeMemberOverlay(input) {
  * Lists project members (ids only).
  * @param {string} orgId Tenant id.
  * @param {string} projectId Project id.
- * @param {{ cursor?: string, limit?: number }} [filters] Pagination.
- * @returns {Promise<{ items: object[], nextCursor: string | null }>}
+ * @returns {Promise<{ items: object[] }>}
  */
-export async function listMembers(orgId, projectId, filters = {}) {
-  const page = await listProjectMembers(orgId, projectId, filters);
+export async function listMembers(orgId, projectId) {
+  const rows = await listProjectMembers(orgId, projectId);
   return {
-    items: page.items.map((row) => mapProjectMemberToDto(row)),
-    nextCursor: page.nextCursor,
+    items: rows.map((row) => mapProjectMemberToDto(row)),
   };
 }
 
@@ -768,11 +802,7 @@ export async function addProjectMember(input) {
     }
   }
 
-  const active = await findActiveProjectMember(
-    input.orgId,
-    input.projectId,
-    input.userId,
-  );
+  const active = findActiveMemberOnProject(project, input.userId);
   if (active) {
     return { member: mapProjectMemberToDto(active), created: false };
   }
@@ -850,11 +880,7 @@ export async function removeProjectMember(input) {
     throw ApiError.fromCode('PROJECT_NOT_FOUND');
   }
 
-  const active = await findActiveProjectMember(
-    input.orgId,
-    input.projectId,
-    input.userId,
-  );
+  const active = findActiveMemberOnProject(project, input.userId);
   if (!active) {
     throw ApiError.fromCode('MEMBER_NOT_FOUND');
   }
@@ -893,61 +919,6 @@ export async function removeProjectMember(input) {
   );
 }
 
-/**
- * Ensures the project creator has an active ProjectMember row (for selected mode).
- * @param {{
- *   orgId: string,
- *   projectId: string,
- *   userId: string,
- *   session?: import('mongoose').ClientSession,
- * }} input Creator seed inputs.
- * @returns {Promise<void>}
- */
-export async function ensureCreatorProjectMember(input) {
-  const active = await findActiveProjectMember(
-    input.orgId,
-    input.projectId,
-    input.userId,
-    { session: input.session },
-  );
-  if (active) {
-    return;
-  }
-  const existing = await findProjectMemberIncludingDeleted(
-    input.orgId,
-    input.projectId,
-    input.userId,
-    { session: input.session },
-  );
-  if (existing && existing.status === 'D') {
-    await reactivateProjectMember(
-      input.orgId,
-      String(existing._id),
-      {
-        roleId: null,
-        permissions: [],
-        addedByUserId: input.userId,
-        updatedBy: input.userId,
-      },
-      { session: input.session },
-    );
-  } else {
-    await createProjectMember(
-      input.orgId,
-      {
-        projectId: input.projectId,
-        userId: input.userId,
-        roleId: null,
-        permissions: [],
-        addedByUserId: input.userId,
-        createdBy: input.userId,
-      },
-      { session: input.session },
-    );
-  }
-  await bumpProjectAclVersion(input.orgId, { session: input.session });
-}
-
 // --- from projectMembers/projectMembers.routes.js ---
 /**
  * Project members HTTP routes under `/api/v1`.
@@ -961,10 +932,7 @@ const memberUserParamsSchema = z.object({
   userId: z.string().min(1),
 });
 
-const listQuerySchema = z.object({
-  cursor: z.string().min(1).optional(),
-  limit: z.coerce.number().int().optional(),
-});
+const emptyQuerySchema = z.object({}).strict();
 
 const addBodySchema = z
   .object({
@@ -1035,16 +1003,11 @@ export async function projectMemberRoutes(app) {
       if (!params.success) {
         throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
       }
-      const query = listQuerySchema.safeParse(request.query ?? {});
+      const query = emptyQuerySchema.safeParse(request.query ?? {});
       if (!query.success) {
         throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(query.error) });
       }
-      if (query.data.limit === 0) {
-        throw ApiError.fromCode('VALIDATION_ERROR', {
-          details: [{ path: 'limit', message: 'limit must be a positive integer' }],
-        });
-      }
-      return listMembers(request.principal.orgId, params.data.projectId, query.data);
+      return listMembers(request.principal.orgId, params.data.projectId);
     },
   );
 
@@ -1097,4 +1060,3 @@ export async function projectMemberRoutes(app) {
   );
 }
 
-export const PROJECT_MEMBER_MODELS = Object.freeze([ProjectMember]);

@@ -6,7 +6,6 @@ import { roleRoutes } from './roles.js';
 import { Job } from '../../models/job.model.js';
 import { Organization } from '../../models/organization.model.js';
 import { Project } from '../../models/projects.model.js';
-import { ProjectMember } from '../../models/projectMembers.model.js';
 import { Role } from '../../models/role.model.js';
 import { User } from '../../models/user.model.js';
 
@@ -112,11 +111,9 @@ export {
   validateProjectSettingsKeys,
   projectRoutes,
 } from './projects.js';
-export { ProjectMember } from '../../models/projectMembers.model.js';
 export {
-  PROJECT_MEMBERS_LIST_DEFAULT_LIMIT,
-  PROJECT_MEMBERS_LIST_MAX_LIMIT,
-  clampProjectMembersListLimit,
+  buildProjectMemberSubdoc,
+  findActiveMemberOnProject,
   findActiveProjectMember,
   findProjectMemberIncludingDeleted,
   listAccessibleProjectIdsForUser,
@@ -138,7 +135,6 @@ export {
   listMembers,
   addProjectMember,
   removeProjectMember,
-  ensureCreatorProjectMember,
   projectMemberRoutes,
 } from './projectMembers.js';
 export { Job } from '../../models/job.model.js';
@@ -214,5 +210,4 @@ export { identityRoutes as adminPasswordResetRoutes };
 
 export const IDENTITY_MODELS = Object.freeze([Organization, User, Role]);
 export const PROJECT_MODELS = Object.freeze([Project]);
-export const PROJECT_MEMBER_MODELS = Object.freeze([ProjectMember]);
 export const JOB_MODELS = Object.freeze([Job]);

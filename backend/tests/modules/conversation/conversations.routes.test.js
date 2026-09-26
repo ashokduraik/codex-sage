@@ -21,7 +21,7 @@ import {
   runBootstrapSeed,
 } from '../../../src/modules/masters/index.js';
 import { PROJECT_MODELS, Project } from '../../../src/modules/masters/projects.js';
-import { PROJECT_MEMBER_MODELS, addProjectMember } from '../../../src/modules/masters/projectMembers.js';
+import { addProjectMember } from '../../../src/modules/masters/projectMembers.js';
 import { CONVERSATION_MODELS, Message, refreshConversationSearchText } from '../../../src/modules/conversation/conversation.js';
 import { CONVERSATION_DEFAULT_TITLE } from '../../../src/modules/conversation/conversation.helper.js';
 
@@ -32,7 +32,6 @@ const harness = createMongoHarness({
     ...AUDIT_MODELS,
     ...IDEMPOTENCY_MODELS,
     ...PROJECT_MODELS,
-    ...PROJECT_MEMBER_MODELS,
     ...CONVERSATION_MODELS,
   ],
   uri: TEST_APP_CONFIG.mongo.uri,

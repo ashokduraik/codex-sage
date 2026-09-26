@@ -55,7 +55,7 @@ endpoints are the only supported path from one seeded administrator to a working
 
 - Reset-token generation, hashing, expiry and the user-facing confirm endpoint — **Phase 08**.
   This phase calls the Phase 08 service and returns its non-secret status.
-- `ProjectMember` and project-level access assignment — **Phase 18**. Frontend §83 asks for
+- `projects.members[]` and project-level access assignment — **Phase 18**. Frontend §83 asks for
   project access at user-create time; that field is **not** invented here (§12, question 1).
 - Organization create / update endpoints from solution §8.4 — no phase owns them yet (§12).
 - `Idempotency-Key` handling on admin creates — **Phase 12**, which retro-fits the middleware

@@ -62,7 +62,7 @@ the only way any authenticated test or manual run of Phase 07 onward can exist a
 - The permission catalog, permission resolution, route guards — **Phase 09**.
 - Audit events for identity changes — **Phase 10**.
 - Admin user/role/membership HTTP APIs — **Phase 11**.
-- `ProjectMember` (the project ACL overlay) — **Phase 18**.
+- Project ACL overlay (`projects.members[]`) — **Phase 18**.
 - A standalone CLI bootstrap command — **not in this product path**; startup seed replaces it.
 - Worker-process seeding — API startup only.
 

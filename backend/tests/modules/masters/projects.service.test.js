@@ -13,7 +13,6 @@ import {
   findBuiltInRole,
   ensureBuiltInRoles,
 } from '../../../src/modules/masters/index.js';
-import { PROJECT_MEMBER_MODELS } from '../../../src/modules/masters/projectMembers.js';
 import {
   archiveProject,
   createProject,
@@ -32,7 +31,7 @@ import { Project } from '../../../src/models/projects.model.js';
 import { findProjectById } from '../../../src/modules/masters/projects.helper.js';
 
 const harness = createMongoHarness({
-  models: [Project, ...AUDIT_MODELS, ...IDENTITY_MODELS, ...PROJECT_MEMBER_MODELS],
+  models: [Project, ...AUDIT_MODELS, ...IDENTITY_MODELS],
   uri: TEST_APP_CONFIG.mongo.uri,
 });
 

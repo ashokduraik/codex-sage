@@ -4,7 +4,7 @@
 import { requireProjectPermission } from '../../http/preHandlers/requireProjectPermission.js';
 import { ApiError } from '../../platform/errors.js';
 import { buildAuditContextFromRequest, recordAuditEvent } from '../access/index.js';
-import { ensureCreatorProjectMember, resolveAccessibleProjectFilter } from './projectMembers.js';
+import { buildProjectMemberSubdoc, resolveAccessibleProjectFilter } from './projectMembers.js';
 import {
   assertLifecycleTransitionAllowed,
   assertKnowledgeHealthAllowed,
@@ -563,6 +563,15 @@ export async function createProject(input) {
     description: input.description,
     sourceType: input.sourceType,
     createdBy: input.actorUserId,
+    members: [
+      buildProjectMemberSubdoc({
+        userId: input.actorUserId,
+        roleId: null,
+        permissions: [],
+        addedByUserId: input.actorUserId,
+        createdBy: input.actorUserId,
+      }),
+    ],
   });
 
   const nextStatus = initialLifecycleAfterCreate(input.sourceType);
@@ -595,12 +604,6 @@ export async function createProject(input) {
     },
     { log: input.log },
   );
-
-  await ensureCreatorProjectMember({
-    orgId: input.orgId,
-    projectId: String(transitioned._id),
-    userId: input.actorUserId,
-  });
 
   return mapProjectToDto(transitioned, { detail: true });
 }

@@ -141,7 +141,7 @@ API process
   Global authorize preHandler (ADR 0015): routeAccess public | authenticated | requiredPermissions
     → resolve effective permissions from roles (org-scoped; built-ins from code catalog)
   Project routes (ADR 0020): routeAccess authenticated → requireProjectPermission
-    → resolveProjectPermissions (org ∪ ProjectMember overlay; 404 when not visible)
+    → resolveProjectPermissions (org ∪ projects.members overlay; 404 when not visible)
   Chat: LangGraph + SSE
   Before every model call: token budgeter
   Tools Node actually runs: explore_code, search_documents, read file/doc slices, abstain
@@ -157,8 +157,8 @@ Worker process
 MongoDB
   Orgs (`aclVersion` for project ACL cache), users (`roleIds`,
   `projectAccessMode`: all | selected | none), roles, sessions (refresh-token families),
-  projects (`lifecycleStatus`, `knowledgeHealth`, `sourceConfig`, `counts`, `settings`;
-  soft-delete via `status: 'A'|'D'`), project_members (per-project ACL overlay)  Source versions/files, document sections (text index), knowledge metadata
+  projects (`lifecycleStatus`, `knowledgeHealth`, `sourceConfig`, `counts`, `settings`,
+  embedded `members[]` ACL overlay; soft-delete via `status: 'A'|'D'`)  Source versions/files, document sections (text index), knowledge metadata
   Jobs (`jobs` with embedded `events[]` timeline; Phase 20 read APIs; Phase 21 worker
   claim — ADR 0004)
   Project job locks (`project_job_locks`; one live `project_writer` lock per project —

@@ -9,7 +9,7 @@
 [ADR 0014](./0014-cross-tenant-404.md) closes existence oracles **across tenants**.
 Backend §114/§115 also forbid confirming that a project exists when the caller is in the
 same organization but lacks project access (`projectAccessMode: 'none' | 'selected'`
-without a `ProjectMember` row). Returning `403 Forbidden` would teach a probing client
+without an active `projects.members` grant). Returning `403 Forbidden` would teach a probing client
 which project ids are real.
 
 ## Decision

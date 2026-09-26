@@ -894,7 +894,7 @@ Retry: only temporary failures auto-backoff; permanent / user_action_required wa
 | `Organization` | name, slug, config, `status` | Tenant root |
 | `User` | orgId, email, passwordHash, `userStatus` (`active`\|`invited`\|`disabled`), `roleIds[]`, `projectAccessMode`, `status` | Soft-delete via `status:'D'`; org roles live on the user (ADR 0028) |
 | `Role` | orgId, name, permissions[] | Built-in + custom |
-| `ProjectMember` | orgId, projectId, userId, permissions[] \| roleId | Project ACL overlay |
+| `Project` | name, lifecycle, sourceConfig, `members[]` (`userId`, `roleId`, `permissions[]`, `addedByUserId`, subdoc `status`) | Project ACL overlay lives on the project document |
 
 **Row visibility:** all list/detail queries default `status:'A'`. Domain lifecycle uses separate fields (`userStatus`, `lifecycleStatus`, etc.).
 

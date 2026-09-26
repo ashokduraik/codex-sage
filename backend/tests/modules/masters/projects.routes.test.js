@@ -20,7 +20,6 @@ import {
   runBootstrapSeed,
 } from '../../../src/modules/masters/index.js';
 import { PROJECT_MODELS, Project } from '../../../src/modules/masters/projects.js';
-import { PROJECT_MEMBER_MODELS } from '../../../src/modules/masters/projectMembers.js';
 
 const harness = createMongoHarness({
   models: [
@@ -29,7 +28,6 @@ const harness = createMongoHarness({
     ...AUDIT_MODELS,
     ...IDEMPOTENCY_MODELS,
     ...PROJECT_MODELS,
-    ...PROJECT_MEMBER_MODELS,
   ],
   uri: TEST_APP_CONFIG.mongo.uri,
 });

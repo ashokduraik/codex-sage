@@ -2,6 +2,10 @@
 
 > **Later change (ADR 0028):** `projectAccessMode` lives on `users`, not
 > `memberships`. Visibility rules (`all` / `selected` / `none`) are unchanged.
+>
+> **Later change:** the project ACL overlay lives on `projects.members[]`, not a
+> separate `project_members` collection. GET `/members` returns `{ items }` with
+> no cursor. Member removes stay as `status: 'D'` tombstones on the project.
 
 - **Layer:** BE
 - **Depends on:** Phase 17 (project model)
@@ -10,7 +14,7 @@
 - **Requirements covered:** `backend/requirments.md` §8 (project access), §6 (RBAC), §89 (data
   isolation), §90 (API authorization), §114 (project-scoped answers), §115 (cross-project
   access), §88 (security), §86–§87 (audit);
-  `backend/solution.md` §8.1 (`ProjectMember`), §8.2 (permission catalog), §8.4 (members API),
+  `backend/solution.md` §8.1 (`projects.members[]`), §8.2 (permission catalog), §8.4 (members API),
   §9.2 (audited actions); `docs/architecture.md` §3 (scoping), §8 (same isolation for search)
 
 ## 1. Goal
@@ -43,7 +47,7 @@ does not replace it.
 
 ### In scope
 
-- `ProjectMember` model from solution §8.1 with row `status: 'A' | 'D'`.
+- `projects.members[]` overlay from solution §8.1 with subdoc `status: 'A' | 'D'`.
 - The three access shapes of backend §8: all organization projects, selected projects, none.
 - `resolveProjectPermissions(orgId, userId, projectId)` — the single source of truth.
 - `requireProjectPermission(permission)` Fastify preHandler + a `projectScope` request
@@ -75,7 +79,7 @@ created in Phase 06:
 | Shape (backend §8) | Representation |
 |---|---|
 | All organization projects | `Membership.projectAccessMode = 'all'` |
-| Selected projects | `Membership.projectAccessMode = 'selected'` + one `ProjectMember` row per project |
+| Selected projects | `Membership.projectAccessMode = 'selected'` + one active `projects.members` grant per project |
 | No projects | `Membership.projectAccessMode = 'none'` |
 
 `projectAccessMode` is a **new field on the existing `memberships` collection** (see section 5
@@ -91,8 +95,8 @@ resolveProjectPermissions(orgId, userId, projectId):
   3  orgPermissions = union(permissions of membership.roleIds)        (Phase 09)
   4  switch membership.projectAccessMode
        'none'      → NO_ACCESS
-       'all'       → visible = true,  overlay = optional ProjectMember row
-       'selected'  → load ProjectMember; missing → NO_ACCESS; else visible = true
+       'all'       → visible = true,  overlay = optional projects.members grant
+       'selected'  → load projects.members grant; missing → NO_ACCESS; else visible = true
   5  overlayPermissions = member.permissions ∪ permissions(member.roleId)
   6  effective = orgPermissions ∪ overlayPermissions
   7  return { visible: true, permissions: effective }
@@ -100,7 +104,7 @@ resolveProjectPermissions(orgId, userId, projectId):
 
 Three deliberate rules:
 
-- **The overlay only grants.** A `ProjectMember` row cannot remove a permission the
+- **The overlay only grants.** A `projects.members` grant cannot remove a permission the
   organization role already gives. Deny rules are not in solution §8.2 and are not invented
   here (open question 2).
 - **Visibility comes first.** `projectAccessMode` and the membership row decide *whether the
@@ -145,12 +149,12 @@ Phase 17's routes move from the org-only preHandler to `requireProjectPermission
 
 `GET /projects` (the list) cannot use a per-project preHandler. Instead the repository takes an
 **accessible-project filter** built from the same resolver: `projectAccessMode: 'all'` means no
-extra clause, `selected` means `_id ∈ activeProjectMemberIds(userId)`, `none` means an empty
-result. The id set is fetched once per request with a projection on `projectId`, keeping the
-list query a single indexed lookup rather than an N+1 per row.
+extra clause, `selected` means `_id ∈` projects where `members` has that user with
+`status: 'A'`, `none` means an empty result. The id set is fetched once per request with a
+projection on `_id`, keeping the list query a single indexed lookup rather than an N+1 per row.
 
-`POST /projects` stays organization-scoped (`projects.create`), and the creator is inserted as a
-`ProjectMember` in the same operation so the person who creates a project can always see it.
+`POST /projects` stays organization-scoped (`projects.create`), and the creator is written as a
+`projects.members` grant on the same insert so the person who creates a project can always see it.
 
 ### 4.5 Caching and invalidation
 
@@ -161,7 +165,7 @@ it is cached using the mechanism Phase 09 introduced for organization permission
 - **Process-local LRU** with a short TTL (`PROJECT_ACL_CACHE_TTL_MS`), keyed the same way, with
   the value carrying the `aclVersion` it was computed from.
 - **`aclVersion`** is an integer on the organization document, incremented whenever a role's
-  permissions, a membership, a `projectAccessMode` or a `ProjectMember` row changes. A cached
+  permissions, a membership, a `projectAccessMode` or a `projects.members` grant changes. A cached
   entry whose `aclVersion` is stale is discarded on read, so a permission revocation takes
   effect on the next request rather than after the TTL — important because this is a security
   boundary, and because the API runs as more than one process (`docs/architecture.md` §2) and
@@ -184,40 +188,35 @@ it is cached using the mechanism Phase 09 introduced for organization permission
 
 ## 5. Data model changes
 
-New collection `project_members`.
+Embedded array `projects.members[]` (no `project_members` collection).
 
 | Field | Type | Notes |
 |---|---|---|
-| `orgId` | ObjectId | Tenant key, required |
-| `projectId` | ObjectId | Required |
+| `_id` | ObjectId | Stable grant id (reused on reactivate) |
 | `userId` | ObjectId | Required |
 | `roleId` | ObjectId \| null | Optional project-level role (solution §8.1) |
 | `permissions` | string[] | Explicit overlay grants from the §8.2 catalog only |
 | `addedByUserId` | ObjectId | Actor who granted access |
 | `createdAt` / `updatedAt` | Date (UTC) | |
-| `status` | `'A' \| 'D'` | default `'A'` (README §4) |
+| `status` | `'A' \| 'D'` | default `'A'`; remove is a tombstone |
 
-Indexes:
-
-- `{ orgId: 1, projectId: 1, userId: 1 }` unique, partial `status: 'A'`.
-- `{ orgId: 1, userId: 1 }` partial `status: 'A'` — the accessible-project filter.
-- `{ orgId: 1, projectId: 1, createdAt: -1, _id: -1 }` partial `status: 'A'` — member
-  list keyset.
+Index on `projects` (partial parent `status: 'A'`): `{ orgId: 1, 'members.userId': 1 }` —
+the accessible-project filter. One active grant per user is enforced on `$push`.
 
 Changed collection `memberships` (created in Phase 06): add
 `projectAccessMode: 'all' | 'selected' | 'none'`, required, default `'selected'`.
+(Later: this field lives on `users` — ADR 0028.)
 
 Changed collection `organizations`: add `aclVersion: number`, default `0`, incremented by the
-invalidation hook in §4.5. Both schema changes (plus indexes on `project_members`) are declared
-on the Mongoose models and synced via Phase 03 `syncSchemaIndexes`. Bootstrap / tests set
-`projectAccessMode` on new memberships; existing local docs are updated when re-synced or
-re-seeded (no versioned migration pre–go-live).
+invalidation hook in §4.5. Schema changes are declared on the Mongoose models and synced via
+Phase 03 `syncSchemaIndexes`. Bootstrap / tests set `projectAccessMode` on new users; leftover
+`project_members` is dropped with no copy.
 
 ## 6. API contract — PROPOSED (needs approval before implementation)
 
 All paths under `/api/v1`. Errors use `{ error: { code, message, details? } }`.
 
-### `GET /projects/:projectId/members?limit=20&cursor=…`
+### `GET /projects/:projectId/members`
 
 ```json
 {
@@ -230,8 +229,7 @@ All paths under `/api/v1`. Errors use `{ error: { code, message, details? } }`.
       "addedByUserId": "6650f0aa0000000000000009",
       "createdAt": "2026-09-11T09:12:04.000Z"
     }
-  ],
-  "nextCursor": null
+  ]
 }
 ```
 
@@ -285,7 +283,7 @@ No response body changes. Only the status codes change: an inaccessible project 
 
 | Path | Purpose |
 |---|---|
-| `backend/src/modules/projectMembers/projectMembers.model.js` | **New:** `ProjectMember` schema + indexes |
+| `backend/src/models/projects.model.js` | **Change:** embed `members[]` + `members.userId` index |
 | `backend/src/modules/projectMembers/projectMembers.repository.js` | **New:** scoped queries, accessible-project ids |
 | `backend/src/modules/projectMembers/projectMembers.repository.test.js` | **New:** scoping, reactivation, keyset |
 | `backend/src/modules/projectMembers/projectMembers.service.js` | **New:** add/remove, audit, cache invalidation |
@@ -300,7 +298,7 @@ No response body changes. Only the status codes change: an inaccessible project 
 | `backend/src/modules/projects/projects.routes.js` | Attach the guard to every `:projectId` route |
 | `backend/src/modules/projects/projects.routes.test.js` | Extend with access-denied cases |
 | `backend/src/modules/projects/projects.repository.js` | Apply the accessible-project filter in list |
-| `backend/src/modules/projects/projects.service.js` | Insert the creator as a `ProjectMember` |
+| `backend/src/modules/projects/projects.service.js` | Seed the creator on `projects.members[]` at insert |
 | `backend/src/http/routes.js` | Register `projectMemberRoutes` |
 | `backend/src/modules/identity/` models | **Change:** add `projectAccessMode` on memberships; `aclVersion` on organizations |
 
@@ -351,7 +349,7 @@ disabled; the per-request memo is used for repeated calls in one request.
 
 ## 10. Definition of Done
 
-- [ ] `ProjectMember` exists with row `status`, the unique partial index, and no hard delete.
+- [ ] `projects.members[]` exists with subdoc `status`, tombstone on remove, and no hard delete.
 - [ ] The three access shapes of backend §8 are all representable and all tested.
 - [ ] `resolveProjectPermissions` is the only place that decides project access; no route or
       repository re-implements any part of it.
@@ -383,7 +381,7 @@ Ask the user; do not assume (`.cursor/rules/no-assumptions.mdc`).
 1. **Where does `projectAccessMode` belong?** Proposed: on `Membership`. Alternatives: on the
    `Role` (so `org_admin` implies `all`), or a separate policy document. Confirm before the
    schema change, because it changes Phase 06's model.
-2. **Deny overlays.** Should a `ProjectMember` row ever be able to *remove* a permission granted
+2. **Deny overlays.** Should a `projects.members` grant ever be able to *remove* a permission granted
    by the organization role (for example, an org member who must not ask questions in one
    sensitive project)? Proposed: no, grants only.
 3. **Who may manage members?** Proposed: `projects.update` on that project, or org-level

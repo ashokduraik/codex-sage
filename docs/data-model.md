@@ -118,14 +118,22 @@ Tenant-scoped (Phase 17). Fields: `name` (1–120), `description` (≤ 2000), `l
 `partially_available` \| `stale` \| `failed`), `currentKnowledgeVersionId`, `sourceConfig`
 (`sourceType`: `upload` \| `repository`, optional connection/version refs), `settings`
 (key registry starts empty), `counts` (`sourceVersions`, `files`, `excludedFiles`,
-`conversations` — written only by owning phases), `archivedAt`, plus base fields.
+`conversations` — written only by owning phases), `archivedAt`, `members[]` (per-project
+ACL overlay: `userId`, optional `roleId`, `permissions[]`, `addedByUserId`, subdoc
+`status` `A`\|`D`, `createdBy` / `updatedBy` / `createdAt` / `updatedAt`; keep `_id` so
+re-add reuses the same grant id), plus base fields.
 
 Names are **not** unique within an org (duplicates allowed). Soft-delete sets `status: 'D'`
 and leaves `lifecycleStatus` unchanged. Archive stores `preArchiveLifecycleStatus` and sets
-`archivedAt`; restore returns to that prior state.
+`archivedAt`; restore returns to that prior state. Removing a member sets that subdoc
+`status: 'D'` (tombstone stays on the project). Leftover `project_members` collection is
+dropped; there is no copy job.
 
-Indexes (partial `status: 'A'`): `{ orgId: 1, updatedAt: -1, _id: -1 }` (list keyset),
-`{ orgId: 1, lifecycleStatus: 1 }` (dashboard grouping).
+Indexes (partial parent `status: 'A'`): `{ orgId: 1, updatedAt: -1, _id: -1 }` (list
+keyset), `{ orgId: 1, lastAccessedAt: -1, _id: -1 }`, `{ orgId: 1, lifecycleStatus: 1 }`
+(dashboard grouping), `{ orgId: 1, 'members.userId': 1 }` (accessible-project filter).
+Active uniqueness (one `status: 'A'` grant per user) is enforced on `$push`, not by a
+unique index.
 
 Lifecycle transitions are enforced by `transitionLifecycle` (API vs worker source; worker +
 `knowledgeVersionId` required for `knowledge_ready` / `partially_available`). Worker publish

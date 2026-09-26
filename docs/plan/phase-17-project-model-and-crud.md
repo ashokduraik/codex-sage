@@ -37,7 +37,7 @@ audit writer from Phase 10 — project create, settings change and delete are au
 (solution §9.2). It must not come later because Phase 19 (frontend projects slice) and Phase 20
 (jobs) both consume this model directly.
 
-Project-scoped authorization (the `ProjectMember` overlay) is deliberately **not** here: it is
+Project-scoped authorization (the `projects.members[]` overlay) is deliberately **not** here: it is
 Phase 18, which retrofits the guard onto the routes this phase creates.
 
 ## 3. Scope
@@ -57,7 +57,7 @@ Phase 18, which retrofits the guard onto the routes this phase creates.
 
 ### Out of scope (owner phase)
 
-- `ProjectMember`, effective project permissions, `requireProjectPermission` — **Phase 18**.
+- `projects.members[]`, effective project permissions, `requireProjectPermission` — **Phase 18**.
 - All frontend wiring and badge mapping — **Phase 19**.
 - `Job` / `JobEvent` and enqueueing anything — **Phase 20**.
 - Upload, source versions, exclusions — **Phases 23, 24**.

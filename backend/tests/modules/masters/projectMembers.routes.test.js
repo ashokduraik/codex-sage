@@ -24,7 +24,7 @@ import {
   updateUser,
 } from '../../../src/modules/masters/index.js';
 import { PROJECT_MODELS, createProjectInRepo } from '../../../src/modules/masters/projects.js';
-import { PROJECT_MEMBER_MODELS, findActiveProjectMember } from '../../../src/modules/masters/projectMembers.js';
+import { findActiveProjectMember } from '../../../src/modules/masters/projectMembers.js';
 
 const harness = createMongoHarness({
   models: [
@@ -33,7 +33,6 @@ const harness = createMongoHarness({
     ...AUDIT_MODELS,
     ...IDEMPOTENCY_MODELS,
     ...PROJECT_MODELS,
-    ...PROJECT_MEMBER_MODELS,
   ],
   uri: TEST_APP_CONFIG.mongo.uri,
 });
@@ -161,7 +160,16 @@ describe('projectMembers.routes', () => {
       headers,
     });
     expect(listRes.statusCode).toBe(200);
+    expect(listRes.json()).not.toHaveProperty('nextCursor');
     expect(listRes.json().items.some((row) => row.userId === String(target._id))).toBe(true);
+
+    const extraQuery = await app.inject({
+      method: 'GET',
+      url: `${API_BASE_PATH}/projects/${project.id}/members?limit=10`,
+      headers,
+    });
+    expect(extraQuery.statusCode).toBe(400);
+    expect(extraQuery.json().error.code).toBe('VALIDATION_ERROR');
 
     const delRes = await app.inject({
       method: 'DELETE',
@@ -444,11 +452,13 @@ describe('projectMembers.routes', () => {
     expect(unknownRole.statusCode).toBe(404);
     expect(unknownRole.json().error.code).toBe('ROLE_NOT_FOUND');
 
-    const badLimit = await app.inject({
-      method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/members?limit=0`,
+    const extraBodyKey = await app.inject({
+      method: 'POST',
+      url: `${API_BASE_PATH}/projects/${project.id}/members`,
       headers: { authorization: `Bearer ${adminToken}` },
+      payload: { userId: String(noAccessUser._id), permissions: ['projects.view'], extra: true },
     });
-    expect(badLimit.statusCode).toBe(400);
+    expect(extraBodyKey.statusCode).toBe(400);
+    expect(extraBodyKey.json().error.code).toBe('VALIDATION_ERROR');
   });
 });

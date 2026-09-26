@@ -8,7 +8,7 @@
  * knowledge (none, ready, stale). Those two can differ.
  */
 import mongoose from 'mongoose';
-import { createBaseSchema, ROW_STATUS_ACTIVE } from '../platform/data/index.js';
+import { createBaseSchema, ROW_STATUS_ACTIVE, ROW_STATUS_VALUES } from '../platform/data/index.js';
 
 const ObjectId = mongoose.Schema.Types.ObjectId;
 
@@ -49,6 +49,29 @@ const sourceConfigSchema = new mongoose.Schema(
     currentSourceVersionId: { type: ObjectId, ref: 'SourceVersion', default: null },
   },
   { _id: false },
+);
+
+const projectMemberSchema = new mongoose.Schema(
+  {
+    // User granted access to this project (Alice)
+    userId: { type: ObjectId, ref: 'User', required: true },
+    // Optional project role on top of her org roles
+    roleId: { type: ObjectId, ref: 'Role', default: null },
+    // Extra permission strings for this project only
+    permissions: { type: [String], default: () => [] },
+    // Admin who added Alice to this project
+    addedByUserId: { type: ObjectId, ref: 'User', required: true },
+    // A = active grant, D = removed (tombstone; same _id on re-add)
+    status: {
+      type: String,
+      enum: ROW_STATUS_VALUES,
+      required: true,
+      default: ROW_STATUS_ACTIVE,
+    },
+    createdBy: { type: ObjectId, ref: 'User', default: null },
+    updatedBy: { type: ObjectId, ref: 'User', default: null },
+  },
+  { timestamps: true },
 );
 
 const countsSchema = new mongoose.Schema(
@@ -101,6 +124,8 @@ const projectSchema = createBaseSchema({
   archivedAt: { type: Date, default: null },
   // Last time a member opened this project (sorts "recent")
   lastAccessedAt: { type: Date, default: null },
+  // Per-project ACL overlay (selected-mode grants + optional extra role/perms)
+  members: { type: [projectMemberSchema], required: true, default: () => [] },
 });
 
 projectSchema.index(
@@ -113,6 +138,10 @@ projectSchema.index(
 );
 projectSchema.index(
   { orgId: 1, lifecycleStatus: 1 },
+  { partialFilterExpression: { status: ROW_STATUS_ACTIVE } },
+);
+projectSchema.index(
+  { orgId: 1, 'members.userId': 1 },
   { partialFilterExpression: { status: ROW_STATUS_ACTIVE } },
 );
 

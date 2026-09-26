@@ -20,7 +20,7 @@ Redis / a shared cache is out of scope (ADR 0004 / README §5).
 - The process-local project ACL cache stores `{ kind, permissions?, aclVersion }` and
   discards an entry when the organization’s current `aclVersion` differs.
 - Callers that change user roles, `projectAccessMode`, custom role permissions,
-  or `ProjectMember` rows **increment** `aclVersion` and invalidate the local cache for
+  or `projects.members` grants **increment** `aclVersion` and invalidate the local cache for
   that org.
 - Caching is **disabled when `NODE_ENV=test`** so authorization tests never pass on
   stale state.

@@ -14,7 +14,6 @@ import {
 } from '../../../src/modules/masters/index.js';
 import { PROJECT_MODELS, createProjectInRepo } from '../../../src/modules/masters/projects.js';
 import {
-  PROJECT_MEMBER_MODELS,
   createProjectAclCache,
   createProjectMember,
   resolveProjectPermissions,
@@ -24,7 +23,7 @@ import {
 import { softDeleteProject } from '../../../src/modules/masters/projects.helper.js';
 
 const harness = createMongoHarness({
-  models: [...IDENTITY_MODELS, ...PROJECT_MODELS, ...PROJECT_MEMBER_MODELS],
+  models: [...IDENTITY_MODELS, ...PROJECT_MODELS],
   uri: TEST_APP_CONFIG.mongo.uri,
 });
 

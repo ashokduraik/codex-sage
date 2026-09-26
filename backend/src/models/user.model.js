@@ -51,7 +51,7 @@ const userSchema = createBaseSchema({
       message: 'roleIds must contain at least one role',
     },
   },
-  // Which projects she can see: all, selected (via project_members), or none
+  // Which projects she can see: all, selected (via projects.members), or none
   projectAccessMode: {
     type: String,
     enum: PROJECT_ACCESS_MODE_VALUES,
