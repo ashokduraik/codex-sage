@@ -211,8 +211,11 @@ Client request
           └── index ready or partial → open SSE, run LangGraph
 ```
 
-The OpenAI-compatible LLM sits behind a **bounded inference queue** so one chat cannot starve the machine.
-How many concurrent model calls are safe is an evaluation result, not a guessed constant.
+The OpenAI-compatible LLM sits behind a **bounded inference queue** in
+`backend/src/modules/conversation/llm.js` (API process, **per worker** — not fleet-wide).
+Production ships `INFERENCE_QUEUE_MAX_CONCURRENCY = 1` until a reviewed
+`npm run measure-llm-queue` run is promoted. Depth (`INFERENCE_QUEUE_MAX_DEPTH = 8`) is
+backpressure, not a guessed host-capacity number.
 CodeGraph telemetry is off everywhere (set in-process by the CodeGraph adapter before
 library import: `CODEGRAPH_TELEMETRY=0` and `DO_NOT_TRACK=1` — not via `.env`).
 
@@ -311,7 +314,8 @@ If the browser disconnects mid-stream, the run still finishes in Mongo (`complet
 ### 6.2 LangGraph workflow
 
 Every model call: assemble the exact messages → count tokens for the **active model**
-(`backend/src/modules/conversation/contextBudgeter.js`) → compact, or fail closed.
+(`backend/src/modules/conversation/contextBudgeter.js`) → compact, or fail closed →
+`conversation/llm.js` enqueue (per-worker, concurrency 1) → `provider.chat`.
 Capacity comes from required `LLM_CONTEXT_CAPACITY`. The artifact id is the
 configured model id after the startup `GET /models` probe (not a code constant). Missing tokenizer /
 artifact mismatch → `CONTEXT_ACCOUNTING_UNAVAILABLE`. Still over after compaction →
@@ -458,7 +462,7 @@ Mechanisms below match the accepted stack ADRs
 | Fastify | GridFS | MongoDB GridFS | Accepted source/doc bytes |
 | Fastify | LangGraph | in-process library | Chat state machine; the route handler still owns SSE |
 | Fastify | CodeGraph | in-process, **read lease** | Explore / `buildContext` on the current workspace |
-| Fastify | OpenAI-compatible LLM | HTTP `/v1` (probe now; `ai` SDK in Phase 45) | Budgeted generate / stream |
+| Fastify | OpenAI-compatible LLM | HTTP `/v1` via `conversation/llm.js` (`ai` + `@ai-sdk/openai`, `provider.chat`) | Budgeted generate / stream |
 | Fastify | GitHub/GitLab | HTTPS REST (probe + persist the connection; encrypted PAT nested) | Identity, branches, default branch, encrypted PAT |
 | Fastify | Worker | **only** by inserting a `Job` row | `202 { jobId }` — no RPC |
 | Worker | MongoDB | atomic claim | Jobs, source/knowledge metadata |

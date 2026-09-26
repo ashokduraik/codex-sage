@@ -320,7 +320,7 @@ measurement/decision · `DOC` documentation.
 | 42 | [Conversation search & automatic titles](./phase-42-conversation-search-and-titles.md) | BE | 41 | be §49, §50; sol §10.3–10.4 |
 | 43 | [Context budgeter & tokenizer parity](./phase-43-context-budgeter.md) | BE+EVAL | 02 | be §43, §44, §70; sol §1.2 |
 | 44 | [Conversation summarization, pinned facts & context metrics](./phase-44-summarization-and-context-metrics.md) | BE | 43 | be §42, §43, §44, §58, §59; fe §36–38 |
-| 45 | [LLM client & bounded inference queue](./phase-45-llm-client-and-queue.md) | BE | 05, 43 | be §65, §68, §69; sol §2.1, §5.3 |
+| 45 | [LLM client & bounded inference queue](./phase-45-llm-client-and-queue.md) | BE | 43 | be §65, §68, §69; sol §2.1, §5.3 |
 | 46 | [Agent tools](./phase-46-agent-tools.md) | BE | 26, 27, 43 | be §22, §57, §133; sol §5.5 |
 | 47 | [LangGraph workflow: understand, routing & checkpoints](./phase-47-langgraph-understand.md) | BE | 44, 45 | be §51, §52, §56, §58; sol §5.2 node A |
 | 48 | [LangGraph workflow: tool loop & run budgets](./phase-48-langgraph-tool-loop.md) | BE | 46, 47 | be §57, §66, §70; sol §5.2 node C, §5.6 |

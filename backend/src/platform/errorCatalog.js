@@ -308,6 +308,24 @@ export const ERROR_CATALOG = Object.freeze({
     retryability: 'user_action_required',
     message: 'The question does not fit in the validated context budget.',
   }),
+  LLM_CONFIG_UNAVAILABLE: Object.freeze({
+    class: 'system',
+    httpStatus: 503,
+    retryability: 'temporary',
+    message: 'The language model is not configured.',
+  }),
+  LLM_QUEUE_FULL: Object.freeze({
+    class: 'system',
+    httpStatus: 503,
+    retryability: 'temporary',
+    message: 'The language model is busy.',
+  }),
+  LLM_PROVIDER_ERROR: Object.freeze({
+    class: 'system',
+    httpStatus: 503,
+    retryability: 'temporary',
+    message: 'The language model did not complete the request.',
+  }),
   SOURCE_ZIP_SLIP: Object.freeze({
     class: 'source',
     httpStatus: 400,

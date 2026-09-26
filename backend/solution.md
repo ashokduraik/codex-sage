@@ -154,25 +154,25 @@ CodeGraph/document tools, context budgeting, and evidence verification.
 
 It **does** improve the product path around the model:
 
-| Benefit                    | Why it matters here                                         |
-| -------------------------- | ----------------------------------------------------------- |
-| Reliable token streaming   | `streamText` → easier SSE `delta` events to the UI          |
-| Abort / cancel             | Client disconnect maps cleanly to stop generation           |
-| Usage when reported        | Input/output token fields for message metrics (§68-style)   |
-| OpenAI-compatible provider | Point `@ai-sdk/openai` at `LLM_BASE_URL` and `LLM_MODEL_ID` |
-| Structured output helpers  | Useful for UNDERSTAND / VERIFY JSON decisions               |
+| Benefit                    | Why it matters here                                                                                                       |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Reliable token streaming   | `streamText` → easier SSE `delta` events to the UI                                                                        |
+| Abort / cancel             | Optional `AbortSignal` on the client; Phase 50 decides whether disconnect passes one (architecture default: run finishes) |
+| Usage when reported        | Input/output token fields for message metrics (§68-style)                                                                 |
+| OpenAI-compatible provider | Point `@ai-sdk/openai` at `LLM_BASE_URL` and `LLM_MODEL_ID` via `conversation/llm.js`                                     |
+| Structured output helpers  | Useful for UNDERSTAND / VERIFY JSON decisions                                                                             |
 
 **How it fits the Q&A sequence (nothing replaced):**
 
 ```text
 LangGraph node (e.g. DRAFT_ANSWER)
-  → Node calls ai.streamText({ model: configuredChat, messages: [...] })
+  → conversation generateText / streamText (budget → queue → provider.chat)
   → tokens → Node forwards SSE deltas to UI
   → LangGraph still owns tools, clarify, verify loops, caps
 ```
 
-Every call passes through the context budgeter before `generateText` or `streamText`. The system has
-no embedding or reranker model.
+Every call passes through the context budgeter before `generateText` or `streamText` in
+`backend/src/modules/conversation/llm.js`. The system has no embedding or reranker model.
 
 ---
 
@@ -734,16 +734,16 @@ UI          Node/Fastify          MongoDB       LangGraph      CodeGraph       a
 
 **Concrete `ai` usage in code terms (illustrative):**
 
-```ts
-// shared: OpenAI-compatible client pointed at LLM_BASE_URL
+```js
+// shared factory in backend/src/modules/conversation/llm.js
 import { createOpenAI } from '@ai-sdk/openai';
 import { generateText, streamText, Output } from 'ai';
 
-const llm = createOpenAI({
-  baseURL: process.env.LLM_BASE_URL, // illustrative; production reads loadConfig()
-  apiKey: process.env.LLM_API_KEY || 'not-needed',
+const provider = createOpenAI({
+  baseURL: loadConfig().llm.baseUrl,
+  apiKey: loadConfig().llm.apiKey || 'not-needed', // SDK dummy only; config stores null
 });
-const chat = llm(configuredModelId);
+const chat = provider.chat(configuredModelId);
 
 // Every messages array is produced by the exact tokenizer/context budgeter first.
 const { output, usage } = await generateText({

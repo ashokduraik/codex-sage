@@ -32,6 +32,21 @@ describe('ERROR_CATALOG', () => {
       httpStatus: 422,
       retryability: 'user_action_required',
     });
+    expect(ERROR_CATALOG.LLM_CONFIG_UNAVAILABLE).toMatchObject({
+      class: 'system',
+      httpStatus: 503,
+      retryability: 'temporary',
+    });
+    expect(ERROR_CATALOG.LLM_QUEUE_FULL).toMatchObject({
+      class: 'system',
+      httpStatus: 503,
+      retryability: 'temporary',
+    });
+    expect(ERROR_CATALOG.LLM_PROVIDER_ERROR).toMatchObject({
+      class: 'system',
+      httpStatus: 503,
+      retryability: 'temporary',
+    });
     expect(ERROR_CATALOG[MONGO_UNAVAILABLE_CODE].httpStatus).toBe(503);
     expect(ERROR_CATALOG.SEARCH_RESULT_NOT_FOUND).toMatchObject({
       class: 'knowledge',

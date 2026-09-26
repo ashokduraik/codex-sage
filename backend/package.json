@@ -18,6 +18,7 @@
     "start:worker": "node src/worker/index.js"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^4.0.78",
     "@colbymchenry/codegraph": "^1.6.0",
     "@fastify/cookie": "^11.1.2",
     "@fastify/cors": "^11.3.0",
@@ -25,6 +26,7 @@
     "@fastify/jwt": "^10.2.2",
     "@fastify/multipart": "^10.1.1",
     "@fastify/static": "^10.1.3",
+    "ai": "^7.0.116",
     "argon2": "^0.45.1",
     "dotenv": "^17.4.2",
     "fastify": "^5.12.4",

@@ -33,7 +33,14 @@ export {
   getContextBudgetConfig,
   prepareModelInput,
 } from './contextBudgeter.js';
-export { assertLlmAvailable } from './llm.js';
+export {
+  INFERENCE_QUEUE_MAX_CONCURRENCY,
+  INFERENCE_QUEUE_MAX_DEPTH,
+  assertLlmAvailable,
+  generateText,
+  getLlmConfigStatus,
+  streamText,
+} from './llm.js';
 export {
   PINNED_FACTS_MAX_COUNT,
   RECENT_TURNS_MAX_COUNT,

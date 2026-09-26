@@ -11,6 +11,7 @@ promote values into named constants on the owning module.
 |---|---|---|
 | [run-phase-05-codegraph.mjs](./run-phase-05-codegraph.mjs) | [phase-05-codegraph.md](./phase-05-codegraph.md), [phase-05-codegraph.raw.json](./phase-05-codegraph.raw.json) | After CodeGraph adapter or preview-cap changes |
 | [`scripts/measure-llm-context.mjs`](../../scripts/measure-llm-context.mjs) (`npm run measure-llm-context`) | [phase-43-context.md](./phase-43-context.md), [phase-43-context.raw.json](./phase-43-context.raw.json) | New host, new provider version, new model id, RAM/GPU change, or a suspected wrong context cap |
+| [`scripts/measure-llm-queue.mjs`](../../scripts/measure-llm-queue.mjs) (`npm run measure-llm-queue`) | [phase-45-queue.md](./phase-45-queue.md), [phase-45-queue.raw.json](./phase-45-queue.raw.json) | New host or RAM/GPU change before raising inference-queue concurrency above 1 |
 
 ---
 
@@ -94,6 +95,24 @@ Pick a Node tokenizer only after both `dependency-versions.mdc` checks pass
 12 months). Prove parity against the fixture `prompt_tokens` values in the latest
 `phase-43-context.raw.json`. If no maintained package matches, fail closed
 and ask — do not ship guessed counts.
+
+---
+
+## Phase 45 — inference queue concurrency
+
+Optional. The API ships `INFERENCE_QUEUE_MAX_CONCURRENCY = 1` (always host-safe) and
+`INFERENCE_QUEUE_MAX_DEPTH = 8` (backpressure per worker). This script fires short
+`POST /chat/completions` at concurrency 1, 2, and 4 and stops the ladder on the first
+5xx / OOM-class failure. It does **not** edit application constants.
+
+```bash
+npm run measure-llm-queue -- \
+  --base-url "${LLM_BASE_URL:-http://127.0.0.1:11434/v1}" \
+  --model qwen3.8:latest
+```
+
+Promote a higher concurrency only after reviewing [phase-45-queue.md](./phase-45-queue.md)
+on the target host. The bound is per API worker (PM2 cluster), not fleet-wide.
 
 ---
 
