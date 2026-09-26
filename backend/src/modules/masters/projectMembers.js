@@ -813,28 +813,47 @@ export async function addProjectMember(input) {
     input.userId,
   );
 
-  const member =
-    existing && existing.status === 'D'
-      ? await reactivateProjectMember(input.orgId, String(existing._id), {
-          roleId: overlay.roleId,
-          permissions: overlay.permissions,
-          addedByUserId: input.actorUserId,
-          updatedBy: input.actorUserId,
-        })
-      : await createProjectMember(input.orgId, {
-          projectId: input.projectId,
-          userId: input.userId,
-          roleId: overlay.roleId,
-          permissions: overlay.permissions,
-          addedByUserId: input.actorUserId,
-          createdBy: input.actorUserId,
-        });
-
+  const mongoSession = await mongoose.startSession();
+  /** @type {object | null} */
+  let member;
+  try {
+    await mongoSession.withTransaction(async () => {
+      member =
+        existing && existing.status === 'D'
+          ? await reactivateProjectMember(
+              input.orgId,
+              String(existing._id),
+              {
+                roleId: overlay.roleId,
+                permissions: overlay.permissions,
+                addedByUserId: input.actorUserId,
+                updatedBy: input.actorUserId,
+              },
+              { session: mongoSession },
+            )
+          : await createProjectMember(
+              input.orgId,
+              {
+                projectId: input.projectId,
+                userId: input.userId,
+                roleId: overlay.roleId,
+                permissions: overlay.permissions,
+                addedByUserId: input.actorUserId,
+                createdBy: input.actorUserId,
+              },
+              { session: mongoSession },
+            );
+      if (!member) {
+        throw ApiError.fromCode('INTERNAL_ERROR');
+      }
+      await bumpProjectAclVersion(input.orgId, { session: mongoSession });
+    });
+  } finally {
+    await mongoSession.endSession();
+  }
   if (!member) {
     throw ApiError.fromCode('INTERNAL_ERROR');
   }
-
-  await bumpProjectAclVersion(input.orgId);
 
   await recordAuditEvent(
     {
@@ -885,17 +904,23 @@ export async function removeProjectMember(input) {
     throw ApiError.fromCode('MEMBER_NOT_FOUND');
   }
 
-  const result = await softDeleteProjectMember(
-    input.orgId,
-    input.projectId,
-    input.userId,
-    { updatedBy: input.actorUserId },
-  );
-  if (!result.matchedCount) {
-    throw ApiError.fromCode('MEMBER_NOT_FOUND');
+  const mongoSession = await mongoose.startSession();
+  try {
+    await mongoSession.withTransaction(async () => {
+      const result = await softDeleteProjectMember(
+        input.orgId,
+        input.projectId,
+        input.userId,
+        { updatedBy: input.actorUserId, session: mongoSession },
+      );
+      if (!result.matchedCount) {
+        throw ApiError.fromCode('MEMBER_NOT_FOUND');
+      }
+      await bumpProjectAclVersion(input.orgId, { session: mongoSession });
+    });
+  } finally {
+    await mongoSession.endSession();
   }
-
-  await bumpProjectAclVersion(input.orgId);
 
   await recordAuditEvent(
     {

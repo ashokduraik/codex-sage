@@ -67,9 +67,13 @@ const data = await fs.promises.readFile(path);
 
 - Do **not** create a function for one or two lines used in a single place.
 - Inline small, one-off logic at the call site.
+- A one-call-site helper that is a small wrapper (roughly ≤15 lines, no multi-branch
+  domain logic) **must** be inlined. Do not extract a one-liner just to name it.
 - Extract a named function only when the same logic is (or clearly will be) used in
   **two or more** places, or when the body is complex enough that a name materially aids
   understanding (multi-branch / multi-step domain logic — not a one-liner wrapper).
+- Keep HTTP / service / repo public operations even when one route is the only caller.
+  Keep overflow files required by the 1000-line cap (`file-colocation.mdc`).
 - An extracted function lives in the resource file unless `file-colocation.mdc`
   allows a `.helper.js` / `.util.js` overflow file.
 

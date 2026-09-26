@@ -4,8 +4,6 @@ import pino from 'pino';
 import createRollStream from 'pino-roll';
 import { allowsErrorDetails } from './errorCatalog.js';
 
-/** Rotate when the active log file reaches 5 MB. */
-export const LOG_MAX_BYTES = 5 * 1024 * 1024;
 /**
  * Rotated backups kept in addition to the active file.
  * Active + backups ≤ 10 files on disk.

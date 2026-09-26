@@ -10,7 +10,8 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import mongoose from 'mongoose';
 import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
-import { clearSourceFilesBucket, getSourceFilesBucket } from '../../../src/modules/knowledge/sources.js';
+import { getSourceFilesBucket } from '../../../src/modules/knowledge/sources.js';
+import { clearSourceFilesBucket } from '../../clearSourceFilesBucket.js';
 import {
   materializeGridFsFileToDisk,
   resetProjectWorkspaceSubtree,

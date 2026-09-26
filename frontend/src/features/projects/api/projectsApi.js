@@ -128,23 +128,6 @@ export function projectDeletionPreviewQueryKey(projectId) {
 }
 
 /**
- * Builds a query string from defined filter values.
- * @param {Record<string, string | number | boolean | undefined | null>} params Query map.
- * @returns {string} Path suffix starting with `?`, or empty string.
- */
-function toQueryString(params) {
-  const search = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
-    if (value === undefined || value === null || value === '') {
-      continue;
-    }
-    search.set(key, String(value));
-  }
-  const encoded = search.toString();
-  return encoded ? `?${encoded}` : '';
-}
-
-/**
  * Lists accessible projects with keyset pagination.
  * @param {{
  *   q?: string,
@@ -158,14 +141,21 @@ function toQueryString(params) {
  */
 export async function listProjects(options = {}) {
   const { signal, ...filters } = options;
-  const query = toQueryString({
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries({
     q: filters.q,
     includeArchived: filters.includeArchived === true ? 'true' : undefined,
     sort: filters.sort,
     cursor: filters.cursor,
     limit: filters.limit ?? PROJECTS_LIST_DEFAULT_LIMIT,
-  });
-  return apiRequest(`/projects${query}`, { signal });
+  })) {
+    if (value === undefined || value === null || value === '') {
+      continue;
+    }
+    search.set(key, String(value));
+  }
+  const encoded = search.toString();
+  return apiRequest(`/projects${encoded ? `?${encoded}` : ''}`, { signal });
 }
 
 /**

@@ -80,6 +80,7 @@ describe('SourceUploadDialog', () => {
     const zip = new File(['pk'], 'src.zip', { type: 'application/zip' });
     fireEvent.change(getZipInput(), { target: { files: [zip] } });
     expect(screen.getByText('src.zip')).toBeTruthy();
+    expect(screen.getByText('2 B')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Start processing' }));
     await waitFor(() => {
       expect(onUploaded).toHaveBeenCalledWith({ sourceVersionId: 'sv1', jobId: 'j1' });

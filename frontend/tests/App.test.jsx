@@ -1,7 +1,7 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import '@/shared/i18n/index';
-import { App } from '@/App';
+import { App } from '@/app/App';
 import { getAccessToken } from '@/shared/api/index';
 import { resetRefreshClientForTests } from '@/shared/api/refreshClient.js';
 import { clearAuthSession, seedAuthSession } from '@tests/renderWithProviders';

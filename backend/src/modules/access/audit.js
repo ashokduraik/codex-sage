@@ -114,16 +114,6 @@ const FORBIDDEN_KEY_SUBSTRINGS = Object.freeze([
 ]);
 
 /**
- * Returns whether a context key name matches the hard exclusion list.
- * @param {string} key Object key.
- * @returns {boolean}
- */
-function isForbiddenKey(key) {
-  const lower = key.toLowerCase();
-  return FORBIDDEN_KEY_SUBSTRINGS.some((fragment) => lower.includes(fragment));
-}
-
-/**
  * Returns whether a value is an allowed scalar for audit context.
  * @param {unknown} value Candidate value.
  * @returns {boolean}
@@ -180,7 +170,7 @@ export function sanitizeAuditContext(context) {
     if (typeof key !== 'string' || key.length === 0) {
       continue;
     }
-    if (isForbiddenKey(key)) {
+    if (FORBIDDEN_KEY_SUBSTRINGS.some((fragment) => key.toLowerCase().includes(fragment))) {
       out[key] = '[redacted]';
       continue;
     }

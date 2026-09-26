@@ -17,7 +17,7 @@ vi.mock('../../../src/modules/access/index.js', () => ({
 }));
 
 import { adminSetPassword } from '../../../src/modules/access/index.js';
-import { adminPasswordResetRoutes } from '../../../src/modules/masters/users.js';
+import { userRoutes } from '../../../src/modules/masters/users.js';
 
 /**
  * @returns {{
@@ -67,7 +67,7 @@ function createFakeApp() {
 describe('adminPasswordReset.routes edge outcomes', () => {
   it('declares users.manage for the global authorize hook', async () => {
     const app = createFakeApp();
-    await adminPasswordResetRoutes(/** @type {any} */ (app));
+    await userRoutes(/** @type {any} */ (app));
     expect(app.getResetConfig()).toEqual(
       expect.objectContaining({
         requiredPermissions: ['users.manage'],
@@ -78,7 +78,7 @@ describe('adminPasswordReset.routes edge outcomes', () => {
   it('maps unexpected service outcome to INTERNAL_ERROR', async () => {
     adminSetPassword.mockResolvedValue({ outcome: 'password_changed' });
     const app = createFakeApp();
-    await adminPasswordResetRoutes(/** @type {any} */ (app));
+    await userRoutes(/** @type {any} */ (app));
     const handler = app.getResetHandler();
     await expect(
       handler({
@@ -93,7 +93,7 @@ describe('adminPasswordReset.routes edge outcomes', () => {
 
   it('rejects empty userId with VALIDATION_ERROR', async () => {
     const app = createFakeApp();
-    await adminPasswordResetRoutes(/** @type {any} */ (app));
+    await userRoutes(/** @type {any} */ (app));
     const handler = app.getResetHandler();
     await expect(
       handler({

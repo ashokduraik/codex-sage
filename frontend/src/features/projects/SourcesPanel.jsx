@@ -51,18 +51,6 @@ const CONNECTION_STATUS_LABEL_KEYS = Object.freeze({
 });
 
 /**
- * i18n key for a connection status, or the unknown fallback.
- * @param {string | null | undefined} code Backend connectionStatus.
- * @returns {string}
- */
-export function connectionStatusLabelKey(code) {
-  if (typeof code !== 'string' || code.length === 0) {
-    return 'sources.connectionStatus.unknown';
-  }
-  return CONNECTION_STATUS_LABEL_KEYS[code] ?? 'sources.connectionStatus.unknown';
-}
-
-/**
  * Label/value row for source metadata.
  *
  * @param {{ label: string, value?: string | null, mono?: boolean }} props Row props.
@@ -221,7 +209,13 @@ export default function SourcesPanel() {
               ) : null}
               <SourceRow
                 label={t('sources.credentials')}
-                value={t(connectionStatusLabelKey(connection?.connectionStatus))}
+                value={t(
+                  typeof connection?.connectionStatus === 'string' &&
+                    connection.connectionStatus.length > 0
+                    ? CONNECTION_STATUS_LABEL_KEYS[connection.connectionStatus] ??
+                      'sources.connectionStatus.unknown'
+                    : 'sources.connectionStatus.unknown',
+                )}
               />
             </div>
           ) : (

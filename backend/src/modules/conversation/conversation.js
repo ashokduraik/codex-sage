@@ -5,6 +5,7 @@ import { requireProjectPermission } from '../../http/preHandlers/requireProjectP
 import { ApiError } from '../../platform/errors.js';
 import { buildAuditContextFromRequest, recordAuditEvent } from '../access/index.js';
 import { adjustProjectConversationCount } from '../masters/index.js';
+import mongoose from 'mongoose';
 import {
   CONVERSATION_TITLE_MAX_LENGTH,
   CONVERSATION_AUTO_TITLE_MAX_INPUT_CHARS,
@@ -622,14 +623,31 @@ export async function loadConversationForUser(orgId, projectId, conversationId, 
  * @returns {Promise<object>}
  */
 export async function createConversation(input) {
-  const created = await insertConversation({
-    orgId: input.orgId,
-    projectId: input.projectId,
-    ownerUserId: input.actorUserId,
-    title: input.title,
-    titleSource: input.title ? 'user' : 'default',
-  });
-  await adjustProjectConversationCount(input.orgId, input.projectId, 1);
+  const mongoSession = await mongoose.startSession();
+  /** @type {import('mongoose').Document | undefined} */
+  let created;
+  try {
+    await mongoSession.withTransaction(async () => {
+      created = await insertConversation(
+        {
+          orgId: input.orgId,
+          projectId: input.projectId,
+          ownerUserId: input.actorUserId,
+          title: input.title,
+          titleSource: input.title ? 'user' : 'default',
+        },
+        { session: mongoSession },
+      );
+      await adjustProjectConversationCount(input.orgId, input.projectId, 1, {
+        session: mongoSession,
+      });
+    });
+  } finally {
+    await mongoSession.endSession();
+  }
+  if (!created) {
+    throw ApiError.fromCode('INTERNAL_ERROR');
+  }
   await recordAuditEvent(
     {
       orgId: input.orgId,
@@ -841,16 +859,28 @@ export async function deleteConversation(input) {
     input.conversationId,
     input.actorUserId,
   );
-  const result = await softDeleteOwnConversation({
-    orgId: input.orgId,
-    projectId: input.projectId,
-    conversationId: input.conversationId,
-    userId: input.actorUserId,
-  });
-  if (!result.modifiedCount) {
-    throw ApiError.fromCode('CONVERSATION_NOT_FOUND');
+  const mongoSession = await mongoose.startSession();
+  try {
+    await mongoSession.withTransaction(async () => {
+      const result = await softDeleteOwnConversation(
+        {
+          orgId: input.orgId,
+          projectId: input.projectId,
+          conversationId: input.conversationId,
+          userId: input.actorUserId,
+        },
+        { session: mongoSession },
+      );
+      if (!result.modifiedCount) {
+        throw ApiError.fromCode('CONVERSATION_NOT_FOUND');
+      }
+      await adjustProjectConversationCount(input.orgId, input.projectId, -1, {
+        session: mongoSession,
+      });
+    });
+  } finally {
+    await mongoSession.endSession();
   }
-  await adjustProjectConversationCount(input.orgId, input.projectId, -1);
   await recordAuditEvent(
     {
       orgId: input.orgId,

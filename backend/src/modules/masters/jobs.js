@@ -215,25 +215,6 @@ function toIsoOrNull(value) {
 }
 
 /**
- * Maps progressCounters to a plain object with numeric defaults.
- * @param {object | null | undefined} counters Stored counters.
- * @returns {{
- *   itemsProcessed: number,
- *   itemsFailed: number,
- *   warningCount: number,
- *   excludedCount: number,
- * }}
- */
-function mapProgressCounters(counters) {
-  return {
-    itemsProcessed: counters?.itemsProcessed ?? 0,
-    itemsFailed: counters?.itemsFailed ?? 0,
-    warningCount: counters?.warningCount ?? 0,
-    excludedCount: counters?.excludedCount ?? 0,
-  };
-}
-
-/**
  * Maps stageCheckpoint for the detail response (never on list).
  * @param {object | null | undefined} checkpoint Stored checkpoint.
  * @returns {{
@@ -294,7 +275,12 @@ export function mapJobToListDto(job) {
     currentStage: job.currentStage ?? null,
     failureClass: job.failureClass ?? null,
     partialSuccess: job.partialSuccess === true,
-    progressCounters: mapProgressCounters(job.progressCounters),
+    progressCounters: {
+      itemsProcessed: job.progressCounters?.itemsProcessed ?? 0,
+      itemsFailed: job.progressCounters?.itemsFailed ?? 0,
+      warningCount: job.progressCounters?.warningCount ?? 0,
+      excludedCount: job.progressCounters?.excludedCount ?? 0,
+    },
     scheduledAt: toIsoOrNull(job.scheduledAt),
     createdAt: toIsoOrNull(job.createdAt),
     startedAt: toIsoOrNull(job.startedAt),
@@ -855,8 +841,6 @@ export {
   JOB_STATUS_VALUES,
   JOB_TYPE_VALUES,
   FAILURE_CLASS_VALUES,
-  ACTIVE_JOB_STATUSES,
-  JOB_CANCEL_GRACE_MS,
   JOB_MAX_USER_RETRIES,
   appendJobEvent,
   assertJobEventMessageLength,
@@ -870,18 +854,13 @@ export {
   findJobById,
   insertPendingJob,
   isKnownJobStatus,
-  listEventsForJob,
   listJobsByProject,
-  promoteRetryingJobToPending,
   requestRunningJobCancel,
   INGEST_STAGE_DEFINITIONS,
   JOB_STAGE_CATALOG,
   labelForJobStage,
   listStagesForJobType,
   JOB_EVENT_MESSAGES,
-  messageContainsAbsolutePath,
-  messageContainsObjectIdShape,
-  messageContainsRawErrorFragment,
   renderJobEventMessage,
   describeRetryAvailability,
   resolveJobRetryMode,

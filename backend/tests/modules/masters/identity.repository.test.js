@@ -6,10 +6,7 @@ import { ROW_STATUS_DELETED } from '../../../src/platform/data/index.js';
 import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
 import { IDENTITY_MODELS } from '../../../src/modules/masters/index.js';
-import {
-  createOrganization,
-  softDeleteOrganization,
-} from '../../../src/modules/masters/organizations.js';
+import { createOrganization } from '../../../src/modules/masters/organizations.js';
 import {
   createUserInRepo,
   findUserByEmail,
@@ -19,7 +16,6 @@ import {
 } from '../../../src/modules/masters/users.js';
 import {
   ensureBuiltInRoles,
-  listRoles,
   softDeleteRoleInRepo,
   updateRoleInRepo,
 } from '../../../src/modules/masters/roles.js';
@@ -252,14 +248,14 @@ describe('identity models and repositories', () => {
     });
     await softDeleteRoleInRepo(org._id, custom._id);
     await softDeleteUser(org._id, user._id);
-    const rolesLeft = await listRoles(org._id);
+    const rolesLeft = await Role.find({ orgId: org._id }).sort({ name: 1 });
     expect(rolesLeft.some((r) => r.name === 'Custom')).toBe(false);
     expect((await listUsersInRepo(org._id)).items).toHaveLength(0);
   });
 
   it('soft-deletes an organization without removing its _id from history', async () => {
     const org = await createOrganization({ name: 'Gone', slug: 'gone-org' });
-    await softDeleteOrganization(org._id);
+    await Organization.updateOne({ _id: org._id }, { $set: { status: 'D' } });
     const found = await Organization.findById(org._id);
     expect(found).toBeNull();
     const deleted = await Organization.findOne({ _id: org._id }).setOptions({

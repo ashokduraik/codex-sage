@@ -620,15 +620,6 @@ export function normalizeRoutePath(path) {
 }
 
 /**
- * Returns whether a normalized path is on the public allowlist.
- * @param {string} normalizedPath Path from {@link normalizeRoutePath}.
- * @returns {boolean}
- */
-export function isPublicAllowlistedPath(normalizedPath) {
-  return PUBLIC_ROUTE_PATHS.includes(normalizedPath);
-}
-
-/**
  * Classifies a route config into an access mode.
  * @param {RouteAccessConfig | undefined} config Route config.
  * @param {string} normalizedPath Normalized route path.
@@ -656,7 +647,7 @@ export function classifyRouteAccess(config, normalizedPath) {
   if (routeAccess === 'authenticated') {
     return 'authenticated';
   }
-  if (isPublicAllowlistedPath(normalizedPath)) {
+  if (PUBLIC_ROUTE_PATHS.includes(normalizedPath)) {
     return 'public';
   }
   return 'undeclared';

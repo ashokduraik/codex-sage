@@ -72,7 +72,13 @@ export async function outboundGet(input) {
       clearTimeout(timer);
     }
 
-    if (isRedirectStatus(response.status)) {
+    if (
+      response.status === 301 ||
+      response.status === 302 ||
+      response.status === 303 ||
+      response.status === 307 ||
+      response.status === 308
+    ) {
       const location = response.headers.get('location');
       if (!location || redirects >= REPO_PROBE_MAX_REDIRECTS) {
         throw Object.assign(new Error('Repository probe exceeded redirect limit.'), {
@@ -136,14 +142,6 @@ async function readBodyCapped(response) {
     chunks.push(value);
   }
   return Buffer.concat(chunks.map((part) => Buffer.from(part))).toString('utf8');
-}
-
-/**
- * @param {number} status HTTP status.
- * @returns {boolean}
- */
-function isRedirectStatus(status) {
-  return status === 301 || status === 302 || status === 303 || status === 307 || status === 308;
 }
 
 /**

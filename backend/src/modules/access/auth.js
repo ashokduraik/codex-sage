@@ -225,17 +225,6 @@ export function hashRefreshToken(refreshToken) {
   return createHash('sha256').update(refreshToken, 'utf8').digest('hex');
 }
 
-/**
- * SHA-256 hex digest of a normalized email for safe log fields.
- * @param {string} email Email address.
- * @returns {string}
- */
-export function hashEmailForLog(email) {
-  return createHash('sha256')
-    .update(String(email).toLowerCase().trim(), 'utf8')
-    .digest('hex');
-}
-
 // --- from auth/session.repository.js ---
 /**
  * Login-session repository — one document per sign-in, tokens embedded.
@@ -251,15 +240,6 @@ function findTokenEntryByHash(loginSession, refreshTokenHash) {
     return undefined;
   }
   return loginSession.tokens.find((entry) => entry.refreshTokenHash === refreshTokenHash);
-}
-
-/**
- * Returns the unrotated token entry (the current refresh token).
- * @param {import('mongoose').Document} loginSession Login document.
- * @returns {{ refreshTokenHash: string, issuedAt: Date, rotatedAt?: Date, _id: import('mongoose').Types.ObjectId } | undefined}
- */
-function currentTokenEntry(loginSession) {
-  return loginSession.tokens.find((entry) => !entry.rotatedAt);
 }
 
 /**
@@ -623,16 +603,20 @@ async function loadRoleIds(orgId, userId) {
  * @param {(claims: object) => string} deps.signAccessToken
  * @param {import('mongoose').Document} deps.user
  * @param {string[]} deps.roleIds
+ * @param {import('mongoose').ClientSession} [deps.session] Optional Mongo session.
  * @returns {Promise<AuthSuccessPayload>}
  */
-async function issueAuthSuccess({ signAccessToken, user, roleIds }) {
+async function issueAuthSuccess({ signAccessToken, user, roleIds, session }) {
   const refreshToken = mintRefreshToken();
-  const loginSession = await createLoginSession({
-    orgId: user.orgId,
-    userId: user._id,
-    refreshTokenHash: hashRefreshToken(refreshToken),
-  });
-  const tokenEntry = currentTokenEntry(loginSession);
+  const loginSession = await createLoginSession(
+    {
+      orgId: user.orgId,
+      userId: user._id,
+      refreshTokenHash: hashRefreshToken(refreshToken),
+    },
+    session ? { session } : {},
+  );
+  const tokenEntry = loginSession.tokens.find((entry) => !entry.rotatedAt);
   if (!tokenEntry) {
     throw new Error('Login session missing current refresh token');
   }
@@ -666,7 +650,9 @@ export function createAuthService(jwtSecret) {
    * @returns {Promise<AuthSuccessPayload | { outcome: AuthOutcomeCode, emailHash: string }>}
    */
   async function login(input, ctx = {}) {
-    const emailHash = hashEmailForLog(input.email);
+    const emailHash = createHash('sha256')
+      .update(String(input.email).toLowerCase().trim(), 'utf8')
+      .digest('hex');
     const users = await findActiveUsersByEmailWithPassword(input.email);
     const dummyHash = await getDummyPasswordHash();
 
@@ -689,15 +675,37 @@ export function createAuthService(jwtSecret) {
       return { outcome: 'invalid_credentials', emailHash };
     }
 
+    let nextHash;
     if (needsRehash(user.passwordHash)) {
-      const nextHash = await hashPassword(input.password);
-      await updateUserPasswordHash(user.orgId, user._id, nextHash);
+      nextHash = await hashPassword(input.password);
       user.passwordHash = nextHash;
     }
 
-    await touchLastLoginAt(user.orgId, user._id);
     const roleIds = await loadRoleIds(user.orgId, user._id);
-    const success = await issueAuthSuccess({ signAccessToken, user, roleIds });
+    const mongoSession = await mongoose.startSession();
+    /** @type {AuthSuccessPayload | undefined} */
+    let success;
+    try {
+      await mongoSession.withTransaction(async () => {
+        if (nextHash) {
+          await updateUserPasswordHash(user.orgId, user._id, nextHash, {
+            session: mongoSession,
+          });
+        }
+        await touchLastLoginAt(user.orgId, user._id, { session: mongoSession });
+        success = await issueAuthSuccess({
+          signAccessToken,
+          user,
+          roleIds,
+          session: mongoSession,
+        });
+      });
+    } finally {
+      await mongoSession.endSession();
+    }
+    if (!success) {
+      throw new Error('Login transaction did not persist a session');
+    }
     ctx.log?.info?.({ outcome: 'authenticated', emailHash }, 'auth login succeeded');
     return { ...success, emailHash };
   }
@@ -1025,4 +1033,3 @@ export async function authRoutes(app) {
 }
 
 export { LoginSession } from '../../models/loginSession.model.js';
-export const AUTH_MODELS = Object.freeze([LoginSession]);

@@ -244,15 +244,6 @@ function extensionOf(basename) {
 }
 
 /**
- * True when the basename ends with an ignored minified suffix.
- * @param {string} basenameLower
- * @returns {boolean}
- */
-function matchesIgnoredSuffix(basenameLower) {
-  return IGNORED_FILE_SUFFIXES.some((suffix) => basenameLower.endsWith(suffix));
-}
-
-/**
  * True when the path is an allowlisted code, doc, or config file.
  * @param {string} basename
  * @param {string} extension
@@ -292,7 +283,10 @@ export function evaluateUploadEntry(entry) {
     return { decision: 'skip', reasonCode: 'ignored_directory' };
   }
 
-  if (IGNORED_BASENAMES.includes(basename) || matchesIgnoredSuffix(basenameLower)) {
+  if (
+    IGNORED_BASENAMES.includes(basename) ||
+    IGNORED_FILE_SUFFIXES.some((suffix) => basenameLower.endsWith(suffix))
+  ) {
     return { decision: 'skip', reasonCode: 'ignored_file' };
   }
 
@@ -375,15 +369,6 @@ export function summarizeInspection(entries) {
 /**
  * Zip metadata inspection: integrity, zip-slip, entry listing (no file bytes retained).
  */
-/**
- * True when the zip entry is marked encrypted (general-purpose bit 0).
- * @param {{ generalPurposeBitFlag?: number }} entry
- * @returns {boolean}
- */
-function isEncryptedEntry(entry) {
-  return ((entry.generalPurposeBitFlag ?? 0) & 0x1) === 0x1;
-}
-
 /**
  * Collects a readable stream into a Buffer, failing if it exceeds the archive cap.
  * @param {Readable} stream
@@ -485,7 +470,7 @@ export async function inspectZip(input) {
         continue;
       }
 
-      if (isEncryptedEntry(entry)) {
+      if (((entry.generalPurposeBitFlag ?? 0) & 0x1) === 0x1) {
         throw ApiError.fromCode('SOURCE_ZIP_INTEGRITY');
       }
 
@@ -840,22 +825,23 @@ export async function persistSourceUpload(input) {
           },
           { session },
         );
+
+        const project = await findProjectById(input.orgId, input.projectId, { session });
+        if (project && project.lifecycleStatus === 'awaiting_source') {
+          await transitionLifecycle({
+            orgId: input.orgId,
+            projectId: input.projectId,
+            from: 'awaiting_source',
+            to: 'source_received',
+            source: 'api',
+            actorUserId: input.actorUserId,
+            reasonCode: 'source_uploaded',
+            session,
+          });
+        }
       });
     } finally {
       await session.endSession();
-    }
-
-    const project = await findProjectById(input.orgId, input.projectId);
-    if (project && project.lifecycleStatus === 'awaiting_source') {
-      await transitionLifecycle({
-        orgId: input.orgId,
-        projectId: input.projectId,
-        from: 'awaiting_source',
-        to: 'source_received',
-        source: 'api',
-        actorUserId: input.actorUserId,
-        reasonCode: 'source_uploaded',
-      });
     }
 
     await recordAuditEvent(

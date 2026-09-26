@@ -174,9 +174,6 @@ export const PROJECTS_LIST_DEFAULT_LIMIT = 20;
 /** Hard cap on `limit` query parameter. */
 export const PROJECTS_LIST_MAX_LIMIT = 100;
 
-/** Allowed list sort fields. */
-export const PROJECTS_LIST_SORT_VALUES = Object.freeze(['updatedAt', 'lastAccessedAt']);
-
 /** Epoch used when encoding a null lastAccessedAt into a keyset cursor. */
 const NULL_LAST_ACCESSED_CURSOR_ISO = '1970-01-01T00:00:00.000Z';
 
@@ -453,14 +450,15 @@ export async function updateProjectMetadata(orgId, projectId, patch) {
  *   sourceType?: 'upload' | 'repository',
  *   updatedBy?: string | null,
  * }} input Pointer fields.
+ * @param {{ session?: import('mongoose').ClientSession }} [options] Optional Mongo session.
  * @returns {Promise<import('mongoose').Document | null>}
  */
-export async function updateProjectSourceConfig(orgId, projectId, input) {
+export async function updateProjectSourceConfig(orgId, projectId, input, options = {}) {
   assertOrgId(orgId);
   if (!mongoose.isValidObjectId(projectId)) {
     return null;
   }
-  return Project.findOneAndUpdate(
+  const query = Project.findOneAndUpdate(
     { _id: projectId, orgId, status: ROW_STATUS_ACTIVE },
     {
       $set: {
@@ -471,7 +469,11 @@ export async function updateProjectSourceConfig(orgId, projectId, input) {
       },
     },
     { returnDocument: 'after' },
-  ).exec();
+  );
+  if (options.session) {
+    query.session(options.session);
+  }
+  return query.exec();
 }
 
 /**
@@ -514,9 +516,10 @@ export async function updateProjectSettings(orgId, projectId, input) {
  *   currentKnowledgeVersionId?: string | null,
  *   knowledgeHealth?: string | null,
  * }} transition Transition fields.
+ * @param {{ session?: import('mongoose').ClientSession }} [options] Optional Mongo session.
  * @returns {Promise<import('mongoose').Document | null>} Updated doc, or null when no match.
  */
-export async function conditionalLifecycleUpdate(orgId, projectId, transition) {
+export async function conditionalLifecycleUpdate(orgId, projectId, transition, options = {}) {
   assertOrgId(orgId);
   if (!mongoose.isValidObjectId(projectId)) {
     return null;
@@ -548,7 +551,7 @@ export async function conditionalLifecycleUpdate(orgId, projectId, transition) {
     $set.knowledgeHealth = transition.knowledgeHealth;
   }
 
-  return Project.findOneAndUpdate(
+  const query = Project.findOneAndUpdate(
     {
       _id: projectId,
       orgId,
@@ -557,7 +560,11 @@ export async function conditionalLifecycleUpdate(orgId, projectId, transition) {
     },
     { $set },
     { returnDocument: 'after' },
-  ).exec();
+  );
+  if (options.session) {
+    query.session(options.session);
+  }
+  return query.exec();
 }
 
 /**
@@ -565,14 +572,15 @@ export async function conditionalLifecycleUpdate(orgId, projectId, transition) {
  * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
  * @param {string} projectId Project id.
  * @param {number} delta Integer change (typically +1 or -1).
+ * @param {{ session?: import('mongoose').ClientSession }} [options] Optional Mongo session.
  * @returns {Promise<import('mongoose').Document | null>}
  */
-export async function adjustProjectConversationCount(orgId, projectId, delta) {
+export async function adjustProjectConversationCount(orgId, projectId, delta, options = {}) {
   assertOrgId(orgId);
   if (!mongoose.isValidObjectId(projectId) || !Number.isInteger(delta) || delta === 0) {
     return null;
   }
-  return Project.findOneAndUpdate(
+  const query = Project.findOneAndUpdate(
     {
       _id: projectId,
       orgId,
@@ -588,7 +596,11 @@ export async function adjustProjectConversationCount(orgId, projectId, delta) {
       },
     ],
     { returnDocument: 'after', updatePipeline: true },
-  ).exec();
+  );
+  if (options.session) {
+    query.session(options.session);
+  }
+  return query.exec();
 }
 
 /**

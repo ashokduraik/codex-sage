@@ -134,26 +134,6 @@ export async function getProjectRepositoryConnection(projectId, options = {}) {
 }
 
 /**
- * Changes the selected branch on the active connection.
- * @param {{
- *   projectId: string,
- *   selectedBranch: string,
- *   signal?: AbortSignal,
- * }} input Patch inputs.
- * @returns {Promise<{ connection: RepositoryConnectionDto }>}
- */
-export async function patchProjectRepositoryBranch(input) {
-  return apiRequest(
-    `/projects/${encodeURIComponent(input.projectId)}/repositories/connection/branch`,
-    {
-      method: 'PATCH',
-      body: { selectedBranch: input.selectedBranch },
-      signal: input.signal,
-    },
-  );
-}
-
-/**
  * Replaces the stored repository credential (write-only token).
  * @param {{
  *   projectId: string,

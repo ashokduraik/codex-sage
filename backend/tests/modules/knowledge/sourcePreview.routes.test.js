@@ -7,7 +7,7 @@ import { API_BASE_PATH, buildApp } from '../../../src/http/app.js';
 import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
 import { AUDIT_MODELS } from '../../../src/modules/access/audit.js';
-import { AUTH_MODELS } from '../../../src/modules/access/auth.js';
+import { AUTH_MODELS } from '../../../src/modules/access/index.js';
 import { hashPassword } from '../../../src/modules/access/auth.js';
 import {
   DEFAULT_ADMIN_EMAIL,
@@ -26,11 +26,11 @@ import { DOCUMENT_MODELS } from '../../../src/modules/knowledge/documents.js';
 import { KNOWLEDGE_MODELS, insertKnowledgeVersion } from '../../../src/modules/knowledge/knowledge.js';
 import {
   SOURCE_MODELS,
-  clearSourceFilesBucket,
   getSourceFilesBucket,
   insertSourceFiles,
   insertSourceVersion,
 } from '../../../src/modules/knowledge/sources.js';
+import { clearSourceFilesBucket } from '../../clearSourceFilesBucket.js';
 import { upsertChangeSummary } from '../../../src/modules/knowledge/changeSummary.js';
 import { EXCLUSION_RULESET_ID } from '../../../src/modules/knowledge/uploads.js';
 

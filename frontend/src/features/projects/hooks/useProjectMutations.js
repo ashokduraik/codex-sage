@@ -1,12 +1,11 @@
 /**
- * Project create / patch / archive / restore / delete mutations.
+ * Project create / archive / restore / delete mutations.
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   archiveProject,
   createProject,
   deleteProject,
-  patchProject,
   PROJECTS_DETAIL_QUERY_ROOT,
   PROJECTS_LIST_QUERY_ROOT,
   projectDetailQueryKey,
@@ -47,25 +46,6 @@ export function useCreateProject() {
      */
     mutationFn: (input) => createProject(input),
     onSuccess: () => invalidateProjectLists(queryClient),
-  });
-}
-
-/**
- * Patch name/description mutation.
- * @returns Patch mutation.
- */
-export function usePatchProject() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    /**
-     * @param {{ projectId: string, name?: string, description?: string }} input Patch.
-     */
-    mutationFn: ({ projectId, name, description }) =>
-      patchProject(projectId, { name, description }),
-    onSuccess: (_data, variables) => {
-      invalidateProjectLists(queryClient);
-      invalidateProjectDetail(queryClient, variables.projectId);
-    },
   });
 }
 

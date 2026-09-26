@@ -3,4 +3,3 @@ export { ProjectStatusBadge, KnowledgeStatusBadge, ProjectLifecycleBadge, Knowle
 export { default as MarkdownRenderer } from './MarkdownRenderer';
 export { default as AbstainNotice } from './AbstainNotice';
 export { default as ScrollToTop } from './ScrollToTop';
-export { default as ErrorBoundary } from './ErrorBoundary';

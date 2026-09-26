@@ -122,16 +122,6 @@ export async function findRolesByIds(orgId, roleIds, options = {}) {
 }
 
 /**
- * Lists active roles for an organization (name sort — legacy callers).
- * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
- * @returns {Promise<import('mongoose').Document[]>}
- */
-export async function listRoles(orgId) {
-  assertOrgId(orgId);
-  return Role.find({ orgId }).sort({ name: 1 }).exec();
-}
-
-/**
  * Lists active roles with keyset pagination.
  * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
  * @param {{ cursor?: string, limit?: number }} [filters] List filters.
@@ -511,21 +501,33 @@ export async function updateRole(input) {
   if (input.permissions) {
     assertKnownPermissions(input.permissions);
   }
-  const updated = await updateRoleInRepo(
-    input.orgId,
-    input.roleId,
-    {
-      name: input.name,
-      description: input.description,
-      permissions: input.permissions,
-    },
-    { updatedBy: input.actorUserId },
-  );
+  const mongoSession = await mongoose.startSession();
+  /** @type {import('mongoose').Document | undefined} */
+  let updated;
+  try {
+    await mongoSession.withTransaction(async () => {
+      updated = await updateRoleInRepo(
+        input.orgId,
+        input.roleId,
+        {
+          name: input.name,
+          description: input.description,
+          permissions: input.permissions,
+        },
+        { updatedBy: input.actorUserId, session: mongoSession },
+      );
+      await bumpProjectAclVersion(input.orgId, { session: mongoSession });
+    });
+  } finally {
+    await mongoSession.endSession();
+  }
+  if (!updated) {
+    throw ApiError.fromCode('INTERNAL_ERROR');
+  }
 
   if (!updated.isBuiltIn) {
     invalidateRole(String(input.orgId), String(input.roleId));
   }
-  await bumpProjectAclVersion(input.orgId);
 
   await recordAuditEvent(
     {
@@ -575,11 +577,19 @@ export async function softDeleteRole(input) {
     throw ApiError.fromCode('ROLE_IN_USE');
   }
 
-  await softDeleteRoleInRepo(input.orgId, input.roleId, {
-    updatedBy: input.actorUserId,
-  });
+  const mongoSession = await mongoose.startSession();
+  try {
+    await mongoSession.withTransaction(async () => {
+      await softDeleteRoleInRepo(input.orgId, input.roleId, {
+        updatedBy: input.actorUserId,
+        session: mongoSession,
+      });
+      await bumpProjectAclVersion(input.orgId, { session: mongoSession });
+    });
+  } finally {
+    await mongoSession.endSession();
+  }
   invalidateRole(String(input.orgId), String(input.roleId));
-  await bumpProjectAclVersion(input.orgId);
 
   await recordAuditEvent(
     {

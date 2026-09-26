@@ -11,7 +11,6 @@ vi.mock('@/features/projects/api/projectsApi.js', async (importOriginal) => {
   return {
     ...actual,
     createProject: vi.fn(),
-    patchProject: vi.fn(),
     archiveProject: vi.fn(),
     restoreProject: vi.fn(),
     deleteProject: vi.fn(),
@@ -22,14 +21,12 @@ import {
   archiveProject,
   createProject,
   deleteProject,
-  patchProject,
   restoreProject,
 } from '@/features/projects/api/projectsApi.js';
 import {
   useArchiveProject,
   useCreateProject,
   useDeleteProject,
-  usePatchProject,
   useRestoreProject,
 } from '@/features/projects/hooks/useProjectMutations.js';
 import { projectDetailQueryKey, projectsListQueryKey } from '@/features/projects/api/projectsApi.js';
@@ -160,21 +157,6 @@ describe('useProjectMutations', () => {
     expect(queryClient.getQueryData(activeListKey).pages[0].items.map((item) => item.id)).toEqual([
       'p2',
     ]);
-  });
-
-  it('patches and invalidates detail', async () => {
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-    });
-    patchProject.mockResolvedValueOnce({ id: 'p1', name: 'Renamed' });
-    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
-    const { result } = renderHook(() => usePatchProject(), {
-      wrapper: createWrapper(queryClient),
-    });
-    result.current.mutate({ projectId: 'p1', name: 'Renamed' });
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(patchProject).toHaveBeenCalledWith('p1', { name: 'Renamed', description: undefined });
-    expect(invalidateSpy).toHaveBeenCalled();
   });
 
   it('optimistically archives when detail cache is empty', async () => {

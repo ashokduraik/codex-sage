@@ -114,16 +114,6 @@ export function isSecretShapedAuditContextKey(key) {
 }
 
 /**
- * Returns whether a value is safe to render as a context cell.
- * @param {unknown} value Candidate value.
- * @returns {boolean}
- */
-function isRenderableScalar(value) {
-  const type = typeof value;
-  return type === 'string' || type === 'number' || type === 'boolean';
-}
-
-/**
  * Filters event context down to allowlisted, non-secret, scalar (or scalar-array) entries.
  * Nested objects and unknown keys are dropped — never rendered as JSON.
  * @param {unknown} context Raw `context` from an audit event DTO.
@@ -145,49 +135,24 @@ export function selectRenderableAuditContext(context) {
       continue;
     }
     if (Array.isArray(raw)) {
-      const items = raw.filter(isRenderableScalar);
+      const items = raw.filter((item) => {
+        const type = typeof item;
+        return type === 'string' || type === 'number' || type === 'boolean';
+      });
       if (items.length === 0) {
         continue;
       }
       rows.push({ key, value: items });
       continue;
     }
-    if (!isRenderableScalar(raw)) {
+    const rawType = typeof raw;
+    if (rawType !== 'string' && rawType !== 'number' && rawType !== 'boolean') {
       continue;
     }
     rows.push({ key, value: raw });
   }
 
   return rows;
-}
-
-/**
- * Converts a YYYY-MM-DD calendar day to an inclusive UTC start instant.
- * @param {string} dateOnly Local date input value.
- * @returns {string | undefined}
- */
-function utcDayStartIso(dateOnly) {
-  if (!dateOnly) {
-    return undefined;
-  }
-  return `${dateOnly}T00:00:00.000Z`;
-}
-
-/**
- * Converts a YYYY-MM-DD calendar day to an exclusive UTC end instant (next midnight).
- * @param {string} dateOnly Local date input value.
- * @returns {string | undefined}
- */
-function utcDayEndExclusiveIso(dateOnly) {
-  if (!dateOnly) {
-    return undefined;
-  }
-  const start = new Date(`${dateOnly}T00:00:00.000Z`);
-  if (Number.isNaN(start.getTime())) {
-    return undefined;
-  }
-  start.setUTCDate(start.getUTCDate() + 1);
-  return start.toISOString();
 }
 
 /**
@@ -293,18 +258,6 @@ function resultLabel(result, t) {
 }
 
 /**
- * Formats a context value for display.
- * @param {string | number | boolean | Array<string | number | boolean>} value Context value.
- * @returns {string}
- */
-function formatContextValue(value) {
-  if (Array.isArray(value)) {
-    return value.map(String).join(', ');
-  }
-  return String(value);
-}
-
-/**
  * Organization audit log against GET /audit-events.
  *
  * @returns Admin audit page.
@@ -326,8 +279,15 @@ export default function AdminAudit() {
 
   const hasActiveFilters = Boolean(fromDate || toDate || actor || action || resourceType);
 
-  const fromIso = utcDayStartIso(fromDate);
-  const toIso = utcDayEndExclusiveIso(toDate);
+  const fromIso = fromDate ? `${fromDate}T00:00:00.000Z` : undefined;
+  let toIso;
+  if (toDate) {
+    const start = new Date(`${toDate}T00:00:00.000Z`);
+    if (!Number.isNaN(start.getTime())) {
+      start.setUTCDate(start.getUTCDate() + 1);
+      toIso = start.toISOString();
+    }
+  }
 
   const auditQuery = useAuditEvents({
     from: fromIso,
@@ -640,7 +600,10 @@ export default function AdminAudit() {
                           </div>
                           {contextRows.map((row) => (
                             <div key={row.key}>
-                              {row.key}: {formatContextValue(row.value)}
+                              {row.key}:{' '}
+                              {Array.isArray(row.value)
+                                ? row.value.map(String).join(', ')
+                                : String(row.value)}
                             </div>
                           ))}
                         </div>

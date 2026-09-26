@@ -465,6 +465,7 @@ export const DELETION_PREVIEW_CONSEQUENCES = Object.freeze([
  *   actorUserId?: string | null,
  *   knowledgeVersionId?: string | null,
  *   knowledgeHealth?: string | null,
+ *   session?: import('mongoose').ClientSession,
  *   preArchiveLifecycleStatus?: string | null,
  *   clearPreArchive?: boolean,
  *   archivedAt?: Date | null,
@@ -487,23 +488,29 @@ export async function transitionLifecycle(input) {
     });
   }
 
-  const updated = await conditionalLifecycleUpdate(input.orgId, input.projectId, {
-    from: input.from,
-    to: input.to,
-    reasonCode: input.reasonCode ?? null,
-    updatedBy: input.actorUserId ?? null,
-    preArchiveLifecycleStatus: input.preArchiveLifecycleStatus,
-    clearPreArchive: input.clearPreArchive,
-    archivedAt: input.archivedAt,
-    currentKnowledgeVersionId: input.knowledgeVersionId,
-    knowledgeHealth: input.knowledgeHealth,
-  });
+  const sessionOpts = input.session ? { session: input.session } : {};
+  const updated = await conditionalLifecycleUpdate(
+    input.orgId,
+    input.projectId,
+    {
+      from: input.from,
+      to: input.to,
+      reasonCode: input.reasonCode ?? null,
+      updatedBy: input.actorUserId ?? null,
+      preArchiveLifecycleStatus: input.preArchiveLifecycleStatus,
+      clearPreArchive: input.clearPreArchive,
+      archivedAt: input.archivedAt,
+      currentKnowledgeVersionId: input.knowledgeVersionId,
+      knowledgeHealth: input.knowledgeHealth,
+    },
+    sessionOpts,
+  );
 
   if (updated) {
     return updated;
   }
 
-  const current = await findProjectById(input.orgId, input.projectId);
+  const current = await findProjectById(input.orgId, input.projectId, sessionOpts);
   if (!current) {
     throw ApiError.fromCode('NOT_FOUND', { message: 'Project not found.' });
   }
@@ -522,17 +529,22 @@ export async function transitionLifecycle(input) {
     });
   }
 
-  const retried = await conditionalLifecycleUpdate(input.orgId, input.projectId, {
-    from: current.lifecycleStatus,
-    to: input.to,
-    reasonCode: input.reasonCode ?? null,
-    updatedBy: input.actorUserId ?? null,
-    preArchiveLifecycleStatus: input.preArchiveLifecycleStatus,
-    clearPreArchive: input.clearPreArchive,
-    archivedAt: input.archivedAt,
-    currentKnowledgeVersionId: input.knowledgeVersionId,
-    knowledgeHealth: input.knowledgeHealth,
-  });
+  const retried = await conditionalLifecycleUpdate(
+    input.orgId,
+    input.projectId,
+    {
+      from: current.lifecycleStatus,
+      to: input.to,
+      reasonCode: input.reasonCode ?? null,
+      updatedBy: input.actorUserId ?? null,
+      preArchiveLifecycleStatus: input.preArchiveLifecycleStatus,
+      clearPreArchive: input.clearPreArchive,
+      archivedAt: input.archivedAt,
+      currentKnowledgeVersionId: input.knowledgeVersionId,
+      knowledgeHealth: input.knowledgeHealth,
+    },
+    sessionOpts,
+  );
 
   if (!retried) {
     throw ApiError.fromCode('INVALID_STATE_TRANSITION', {
@@ -1000,7 +1012,6 @@ export {
   assertKnowledgeHealthAllowed,
   PROJECTS_LIST_DEFAULT_LIMIT,
   PROJECTS_LIST_MAX_LIMIT,
-  PROJECTS_LIST_SORT_VALUES,
   clampProjectsListLimit,
   resolveProjectsListSort,
 } from './projects.helper.js';

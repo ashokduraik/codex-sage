@@ -12,10 +12,10 @@ import { TEST_APP_CONFIG } from '../../appConfig.js';
 import { GRAPH_FILE_MAX_BYTES } from '../../../src/modules/knowledge/uploads.js';
 import { summarizeInspection } from '../../../src/modules/knowledge/uploads.js';
 import {
-  clearSourceFilesBucket,
   getSourceFilesBucket,
   GRIDFS_SOURCE_BUCKET,
 } from '../../../src/modules/knowledge/sources.js';
+import { clearSourceFilesBucket } from '../../clearSourceFilesBucket.js';
 import { kindForSourcePath, storeAcceptedZipEntries } from '../../../src/modules/knowledge/uploads.js';
 import { SourceFile, SourceVersion } from '../../../src/modules/knowledge/sources.js';
 
@@ -151,6 +151,8 @@ describe('storeAcceptedZipEntries', () => {
       .spyOn(bucketProto, 'openUploadStream')
       .mockImplementation(function mockOpen(...args) {
         const stream = originalOpen.apply(this, args);
+        // GridFS may emit after pipeline already rejected; keep it from escaping the test.
+        stream.on('error', () => {});
         queueMicrotask(() => stream.destroy(new Error('forced upload failure')));
         return stream;
       });

@@ -7,8 +7,9 @@ import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
 import { Job } from '../../../src/models/job.model.js';
 import { createPendingJob, getJobById } from '../../../src/modules/masters/jobs.js';
-import { findJobById, listEventsForJob, appendJobEvent, insertPendingJob } from '../../../src/modules/masters/jobs.helper.js';
+import { findJobById, appendJobEvent, insertPendingJob } from '../../../src/modules/masters/jobs.helper.js';
 import { JOB_EVENT_CODE_ENQUEUED } from '../../../src/modules/masters/jobs.helper.js';
+import { listJobEvents } from '../../listJobEvents.js';
 
 vi.mock('../../../src/modules/masters/projectMembers.js', async (importOriginal) => {
   const actual = await importOriginal();
@@ -54,7 +55,7 @@ describe('jobs.service', () => {
     const job = await findJobById(orgId, result.jobId);
     expect(job?.jobStatus).toBe('pending');
     expect(job?.stageCheckpoint).toBeNull();
-    const events = await listEventsForJob(orgId, result.jobId);
+    const events = await listJobEvents(orgId, result.jobId);
     expect(events[0]?.eventCode).toBe(JOB_EVENT_CODE_ENQUEUED);
   });
 
@@ -143,6 +144,6 @@ describe('jobs.service', () => {
       data: 'not-an-object',
     });
     expect(coerced.data).toEqual({});
-    expect(await listEventsForJob(orgId, 'not-an-id')).toEqual([]);
+    expect(await listJobEvents(orgId, 'not-an-id')).toEqual([]);
   });
 });

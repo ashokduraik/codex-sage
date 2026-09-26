@@ -2,13 +2,12 @@
  * Unit tests for the human-readable job event catalogue.
  */
 import { describe, expect, it } from 'vitest';
+import { JOB_EVENT_MESSAGES, renderJobEventMessage } from '../../../src/modules/masters/jobs.helper.js';
 import {
-  JOB_EVENT_MESSAGES,
   messageContainsAbsolutePath,
   messageContainsObjectIdShape,
   messageContainsRawErrorFragment,
-  renderJobEventMessage,
-} from '../../../src/modules/masters/jobs.helper.js';
+} from '../../jobEventAssertions.js';
 
 describe('jobEventCatalog', () => {
   it('renders every catalogue code without ids, paths, or Error: fragments', () => {

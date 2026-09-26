@@ -11,10 +11,10 @@ import {
   IDENTITY_MODELS,
   findOrganizationBySlug,
   findUserByEmail,
-  listRoles,
   runBootstrapSeed,
 } from '../../../src/modules/masters/index.js';
 import { Organization } from '../../../src/models/organization.model.js';
+import { Role } from '../../../src/models/role.model.js';
 
 const harness = createMongoHarness({
   models: [...IDENTITY_MODELS],
@@ -61,7 +61,7 @@ describe('runBootstrapSeed', () => {
 
     const org = await findOrganizationBySlug(DEFAULT_ORG_SLUG);
     expect(org).toBeTruthy();
-    const roles = await listRoles(org._id);
+    const roles = await Role.find({ orgId: org._id }).sort({ name: 1 });
     expect(roles).toHaveLength(4);
     const admin = await findUserByEmail(org._id, DEFAULT_ADMIN_EMAIL);
     expect(admin).toBeTruthy();

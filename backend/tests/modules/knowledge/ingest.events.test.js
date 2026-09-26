@@ -19,7 +19,7 @@ import {
   messageContainsAbsolutePath,
   messageContainsObjectIdShape,
   messageContainsRawErrorFragment,
-} from '../../../src/modules/masters/jobs.helper.js';
+} from '../../jobEventAssertions.js';
 
 describe('ingest.events', () => {
   it('builds Source received without identifiers', () => {

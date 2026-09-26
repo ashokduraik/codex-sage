@@ -28,4 +28,20 @@ queries scattered around.
 User-facing deletes set row **`status = 'D'`** (default `'A'`) — see `row-status.mdc` and
 `soft-delete.mdc`. List queries must filter `status = 'A'`; hard `DELETE` requires an ADR.
 
+## Transactions
+
+If one HTTP API writes **two or more domain collections**, those writes MUST run inside
+one `mongoose.startSession()` + `withTransaction()` (ADR 0031). Repository helpers
+accept optional `{ session }` and attach it when present.
+
+**Never** join these into the business transaction:
+
+- `recordAuditEvent` — always best-effort, always after commit (ADR 0016)
+- `idempotencyRecords` — cross-cutting overlay around the request
+- GridFS byte writes — stream first; document metadata joins the txn
+
+One collection, many documents (`updateMany`, `insertMany`) does not require a
+transaction. Worker / job stages are not one HTTP API — do not wrap a whole ingest
+or sync job.
+
 Do not invent a specific datastore engine — choose via ADR or ask (`no-assumptions.mdc`).

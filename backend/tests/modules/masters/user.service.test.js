@@ -61,13 +61,13 @@ vi.mock('mongoose', async (importOriginal) => {
 import { recordAuditEvent, revokeAllLoginSessionsForUser } from '../../../src/modules/access/index.js';
 import { wouldRemoveLastAdmin } from '../../../src/modules/masters/users.helper.js';
 import {
-  containsForbiddenSecretKey,
   createUser,
   deactivateUser,
   mapUserToDto,
   removeUser,
   updateUserDetails,
 } from '../../../src/modules/masters/users.js';
+import { containsForbiddenSecretKey } from '../../containsForbiddenSecretKey.js';
 
 /**
  * @param {object | null} doc User document.
@@ -177,6 +177,7 @@ describe('user.service', () => {
       '665f1c9d4b2a8e0012a4f010',
       'target',
       'email_changed',
+      { session: expect.anything() },
     );
     expect(recordAuditEvent).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'user.email_changed' }),

@@ -155,6 +155,8 @@ Worker process
   Scheduled git sync (default every 30 minutes)
 
 MongoDB
+  HTTP APIs that write two or more domain collections use one Mongo transaction
+  (ADR 0031). Audit, idempotency, and GridFS bytes stay outside that transaction.
   Orgs (`aclVersion` for project ACL cache), users (`roleIds`,
   `projectAccessMode`: all | selected | none), roles, login sessions (embedded refresh hashes),
   projects (`lifecycleStatus`, `knowledgeHealth`, `sourceConfig`, `counts`, `settings`,

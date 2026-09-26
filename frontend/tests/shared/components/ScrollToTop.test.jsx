@@ -46,4 +46,23 @@ describe('ScrollToTop', () => {
         expect(scrollIntoView).toHaveBeenCalled();
         target.remove();
     });
+    it('uses the raw hash when decodeURIComponent throws', () => {
+        vi.useFakeTimers();
+        const scrollIntoView = vi.fn();
+        const target = document.createElement('div');
+        target.id = '%E0%A4%A';
+        target.scrollIntoView = scrollIntoView;
+        document.body.appendChild(target);
+        renderWithProviders(<>
+        <ScrollToTop />
+        <Routes>
+          <Route path="/" element={<Link to="/docs#%E0%A4%A">Go bad hash</Link>}/>
+          <Route path="/docs" element={<div>Docs</div>}/>
+        </Routes>
+      </>, { route: '/' });
+        fireEvent.click(screen.getByRole('link', { name: 'Go bad hash' }));
+        vi.advanceTimersByTime(60);
+        expect(scrollIntoView).toHaveBeenCalled();
+        target.remove();
+    });
 });

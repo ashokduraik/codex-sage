@@ -74,23 +74,6 @@ export function changeSummaryQueryKey(projectId) {
 export const KNOWLEDGE_SEARCH_DEBOUNCE_MS = 300;
 
 /**
- * Builds a query string from defined values.
- * @param {Record<string, string | number | undefined | null>} params Query map.
- * @returns {string}
- */
-function toQueryString(params) {
-  const search = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
-    if (value === undefined || value === null || value === '') {
-      continue;
-    }
-    search.set(key, String(value));
-  }
-  const encoded = search.toString();
-  return encoded ? `?${encoded}` : '';
-}
-
-/**
  * Loads knowledge facets for a project.
  * @param {string} projectId Project id.
  * @param {{ signal?: AbortSignal }} [options] Request options.
@@ -146,10 +129,17 @@ export async function fetchKnowledgeApis(projectId, options = {}) {
  * @returns {Promise<object>}
  */
 export async function fetchKnowledgeSymbols(projectId, q, options = {}) {
-  const query = toQueryString({ q });
-  return apiRequest(`/projects/${encodeURIComponent(projectId)}/knowledge/symbols${query}`, {
-    signal: options.signal,
-  });
+  const search = new URLSearchParams();
+  if (q !== undefined && q !== null && q !== '') {
+    search.set('q', String(q));
+  }
+  const encoded = search.toString();
+  return apiRequest(
+    `/projects/${encodeURIComponent(projectId)}/knowledge/symbols${encoded ? `?${encoded}` : ''}`,
+    {
+      signal: options.signal,
+    },
+  );
 }
 
 /**

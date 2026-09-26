@@ -224,6 +224,24 @@ describe('AdminAudit', () => {
     });
   });
 
+  it('omits an invalid to-date from the audit query', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    stubAuditFetch(fetchMock, {
+      pages: [
+        {
+          items: [EVENT_SUCCESS],
+          pageInfo: { nextCursor: null, hasMore: false },
+        },
+      ],
+    });
+
+    renderWithProviders(<AdminAudit />, { route: '/admin/audit?to=not-a-date' });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    const urls = fetchMock.mock.calls.map((call) => String(call[0]));
+    expect(urls.every((url) => !url.includes('to='))).toBe(true);
+  });
+
   it('loads the next page with nextCursor when Load more is clicked', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);

@@ -196,28 +196,32 @@ function encodeRowCursor(row, stampField) {
  *   title?: string,
  *   titleSource?: string,
  * }} input Create fields.
+ * @param {{ session?: import('mongoose').ClientSession }} [options] Optional Mongo session.
  * @returns {Promise<import('mongoose').Document>}
  */
-export async function insertConversation(input) {
+export async function insertConversation(input, options = {}) {
   assertOrgId(input.orgId);
   const title = input.title && input.title.length > 0 ? input.title : CONVERSATION_DEFAULT_TITLE;
   const titleSource = input.titleSource ?? (input.title ? 'user' : 'default');
-  const [created] = await Conversation.create([
-    {
-      orgId: input.orgId,
-      projectId: input.projectId,
-      ownerUserId: input.ownerUserId,
-      title,
-      titleSource,
-      searchText: '',
-      lifecycleStatus: 'active',
-      archivedAt: null,
-      lastMessageAt: null,
-      messageCount: 0,
-      createdBy: input.ownerUserId,
-      updatedBy: input.ownerUserId,
-    },
-  ]);
+  const [created] = await Conversation.create(
+    [
+      {
+        orgId: input.orgId,
+        projectId: input.projectId,
+        ownerUserId: input.ownerUserId,
+        title,
+        titleSource,
+        searchText: '',
+        lifecycleStatus: 'active',
+        archivedAt: null,
+        lastMessageAt: null,
+        messageCount: 0,
+        createdBy: input.ownerUserId,
+        updatedBy: input.ownerUserId,
+      },
+    ],
+    options.session ? { session: options.session } : undefined,
+  );
   return created;
 }
 
@@ -372,9 +376,10 @@ export async function restoreOwnConversation(input) {
  *   conversationId: string,
  *   userId: import('mongoose').Types.ObjectId | string,
  * }} input Delete keys.
+ * @param {{ session?: import('mongoose').ClientSession }} [options] Optional Mongo session.
  * @returns {Promise<import('mongoose').UpdateResult>}
  */
-export async function softDeleteOwnConversation(input) {
+export async function softDeleteOwnConversation(input, options = {}) {
   assertOrgId(input.orgId);
   if (!mongoose.isValidObjectId(input.projectId) || !mongoose.isValidObjectId(input.conversationId)) {
     return { acknowledged: true, matchedCount: 0, modifiedCount: 0 };
@@ -385,7 +390,7 @@ export async function softDeleteOwnConversation(input) {
       ...buildOwnConversationFilter(input.orgId, input.projectId, input.userId),
       _id: new mongoose.Types.ObjectId(String(input.conversationId)),
     },
-    { updatedBy: input.userId },
+    { updatedBy: input.userId, session: options.session },
   );
 }
 

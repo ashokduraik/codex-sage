@@ -10,7 +10,8 @@ import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
 import { AUDIT_MODELS, listAuditEvents } from '../../../src/modules/access/audit.js';
 import { JOB_MODELS, Job, insertPendingJob } from '../../../src/modules/masters/jobs.js';
-import { SOURCE_MODELS, SourceVersion, clearSourceFilesBucket } from '../../../src/modules/knowledge/sources.js';
+import { SOURCE_MODELS, SourceVersion } from '../../../src/modules/knowledge/sources.js';
+import { clearSourceFilesBucket } from '../../clearSourceFilesBucket.js';
 import { insertConnection } from '../../../src/modules/knowledge/repositories.js';
 import { RepositoryConnection } from '../../../src/models/repositoryConnection.model.js';
 import {

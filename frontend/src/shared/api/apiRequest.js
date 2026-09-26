@@ -25,18 +25,6 @@ import { refreshAccessToken } from './refreshClient.js';
  */
 
 /**
- * Builds the absolute or same-origin URL for a path under the API base.
- * @param {string} path Path starting with `/` (e.g. `/auth/login`).
- * @returns {string}
- */
-function buildUrl(path) {
-  if (!path.startsWith('/')) {
-    return `${API_BASE_URL}/${path}`;
-  }
-  return `${API_BASE_URL}${path}`;
-}
-
-/**
  * Performs one HTTP request against the backend.
  * @param {string} path API path relative to the base URL (e.g. `/auth/me`).
  * @param {ApiRequestOptions} [options] Request options.
@@ -87,7 +75,10 @@ async function executeApiRequest(path, options, hasRetriedAfterRefresh) {
 
   let response;
   try {
-    response = await fetch(buildUrl(path), init);
+    response = await fetch(
+      path.startsWith('/') ? `${API_BASE_URL}${path}` : `${API_BASE_URL}/${path}`,
+      init,
+    );
   } catch (error) {
     if (isRequestAbortedError(error) || options.signal?.aborted) {
       throw error instanceof Error && error.name === 'AbortError'

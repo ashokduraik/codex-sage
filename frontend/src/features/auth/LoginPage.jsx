@@ -50,18 +50,6 @@ export function safeReturnTo() {
 }
 
 /**
- * Reads a one-shot notice reason from the current URL search string.
- * @returns {'session_expired' | 'password_changed' | null}
- */
-function loginNoticeReason() {
-  const reason = new URLSearchParams(window.location.search).get('reason');
-  if (reason === 'session_expired' || reason === 'password_changed') {
-    return reason;
-  }
-  return null;
-}
-
-/**
  * Email/password sign-in page against the real backend.
  * @returns Login form UI.
  */
@@ -75,7 +63,11 @@ export default function LoginPage() {
   const [correlationId, setCorrelationId] = useState('');
   const [loading, setLoading] = useState(false);
   const returnTo = safeReturnTo();
-  const noticeReason = loginNoticeReason();
+  const noticeReasonParam = new URLSearchParams(window.location.search).get('reason');
+  const noticeReason =
+    noticeReasonParam === 'session_expired' || noticeReasonParam === 'password_changed'
+      ? noticeReasonParam
+      : null;
 
   /**
    * Submit email/password credentials and navigate on success.

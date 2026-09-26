@@ -201,20 +201,6 @@ export async function readSourceGridFsBytes(gridFsId, connection = mongoose.conn
   return chunks.length === 1 ? chunks[0] : Buffer.concat(chunks);
 }
 
-/**
- * Deletes all documents in the source GridFS bucket (test cleanup only).
- * @param {import('mongoose').Connection} [connection] Connection.
- * @returns {Promise<void>}
- */
-export async function clearSourceFilesBucket(connection = mongoose.connection) {
-  const db = connection.db;
-  if (!db) {
-    return;
-  }
-  await db.collection(`${GRIDFS_SOURCE_BUCKET}.files`).deleteMany({});
-  await db.collection(`${GRIDFS_SOURCE_BUCKET}.chunks`).deleteMany({});
-}
-
 // --- from sources/workspacePaths.js ---
 /**
  * Tenant-safe workspace path join and boundary checks.

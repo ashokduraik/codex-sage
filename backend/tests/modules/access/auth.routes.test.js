@@ -5,7 +5,8 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { API_BASE_PATH, buildApp } from '../../../src/http/app.js';
 import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
-import { AUTH_MODELS, CSRF_COOKIE_NAME } from '../../../src/modules/access/auth.js';
+import { AUTH_MODELS } from '../../../src/modules/access/index.js';
+import { CSRF_COOKIE_NAME } from '../../../src/modules/access/auth.js';
 import {
   DEFAULT_ADMIN_EMAIL,
   DEFAULT_ADMIN_PASSWORD,

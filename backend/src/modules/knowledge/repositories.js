@@ -106,12 +106,13 @@ export async function updateConnection(input, options = {}) {
  *   projectId: string | import('mongoose').Types.ObjectId,
  *   connectionId: string | import('mongoose').Types.ObjectId,
  * }} input Scope.
+ * @param {{ session?: import('mongoose').ClientSession }} [options] Optional Mongo session.
  * @returns {Promise<void>}
  */
-export async function softDeleteConnection(input) {
+export async function softDeleteConnection(input, options = {}) {
   assertOrgId(input.orgId);
   const now = new Date();
-  await RepositoryConnection.updateOne(
+  const query = RepositoryConnection.updateOne(
     {
       _id: input.connectionId,
       orgId: input.orgId,
@@ -119,7 +120,11 @@ export async function softDeleteConnection(input) {
       status: ROW_STATUS_ACTIVE,
     },
     { $set: { status: ROW_STATUS_DELETED, updatedAt: now } },
-  ).exec();
+  );
+  if (options.session) {
+    query.session(options.session);
+  }
+  await query.exec();
 }
 
 // --- from repositories/repositoryCredential.service.js ---
@@ -305,56 +310,78 @@ export async function attachRepository(input) {
 
   const connectionId = new mongoose.Types.ObjectId();
   const now = new Date();
+  const mongoSession = await mongoose.startSession();
+  /** @type {import('mongoose').Document | undefined} */
   let connection;
+  /** @type {import('mongoose').Document | undefined} */
+  let updatedProject;
   try {
-    connection = await (input.insertConnection ?? insertConnection)({
-      _id: connectionId,
-      orgId: input.orgId,
-      projectId: input.projectId,
-      provider: probe.provider,
-      hostKind: probe.hostKind,
-      baseUrl: probe.baseUrl,
-      repositoryFullName: probe.repository.fullName,
-      repositoryWebUrl: probe.repository.webUrl ?? input.repositoryUrl,
-      visibility: probe.repository.visibility ?? null,
-      selectedBranch: input.selectedBranch,
-      defaultBranchAtAttach: probe.defaultBranch,
-      connectionStatus: 'connected',
-      connectionStatusReasonCode: null,
-      attachedBy: input.actorUserId,
-      attachedAt: now,
-      lastSuccessfulProbeAt: now,
-      nextDueAt: now,
-      lastSyncedCommitSha: null,
-      lastSyncedAt: null,
-      lastSyncJobId: null,
-      lastSyncErrorCode: null,
-      credential: input.accessToken ? buildEncryptedCredential(input.accessToken) : null,
-      createdBy: input.actorUserId,
-      updatedBy: input.actorUserId,
+    await mongoSession.withTransaction(async () => {
+      try {
+        connection = await (input.insertConnection ?? insertConnection)(
+          {
+            _id: connectionId,
+            orgId: input.orgId,
+            projectId: input.projectId,
+            provider: probe.provider,
+            hostKind: probe.hostKind,
+            baseUrl: probe.baseUrl,
+            repositoryFullName: probe.repository.fullName,
+            repositoryWebUrl: probe.repository.webUrl ?? input.repositoryUrl,
+            visibility: probe.repository.visibility ?? null,
+            selectedBranch: input.selectedBranch,
+            defaultBranchAtAttach: probe.defaultBranch,
+            connectionStatus: 'connected',
+            connectionStatusReasonCode: null,
+            attachedBy: input.actorUserId,
+            attachedAt: now,
+            lastSuccessfulProbeAt: now,
+            nextDueAt: now,
+            lastSyncedCommitSha: null,
+            lastSyncedAt: null,
+            lastSyncJobId: null,
+            lastSyncErrorCode: null,
+            credential: input.accessToken ? buildEncryptedCredential(input.accessToken) : null,
+            createdBy: input.actorUserId,
+            updatedBy: input.actorUserId,
+          },
+          { session: mongoSession },
+        );
+      } catch (err) {
+        if (err && typeof err === 'object' && 'code' in err && err.code === 11000) {
+          throw ApiError.fromCode('CONFLICT');
+        }
+        throw err;
+      }
+
+      await updateProjectSourceConfig(
+        input.orgId,
+        input.projectId,
+        {
+          repositoryConnectionId: String(connectionId),
+          sourceType: 'repository',
+          updatedBy: input.actorUserId,
+        },
+        { session: mongoSession },
+      );
+
+      updatedProject = await transitionLifecycle({
+        orgId: input.orgId,
+        projectId: input.projectId,
+        from: project.lifecycleStatus,
+        to: 'source_received',
+        source: 'api',
+        actorUserId: input.actorUserId,
+        reasonCode: 'repository_attached',
+        session: mongoSession,
+      });
     });
-  } catch (err) {
-    if (err && typeof err === 'object' && 'code' in err && err.code === 11000) {
-      throw ApiError.fromCode('CONFLICT');
-    }
-    throw err;
+  } finally {
+    await mongoSession.endSession();
   }
-
-  await updateProjectSourceConfig(input.orgId, input.projectId, {
-    repositoryConnectionId: String(connectionId),
-    sourceType: 'repository',
-    updatedBy: input.actorUserId,
-  });
-
-  const updatedProject = await transitionLifecycle({
-    orgId: input.orgId,
-    projectId: input.projectId,
-    from: project.lifecycleStatus,
-    to: 'source_received',
-    source: 'api',
-    actorUserId: input.actorUserId,
-    reasonCode: 'repository_attached',
-  });
+  if (!connection || !updatedProject) {
+    throw ApiError.fromCode('INTERNAL_ERROR');
+  }
 
   await recordAuditEvent(
     {
@@ -544,28 +571,44 @@ export async function replaceRepositoryCredential(input) {
  */
 export async function revokeRepositoryCredential(input) {
   const connection = await requireActiveConnection(input.orgId, input.projectId);
-  await softDeleteConnection({
-    orgId: input.orgId,
-    projectId: input.projectId,
-    connectionId: String(connection._id),
-  });
-  await updateProjectSourceConfig(input.orgId, input.projectId, {
-    repositoryConnectionId: null,
-    sourceType: 'repository',
-    updatedBy: input.actorUserId,
-  });
   const versions = await countSourceVersions(input.orgId, input.projectId);
   const project = await findProjectById(input.orgId, input.projectId);
-  if (project?.lifecycleStatus === 'source_received' && versions === 0) {
-    await transitionLifecycle({
-      orgId: input.orgId,
-      projectId: input.projectId,
-      from: 'source_received',
-      to: 'connecting_repository',
-      source: 'api',
-      actorUserId: input.actorUserId,
-      reasonCode: 'repository_revoked',
+  const mongoSession = await mongoose.startSession();
+  try {
+    await mongoSession.withTransaction(async () => {
+      await softDeleteConnection(
+        {
+          orgId: input.orgId,
+          projectId: input.projectId,
+          connectionId: String(connection._id),
+        },
+        { session: mongoSession },
+      );
+      await updateProjectSourceConfig(
+        input.orgId,
+        input.projectId,
+        {
+          repositoryConnectionId: null,
+          sourceType: 'repository',
+          updatedBy: input.actorUserId,
+        },
+        { session: mongoSession },
+      );
+      if (project?.lifecycleStatus === 'source_received' && versions === 0) {
+        await transitionLifecycle({
+          orgId: input.orgId,
+          projectId: input.projectId,
+          from: 'source_received',
+          to: 'connecting_repository',
+          source: 'api',
+          actorUserId: input.actorUserId,
+          reasonCode: 'repository_revoked',
+          session: mongoSession,
+        });
+      }
     });
+  } finally {
+    await mongoSession.endSession();
   }
   await recordAuditEvent(
     {

@@ -12,20 +12,21 @@ import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
 import { DocumentSection, countSectionsForVersion, listSectionsForPath } from '../../../src/modules/knowledge/documents.js';
 import { Job } from '../../../src/models/job.model.js';
-import { insertPendingJob, listEventsForJob } from '../../../src/modules/masters/jobs.helper.js';
+import { insertPendingJob } from '../../../src/modules/masters/jobs.helper.js';
+import { listJobEvents } from '../../listJobEvents.js';
 import { Project } from '../../../src/models/projects.model.js';
 import { KnowledgeVersion } from '../../../src/models/knowledgeVersion.model.js';
 import {
   SourceChangeSummary,
   SourceFile,
   SourceVersion,
-  clearSourceFilesBucket,
   getSourceFilesBucket,
   insertSourceFiles,
   insertSourceVersion,
 } from '../../../src/modules/knowledge/sources.js';
 import { EXCLUSION_RULESET_ID } from '../../../src/modules/knowledge/uploads.js';
 import { GRIDFS_SOURCE_BUCKET } from '../../../src/modules/knowledge/sources.js';
+import { clearSourceFilesBucket } from '../../clearSourceFilesBucket.js';
 import { runIngestJob } from '../../../src/modules/knowledge/ingest.js';
 import { runStoreFilesStage, INGEST_MAX_FAILED_FILE_RATIO } from '../../../src/modules/knowledge/ingest.helper.js';
 import { runMaterializeDocsStage } from '../../../src/modules/knowledge/ingest.util.js';
@@ -362,7 +363,7 @@ describe('ingest S0–S3 integration', () => {
     expect(fresh.stageCheckpoint.lastCompletedStage).toBe('materialize_docs');
     expect(fresh.progressCounters.itemsProcessed).toBeGreaterThan(0);
 
-    const events = await listEventsForJob(seeded.orgId, seeded.job._id);
+    const events = await listJobEvents(seeded.orgId, seeded.job._id);
     const messages = events.map((e) => e.message);
     expect(messages).toContain('Source received');
     expect(messages.some((m) => m.startsWith('Source validated'))).toBe(true);

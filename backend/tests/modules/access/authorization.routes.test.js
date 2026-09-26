@@ -8,7 +8,7 @@ import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
 import { registerErrorHandler } from '../../../src/platform/errors.js';
 import { AUDIT_MODELS } from '../../../src/modules/access/audit.js';
-import { AUTH_MODELS } from '../../../src/modules/access/auth.js';
+import { AUTH_MODELS } from '../../../src/modules/access/index.js';
 import { hashPassword } from '../../../src/modules/access/auth.js';
 import { createAuthenticatePreHandler } from '../../../src/modules/access/auth.js';
 import { createAuthService } from '../../../src/modules/access/auth.js';

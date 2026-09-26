@@ -65,15 +65,6 @@ export function listRegisteredJobTypes() {
 }
 
 /**
- * Reports whether a type is registered without throwing.
- * @param {string} jobType Candidate type.
- * @returns {boolean}
- */
-export function isJobTypeRegistered(jobType) {
-  return handlersByType.has(jobType);
-}
-
-/**
  * Clears all registrations (unit tests only).
  */
 export function clearJobHandlersForTests() {

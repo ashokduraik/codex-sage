@@ -85,15 +85,6 @@ function keysetAfterFilter(cursor) {
 }
 
 /**
- * Escapes a string for use as a literal prefix in a RegExp.
- * @param {string} value Raw input.
- * @returns {string}
- */
-function escapeRegexPrefix(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-/**
  * Finds an active user by org and email.
  * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
  * @param {string} email Email (lowercased/trimmed for lookup).
@@ -350,15 +341,20 @@ export async function applyPasswordUpdate(orgId, userId, input, options = {}) {
  * Records a successful login timestamp.
  * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
  * @param {import('mongoose').Types.ObjectId | string} userId User id.
+ * @param {{ session?: import('mongoose').ClientSession }} [options] Optional Mongo session.
  * @returns {Promise<import('mongoose').UpdateResult>}
  */
-export async function touchLastLoginAt(orgId, userId) {
+export async function touchLastLoginAt(orgId, userId, options = {}) {
   assertOrgId(orgId);
   const now = new Date();
-  return User.updateOne(
+  const query = User.updateOne(
     { _id: userId, orgId },
     { $set: { lastLoginAt: now, updatedAt: now } },
-  ).exec();
+  );
+  if (options.session) {
+    query.session(options.session);
+  }
+  return query.exec();
 }
 
 /**
@@ -387,7 +383,7 @@ export async function listUsersInRepo(orgId, filters = {}) {
   }
 
   if (filters.q && String(filters.q).trim().length > 0) {
-    const prefix = escapeRegexPrefix(String(filters.q).trim());
+    const prefix = String(filters.q).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const pattern = new RegExp(`^${prefix}`, 'i');
     query.$or = [{ email: pattern }, { displayName: pattern }];
   }
@@ -468,45 +464,6 @@ export async function softDeleteUser(orgId, userId, options = {}) {
 /**
  * User lifecycle service — create, list, get, update, activate, deactivate, remove.
  */
-/** Keys that must never appear on identity response DTOs. */
-const FORBIDDEN_RESPONSE_KEYS = Object.freeze([
-  'passwordHash',
-  'password',
-  'newPassword',
-  'refreshToken',
-  'refreshTokenHash',
-  'token',
-  'resetToken',
-  'passwordResetToken',
-]);
-
-/**
- * Returns whether a plain object contains a forbidden credential-shaped key.
- * @param {unknown} value Candidate object.
- * @returns {boolean}
- */
-export function containsForbiddenSecretKey(value) {
-  if (!value || typeof value !== 'object') {
-    return false;
-  }
-  const stack = [value];
-  while (stack.length > 0) {
-    const current = stack.pop();
-    if (!current || typeof current !== 'object') {
-      continue;
-    }
-    for (const [key, child] of Object.entries(current)) {
-      if (FORBIDDEN_RESPONSE_KEYS.includes(key)) {
-        return true;
-      }
-      if (child && typeof child === 'object') {
-        stack.push(child);
-      }
-    }
-  }
-  return false;
-}
-
 /**
  * Maps a user document plus role docs to the admin user DTO.
  * @param {object} user User document.
@@ -571,23 +528,36 @@ export async function createUser(input) {
 
   /** @type {import('mongoose').Document} */
   let createdUser;
+  const mongoSession = await mongoose.startSession();
   try {
-    createdUser = await createUserInRepo(input.orgId, {
-      email: input.email,
-      displayName: input.displayName,
-      userStatus: 'invited',
-      roleIds,
-      createdBy: input.actorUserId,
-      updatedBy: input.actorUserId,
+    await mongoSession.withTransaction(async () => {
+      try {
+        createdUser = await createUserInRepo(
+          input.orgId,
+          {
+            email: input.email,
+            displayName: input.displayName,
+            userStatus: 'invited',
+            roleIds,
+            createdBy: input.actorUserId,
+            updatedBy: input.actorUserId,
+          },
+          { session: mongoSession },
+        );
+      } catch (err) {
+        if (isDuplicateKeyError(err)) {
+          throw ApiError.fromCode('IDENTITY_DUPLICATE_EMAIL');
+        }
+        throw err;
+      }
+      await bumpProjectAclVersion(input.orgId, { session: mongoSession });
     });
-  } catch (err) {
-    if (isDuplicateKeyError(err)) {
-      throw ApiError.fromCode('IDENTITY_DUPLICATE_EMAIL');
-    }
-    throw err;
+  } finally {
+    await mongoSession.endSession();
   }
-
-  await bumpProjectAclVersion(input.orgId);
+  if (!createdUser) {
+    throw ApiError.fromCode('INTERNAL_ERROR');
+  }
 
   await recordAuditEvent(
     {
@@ -672,10 +642,17 @@ export async function updateUserDetails(input) {
   }
 
   const previousEmail = user.email;
+  const emailChanged =
+    input.email !== undefined &&
+    String(input.email).toLowerCase().trim() !== String(previousEmail).toLowerCase();
 
+  /** @type {string[] | undefined} */
+  let previousRoleIds;
+  /** @type {string[] | undefined} */
+  let nextRoleIds;
   if (input.roleIds) {
-    const previousRoleIds = (user.roleIds ?? []).map((id) => String(id));
-    const nextRoleIds = [...new Set(input.roleIds.map(String))];
+    previousRoleIds = (user.roleIds ?? []).map((id) => String(id));
+    nextRoleIds = [...new Set(input.roleIds.map(String))];
     if (
       await wouldRemoveLastAdmin(input.orgId, {
         targetUserId: input.targetUserId,
@@ -685,15 +662,84 @@ export async function updateUserDetails(input) {
       throw ApiError.fromCode('LAST_ADMIN_REQUIRED');
     }
     await assertRolesExistInOrg(input.orgId, nextRoleIds);
-    const rolesUpdated = await updateUser(input.orgId, input.targetUserId, {
-      roleIds: nextRoleIds,
-      updatedBy: input.actorUserId,
-    });
-    if (!rolesUpdated) {
+  }
+
+  /** @type {import('mongoose').Document | null} */
+  let updated = user;
+  const needsTxn = Boolean(input.roleIds) || emailChanged;
+
+  if (needsTxn) {
+    const mongoSession = await mongoose.startSession();
+    try {
+      await mongoSession.withTransaction(async () => {
+        const opts = { session: mongoSession };
+        if (input.roleIds && nextRoleIds) {
+          const rolesUpdated = await updateUser(
+            input.orgId,
+            input.targetUserId,
+            { roleIds: nextRoleIds, updatedBy: input.actorUserId },
+            opts,
+          );
+          if (!rolesUpdated) {
+            throw ApiError.fromCode('NOT_FOUND', { message: 'User not found.' });
+          }
+          user = rolesUpdated;
+          updated = rolesUpdated;
+          await bumpProjectAclVersion(input.orgId, opts);
+        }
+        if (input.displayName !== undefined || input.email !== undefined) {
+          try {
+            updated = await updateUser(
+              input.orgId,
+              input.targetUserId,
+              {
+                displayName: input.displayName,
+                email: input.email,
+                updatedBy: input.actorUserId,
+              },
+              opts,
+            );
+          } catch (err) {
+            if (isDuplicateKeyError(err)) {
+              throw ApiError.fromCode('IDENTITY_DUPLICATE_EMAIL');
+            }
+            throw err;
+          }
+          if (!updated) {
+            throw ApiError.fromCode('NOT_FOUND', { message: 'User not found.' });
+          }
+        }
+        if (emailChanged && updated) {
+          await revokeAllLoginSessionsForUser(
+            input.orgId,
+            input.targetUserId,
+            'email_changed',
+            opts,
+          );
+        }
+      });
+    } finally {
+      await mongoSession.endSession();
+    }
+  } else if (input.displayName !== undefined || input.email !== undefined) {
+    try {
+      updated = await updateUser(input.orgId, input.targetUserId, {
+        displayName: input.displayName,
+        email: input.email,
+        updatedBy: input.actorUserId,
+      });
+    } catch (err) {
+      if (isDuplicateKeyError(err)) {
+        throw ApiError.fromCode('IDENTITY_DUPLICATE_EMAIL');
+      }
+      throw err;
+    }
+    if (!updated) {
       throw ApiError.fromCode('NOT_FOUND', { message: 'User not found.' });
     }
-    user = rolesUpdated;
-    await bumpProjectAclVersion(input.orgId);
+  }
+
+  if (input.roleIds && previousRoleIds && nextRoleIds) {
     await recordAuditEvent(
       {
         orgId: input.orgId,
@@ -711,36 +757,7 @@ export async function updateUserDetails(input) {
     );
   }
 
-  const emailChanged =
-    input.email !== undefined &&
-    String(input.email).toLowerCase().trim() !== String(previousEmail).toLowerCase();
-
-  /** @type {import('mongoose').Document | null} */
-  let updated = user;
-  if (input.displayName !== undefined || input.email !== undefined) {
-    try {
-      updated = await updateUser(
-        input.orgId,
-        input.targetUserId,
-        {
-          displayName: input.displayName,
-          email: input.email,
-          updatedBy: input.actorUserId,
-        },
-      );
-    } catch (err) {
-      if (isDuplicateKeyError(err)) {
-        throw ApiError.fromCode('IDENTITY_DUPLICATE_EMAIL');
-      }
-      throw err;
-    }
-    if (!updated) {
-      throw ApiError.fromCode('NOT_FOUND', { message: 'User not found.' });
-    }
-  }
-
   if (emailChanged && updated) {
-    await revokeAllLoginSessionsForUser(input.orgId, input.targetUserId, 'email_changed');
     await recordAuditEvent(
       {
         orgId: input.orgId,
@@ -862,15 +879,33 @@ export async function deactivateUser(input) {
     throw ApiError.fromCode('LAST_ADMIN_REQUIRED');
   }
   const previousStatus = user.userStatus;
-  const updated = await updateUser(
-    input.orgId,
-    input.targetUserId,
-    { userStatus: 'disabled', updatedBy: input.actorUserId },
-  );
+  const mongoSession = await mongoose.startSession();
+  /** @type {import('mongoose').Document | null} */
+  let updated;
+  try {
+    await mongoSession.withTransaction(async () => {
+      updated = await updateUser(
+        input.orgId,
+        input.targetUserId,
+        { userStatus: 'disabled', updatedBy: input.actorUserId },
+        { session: mongoSession },
+      );
+      if (!updated) {
+        throw ApiError.fromCode('NOT_FOUND', { message: 'User not found.' });
+      }
+      await revokeAllLoginSessionsForUser(
+        input.orgId,
+        input.targetUserId,
+        'user_disabled',
+        { session: mongoSession },
+      );
+    });
+  } finally {
+    await mongoSession.endSession();
+  }
   if (!updated) {
     throw ApiError.fromCode('NOT_FOUND', { message: 'User not found.' });
   }
-  await revokeAllLoginSessionsForUser(input.orgId, input.targetUserId, 'user_disabled');
   await recordAuditEvent(
     {
       orgId: input.orgId,
@@ -933,12 +968,11 @@ export async function removeUser(input) {
         'user_disabled',
         { session: mongoSession },
       );
+      await bumpProjectAclVersion(input.orgId, { session: mongoSession });
     });
   } finally {
     await mongoSession.endSession();
   }
-
-  await bumpProjectAclVersion(input.orgId);
 
   await recordAuditEvent(
     {
@@ -990,15 +1024,31 @@ export async function replaceUserRoles(input) {
   }
 
   const roles = await assertRolesExistInOrg(input.orgId, nextRoleIds);
-  const updated = await updateUser(input.orgId, input.targetUserId, {
-    roleIds: nextRoleIds,
-    updatedBy: input.actorUserId,
-  });
+  const mongoSession = await mongoose.startSession();
+  /** @type {import('mongoose').Document | null} */
+  let updated;
+  try {
+    await mongoSession.withTransaction(async () => {
+      updated = await updateUser(
+        input.orgId,
+        input.targetUserId,
+        {
+          roleIds: nextRoleIds,
+          updatedBy: input.actorUserId,
+        },
+        { session: mongoSession },
+      );
+      if (!updated) {
+        throw ApiError.fromCode('NOT_FOUND', { message: 'User not found.' });
+      }
+      await bumpProjectAclVersion(input.orgId, { session: mongoSession });
+    });
+  } finally {
+    await mongoSession.endSession();
+  }
   if (!updated) {
     throw ApiError.fromCode('NOT_FOUND', { message: 'User not found.' });
   }
-
-  await bumpProjectAclVersion(input.orgId);
 
   await recordAuditEvent(
     {
@@ -1293,4 +1343,3 @@ export async function userRoutes(app) {
 }
 
 /** @deprecated Prefer {@link userRoutes}; kept for existing unit tests. */
-export { userRoutes as adminPasswordResetRoutes };

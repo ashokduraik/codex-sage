@@ -117,19 +117,6 @@ export function canSendJsonError(reply) {
 }
 
 /**
- * Fastify CSRF plugin error codes that mean the browser session cannot refresh safely.
- * @param {unknown} error Thrown value.
- * @returns {boolean}
- */
-function isCsrfProtectionError(error) {
-  if (typeof error !== 'object' || error === null) {
-    return false;
-  }
-  const code = /** @type {{ code?: unknown }} */ (error).code;
-  return code === 'FST_CSRF_MISSING_SECRET' || code === 'FST_CSRF_INVALID_TOKEN';
-}
-
-/**
  * Resolves a thrown value to a catalog code and whether the code was unknown.
  * @param {unknown} error Thrown value.
  * @returns {{ code: string, unknownCode: boolean }}
@@ -143,7 +130,11 @@ function resolveErrorCode(error) {
   }
 
   // Missing/invalid double-submit → treat as expired session (re-login), not validation.
-  if (isCsrfProtectionError(error)) {
+  const thrownCode =
+    typeof error === 'object' && error !== null
+      ? /** @type {{ code?: unknown }} */ (error).code
+      : undefined;
+  if (thrownCode === 'FST_CSRF_MISSING_SECRET' || thrownCode === 'FST_CSRF_INVALID_TOKEN') {
     return { code: 'SESSION_EXPIRED', unknownCode: false };
   }
 
@@ -308,47 +299,4 @@ export function registerErrorHandler(app, options = {}) {
 
     return reply.status(mapped.statusCode).send(mapped.body);
   });
-}
-
-/**
- * @typedef {object} StreamErrorData
- * @property {string} code
- * @property {string} class
- * @property {string} retryability
- * @property {string} message
- * @property {string} reference
- * @property {unknown} [details]
- */
-
-/**
- * Builds the terminal SSE error event payload from an error-like value.
- *
- * @param {{ code?: string, message?: string, details?: unknown, statusCode?: number }} error
- *   Error-like object (typically an ApiError).
- * @param {string} correlationId Reference to embed (same as X-Correlation-Id).
- * @returns {{ event: 'error', data: StreamErrorData }}
- */
-export function buildStreamErrorEvent(error, correlationId) {
-  const rawCode = typeof error?.code === 'string' ? error.code : 'INTERNAL_ERROR';
-  const code = isKnownErrorCode(rawCode) ? rawCode : 'INTERNAL_ERROR';
-  const entry = getCatalogEntry(code) ?? ERROR_CATALOG.INTERNAL_ERROR;
-  const message =
-    entry.httpStatus >= 500 && code === 'INTERNAL_ERROR'
-      ? entry.message
-      : error?.message || entry.message;
-
-  /** @type {StreamErrorData} */
-  const data = {
-    code,
-    class: entry.class,
-    retryability: entry.retryability,
-    message,
-    reference: correlationId,
-  };
-
-  if (allowsErrorDetails(code) && error?.details !== undefined) {
-    data.details = error.details;
-  }
-
-  return { event: 'error', data };
 }

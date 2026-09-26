@@ -46,23 +46,6 @@ export function sourceVersionsQueryKey(projectId) {
 }
 
 /**
- * Builds a query string from defined filter values.
- * @param {Record<string, string | number | undefined | null>} params Query map.
- * @returns {string}
- */
-function toQueryString(params) {
-  const search = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
-    if (value === undefined || value === null || value === '') {
-      continue;
-    }
-    search.set(key, String(value));
-  }
-  const encoded = search.toString();
-  return encoded ? `?${encoded}` : '';
-}
-
-/**
  * Lists source versions for a project.
  * @param {{
  *   projectId: string,
@@ -73,12 +56,21 @@ function toQueryString(params) {
  * @returns {Promise<SourceVersionListPage>}
  */
 export async function listProjectSourceVersions(options) {
-  const query = toQueryString({
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries({
     cursor: options.cursor,
     limit: options.limit ?? SOURCE_VERSION_LIST_PAGE_SIZE,
-  });
+  })) {
+    if (value === undefined || value === null || value === '') {
+      continue;
+    }
+    search.set(key, String(value));
+  }
+  const encoded = search.toString();
   return apiRequest(
-    `/projects/${encodeURIComponent(options.projectId)}/source-versions${query}`,
+    `/projects/${encodeURIComponent(options.projectId)}/source-versions${
+      encoded ? `?${encoded}` : ''
+    }`,
     { signal: options.signal },
   );
 }

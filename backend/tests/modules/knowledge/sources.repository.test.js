@@ -4,13 +4,13 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import mongoose from 'mongoose';
 import { createMongoHarness } from '../../mongoHarness.js';
+import { clearSourceFilesBucket } from '../../clearSourceFilesBucket.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
 import {
   SourceFile,
   SourceVersion,
   computeSourceDiff,
   buildSourceGridFsFilename,
-  clearSourceFilesBucket,
   countSourceVersions,
   findActiveSourceVersionForProject,
   findSourceFileByPath,

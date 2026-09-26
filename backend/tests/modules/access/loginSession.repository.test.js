@@ -5,7 +5,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import mongoose from 'mongoose';
 import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
-import { AUTH_MODELS } from '../../../src/modules/access/auth.js';
+import { AUTH_MODELS } from '../../../src/modules/access/index.js';
 import {
   createLoginSession,
   findLoginSessionByRefreshTokenHash,

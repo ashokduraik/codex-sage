@@ -22,6 +22,20 @@ vi.mock('../../../src/modules/masters/projectMembers.js', () => ({
   bumpProjectAclVersion: vi.fn(async () => {}),
 }));
 
+vi.mock('mongoose', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    default: {
+      ...actual.default,
+      startSession: vi.fn(async () => ({
+        withTransaction: async (fn) => fn(),
+        endSession: async () => {},
+      })),
+    },
+  };
+});
+
 import { isRoleReferencedByActiveUser } from '../../../src/modules/masters/users.js';
 import {
   assertKnownPermissions,

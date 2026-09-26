@@ -29,7 +29,6 @@ import {
   SOURCE_FILE_STATE_CORRUPT,
   SOURCE_FILE_STATE_MISSING,
   SOURCE_FILE_STATE_STORED,
-  buildSourceGridFsFilename,
   findSourceGridFsFileById,
   listSourceGridFsFilesForVersion,
   markGridFsFilesOrphaned,
@@ -230,10 +229,6 @@ export async function markOrphanGridFsObjects(input) {
  * }} input Scope + path.
  * @returns {string}
  */
-export function expectedGridFsFilename(input) {
-  return buildSourceGridFsFilename(input);
-}
-
 // --- from ingest/ingest.context.js ---
 /**
  * IngestStageContext — single argument every ingest stage receives.

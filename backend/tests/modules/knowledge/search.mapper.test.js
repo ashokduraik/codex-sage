@@ -9,7 +9,6 @@ import {
   mapGraphSearchItem,
   mapWorkflowSearchItem,
   matchesQueryText,
-  toResolverEvidence,
   unwrapGraphNode,
 } from '../../../src/modules/knowledge/search.js';
 
@@ -90,10 +89,6 @@ describe('search.mapper', () => {
 
     expect(matchesQueryText({ title: 'Refund Handler' }, 'refund')).toBe(true);
     expect(matchesQueryText({ url: '/orders' }, 'refund')).toBe(false);
-    expect(toResolverEvidence(api)).toMatchObject({
-      type: 'api',
-      title: '/refunds',
-      excerpt: 'refundHandler',
-    });
+    expect(api?.snippet).toBe('refundHandler');
   });
 });

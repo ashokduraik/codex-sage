@@ -45,14 +45,8 @@ export const JOB_EVENT_CODE_ENQUEUED = 'job.enqueued';
 /** User-facing enqueue message (no ids/stacks). */
 export const JOB_ENQUEUED_MESSAGE = 'Processing is queued.';
 
-/** How long a cancel request may wait for the worker before a sweeper may finish it. */
-export const JOB_CANCEL_GRACE_MS = 60_000;
-
 /** Ceiling on user-initiated retries per job (distinct from worker attempt). */
 export const JOB_MAX_USER_RETRIES = 10;
-
-/** Job statuses that count as an active writer for duplicate-click protection. */
-export const ACTIVE_JOB_STATUSES = Object.freeze(['pending', 'retrying', 'running']);
 
 // --- from jobs/jobStageCatalog.js ---
 /**
@@ -229,33 +223,6 @@ export function renderJobEventMessage(eventCode, context = {}) {
     return `Code relationships analyzed (${formatCount(context.indexedFiles)} files)`;
   }
   return JOB_EVENT_MESSAGES[eventCode] ?? 'Processing update';
-}
-
-/**
- * Returns true when a message looks like it embeds an ObjectId hex string.
- * @param {string} message Candidate message.
- * @returns {boolean}
- */
-export function messageContainsObjectIdShape(message) {
-  return /\b[a-f0-9]{24}\b/i.test(message);
-}
-
-/**
- * Returns true when a message looks like an absolute filesystem path.
- * @param {string} message Candidate message.
- * @returns {boolean}
- */
-export function messageContainsAbsolutePath(message) {
-  return /(^|\s)(\/[^\s]+|[A-Za-z]:\\[^\s]+)/.test(message);
-}
-
-/**
- * Returns true when a message looks like a raw error / stack fragment.
- * @param {string} message Candidate message.
- * @returns {boolean}
- */
-export function messageContainsRawErrorFragment(message) {
-  return /\bError:\s/i.test(message) || /\bat\s+\S+\s+\(/.test(message);
 }
 
 // --- from jobs/jobRetryMode.js ---
@@ -692,22 +659,6 @@ function buildJobEventSubdoc(input) {
 }
 
 /**
- * Returns timeline lines oldest first.
- * @param {object[] | undefined} events Embedded events.
- * @returns {object[]}
- */
-function sortJobEventsOldestFirst(events) {
-  return [...(events ?? [])].sort((left, right) => {
-    const leftTime = new Date(left.createdAt ?? 0).getTime();
-    const rightTime = new Date(right.createdAt ?? 0).getTime();
-    if (leftTime !== rightTime) {
-      return leftTime - rightTime;
-    }
-    return String(left._id ?? '').localeCompare(String(right._id ?? ''));
-  });
-}
-
-/**
  * Inserts a pending job and its initial enqueued event.
  * @param {{
  *   orgId: import('mongoose').Types.ObjectId | string,
@@ -854,28 +805,6 @@ export async function listJobsByProject(orgId, projectId, filters = {}) {
     });
   }
   return { items, pageInfo: { nextCursor, hasMore } };
-}
-
-/**
- * Lists timeline lines for a job in ascending createdAt order.
- * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
- * @param {string} jobId Job id.
- * @returns {Promise<object[]>}
- */
-export async function listEventsForJob(orgId, jobId) {
-  assertOrgId(orgId);
-  if (!mongoose.isValidObjectId(jobId)) {
-    return [];
-  }
-  const job = await Job.findOne({
-    _id: jobId,
-    orgId,
-    status: ROW_STATUS_ACTIVE,
-  })
-    .select('events')
-    .lean()
-    .exec();
-  return sortJobEventsOldestFirst(job?.events);
 }
 
 /**
@@ -1153,38 +1082,6 @@ export async function beginUserRetry(input) {
     {
       $set,
       $inc: { retryCount: 1 },
-    },
-    { returnDocument: 'after' },
-  ).exec();
-}
-
-/**
- * Promotes a retrying job to pending so the worker can claim it.
- * @param {{
- *   orgId: import('mongoose').Types.ObjectId | string,
- *   jobId: string,
- *   actorUserId: import('mongoose').Types.ObjectId | string,
- * }} input Promote inputs.
- * @returns {Promise<import('mongoose').Document | null>}
- */
-export async function promoteRetryingJobToPending(input) {
-  assertOrgId(input.orgId);
-  if (!mongoose.isValidObjectId(input.jobId)) {
-    return null;
-  }
-  return Job.findOneAndUpdate(
-    {
-      _id: new mongoose.Types.ObjectId(String(input.jobId)),
-      orgId: input.orgId,
-      status: ROW_STATUS_ACTIVE,
-      jobStatus: 'retrying',
-    },
-    {
-      $set: {
-        jobStatus: 'pending',
-        updatedBy: input.actorUserId,
-        scheduledAt: new Date(),
-      },
     },
     { returnDocument: 'after' },
   ).exec();

@@ -7,7 +7,7 @@ import { API_BASE_PATH, buildApp } from '../../../src/http/app.js';
 import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
 import { AUDIT_MODELS } from '../../../src/modules/access/audit.js';
-import { AUTH_MODELS } from '../../../src/modules/access/auth.js';
+import { AUTH_MODELS } from '../../../src/modules/access/index.js';
 import { hashPassword } from '../../../src/modules/access/auth.js';
 import {
   DEFAULT_ADMIN_EMAIL,

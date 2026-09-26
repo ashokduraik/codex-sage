@@ -12,7 +12,6 @@ vi.mock('@/shared/api/index', () => ({
 import {
   attachProjectRepository,
   getProjectRepositoryConnection,
-  patchProjectRepositoryBranch,
   probeProjectRepository,
   replaceProjectRepositoryCredential,
   repositoryConnectionQueryKey,
@@ -98,16 +97,6 @@ describe('repositoriesApi', () => {
       'repositories',
       'connection',
     ]);
-  });
-
-  it('patches the selected branch', async () => {
-    apiRequest.mockResolvedValue({ connection: { selectedBranch: 'develop' } });
-    await patchProjectRepositoryBranch({ projectId: 'p1', selectedBranch: 'develop' });
-    expect(apiRequest).toHaveBeenCalledWith('/projects/p1/repositories/connection/branch', {
-      method: 'PATCH',
-      body: { selectedBranch: 'develop' },
-      signal: undefined,
-    });
   });
 
   it('replaces, revokes, and re-tests credentials on the shipped paths', async () => {

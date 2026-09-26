@@ -6,7 +6,7 @@ import { API_BASE_PATH, buildApp } from '../../../src/http/app.js';
 import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
 import { AUDIT_MODELS, listAuditEvents } from '../../../src/modules/access/audit.js';
-import { AUTH_MODELS } from '../../../src/modules/access/auth.js';
+import { AUTH_MODELS } from '../../../src/modules/access/index.js';
 import { hashPassword } from '../../../src/modules/access/auth.js';
 import { IDEMPOTENCY_MODELS, IdempotencyRecord } from '../../../src/platform/idempotency/index.js';
 import {
@@ -19,7 +19,7 @@ import {
   findBuiltInRole,
   runBootstrapSeed,
 } from '../../../src/modules/masters/index.js';
-import { containsForbiddenSecretKey } from '../../../src/modules/masters/users.js';
+import { containsForbiddenSecretKey } from '../../containsForbiddenSecretKey.js';
 
 const harness = createMongoHarness({
   models: [...IDENTITY_MODELS, ...AUTH_MODELS, ...AUDIT_MODELS, ...IDEMPOTENCY_MODELS],

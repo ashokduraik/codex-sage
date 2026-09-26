@@ -135,23 +135,6 @@ export const JOB_LIST_PAGE_SIZE = 20;
 export const JOB_DETAIL_POLL_INTERVAL_MS = 3000;
 
 /**
- * Builds a query string from defined filter values.
- * @param {Record<string, string | number | boolean | undefined | null>} params Query map.
- * @returns {string} Path suffix starting with `?`, or empty string.
- */
-function toQueryString(params) {
-  const search = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
-    if (value === undefined || value === null || value === '') {
-      continue;
-    }
-    search.set(key, String(value));
-  }
-  const encoded = search.toString();
-  return encoded ? `?${encoded}` : '';
-}
-
-/**
  * Builds the project jobs list query key.
  * @param {string} projectId Project id.
  * @param {{ jobStatus?: string }} [filters] Optional list filters.
@@ -192,14 +175,24 @@ export function projectJobsQueryRoot(projectId) {
  * @returns {Promise<JobListPage>}
  */
 export async function listProjectJobs(options) {
-  const query = toQueryString({
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries({
     cursor: options.cursor,
     limit: options.limit ?? JOB_LIST_PAGE_SIZE,
     jobStatus: options.jobStatus,
-  });
-  return apiRequest(`/projects/${encodeURIComponent(options.projectId)}/jobs${query}`, {
-    signal: options.signal,
-  });
+  })) {
+    if (value === undefined || value === null || value === '') {
+      continue;
+    }
+    search.set(key, String(value));
+  }
+  const encoded = search.toString();
+  return apiRequest(
+    `/projects/${encodeURIComponent(options.projectId)}/jobs${encoded ? `?${encoded}` : ''}`,
+    {
+      signal: options.signal,
+    },
+  );
 }
 
 /**

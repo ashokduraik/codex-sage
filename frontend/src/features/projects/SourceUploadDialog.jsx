@@ -15,31 +15,6 @@ import { cn } from '@/shared/lib/utils';
 import { useUploadSource } from './hooks/useUploadSource.js';
 
 /**
- * Formats a byte size for the selected archive.
- * @param {number} bytes File size in bytes.
- * @returns {string}
- */
-function formatFileSize(bytes) {
-  if (bytes > 1024 * 1024) {
-    return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-  }
-  if (bytes > 1024) {
-    return `${(bytes / 1024).toFixed(0)} KB`;
-  }
-  return `${bytes} B`;
-}
-
-/**
- * True when the file looks like a ZIP archive.
- * @param {File} file Selected file.
- * @returns {boolean}
- */
-function isZipFile(file) {
-  const name = file.name.toLowerCase();
-  return name.endsWith('.zip') || file.type === 'application/zip' || file.type === 'application/x-zip-compressed';
-}
-
-/**
  * Dialog that uploads a ZIP archive to the backend (HTTP progress only).
  * @param {{
  *   open: boolean,
@@ -84,7 +59,12 @@ export function SourceUploadDialog({ open, onOpenChange, projectId, onUploaded }
       setFile(null);
       return;
     }
-    if (!isZipFile(nextFile)) {
+    const fileName = nextFile.name.toLowerCase();
+    if (
+      !fileName.endsWith('.zip') &&
+      nextFile.type !== 'application/zip' &&
+      nextFile.type !== 'application/x-zip-compressed'
+    ) {
       setFile(null);
       setRejectMsg(t('sources.folderUnsupported'));
       return;
@@ -210,7 +190,13 @@ export function SourceUploadDialog({ open, onOpenChange, projectId, onUploaded }
           {file && (
             <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2 text-sm">
               <span className="truncate">{file.name}</span>
-              <span className="text-muted-foreground">{formatFileSize(file.size)}</span>
+              <span className="text-muted-foreground">
+                {file.size > 1024 * 1024
+                  ? `${(file.size / 1024 / 1024).toFixed(1)} MB`
+                  : file.size > 1024
+                    ? `${(file.size / 1024).toFixed(0)} KB`
+                    : `${file.size} B`}
+              </span>
             </div>
           )}
 

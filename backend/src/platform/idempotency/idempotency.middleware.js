@@ -122,17 +122,6 @@ export async function releaseOwnedIdempotencyClaim(request) {
  */
 
 /**
- * Sleeps for the given duration.
- * @param {number} ms Milliseconds.
- * @returns {Promise<void>}
- */
-function sleep(ms) {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
-}
-
-/**
  * Waits for a processing twin to complete, then returns a replay or throws in-flight.
  * @param {{
  *   orgId: string,
@@ -147,7 +136,9 @@ function sleep(ms) {
 async function waitForIdempotencyTwin(query) {
   const deadline = Date.now() + IDEMPOTENCY_WAIT_MS;
   while (Date.now() < deadline) {
-    await sleep(IDEMPOTENCY_POLL_INTERVAL_MS);
+    await new Promise((resolve) => {
+      setTimeout(resolve, IDEMPOTENCY_POLL_INTERVAL_MS);
+    });
     const record = await findActiveIdempotencyRecord(query);
     if (!record) {
       break;
@@ -186,21 +177,6 @@ function parseOnSendPayload(payload) {
     }
   }
   return payload;
-}
-
-/**
- * Extracts a resource id from a typical create DTO when present.
- * @param {unknown} body Response body.
- * @returns {string | null}
- */
-function extractResourceId(body) {
-  if (body && typeof body === 'object' && 'id' in body) {
-    const id = /** @type {{ id?: unknown }} */ (body).id;
-    if (typeof id === 'string' && id.length > 0) {
-      return id;
-    }
-  }
-  return null;
 }
 
 /**
@@ -292,12 +268,16 @@ export async function idempotencyOnSend(request, reply, payload) {
     });
   }
 
+  const resourceId =
+    body && typeof body === 'object' && typeof body.id === 'string' && body.id.length > 0
+      ? body.id
+      : null;
   await completeIdempotencyRecord({
     orgId: request.principal.orgId,
     recordId: ctx.recordId,
     responseStatus: statusCode,
     responseBody: body,
-    resourceId: extractResourceId(body),
+    resourceId,
     updatedBy: request.principal.userId,
   });
   ctx.isOwner = false;

@@ -1,16 +1,3 @@
-/** Project lifecycle labels used across badges and filters. */
-export const PROJECT_STATES = [
-    'Creating',
-    'Awaiting source',
-    'Connecting repository',
-    'Source received',
-    'Processing',
-    'Knowledge ready',
-    'Updating',
-    'Failed',
-    'Partially available',
-    'Archived',
-];
 /** Knowledge readiness labels used across badges and filters. */
 export const KNOWLEDGE_STATES = [
     'Ready',
@@ -18,17 +5,6 @@ export const KNOWLEDGE_STATES = [
     'Needs attention',
     'Outdated',
     'Partially available',
-];
-/** Path segments treated as noise during source intake. */
-export const NOISE_PATTERNS = [
-    'node_modules',
-    '.git',
-    'dist',
-    'build',
-    'coverage',
-    '.next',
-    '__pycache__',
-    '.cache',
 ];
 let nextIdCounter = 0;
 /**
@@ -602,21 +578,6 @@ export const PERMISSION_LABELS = [
     'View usage',
     'View audit log',
 ];
-/** Permission sets granted to each admin role. */
-export const ROLE_PERMISSIONS = {
-    Admin: PERMISSION_LABELS,
-    Editor: [
-        'View organization',
-        'Create projects',
-        'Upload sources',
-        'Connect repositories',
-        'Trigger knowledge updates',
-        'Ask questions',
-        'View and archive conversations',
-        'Search',
-    ],
-    Viewer: ['View organization', 'Ask questions', 'View and archive conversations', 'Search'],
-};
 /** In-memory seed dataset consumed by AppDataContext. */
 export const seed = {
     projects: seedProjects,

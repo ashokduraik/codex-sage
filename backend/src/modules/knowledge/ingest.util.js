@@ -488,17 +488,6 @@ export async function runMaterializeDocsStage(ctx) {
 let defaultAdapter = null;
 
 /**
- * Returns the process-wide adapter (lazy).
- * @returns {ReturnType<typeof createCodegraphAdapter>}
- */
-function getDefaultAdapter() {
-  if (!defaultAdapter) {
-    defaultAdapter = createCodegraphAdapter();
-  }
-  return defaultAdapter;
-}
-
-/**
  * Runs the S4 CodeGraph index/sync stage.
  * @param {object} ctx IngestStageContext.
  * @param {{ adapter?: ReturnType<typeof createCodegraphAdapter> }} [deps] Test seams.
@@ -509,7 +498,10 @@ function getDefaultAdapter() {
  * }>}
  */
 export async function runCodegraphUpdateStage(ctx, deps = {}) {
-  const adapter = deps.adapter ?? getDefaultAdapter();
+  if (!deps.adapter && !defaultAdapter) {
+    defaultAdapter = createCodegraphAdapter();
+  }
+  const adapter = deps.adapter ?? defaultAdapter;
 
   if (ctx.signal?.aborted || (await ctx.isCancelRequested())) {
     throw createJobFailureError({

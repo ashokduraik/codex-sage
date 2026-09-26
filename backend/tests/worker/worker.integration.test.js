@@ -6,7 +6,8 @@ import mongoose from 'mongoose';
 import { createMongoHarness } from '../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../appConfig.js';
 import { Job } from '../../src/models/job.model.js';
-import { insertPendingJob, listEventsForJob } from '../../src/modules/masters/index.js';
+import { insertPendingJob } from '../../src/modules/masters/index.js';
+import { listJobEvents } from '../listJobEvents.js';
 import { clearJobHandlersForTests, registerJobHandler } from '../../src/worker/handlerRegistry.js';
 import { claimNextJob } from '../../src/worker/jobClaim.js';
 import {
@@ -207,7 +208,7 @@ describe('worker process integration', () => {
     expect(fresh.workerId).toBeNull();
     expect(fresh.stageCheckpoint.lastCompletedStage).toBe('exclude_apply');
 
-    const events = await listEventsForJob(orgId, String(job._id));
+    const events = await listJobEvents(orgId, String(job._id));
     expect(events.some((event) => event.eventCode === WORKER_EVENT_INTERRUPTED_REQUEUED)).toBe(
       true,
     );
@@ -354,7 +355,7 @@ describe('worker process integration', () => {
 
     await vi.waitFor(
       async () => {
-        const events = await listEventsForJob(orgId, String(job._id));
+        const events = await listJobEvents(orgId, String(job._id));
         expect(events.some((event) => event.eventCode === WORKER_EVENT_CLAIMED)).toBe(true);
         expect(events.some((event) => event.eventCode === 'job.completed')).toBe(true);
         const fresh = await Job.findById(job._id).exec();

@@ -33,11 +33,10 @@ import {
   findJobById,
   insertPendingJob,
   isKnownJobStatus,
-  listEventsForJob,
   listJobsByProject,
-  promoteRetryingJobToPending,
   requestRunningJobCancel,
 } from '../../../src/modules/masters/jobs.helper.js';
+import { listJobEvents } from '../../listJobEvents.js';
 
 const harness = createMongoHarness({
   models: [Job],
@@ -91,14 +90,14 @@ describe('jobs.repository', () => {
     expect(job.events).toHaveLength(1);
     expect(String(job.events[0]._id)).toBe(String(event._id));
 
-    const events = await listEventsForJob(orgId, String(job._id));
+    const events = await listJobEvents(orgId, String(job._id));
     expect(events).toHaveLength(1);
   });
 
-  it('listEventsForJob returns [] when the job is missing and sorts by createdAt', async () => {
+  it('listJobEvents returns [] when the job is missing and sorts by createdAt', async () => {
     const orgId = new mongoose.Types.ObjectId();
     const projectId = new mongoose.Types.ObjectId();
-    expect(await listEventsForJob(orgId, new mongoose.Types.ObjectId().toHexString())).toEqual([]);
+    expect(await listJobEvents(orgId, new mongoose.Types.ObjectId().toHexString())).toEqual([]);
 
     const { job } = await insertPendingJob({
       orgId,
@@ -130,7 +129,7 @@ describe('jobs.repository', () => {
         },
       },
     );
-    const listed = await listEventsForJob(orgId, String(job._id));
+    const listed = await listJobEvents(orgId, String(job._id));
     expect(listed.map((entry) => entry.eventCode)).toEqual(['earlier', 'later']);
 
     const sameTime = new Date('2022-01-01T00:00:00.000Z');
@@ -161,7 +160,7 @@ describe('jobs.repository', () => {
         },
       },
     );
-    const tied = await listEventsForJob(orgId, String(job._id));
+    const tied = await listJobEvents(orgId, String(job._id));
     expect(tied.map((entry) => entry.eventCode)).toEqual(['a', 'b']);
   });
 
@@ -423,12 +422,22 @@ describe('jobs.repository', () => {
     expect(retried.stageCheckpoint).toBeNull();
     expect(retried.currentStage).toBeNull();
 
-    const promoted = await promoteRetryingJobToPending({
-      orgId,
-      jobId: String(failedJob._id),
-      actorUserId: actor,
-    });
-    expect(promoted.jobStatus).toBe('pending');
+    const promoted = await Job.findOneAndUpdate(
+      {
+        _id: failedJob._id,
+        orgId,
+        jobStatus: 'retrying',
+      },
+      {
+        $set: {
+          jobStatus: 'pending',
+          updatedBy: actor,
+          scheduledAt: new Date(),
+        },
+      },
+      { returnDocument: 'after' },
+    ).exec();
+    expect(promoted?.jobStatus).toBe('pending');
   });
 
   it('finds active jobs by type and defers a running job without burning attempts', async () => {

@@ -10,14 +10,6 @@ import {
 import { projectDetailQueryKey } from '@/features/projects/api/projectsApi.js';
 
 /**
- * @param {string} projectId Project id.
- * @returns {readonly unknown[]}
- */
-export function sourceUploadMutationKey(projectId) {
-  return Object.freeze(['projects', String(projectId), 'sources', 'upload']);
-}
-
-/**
  * Uploads an archive and tracks byte-level HTTP progress.
  * @returns {{
  *   mutateAsync: Function,

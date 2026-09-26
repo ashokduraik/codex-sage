@@ -131,7 +131,13 @@ export async function outboundDownload(input) {
       clearTimeout(timer);
     }
 
-    if (isRedirectStatus(response.status)) {
+    if (
+      response.status === 301 ||
+      response.status === 302 ||
+      response.status === 303 ||
+      response.status === 307 ||
+      response.status === 308
+    ) {
       const location = response.headers.get('location');
       if (!location || redirects >= MAX_REDIRECTS) {
         throw Object.assign(new Error('Repository archive exceeded redirect limit.'), {
@@ -180,14 +186,6 @@ export function isAllowedArchiveRedirect(startHost, currentHost, nextHost) {
     return true;
   }
   return startHost === 'api.github.com' && GITHUB_ARCHIVE_REDIRECT_HOSTS.includes(nextHost);
-}
-
-/**
- * @param {number} status HTTP status.
- * @returns {boolean}
- */
-function isRedirectStatus(status) {
-  return status === 301 || status === 302 || status === 303 || status === 307 || status === 308;
 }
 
 /**
@@ -591,23 +589,41 @@ export async function enqueueManualRepositorySync(input) {
     ? new Date(Date.now() + REPO_SYNC_OVERLAP_RETRY_MS)
     : new Date();
 
-  const { job } = await insertPendingJob({
-    orgId: input.orgId,
-    projectId: input.projectId,
-    jobType: 'repo_sync',
-    createdBy: input.actorUserId,
-    correlationId: input.correlationId,
-    scheduledAt,
-  });
-
-  await updateConnection({
-    orgId: input.orgId,
-    connectionId: String(connection._id),
-    set: {
-      lastSyncJobId: job._id,
-      updatedBy: input.actorUserId,
-    },
-  });
+  const mongoSession = await mongoose.startSession();
+  /** @type {import('mongoose').Document | undefined} */
+  let job;
+  try {
+    await mongoSession.withTransaction(async () => {
+      const inserted = await insertPendingJob(
+        {
+          orgId: input.orgId,
+          projectId: input.projectId,
+          jobType: 'repo_sync',
+          createdBy: input.actorUserId,
+          correlationId: input.correlationId,
+          scheduledAt,
+        },
+        { session: mongoSession },
+      );
+      job = inserted.job;
+      await updateConnection(
+        {
+          orgId: input.orgId,
+          connectionId: String(connection._id),
+          set: {
+            lastSyncJobId: job._id,
+            updatedBy: input.actorUserId,
+          },
+        },
+        { session: mongoSession },
+      );
+    });
+  } finally {
+    await mongoSession.endSession();
+  }
+  if (!job) {
+    throw ApiError.fromCode('INTERNAL_ERROR');
+  }
 
   await recordAuditEvent(
     {

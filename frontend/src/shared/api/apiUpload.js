@@ -26,18 +26,6 @@ import { refreshAccessToken } from './refreshClient.js';
  */
 
 /**
- * Builds the absolute or same-origin URL for a path under the API base.
- * @param {string} path Path starting with `/`.
- * @returns {string}
- */
-function buildUrl(path) {
-  if (!path.startsWith('/')) {
-    return `${API_BASE_URL}/${path}`;
-  }
-  return `${API_BASE_URL}${path}`;
-}
-
-/**
  * Uploads FormData and reports byte progress.
  * @param {string} path API path relative to the base URL.
  * @param {ApiUploadOptions} options Upload options.
@@ -56,7 +44,10 @@ export async function apiUpload(path, options) {
 async function executeApiUpload(path, options, hasRetriedAfterRefresh) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open((options.method ?? 'POST').toUpperCase(), buildUrl(path));
+    xhr.open(
+      (options.method ?? 'POST').toUpperCase(),
+      path.startsWith('/') ? `${API_BASE_URL}${path}` : `${API_BASE_URL}/${path}`,
+    );
     xhr.withCredentials = true;
     xhr.responseType = 'text';
     xhr.setRequestHeader('Accept', 'application/json');

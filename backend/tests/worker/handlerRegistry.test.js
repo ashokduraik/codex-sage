@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   clearJobHandlersForTests,
   getJobHandler,
-  isJobTypeRegistered,
   listRegisteredJobTypes,
   registerJobHandler,
 } from '../../src/worker/handlerRegistry.js';
@@ -15,7 +14,7 @@ describe('handlerRegistry', () => {
   it('registers a handler and lists its type', () => {
     const run = async () => ({ result: 'completed' });
     registerJobHandler({ type: 'worker_smoke', exclusiveScope: 'none', run });
-    expect(isJobTypeRegistered('worker_smoke')).toBe(true);
+    expect(getJobHandler('worker_smoke')).toBeDefined();
     expect(listRegisteredJobTypes()).toEqual(['worker_smoke']);
     expect(getJobHandler('worker_smoke')?.run).toBe(run);
   });
@@ -29,8 +28,8 @@ describe('handlerRegistry', () => {
   });
 
   it('reports an unknown type without throwing', () => {
-    expect(isJobTypeRegistered('missing')).toBe(false);
     expect(getJobHandler('missing')).toBeUndefined();
+    expect(listRegisteredJobTypes()).not.toContain('missing');
   });
 
   it('rejects invalid registrations', () => {

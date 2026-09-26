@@ -12,7 +12,9 @@ or worker handler + its persistence). One production file per model in
 
 Do not add a helper or util up front. Do not add a file per function. Do not add
 a `helpers/` folder or a shared util dumped across resources. Do not add a file
-that nothing in production calls.
+that nothing in production calls (including unused feature barrels and unused UI
+kits). Do not re-export a symbol from a module `index.js` that no other file
+imports from that barrel.
 
 ## Overflow (code lines only)
 

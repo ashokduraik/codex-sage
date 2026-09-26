@@ -17,11 +17,11 @@ import { insertPendingJob } from '../../../src/modules/masters/jobs.helper.js';
 import {
   SourceFile,
   SourceVersion,
-  clearSourceFilesBucket,
   getSourceFilesBucket,
   insertSourceFiles,
   insertSourceVersion,
 } from '../../../src/modules/knowledge/sources.js';
+import { clearSourceFilesBucket } from '../../clearSourceFilesBucket.js';
 import { EXCLUSION_RULESET_ID } from '../../../src/modules/knowledge/uploads.js';
 import { buildIngestStageContext } from '../../../src/modules/knowledge/ingest.js';
 import { loadSourceVersionForIngest } from '../../../src/modules/knowledge/ingest.js';

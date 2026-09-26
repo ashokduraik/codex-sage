@@ -33,6 +33,7 @@
 | [0028](./0028-roles-on-users.md) | Org roles and project access mode live on users | Accepted |
 | [0029](./0029-embed-repository-credential.md) | Repository credential lives on the connection | Accepted |
 | [0030](./0030-login-session-embedded-tokens.md) | Login session with embedded refresh-token hashes | Accepted |
+| [0031](./0031-http-multi-collection-transactions.md) | HTTP APIs that write two domain collections use a transaction | Accepted |
 
 One decision = one ADR. Accepted ADRs are immutable; supersede with a new number rather
 than rewriting history.

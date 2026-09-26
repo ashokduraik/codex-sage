@@ -3,7 +3,6 @@
  */
 import { Organization } from '../../models/organization.model.js';
 import { BUILT_IN_ROLE_KEYS } from '../../models/role.model.js';
-import { softDelete } from '../../platform/data/index.js';
 import { ApiError } from '../../platform/errors.js';
 import { hashPassword } from '../access/index.js';
 import { ensureBuiltInRoles } from './roles.js';
@@ -74,20 +73,6 @@ export async function createOrganization(input, options = {}) {
     options.session ? { session: options.session } : undefined,
   );
   return doc;
-}
-
-/**
- * Soft-deletes an active organization.
- * @param {import('mongoose').Types.ObjectId | string} organizationId Organization _id.
- * @param {{ updatedBy?: import('mongoose').Types.ObjectId | null }} [options] Actor stamp.
- * @returns {Promise<import('mongoose').UpdateResult>}
- */
-export async function softDeleteOrganization(organizationId, options = {}) {
-  return softDelete(
-    Organization,
-    { _id: organizationId },
-    { updatedBy: options.updatedBy ?? null },
-  );
 }
 
 /**

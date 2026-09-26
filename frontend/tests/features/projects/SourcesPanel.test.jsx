@@ -25,7 +25,6 @@ vi.mock('@/features/projects/api/repositoriesApi.js', () => ({
   retestProjectRepositoryConnection: vi.fn(),
   probeProjectRepository: vi.fn(),
   attachProjectRepository: vi.fn(),
-  patchProjectRepositoryBranch: vi.fn(),
 }));
 
 import {
@@ -41,7 +40,7 @@ import {
   retestProjectRepositoryConnection,
 } from '@/features/projects/api/repositoriesApi.js';
 import ProjectDetailPage from '@/features/projects/ProjectDetailPage';
-import SourcesPanel, { connectionStatusLabelKey } from '@/features/projects/SourcesPanel';
+import SourcesPanel from '@/features/projects/SourcesPanel';
 
 const ATLAS_CONNECTION = {
   id: 'rc_atlas',
@@ -201,6 +200,20 @@ describe('SourcesPanel', () => {
     expect(await screen.findByText('No source versions yet.')).toBeTruthy();
   });
 
+  it('shows Unknown when the connection status is unrecognized or empty', async () => {
+    getProjectRepositoryConnection.mockResolvedValue({
+      connection: { ...ATLAS_CONNECTION, connectionStatus: 'mystery' },
+    });
+    renderSources();
+    expect(await screen.findByText('Unknown')).toBeTruthy();
+    cleanup();
+    getProjectRepositoryConnection.mockResolvedValue({
+      connection: { ...ATLAS_CONNECTION, connectionStatus: '' },
+    });
+    renderSources();
+    expect(await screen.findByText('Unknown')).toBeTruthy();
+  });
+
   it('shows a retryable error when the versions list fails', async () => {
     listProjectSourceVersions.mockRejectedValue(
       new ApiError({ status: 500, code: 'SYSTEM_ERROR', message: 'boom' }),
@@ -208,16 +221,5 @@ describe('SourcesPanel', () => {
     renderSources();
     expect(await screen.findByRole('alert')).toBeTruthy();
     expect(screen.getByRole('button', { name: /Retry/i })).toBeTruthy();
-  });
-});
-
-describe('connectionStatusLabelKey', () => {
-  it('maps known codes and falls back for unknown', () => {
-    expect(connectionStatusLabelKey('connected')).toBe('sources.connectionStatus.connected');
-    expect(connectionStatusLabelKey('authentication_required')).toBe(
-      'sources.connectionStatus.authenticationRequired',
-    );
-    expect(connectionStatusLabelKey('mystery')).toBe('sources.connectionStatus.unknown');
-    expect(connectionStatusLabelKey(null)).toBe('sources.connectionStatus.unknown');
   });
 });

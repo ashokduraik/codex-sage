@@ -12,18 +12,6 @@ import {
 export const CURRENT_USER_QUERY_KEY = Object.freeze(['auth', 'me']);
 
 /**
- * Builds CSRF headers for cookie-authenticated auth mutations.
- * @returns {Record<string, string>}
- */
-function csrfHeaders() {
-  const csrfToken = readCsrfTokenFromCookie();
-  if (!csrfToken) {
-    return {};
-  }
-  return { [CSRF_HEADER_NAME]: csrfToken };
-}
-
-/**
  * Signs in with email and password; stores the access token in memory.
  * @param {string} email Account email.
  * @param {string} password Account password.
@@ -72,9 +60,10 @@ export async function fetchCurrentUser(options = {}) {
  * @returns {Promise<void>}
  */
 export async function logout() {
+  const csrfToken = readCsrfTokenFromCookie();
   await apiRequest('/auth/logout', {
     method: 'POST',
-    headers: csrfHeaders(),
+    headers: csrfToken ? { [CSRF_HEADER_NAME]: csrfToken } : {},
     skipAuthRefresh: true,
   });
 }
