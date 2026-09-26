@@ -13,6 +13,12 @@ better than building the wrong thing.
 
 - If a requirement, API shape, data model, scope, or acceptance criterion is ambiguous, **stop
   and ask** before writing code.
+- **Models and collections are never assumed.** Do not create or alter a Mongoose model,
+  Mongo collection, or schema field unless the user reviewed and approved that exact
+  change in this conversation (`schema-change-approval.mdc`). “Use your judgement”
+  never authorizes a schema change.
+- **Comments are never skipped.** New and edited production modules ship with comments
+  in the same change (`comments-required.mdc`).
 - Prefer the structured question tool (multiple-choice) so the user can answer quickly; ask in
   batches when several things are unclear.
 - Re-ask whenever new ambiguity appears mid-task — repeatedly if necessary.

@@ -17,6 +17,11 @@ describe('jobStageCatalog', () => {
     expect(labelForJobStage('repo_sync', 'fetch_remote')).toBe('Checking repository');
   });
 
+  it('lists retention as a single apply_policy stage', () => {
+    expect(listStagesForJobType('retention')).toEqual([{ stage: 'apply_policy', label: 'Applying retention' }]);
+    expect(labelForJobStage('retention', 'apply_policy')).toBe('Applying retention');
+  });
+
   it('falls back for unknown types and stages', () => {
     expect(listStagesForJobType('unknown_type')).toEqual([]);
     expect(labelForJobStage('ingest', 'no_such_stage')).toBe('no_such_stage');

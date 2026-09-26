@@ -13,6 +13,7 @@ vi.mock('@/features/projects/api/sourcesApi.js', () => ({
   sourceVersionsQueryKey: (projectId) => Object.freeze(['projects', String(projectId), 'source-versions']),
   listProjectSourceVersions: vi.fn(),
   uploadProjectSource: vi.fn(),
+  reingestProjectSource: vi.fn(),
 }));
 
 vi.mock('@/features/projects/api/repositoriesApi.js', () => ({
@@ -26,7 +27,7 @@ vi.mock('@/features/projects/api/repositoriesApi.js', () => ({
 }));
 
 import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
-import { listProjectSourceVersions } from '@/features/projects/api/sourcesApi.js';
+import { listProjectSourceVersions, reingestProjectSource } from '@/features/projects/api/sourcesApi.js';
 import {
   getProjectRepositoryConnection,
   replaceProjectRepositoryCredential,
@@ -75,6 +76,7 @@ beforeEach(() => {
   localStorage.clear();
   seedAuthSession();
   listProjectSourceVersions.mockReset();
+  reingestProjectSource.mockReset();
   getProjectRepositoryConnection.mockReset();
   replaceProjectRepositoryCredential.mockReset();
   revokeProjectRepositoryCredential.mockReset();
@@ -202,6 +204,46 @@ describe('SourcesPanel', () => {
     });
     renderSources();
     expect(await screen.findByText('Unknown')).toBeTruthy();
+  });
+
+  it('hides re-process when the user cannot trigger knowledge', async () => {
+    renderSources();
+    expect(await screen.findByRole('heading', { name: 'Sources' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Re-process this version/i })).toBeNull();
+  });
+
+  it('re-processes a version and navigates to processing', async () => {
+    seedAuthSession('you@acme.io', { permissions: ['users.manage', 'knowledge.trigger'] });
+    reingestProjectSource.mockResolvedValue({ jobId: 'job_new', sourceVersionId: 'sv_atlas', jobType: 'reingest' });
+    renderSources();
+    fireEvent.click(await screen.findByRole('button', { name: /Re-process this version/i }));
+    await waitFor(() => {
+      expect(reingestProjectSource).toHaveBeenCalledWith(
+        expect.objectContaining({
+          projectId: 'prj_atlas',
+          sourceVersionId: 'sv_atlas',
+        }),
+      );
+    });
+  });
+
+  it('reuses an in-flight reingest job id from the API', async () => {
+    seedAuthSession('you@acme.io', { permissions: ['users.manage', 'knowledge.trigger'] });
+    reingestProjectSource.mockResolvedValue({ jobId: 'job_existing', sourceVersionId: 'sv_atlas', jobType: 'reingest' });
+    renderSources();
+    fireEvent.click(await screen.findByRole('button', { name: /Re-process this version/i }));
+    await waitFor(() => {
+      expect(reingestProjectSource).toHaveBeenCalled();
+    });
+  });
+
+  it('shows a forbidden alert when reingest is denied', async () => {
+    seedAuthSession('you@acme.io', { permissions: ['users.manage', 'knowledge.trigger'] });
+    reingestProjectSource.mockRejectedValue(new ApiError({ status: 403, code: 'FORBIDDEN', message: 'nope' }));
+    renderSources();
+    fireEvent.click(await screen.findByRole('button', { name: /Re-process this version/i }));
+    expect(await screen.findByRole('alert')).toBeTruthy();
+    expect(screen.getByText('You do not have permission to view this.')).toBeTruthy();
   });
 
   it('shows a retryable error when the versions list fails', async () => {

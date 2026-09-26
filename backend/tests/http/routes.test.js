@@ -26,5 +26,11 @@ describe('registerRoutes', () => {
         url: `${API_BASE_PATH}/projects/:projectId/members/:userId`,
       }),
     ).toBe(true);
+    expect(app.hasRoute({ method: 'GET', url: `${API_BASE_PATH}/notifications` })).toBe(true);
+    expect(app.hasRoute({ method: 'POST', url: `${API_BASE_PATH}/notifications/:notificationId/read` })).toBe(true);
+    expect(app.hasRoute({ method: 'POST', url: `${API_BASE_PATH}/notifications/read-all` })).toBe(true);
+    expect(app.hasRoute({ method: 'GET', url: `${API_BASE_PATH}/usage/organization` })).toBe(true);
+    expect(app.hasRoute({ method: 'GET', url: `${API_BASE_PATH}/usage/projects/:projectId` })).toBe(true);
+    expect(app.hasRoute({ method: 'GET', url: `${API_BASE_PATH}/usage/me` })).toBe(true);
   });
 });

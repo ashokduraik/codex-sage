@@ -4,7 +4,7 @@
 import { requireProjectPermission } from '../../http/preHandlers/requireProjectPermission.js';
 import { ROW_STATUS_ACTIVE } from '../../platform/data/index.js';
 import { ApiError } from '../../platform/errors.js';
-import { findProjectById } from '../masters/index.js';
+import { findProjectById, recordProjectActivity } from '../masters/index.js';
 import { createCodegraphAdapter } from './codegraph.js';
 import { searchDocumentSections } from './documents.js';
 import { assertKnowledgeReadable, findKnowledgeVersionById } from './knowledge.js';
@@ -815,12 +815,25 @@ export async function searchRoutes(app) {
       config: { routeAccess: 'authenticated' },
       preHandler: requireProjectPermission('search.run'),
     },
-    async (request) =>
-      runProjectSearchFromQuery({
+    async (request) => {
+      const result = await runProjectSearchFromQuery({
         orgId: request.projectScope.orgId,
         projectId: request.projectScope.projectId,
         workspaceRoot: request.server.config.workspace.root,
         query: request.query,
-      }),
+      });
+      await recordProjectActivity({
+        orgId: request.projectScope.orgId,
+        projectId: request.projectScope.projectId,
+        userId: request.projectScope.userId,
+        kind: 'search.executed',
+        quantity: 1,
+        unit: 'calls',
+        sourceRef: request.id,
+        dedupeKey: `search.executed:${request.id}`,
+        log: request.log,
+      });
+      return result;
+    },
   );
 }

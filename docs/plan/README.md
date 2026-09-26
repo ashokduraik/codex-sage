@@ -72,49 +72,40 @@ phase. Anything not listed here and not in the source documents above is an open
 
 ## 3. Where the codebase stands today
 
-### Backend — `backend/` (platform scaffold only)
+Ingest **FLOW A** (solution §4) is implemented through S0–S6. Repeat ZIP uploads create a new
+`sourceVersion` on the same project. **ZIP-only full-tree intake is locked** (code + docs in
+one archive). Folder pickers and docs-only/partial-tree merge are **not** in MVP. Change
+summaries persist path diffs; API/workflow impact counts and documentation-vs-code conflicts
+stay empty until a later ADR.
+
+### Backend — `backend/`
 
 | Exists | Notes |
 |---|---|
-| `src/index.js` | Entry point: process handlers → config → Fastify listen |
-| `src/http/app.js` | `buildApp()`; CORS in non-production; routes mounted at `/api` |
-| `src/http/routes.js` | Registers `healthRoutes` only |
-| `src/modules/health/` | `GET /health` |
-| `src/platform/config.js` | Hand-rolled env parsing (host, port, nodeEnv, log settings) |
-| `src/platform/logger.js` | Pino options + request logging |
-| `src/platform/errors.js` | `ApiError`, `{ error: { code, message, details? } }` envelope, global handler, 404 handler |
-| `src/platform/processHandlers.js` | `unhandledRejection` / `uncaughtException` safety nets |
-| Tooling | JavaScript, plain Node, ESLint, Vitest + v8 coverage |
+| Platform | Fastify `/api/v1`, Mongo/Mongoose, GridFS, auth, RBAC, audit, idempotency |
+| Jobs / worker | Claim, heartbeat, lease sweeper, `ingest` / `reingest` / `repo_sync` |
+| Ingest | ZIP upload, exclusions, S0–S6, source diff, reingest API, GitHub/GitLab sync |
+| Knowledge | Browse, search, file preview, change-summary (path lists only) |
+| Conversations | Models and lifecycle APIs (Q&A engine still later) |
+| Tooling | JavaScript, ESLint, Vitest + v8 coverage |
 
-**Not present at all:** MongoDB/Mongoose, GridFS, any domain model, auth, RBAC, audit, jobs,
-worker process, ingest, CodeGraph, LLM client, LangGraph, SSE, notifications, usage, retention,
-idempotency, API versioning (`/api/v1`).
+**Ingest close-out (this slice):** in-app notifications (poll), ingest/search usage facts,
+retention job (last 3 ready source versions), frontend reingest. Phase 05 evaluation is
+written with this close-out. Playwright E2E / CI remains Phase 63.
 
-### Frontend — `frontend/` (complete UI on mock data)
+### Frontend — `frontend/`
 
 | Exists | Notes |
 |---|---|
-| `src/app/` | Providers + router |
-| `src/features/auth/` | Login, Register, Forgot, Reset, `AuthContext`, `ProtectedRoute` — all local/mock |
-| `src/features/projects/` | List, picker, detail, overview, sources, changes, health, create dialog, connect-repository dialog, upload dialog |
-| `src/features/chat/` | Conversation list, workspace, composer, message item |
-| `src/features/knowledge/` | Knowledge explorer, search panel |
-| `src/features/processing/` | Processing center |
-| `src/features/admin/` | Users, roles, projects, audit, usage, retention |
-| `src/features/layout/` | App shell, header, sidebar, processing indicator |
-| `src/shared/` | shadcn/Radix UI kit, i18n (`en.json`), React Query client, formatters, `mock-data domain shapes`, **`mock-data/`** |
-| Tooling | Vite, Tailwind 4, Vitest + jsdom + Testing Library, ESLint |
-
-**Not present:** any HTTP client, real authentication, SSE consumption, server-state hooks.
-`shared/mock-data/AppDataContext.jsx` is the current source of all application state.
-Sources and Health tabs now read the project API, source-versions list, and repository
-connection — they no longer use `mockProject`. Changes, Chat, Knowledge, and Search still do.
+| Auth, projects, ZIP upload, repo connect, processing, sources, health | Real API |
+| Knowledge explorer, search, preview, changes | Real API (impact/conflicts empty) |
+| Chat | Still later (LLM persist). Header notifications, admin usage, and retention defaults are live |
+| Tooling | Vite, Tailwind 4, Vitest + Testing Library, ESLint |
 
 ### Docs
 
-`docs/architecture.md` exists. `docs/adr/` holds accepted decisions (starting with
-[ADR 0000 — plain JavaScript](../adr/0000-plain-javascript.md)). Phase 4 expands the ADR set
-for datastore/HTTP/auth/jobs.
+`docs/architecture.md` and `docs/adr/` exist. Phase 4 recorded stack ADRs. Phase 05 evaluation
+doc is written as part of the ingest close-out.
 
 ---
 

@@ -24,6 +24,8 @@ Objective: code must be **production-grade, enterprise-grade, and easy to mainta
 - **Max 60 characters** for any variable or function name.
 
 ## Comments & docs
+- Required on every production module — see `comments-required.mdc`. A file with no
+  file-level JSDoc, or a schema with uncommented fields, is not done.
 - Every function has **JSDoc**: purpose, params, returns, throws.
   Write them so an AI agent can understand intent without reading the body.
   Do **not** use JSDoc as a substitute type system (`@param {Type}`) unless a specific rule asks.

@@ -1,0 +1,73 @@
+---
+description: HARD STOP — no model, collection, or field change without explicit user yes in this chat
+alwaysApply: true
+---
+
+# Schema change approval — hard stop
+
+**Never** create, edit, or delete a Mongoose model, Mongo collection, or schema field
+without **this conversation’s explicit user approval** of **that exact change**.
+
+If there is any doubt, **stop and ask**. Do not implement first.
+
+A phase doc, plan, ADR, ticket, eval script, or “implement / complete / go ahead”
+on a feature is **not** approval. Executing or confirming a plan is still not
+approval of a collection, field, or index — stop and get a yes on that exact list
+in the same conversation before writing the model. “Looks needed” is **not** approval.
+“Use your judgement” does **not** apply to schema. Prior approval of collection `X`
+does **not** allow a later field, index, or second collection.
+
+## Locked (ask first — every time)
+
+- New `backend/src/models/*.model.js` files
+- New Mongo collections or new `mongoose.model(...)` names
+- Adding, renaming, removing, or retyping a field (including nested subdocs)
+- Changing `enum`, `default`, `required`, `ref`, `min`, `max`, `maxlength`, `trim`, or `unique`
+- Adding, dropping, or changing indexes (including unique / partial filters)
+- Changing `createBaseSchema` / base fields (`status`, `orgId`, actors, timestamps)
+- Renaming a collection or model
+- Updating `docs/data-model.md` or `docs/schema/` to invent fields the schema does not have
+- “Temporary”, “stub”, or test-only production collections used as a workaround
+
+## Allowed without asking
+
+- Comments / JSDoc on an **existing** model file when **no** field, type, index, or option changes
+- Reading, querying, or importing existing models and existing fields
+- Service / route / UI code that uses fields already on the approved schema
+
+## Required stop
+
+1. **Stop.** Do not write the model file, edit the schema, or update `docs/data-model.md`.
+2. **Propose** the exact collection name, every field (name, type, required/default), and indexes.
+3. **Ask** and **wait** for a clear yes on that proposal in this conversation
+   (e.g. “approved”, “yes add those fields”).
+4. Implement **only** the approved list. No extra fields “while you are there”.
+5. Update `docs/data-model.md` in the **same** change. Add field comments in the **same** change.
+
+Reuse an existing approved collection when possible. Do not invent a second collection
+to avoid asking.
+
+## Not approval
+
+- Implementing a plan that mentions a collection
+- Matching a phase-doc field list the user has not signed off in this chat
+- “Add notifications / usage / retention” without a reviewed field list
+- “I’ll add `foo` so the API can store it”
+- Editing indexes “just to make the query fast”
+- Approval from an older conversation, a different collection, or a different field list
+
+## Anti-pattern
+
+```js
+// ❌ BAD — new collection during a feature, no user yes
+export const Widget = mongoose.model('Widget', widgetSchema);
+
+// ❌ BAD — extra field on an existing schema without asking
+lastNotifiedAt: { type: Date, default: null },
+```
+
+```text
+✅ GOOD — ask first, then wait
+Proposed collection `widgets` with fields: name (string, required), …
+Approve, change, or reject?
+```

@@ -216,7 +216,8 @@ upload-side mock writes.
 - [ ] `SourceUploadDialog` does not import `useAppData` or `NOISE_PATTERNS` from mock-data.
 - [ ] Upload uses Phase 24 POST with `Idempotency-Key` and field `archive`.
 - [ ] Progress UI reflects **HTTP upload** only; no fake ingest % or file-processed counts.
-- [ ] Folder upload is **not** enabled unless product confirmed zip-only vs multipart (§12 Q1).
+- [ ] Folder upload is **not** enabled. Product locked ZIP-only full-tree intake (Phase 24 §12 Q1);
+  the dialog keeps the §17 ZIP fallback copy.
 - [ ] All user-facing strings via i18n; action feedback rule satisfied on submit.
 - [ ] No horizontal scroll at 375 / 768 / 1280 on the dialog.
 - [ ] `npm run lint` and `npm test` in `frontend/` with ≥ 80% line and branch on touched files.
@@ -231,9 +232,9 @@ upload-side mock writes.
 
 Ask the user; do not assume (`.cursor/rules/no-assumptions.mdc`).
 
-1. **Zip only vs folder/multipart (Phase 24 §12 Q1).** Phase 24 proposes zip-only. Frontend
-   §15–§16 ask for folder upload. Must product ship ZIP-only in MVP with §17 fallback copy, or
-   wait for a multipart contract? **This phase must not implement folder upload until answered.**
+1. **Zip only vs folder/multipart (Phase 24 §12 Q1).** **Closed (ingest close-out):** ZIP-only
+   full-tree. Folder upload stays the §17 fallback (“compress into a ZIP”). No multipart
+   file-list and no docs-only merge.
 2. **Pre-upload preview counts (Phase 24 §12 Q3).** §18 wants file/excluded counts before
    processing. Without a validate endpoint, only archive size/name is honest. Should backend add
    `POST .../sources/validate`, or should UI drop rich preview until after enqueue (Phase 35

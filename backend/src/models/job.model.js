@@ -11,7 +11,7 @@ const ObjectId = mongoose.Schema.Types.ObjectId;
 
 export const JOB_DEFAULT_MAX_ATTEMPTS = 5;
 export const JOB_STATUS_VALUES = Object.freeze(['pending', 'running', 'completed', 'completed_with_warnings', 'failed', 'retrying', 'cancelled']);
-export const JOB_TYPE_VALUES = Object.freeze(['ingest', 'reingest', 'repo_sync', 'worker_smoke']);
+export const JOB_TYPE_VALUES = Object.freeze(['ingest', 'reingest', 'repo_sync', 'worker_smoke', 'retention']);
 export const FAILURE_CLASS_VALUES = Object.freeze(['temporary', 'permanent', 'user_action_required']);
 
 /** info = progress, warning = problem but continued, error = failure. */
@@ -60,8 +60,8 @@ const progressCountersSchema = new mongoose.Schema(
 
 const jobSchema = createBaseSchema({
   // Project this work is for (Payments API)
-  projectId: { type: ObjectId, ref: 'Project', required: true },
-  // What to do: ingest, reingest, repo_sync, or worker_smoke (health check)
+  projectId: { type: ObjectId, ref: 'Project', default: null },
+  // What to do: ingest, reingest, repo_sync, retention, or worker_smoke
   jobType: { type: String, enum: JOB_TYPE_VALUES, required: true },
   // pending → running → completed / failed / cancelled (or retrying)
   jobStatus: { type: String, enum: JOB_STATUS_VALUES, required: true, default: 'pending' },

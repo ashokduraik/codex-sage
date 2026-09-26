@@ -14,7 +14,8 @@ alwaysApply: true
   apply to files under `tests/`.
 - **No deep cross-module imports** — modules expose a public surface (`index.js`).
 - **Document every function** with JSDoc (purpose, params, returns). Other comments explain
-  **why / intent**, not a line-by-line narration of what the code does.
+  **why / intent**, not a line-by-line narration of what the code does. See
+  `comments-required.mdc`. Do not add models or fields without `schema-change-approval.mdc`.
 - A change is **done** only when tests pass, lint is clean (when wired), and the
   relevant docs/ADRs are updated.
 - **Never commit secrets.** Document env vars in `.env.example`.

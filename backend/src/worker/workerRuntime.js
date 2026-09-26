@@ -3,7 +3,7 @@
  */
 import { randomBytes } from 'node:crypto';
 import { Job } from '../models/job.model.js';
-import { appendJobEvent } from '../modules/masters/index.js';
+import { appendJobEvent, emitNotificationsForJobTerminal, recordProjectActivitiesForJobTerminal } from '../modules/masters/index.js';
 import { getJobHandler, listRegisteredJobTypes } from './handlerRegistry.js';
 import {
   claimNextJob,
@@ -313,12 +313,21 @@ export function startWorkerRuntime(options) {
           return;
         }
 
-        await finishJobCompleted({
+        const completedResult = outcome?.result === 'completed_with_warnings' ? 'completed_with_warnings' : 'completed';
+        const completedJob = await finishJobCompleted({
           jobId,
           workerId,
-          result: outcome?.result === 'completed_with_warnings' ? 'completed_with_warnings' : 'completed',
+          result: completedResult,
           summary: outcome?.summary,
         });
+        if (completedJob) {
+          await emitNotificationsForJobTerminal({
+            job: completedJob,
+            result: completedResult,
+            log: jobLog,
+          });
+          await recordProjectActivitiesForJobTerminal({ job: completedJob, log: jobLog });
+        }
         jobLog.info?.({ result: outcome?.result ?? 'completed' }, 'job completed');
       } catch (error) {
         if (abortController.signal.aborted) {
@@ -343,7 +352,7 @@ export function startWorkerRuntime(options) {
           });
           jobLog.info?.({ delayMs: decision.delayMs, failureCode: decision.code }, 'job requeued after temporary failure');
         } else {
-          await finishJobFailed({
+          const failedJob = await finishJobFailed({
             jobId,
             workerId,
             failureClass: decision.failureClass,
@@ -351,6 +360,14 @@ export function startWorkerRuntime(options) {
             message: decision.message,
             attemptsExhausted: classified.failureClass === 'temporary',
           });
+          if (failedJob) {
+            await emitNotificationsForJobTerminal({
+              job: failedJob,
+              result: 'failed',
+              failureClass: decision.failureClass,
+              log: jobLog,
+            });
+          }
           jobLog.info?.({ failureClass: decision.failureClass, failureCode: decision.code }, 'job failed');
         }
       } finally {

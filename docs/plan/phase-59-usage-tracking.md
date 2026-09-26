@@ -32,8 +32,8 @@ of scope; this phase is read-only analytics. Retention of old usage rows is **Ph
 
 ### In scope
 
-- Persist usage facts as **`UsageEvent`** append rows and/or **`UsageRollup`** daily aggregates —
-  **storage strategy is §12** (event vs rollup as GET source).
+- Persist usage facts as **`projectActivities`** append rows —
+  **GET /usage/* aggregates those rows by `occurredAt`** (no daily rollup collection).
 - **Counters / facts** (solution §12.2), all from observed backend work:
   - `question.answered` — assistant message reached terminal success (not queued/abstain-only
     unless product defines otherwise in §12).
@@ -65,12 +65,11 @@ of scope; this phase is read-only analytics. Retention of old usage rows is **Ph
 
 ```text
 Domain commit success (message, job, search handler)
-    → recordUsageFact({ orgId, projectId?, userId, kind, quantity, unit, sourceRef, dedupeKey })
-        → append UsageEvent (always, if event log chosen)
-        → optional increment UsageRollup for UTC day bucket
+    → recordProjectActivity({ orgId, projectId, userId, kind, quantity, unit, sourceRef, dedupeKey })
+        → append projectActivities (skip when projectId is missing)
 ```
 
-`recordUsageFact` is best-effort for **read** APIs (like audit ADR 0016): failure logs at `error`
+`recordProjectActivity` is best-effort for **read** APIs (like audit ADR 0016): failure logs at `error`
 with correlation id; business action already succeeded. Usage must never block chat or ingest.
 
 **Token rule (backend §68, §100):** if `usage` is missing from SDK result, record the question
@@ -89,14 +88,8 @@ event without token lines; do not write `tokens.*` with 0 unless zero is explici
 
 ### 4.3 Read model
 
-Two PROPOSED patterns (pick in §12 before implementation):
-
-**A — Event-sourced GET:** aggregate `UsageEvent` in Mongo for `{ from, to }` window with
-$group by kind. Accurate but heavier at scale.
-
-**B — Rollup-primary GET:** nightly or inline updater maintains `UsageRollup` documents
-`{ orgId, projectId?, userId?, day, kind, total }`; GET reads rollups only; events for audit
-of usage trail optional.
+**Implemented GET:** aggregate `projectActivities` in Mongo for `{ from, to }` on
+`occurredAt` with `$group` by kind. No daily rollup collection.
 
 Response shape (PROPOSED):
 
@@ -135,29 +128,22 @@ Omit keys entirely when no facts exist for that kind (frontend §86: do not show
 
 ## 5. Data model changes
 
-**`usageEvents`** (append, `status: 'A' | 'D'` — soft-delete via retention only)
+**`projectActivities`** (append, `status: 'A' | 'D'` — soft-delete via retention only).
+`GET /usage/*` aggregates these rows by `occurredAt`. There is no daily rollup collection.
 
 | Field | Notes |
 |-------|-------|
-| `orgId`, `projectId?`, `userId?` | Scope |
-| `kind` | §4.2 |
+| `orgId`, `projectId` (required), `userId?` | Scope. Skip the write when `projectId` is missing. |
+| `kind` | `ingest.job.completed` \| `source.bytes.accepted` \| `search.executed` |
 | `quantity` | number |
-| `unit` | `count` \| `bytes` \| `tokens` |
+| `unit` | `jobs` \| `bytes` \| `calls` |
 | `sourceRef` | ids only, no paths/secrets |
-| `dedupeKey` | unique per org + kind |
+| `dedupeKey` | unique per org |
 | `occurredAt` | event time |
 | `status` | `'A' \| 'D'` |
 
-**`usageRollups`** (optional if pattern B)
-
-| Field | Notes |
-|-------|-------|
-| `orgId`, `projectId?`, `userId?`, `day` (UTC date) | Compound identity |
-| `kind`, `total` | aggregated quantity |
-| `status` | `'A' \| 'D'` |
-
-**Indexes:** `{ orgId, occurredAt }`, `{ orgId, projectId, occurredAt }`, unique
-`{ orgId, dedupeKey }` on events; rollup unique on `{ orgId, projectId, userId, day, kind }`.
+**Indexes:** unique `{ orgId, dedupeKey }`; `{ orgId, projectId, occurredAt: -1 }`;
+`{ orgId, userId, occurredAt: -1 }` (partial `status: 'A'`).
 
 ## 6. API contract — PROPOSED (needs approval before implementation)
 
@@ -188,9 +174,8 @@ constants in `usage.constants.js`.
 
 | Path | Purpose |
 |------|---------|
-| `backend/src/modules/usage/index.js` | Public: `recordUsageFact`, routes |
-| `backend/src/modules/usage/usageEvent.model.js` | Event schema |
-| `backend/src/modules/usage/usageRollup.model.js` | Rollup schema (if pattern B) |
+| `backend/src/modules/masters/projectActivities.js` | Public: `recordProjectActivity`, routes |
+| `backend/src/models/projectActivity.model.js` | `projectActivities` schema |
 | `backend/src/modules/usage/usage.repository.js` | Append + aggregate queries |
 | `backend/src/modules/usage/usage.service.js` | Dedupe, rollup increment |
 | `backend/src/modules/usage/usage.routes.js` | GET handlers |
@@ -211,7 +196,7 @@ constants in `usage.constants.js`.
 
 ### Backend
 
-- `recordUsageFact` dedupe: same `dedupeKey` twice → one event.
+- `recordProjectActivity` dedupe: same `dedupeKey` twice → one row.
 - Question persist with SDK usage → question + token events; without usage → question only.
 - Ingest completion records bytes from job counters, not request Content-Length.
 - GET org aggregates match seeded events (or rollups) for window.
@@ -236,12 +221,11 @@ constants in `usage.constants.js`.
 ## 11. Documentation & ADR updates
 
 - `docs/architecture.md` §10: usage recording approach.
-- `docs/data-model.md`: `usageEvents` / `usageRollups` when implemented.
+- `docs/data-model.md`: `projectActivities` when implemented.
 
 ## 12. Risks & open questions
 
-1. **Event vs rollup (plan cross-cutting):** Are GET endpoints backed by live aggregation of
-   `UsageEvent`, daily `UsageRollup` only, or hybrid (rollups for org, events for drill-down)?
+1. **Read model:** GET endpoints aggregate `projectActivities` by `occurredAt`. No daily rollup.
 2. **Questions counted:** Include abstain completions? Queued messages that later fail?
 3. **Org admin visibility:** Can `usage.view` see all users’ activity org-wide, or only projects
    where they are project_admin?
@@ -253,7 +237,7 @@ constants in `usage.constants.js`.
 
 ### Appendix — recording call sites (implementation checklist)
 
-| Phase / module | When to call `recordUsageFact` | Dedupe key |
+| Phase / module | When to call `recordProjectActivity` | Dedupe key |
 |----------------|--------------------------------|------------|
 | 49 message persist | Assistant `done` with success | `{ messageId, kind: question }` |
 | 49 message persist | SDK `usage.promptTokens` / completion tokens | `{ messageId, kind: tokens.* }` |

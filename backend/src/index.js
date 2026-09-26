@@ -5,7 +5,7 @@ import { AUTH_MODELS } from './modules/access/index.js';
 import { assertRolePermissionsInCatalog } from './modules/access/index.js';
 import { IDENTITY_MODELS, runBootstrapSeed } from './modules/masters/index.js';
 import { PROJECT_MODELS } from './modules/masters/index.js';
-import { JOB_MODELS } from './modules/masters/index.js';
+import { JOB_MODELS, NOTIFICATION_MODELS, PROJECT_ACTIVITY_MODELS } from './modules/masters/index.js';
 import { SOURCE_MODELS } from './modules/knowledge/index.js';
 import { DOCUMENT_MODELS } from './modules/knowledge/index.js';
 import { KNOWLEDGE_MODELS } from './modules/knowledge/index.js';
@@ -69,6 +69,8 @@ async function start() {
         ...IDEMPOTENCY_MODELS,
         ...PROJECT_MODELS,
         ...JOB_MODELS,
+        ...NOTIFICATION_MODELS,
+        ...PROJECT_ACTIVITY_MODELS,
         ...SOURCE_MODELS,
         ...DOCUMENT_MODELS,
         ...KNOWLEDGE_MODELS,

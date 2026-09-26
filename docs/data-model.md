@@ -149,7 +149,8 @@ absolute paths), `publishedHealth` (`ready` \| `partially_available` \| `failed`
 `excludedFileCount`, `publishedAt`, plus base fields.
 
 Current knowledge for a project is **`projects.currentKnowledgeVersionId`** — prior rows stay
-`status: 'A'` until retention purge (Phase 60).
+`status: 'A'` until retention (Phase 60) keeps the last **3** ready versions and soft-deletes
+older ones (and their `sourceFiles`). GridFS bytes are not hard-purged.
 
 Indexes (partial `status: 'A'`): `{ orgId, projectId, publishedAt: -1, _id: -1 }`;
 `{ orgId, projectId, sourceVersionId }`.
@@ -228,7 +229,7 @@ is visibility only; lifecycle is `jobStatus` (`pending` \| `running` \| `complet
 `completed_with_warnings` \| `failed` \| `retrying` \| `cancelled`). Failed jobs stay
 `status: 'A'` and remain readable.
 
-Fields: `projectId`, `jobType` (`ingest` \| `reingest` \| `repo_sync` \| `worker_smoke`, …), `jobStatus`,
+Fields: `projectId` (null for org-scoped `retention` jobs), `jobType` (`ingest` \| `reingest` \| `repo_sync` \| `worker_smoke` \| `retention`), `jobStatus`,
 `sourceVersionId`, `correlationId`, worker lease fields (`workerId`, `attempt`,
 `maxAttempts`, `heartbeatAt`, `leaseExpiresAt`, `scheduledAt`), `failureClass` /
 `failureCode`, `currentStage`, `stageCheckpoint`
@@ -322,6 +323,29 @@ One row per chat turn (Phase 41 schema; HTTP create is Phase 50). Fields:
 Indexes (partial `status: 'A'`): `{ orgId, conversationId, createdAt: 1, _id: 1 }`,
 `{ orgId, projectId, conversationId }`. Thread pages are oldest-first on
 `(createdAt, _id)`.
+
+### `notifications`
+
+Tenant- and user-scoped inbox rows (Phase 58). Fields: `userId`, `type`
+(`knowledge.completed` \| `knowledge.failed` \| `repo.sync.completed` \|
+`repo.sync.failed` \| `processing.attention`), `title`, `body`, `resourceRef`
+(`projectId`, optional `jobId` / `sourceVersionId`), `readAt`, `dedupeKey`, plus
+base fields. Unique partial index `{ orgId, userId, dedupeKey }` where
+`status: 'A'`. List index `{ orgId, userId, status, createdAt: -1, _id: -1 }`.
+Retention (Phase 60) soft-deletes unread rows after 90 days, or 30 days after
+`readAt`, whichever is first.
+
+### `projectActivities`
+
+One observed ingest or search fact on a project (Phase 59). Fields: `projectId`
+(required), `userId` (null when the actor is unknown), `kind`
+(`ingest.job.completed` \| `source.bytes.accepted` \| `search.executed`),
+`quantity`, `unit`, `sourceRef`, `dedupeKey`, `occurredAt`, plus base fields.
+Unique partial index `{ orgId, dedupeKey }` where `status: 'A'`. List indexes
+`{ orgId, projectId, occurredAt: -1 }` and `{ orgId, userId, occurredAt: -1 }`
+where `status: 'A'`. `GET /usage/*` aggregates these rows by `occurredAt`.
+Question/token kinds are not written until an LLM persist path exists.
+Rows older than 730 days are soft-deleted (Phase 60).
 
 ## Bootstrap seed
 

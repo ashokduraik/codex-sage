@@ -1,0 +1,51 @@
+---
+description: Every production module and schema field must have comments in the same change
+alwaysApply: true
+---
+
+# Comments are required
+
+A production file under `frontend/src/` or `backend/src/` is incomplete without comments.
+Do **not** ship a new or edited module that is only code. Do **not** defer comments
+to a later change. “The code is self-explanatory” is not an exception.
+
+## File
+
+Every production file starts with a **file-level JSDoc**: what the module is, who uses
+it, and the one thing it owns. One or two sentences. Not a changelog.
+
+New files must include this header **in the same change** as the file is created.
+
+## Functions and constants
+
+- **Every function** (exported or not) has JSDoc: purpose, params, returns, throws.
+  Write it so an agent can use the function without reading the body.
+- **Every exported constant** has a one-line JSDoc or `/** */` saying why the value exists.
+- Do **not** use JSDoc as a type system (`@param {Type}`) unless another rule requires it.
+
+## Schema fields
+
+Every Mongoose schema field (and nested subdoc field) has a `//` comment on the line
+above: what it means in product language, with a concrete example when it helps.
+Match `backend/src/models/job.model.js`.
+
+A new or edited model without per-field comments is not done.
+
+```js
+// ❌ BAD
+userId: { type: ObjectId, ref: 'User', required: true },
+
+// ✅ GOOD
+// Inbox owner (Alice). One row per user per event.
+userId: { type: ObjectId, ref: 'User', required: true },
+```
+
+## Why vs what
+
+Comments explain **why / intent**. Do not narrate the next line (“increment i”).
+A field comment that only repeats the property name is not enough.
+
+## Tests
+
+`backend/tests/` and `frontend/tests/` need a file-level purpose comment and JSDoc
+on non-obvious helpers. They do not need a comment on every assertion.

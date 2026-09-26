@@ -265,7 +265,9 @@ Reuse Phase 23 size constants; do not duplicate as env.
 
 Ask the user; do not assume (`.cursor/rules/no-assumptions.mdc`).
 
-1. **Zip only vs multipart file list.** Proposal: zip only in this slice.
+1. **Zip only vs multipart file list.** **Closed (ingest close-out):** ZIP-only full-tree
+   intake. The archive must contain code and documentation together. Folder pickers and
+   docs-only / partial-tree merge are out of MVP. Frontend uses the §17 ZIP fallback copy.
 2. **Project lifecycle transition** on first upload. Which Phase 17 `lifecycleStatus` is
    written (`importing` / `processing` / existing enum)? Must match Phase 17 exactly —
    do not add a new value here.

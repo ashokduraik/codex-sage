@@ -27,3 +27,7 @@ React (frontend/) → Node.js API + workers (backend/) → datastore
 # Before any non-trivial change
 
 Read root `AGENTS.md` and the relevant requirements doc.
+
+Do **not** add or change a Mongoose model, collection, or field without explicit
+user approval in this conversation (`schema-change-approval.mdc`). New modules
+must ship with comments (`comments-required.mdc`).

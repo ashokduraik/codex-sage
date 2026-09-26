@@ -219,12 +219,11 @@ When `endLine - startLine + 1` or UTF-8 byte size exceeds cap → truncate with
 
 | Constant | Proposed value | Where | Purpose |
 |---|---|---|---|
-| `SOURCE_PREVIEW_MAX_BYTES` | **pending evaluation** | `sources.preview.constants.js` | Max UTF-8 bytes per slice response (solution §11.3) |
-| `SOURCE_PREVIEW_MAX_LINES` | **pending evaluation** | same | Secondary guard when byte cap not yet calibrated |
+| `SOURCE_PREVIEW_MAX_BYTES` | **65_536** (confirmed, Phase 05) | `sourcePreview.js` | Max UTF-8 bytes per slice response (solution §11.3) |
+| `SOURCE_PREVIEW_MAX_LINES` | **400** (confirmed, Phase 05) | same | Secondary guard when a slice is many short lines |
 | `SOURCE_PATH_MAX_LENGTH` | `1024` | same | Reject absurd paths |
 
-Do not ship production numeric caps until phase 05 / tokenizer parity confirms safe bounds; tests
-may use a small fixed cap via test-only injection.
+Phase 05 confirmed the production caps above. Tests may still inject a smaller cap.
 
 ## 8. Files to create or change
 
@@ -284,8 +283,8 @@ may use a small fixed cap via test-only injection.
 
 1. **Scope split:** If solution has no conflict-detection algorithm, is phase 39 **slice + diff
    only**, with `conflicts[]` always empty until a later phase/ADR?
-2. **`SOURCE_PREVIEW_MAX_BYTES` value:** Blocked on evaluation — what interim cap is acceptable
-   for local dev tests only?
+2. **`SOURCE_PREVIEW_MAX_BYTES` value:** **Closed (Phase 05).** Keep **65_536** bytes and
+   **400** lines. See `docs/evaluation/phase-05-codegraph.md`.
 3. **Optional `source.preview` audit:** Should every slice/metadata read write audit when org
    policy enables it (solution §9.2, backend §134), or defer entirely?
 4. **Canonical change-summary URL:** `/knowledge/updates/latest` vs `/sources/change-summary`?

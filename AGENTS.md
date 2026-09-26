@@ -24,6 +24,12 @@ Additional docs and ADRs live under [`docs/`](./docs/).
 5. **One concern, one place.** Pre–go-live: declare indexes on Mongoose schemas and sync
    deliberately (`syncSchemaIndexes`); versioned migrations under `backend/` come at
    go-live. Product requirements stay in the requirements docs; decisions go in ADRs.
+6. **No unapproved schema.** Do not add a model, collection, field, or index unless the
+   user reviewed and approved that exact change in the current conversation
+   (`.cursor/rules/schema-change-approval.mdc`). A plan is not approval. Comments-only
+   edits to an existing model are allowed.
+7. **Comments are required** on every production module and every schema field, in the
+   same change as the code (`.cursor/rules/comments-required.mdc`).
 
 ## Code style & structure
 
@@ -38,7 +44,8 @@ Additional docs and ADRs live under [`docs/`](./docs/).
 - **JavaScript** for all application code (frontend and backend); JSX for React.
 - **Tests** live under `backend/tests/` and `frontend/tests/`, mirroring `src/`;
   cross-app E2E via Playwright when that suite exists.
-- **Comments explain _why_, not _what_.** No narration comments.
+- **Comments explain _why_, not _what_.** File-level JSDoc, function JSDoc, and a
+  `//` on every schema field. No narration comments. No uncommented new modules.
 
 ## Trust & safety (product-critical)
 

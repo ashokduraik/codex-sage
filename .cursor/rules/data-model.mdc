@@ -6,6 +6,11 @@ alwaysApply: false
 
 # Data model & indexes
 
+**Schema changes are gated.** Do not add a model, collection, field, or index until the
+user has reviewed and approved that exact change in the current conversation — see
+`schema-change-approval.mdc`. A plan, phase doc, or “implement the plan” is not approval.
+Comments-only edits to an existing model (no field/index/option change) do not need approval.
+
 - **Tenant key:** `orgId` (not `organizationId`) on tenant-scoped documents, repository
   args, request context / `principal`, and API JSON. JWT claim key stays short `org` and
   carries that id. The `organizations` collection opts out (its `_id` *is* the org id).

@@ -16,6 +16,7 @@ import { apiUpload } from '@/shared/api/apiUpload.js';
 import {
   SOURCE_VERSION_LIST_PAGE_SIZE,
   listProjectSourceVersions,
+  reingestProjectSource,
   sourceVersionsQueryKey,
   uploadProjectSource,
 } from '@/features/projects/api/sourcesApi.js';
@@ -53,5 +54,21 @@ describe('uploadProjectSource', () => {
     await listProjectSourceVersions({ projectId: 'p1' });
     expect(apiRequest).toHaveBeenCalledWith(`/projects/p1/source-versions?limit=${SOURCE_VERSION_LIST_PAGE_SIZE}`, { signal: undefined });
     expect(sourceVersionsQueryKey('p1')).toEqual(['projects', 'p1', 'source-versions']);
+  });
+
+  it('posts reingest with an Idempotency-Key', async () => {
+    apiRequest.mockResolvedValue({ jobId: 'j9', sourceVersionId: 'sv1', jobType: 'reingest' });
+    await expect(
+      reingestProjectSource({
+        projectId: 'p1',
+        sourceVersionId: 'sv1',
+        idempotencyKey: 'idem-re',
+      }),
+    ).resolves.toEqual({ jobId: 'j9', sourceVersionId: 'sv1', jobType: 'reingest' });
+    expect(apiRequest).toHaveBeenCalledWith('/projects/p1/sources/sv1/reingest', {
+      method: 'POST',
+      idempotencyKey: 'idem-re',
+      signal: undefined,
+    });
   });
 });

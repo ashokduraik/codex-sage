@@ -1,0 +1,32 @@
+{
+  "recordedAt": "2026-09-26T10:23:31.646Z",
+  "acceptedCodeExtensions": [
+    ".js",
+    ".jsx",
+    ".ts",
+    ".tsx",
+    ".mjs",
+    ".cjs"
+  ],
+  "fixtureCjsKind": "code",
+  "fixture": {
+    "elapsedMs": 116,
+    "sqliteBytes": 163840,
+    "peakRssBytes": 293797888,
+    "baselineRssBytes": 110886912,
+    "indexedFileCount": 4,
+    "skippedFileCount": 0,
+    "filesErrored": 0,
+    "success": true
+  },
+  "backendSrc": {
+    "elapsedMs": 262,
+    "sqliteBytes": 6553600,
+    "peakRssBytes": 353910784,
+    "baselineRssBytes": 293732352,
+    "indexedFileCount": 87,
+    "skippedFileCount": 0,
+    "filesErrored": 0,
+    "success": true
+  }
+}

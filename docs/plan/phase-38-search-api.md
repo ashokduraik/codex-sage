@@ -55,7 +55,7 @@ before phase 50 implements message attachments, but it must not implement SSE or
 - File byte preview / line slices — **phase 39**.
 - `POST` chat message or SSE — **phase 50**.
 - **`POST /search/ask` or any dedicated "ask" route** — do not invent; see section 12.
-- Usage rollups — **phase 59** (may emit a single `UsageEvent` stub if hook exists).
+- Project activities — **phase 59** (may emit a single `projectActivities` row if hook exists).
 - Cross-project search — **README §5**.
 - Embeddings / vector / reranker — **README §5**.
 

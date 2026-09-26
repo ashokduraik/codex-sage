@@ -79,6 +79,14 @@ vi.mock('@/features/projects/processing/api/jobsApi.js', async (importOriginal) 
   };
 });
 
+vi.mock('@/features/notifications/api/notificationsApi.js', () => ({
+  notificationsQueryKey: () => Object.freeze(['notifications', { unreadOnly: false }]),
+  listNotifications: vi.fn(async () => ({ items: [], nextCursor: null, unreadTotal: 0 })),
+  markNotificationRead: vi.fn(),
+  markAllNotificationsRead: vi.fn(),
+  NOTIFICATION_LIST_PAGE_SIZE: 20,
+}));
+
 import { AuthProvider } from '@/features/auth/AuthContext';
 import { CURRENT_USER_QUERY_KEY } from '@/features/auth/api/authApi.js';
 import AppShell from '@/features/layout/AppShell';

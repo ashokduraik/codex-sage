@@ -77,6 +77,7 @@ export const JOB_STAGE_CATALOG = Object.freeze({
     Object.freeze({ stage: 'enqueue_ingest', label: 'Queued for processing' }),
   ]),
   worker_smoke: Object.freeze([Object.freeze({ stage: 'smoke_run', label: 'Worker smoke check' })]),
+  retention: Object.freeze([Object.freeze({ stage: 'apply_policy', label: 'Applying retention' })]),
 });
 
 /**
@@ -636,7 +637,7 @@ export async function insertPendingJob(input, options = {}) {
 
   const job = new Job({
     orgId: input.orgId,
-    projectId: input.projectId,
+    projectId: input.projectId ?? null,
     jobType: input.jobType,
     jobStatus: 'pending',
     sourceVersionId: input.sourceVersionId ?? null,

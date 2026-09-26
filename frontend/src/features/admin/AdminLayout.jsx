@@ -10,7 +10,7 @@ const ITEMS = [
   { to: '/admin/roles', labelKey: 'admin.roles', icon: ShieldCheck },
   { to: '/admin/projects', labelKey: 'admin.projects', icon: FolderKanban },
   { to: '/admin/retention', labelKey: 'admin.retention', icon: Clock },
-  { to: '/admin/usage', labelKey: 'admin.usage', icon: BarChart3 },
+  { to: '/admin/usage', labelKey: 'admin.usage', icon: BarChart3, requiredPermission: 'usage.view' },
   {
     to: '/admin/audit',
     labelKey: 'admin.audit',

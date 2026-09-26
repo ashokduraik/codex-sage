@@ -431,6 +431,15 @@ describe('codegraph.adapter', () => {
     const { isCodegraphLoadable } = await import('../../../src/modules/knowledge/codegraph.js');
     await expect(isCodegraphLoadable()).resolves.toBe(true);
   });
+
+  it('loads the real CodeGraph class with init from the package namespace', async () => {
+    const workspace = await makeTempWorkspace();
+    const adapter = createCodegraphAdapter();
+    const result = await adapter.indexAll(workspace);
+    expect(typeof result.indexedFileCount).toBe('number');
+    expect(result.mode).toBe('indexAll');
+    result.graph?.close?.();
+  }, 60_000);
 });
 
 describe('codegraph telemetry', () => {

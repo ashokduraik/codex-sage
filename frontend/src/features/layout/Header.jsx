@@ -1,4 +1,4 @@
-import { Bell, ChevronDown, FolderKanban, KeyRound, LogOut, Search, Settings, User as UserIcon } from 'lucide-react';
+import { ChevronDown, FolderKanban, KeyRound, LogOut, Search, Settings, User as UserIcon } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -7,7 +7,6 @@ import { flattenProjectPages, useProjects } from '@/features/projects/hooks/useP
 import { useProject } from '@/features/projects/hooks/useProject.js';
 import { useActiveProjectJob } from '@/features/projects/processing/hooks/useActiveProjectJob.js';
 import { useAppData } from '@/shared/mock-data';
-import { cn } from '@/shared/lib/utils';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,6 +15,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/shared/ui/dropdown-menu';
+import NotificationBell from '@/features/notifications/NotificationBell';
 import ProcessingIndicator from './ProcessingIndicator';
 
 /**
@@ -52,7 +52,7 @@ export function resolveProcessingProjectId(input) {
  */
 export default function Header({ onMenu }) {
   const { t } = useTranslation();
-  const { org, notifications, markAllNotificationsRead, markNotificationRead } = useAppData();
+  const { org } = useAppData();
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -88,8 +88,6 @@ export default function Header({ onMenu }) {
   const switcherProjects = flattenProjectPages(switcherQuery.data);
   const searchResults = useMemo(() => (debouncedQuery ? flattenProjectPages(searchQuery.data).slice(0, 5) : []), [debouncedQuery, searchQuery.data]);
   const activeProject = activeProjectQuery.data;
-  const unread = notifications.filter((notification) => !notification.read).length;
-
   useEffect(() => {
     /**
      * Closes the project search dropdown when clicking outside.
@@ -196,47 +194,7 @@ export default function Header({ onMenu }) {
         ) : null}
       </div>
 
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            className="relative rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
-            aria-label={t('common.notifications')}
-          >
-            <Bell className="h-[18px] w-[18px]" />
-            {unread > 0 ? <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-brand" /> : null}
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-80">
-          <div className="flex items-center justify-between px-2 py-1.5">
-            <span className="text-sm font-semibold">{t('common.notifications')}</span>
-            <button type="button" onClick={markAllNotificationsRead} className="text-xs text-brand hover:underline">
-              {t('common.markAllRead')}
-            </button>
-          </div>
-          <DropdownMenuSeparator />
-          {notifications.length === 0 ? (
-            <div className="px-3 py-6 text-center text-sm text-muted-foreground">{t('common.noNotifications')}</div>
-          ) : null}
-          {notifications.map((notification) => (
-            <button
-              key={notification.id}
-              type="button"
-              onClick={() => markNotificationRead(notification.id)}
-              className={cn(
-                'flex w-full flex-col gap-0.5 border-b border-border px-3 py-2.5 text-left last:border-0 hover:bg-muted',
-                !notification.read && 'bg-brand-muted/30',
-              )}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">{notification.title}</span>
-                {!notification.read ? <span className="h-1.5 w-1.5 rounded-full bg-brand" /> : null}
-              </div>
-              <span className="text-xs text-muted-foreground">{notification.body}</span>
-            </button>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <NotificationBell />
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Link, useOutletContext } from 'react-router-dom';
+import { Link, useNavigate, useOutletContext } from 'react-router-dom';
+import { useAuth } from '@/features/auth/AuthContext';
 import { AlertCircle, Check, GitBranch, KeyRound, Loader2, Plus, RefreshCw, Trash2, UploadCloud } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ApiError, correlationFromUnknown, messageFromUnknown } from '@/shared/api';
@@ -23,6 +24,7 @@ import { ConnectRepositoryDialog } from './ConnectRepositoryDialog';
 import { flattenSourceVersionPages, useSourceVersions } from './hooks/useSourceVersions.js';
 import { useRepositoryConnection } from './hooks/useRepositoryConnection.js';
 import { useRepositoryCredentialActions } from './hooks/useRepositoryCredentialActions.js';
+import { useReingestSource } from './hooks/useReingestSource.js';
 
 /** @type {Readonly<Record<string, string>>} */
 const CONNECTION_STATUS_LABEL_KEYS = Object.freeze({
@@ -55,11 +57,15 @@ function SourceRow({ label, value, mono }) {
  */
 export default function SourcesPanel() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const { project } = useOutletContext();
   const projectId = project?.id;
   const versionsQuery = useSourceVersions(projectId);
   const connectionQuery = useRepositoryConnection(projectId);
   const actions = useRepositoryCredentialActions(projectId);
+  const reingest = useReingestSource();
+  const canReingest = Boolean(user?.permissions?.includes('knowledge.trigger'));
   const versions = flattenSourceVersionPages(versionsQuery.data);
   const connection = connectionQuery.data?.connection ?? null;
   const isRepository = Boolean(connection) || project?.sourceConfig?.sourceType === 'repository';
@@ -104,6 +110,26 @@ export default function SourcesPanel() {
       // Surfaced via revokeError.
     } finally {
       setRevokeOpen(false);
+    }
+  }
+
+  /**
+   * Starts a reingest job for a stored version and opens processing.
+   * @param {string} sourceVersionId Version to rebuild.
+   */
+  async function onReingest(sourceVersionId) {
+    if (!projectId) {
+      return;
+    }
+    try {
+      const result = await reingest.mutateAsync({
+        projectId,
+        sourceVersionId,
+        idempotencyKey: crypto.randomUUID(),
+      });
+      navigate(`/processing?projectId=${encodeURIComponent(projectId)}&jobId=${encodeURIComponent(result.jobId)}`);
+    } catch {
+      // Surfaced via reingest.error.
     }
   }
 
@@ -222,6 +248,13 @@ export default function SourcesPanel() {
           <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             {isRepository ? t('sources.syncHistory') : t('sources.uploadHistory')}
           </h2>
+          {reingest.error ? (
+            <div role="alert" className="mt-2 text-sm text-red-700">
+              {reingest.error instanceof ApiError && reingest.error.status === 403
+                ? t('errors.forbidden')
+                : messageFromUnknown(reingest.error, t('sources.reprocessFailed'))}
+            </div>
+          ) : null}
           <div className="mt-2 divide-y divide-border rounded-lg border border-border bg-card">
             {versions.length === 0 ? (
               <div className="px-4 py-3 text-sm text-muted-foreground">{t('sources.emptyHistory')}</div>
@@ -240,13 +273,27 @@ export default function SourcesPanel() {
                       })}
                     </div>
                   </div>
-                  {version.jobId ? (
-                    <Link to={`/processing?projectId=${encodeURIComponent(projectId)}`} className="text-xs font-medium text-brand hover:underline">
-                      {t('sources.viewJob')}
-                    </Link>
-                  ) : (
-                    <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{version.versionLifecycle}</span>
-                  )}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {canReingest ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        title={t('sources.reprocessHint')}
+                        disabled={reingest.isPending}
+                        aria-busy={reingest.isPending}
+                        onClick={() => void onReingest(version.id)}
+                      >
+                        {t('sources.reprocessVersion')}
+                      </Button>
+                    ) : null}
+                    {version.jobId ? (
+                      <Link to={`/processing?projectId=${encodeURIComponent(projectId)}`} className="text-xs font-medium text-brand hover:underline">
+                        {t('sources.viewJob')}
+                      </Link>
+                    ) : (
+                      <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{version.versionLifecycle}</span>
+                    )}
+                  </div>
                 </div>
               ))
             )}

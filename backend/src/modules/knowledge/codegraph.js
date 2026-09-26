@@ -380,7 +380,15 @@ export function inspectQuerySurface(graph) {
 async function defaultLoadLibrary() {
   configureCodegraphTelemetryOff();
   const mod = await import('@colbymchenry/codegraph');
-  const CodeGraph = mod.default ?? mod.CodeGraph;
+  const namespace = mod.default && typeof mod.default === 'object' ? mod.default : mod;
+  const CodeGraph =
+    typeof namespace.CodeGraph === 'function'
+      ? namespace.CodeGraph
+      : typeof namespace.init === 'function'
+        ? namespace
+        : typeof mod.CodeGraph === 'function'
+          ? mod.CodeGraph
+          : null;
   if (!CodeGraph) {
     throw Object.assign(new Error('CodeGraph export missing from package.'), {
       code: 'CODEGRAPH_LIBRARY_UNAVAILABLE',
@@ -388,7 +396,7 @@ async function defaultLoadLibrary() {
   }
   return {
     CodeGraph,
-    getDatabasePath: mod.getDatabasePath,
+    getDatabasePath: namespace.getDatabasePath ?? mod.getDatabasePath,
   };
 }
 

@@ -92,3 +92,29 @@ export async function uploadProjectSource(input) {
     onUploadProgress: input.onUploadProgress,
   });
 }
+
+/**
+ * @typedef {{
+ *   jobId: string,
+ *   sourceVersionId: string,
+ *   jobType: string,
+ * }} SourceReingestResult
+ */
+
+/**
+ * Enqueues a reingest job for an existing source version.
+ * @param {{
+ *   projectId: string,
+ *   sourceVersionId: string,
+ *   idempotencyKey: string,
+ *   signal?: AbortSignal,
+ * }} input Reingest inputs.
+ * @returns {Promise<SourceReingestResult>}
+ */
+export async function reingestProjectSource(input) {
+  return apiRequest(`/projects/${encodeURIComponent(input.projectId)}/sources/${encodeURIComponent(input.sourceVersionId)}/reingest`, {
+    method: 'POST',
+    idempotencyKey: input.idempotencyKey,
+    signal: input.signal,
+  });
+}

@@ -857,7 +857,7 @@ See [ADR 0003](../docs/adr/0003-mongoose-and-gridfs.md).
 Use **Mongoose** for:
 
 - All domain CRUD (organizations, users, roles, projects, source versions/files, jobs, conversations, messages, clarifications, knowledge versions, document sections)
-- Platform ops models: `AuditEvent`, `Notification`, `UsageEvent` / `UsageRollup`, `IdempotencyRecord`
+- Platform ops models: `AuditEvent`, `Notification`, `ProjectActivity`, `IdempotencyRecord`
 - Schema validation and tenant-scoped text/index keys for documents, conversations, jobs, and metadata
 - Soft-delete helpers (`status: 'D'`) and query defaults (`status: 'A'`)
 - Job claim updates and conversation persistence
@@ -1116,7 +1116,7 @@ Record **actual** backend activity only (no estimates):
 | Project      | same, scoped                                                                                 |
 | User         | questions, jobs triggered, tokens, searches                                                  |
 
-Model: `UsageEvent` (append) and/or daily `UsageRollup` documents. Expose:
+Model: `ProjectActivity` (append). `GET /usage/*` aggregates rows by `occurredAt`. Expose:
 
 ```text
 GET /api/v1/usage/organization
@@ -1138,7 +1138,7 @@ Configurable **per organization** (defaults below). Enforced by scheduled Mongo 
 | Job / processing history    | **180 days**                                                            | soft-delete                                             |
 | Audit events                | **730 days**                                                            | soft-delete only via retention (still no client delete) |
 | Notifications               | **90 days** or 30 days after read                                       | soft-delete                                             |
-| Usage rollups               | **730 days**                                                            | delete rollup rows (aggregates only)                    |
+| Project activities          | **730 days**                                                            | soft-delete `projectActivities` by `occurredAt`         |
 
 Hard purge of GridFS objects is a separate admin path; document in ADR when enabled. Deleting a project → soft-delete project + schedule cascade soft-delete of sources/knowledge/conversations per org policy; audit rows remain until retention.
 

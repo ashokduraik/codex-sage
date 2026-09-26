@@ -77,6 +77,14 @@ vi.mock('@/features/projects/processing/api/jobsApi.js', async (importOriginal) 
   };
 });
 
+vi.mock('@/features/notifications/api/notificationsApi.js', () => ({
+  notificationsQueryKey: () => Object.freeze(['notifications', { unreadOnly: false }]),
+  listNotifications: vi.fn(async () => ({ items: [], nextCursor: null, unreadTotal: 0 })),
+  markNotificationRead: vi.fn(),
+  markAllNotificationsRead: vi.fn(),
+  NOTIFICATION_LIST_PAGE_SIZE: 20,
+}));
+
 import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
 import Header, { resolveProcessingProjectId } from '@/features/layout/Header';
 afterEach(() => {

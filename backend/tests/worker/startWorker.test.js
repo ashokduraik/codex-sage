@@ -69,6 +69,7 @@ describe('startWorker', () => {
 
   it('ticks the repo_sync scheduler when enabled', async () => {
     const enqueueDueRepositorySyncs = vi.fn().mockResolvedValue({ enqueued: 0, skipped: 0 });
+    const enqueueDueRetentionJobs = vi.fn().mockResolvedValue({ enqueued: 0, skipped: 0 });
     const setIntervalFn = vi.fn(() => 7);
     const clearIntervalFn = vi.fn();
     const registerShutdownHook = vi.fn();
@@ -89,6 +90,7 @@ describe('startWorker', () => {
       clearInterval: clearIntervalFn,
       enableRepoSyncScheduler: true,
       enqueueDueRepositorySyncs,
+      enqueueDueRetentionJobs,
       hostname: () => 'sched-host',
       pid: 1,
       bootSuffix: 'aa',
@@ -97,6 +99,7 @@ describe('startWorker', () => {
       skipDefaultHandlers: true,
     });
     expect(enqueueDueRepositorySyncs).toHaveBeenCalled();
+    expect(enqueueDueRetentionJobs).toHaveBeenCalled();
     expect(setIntervalFn).toHaveBeenCalled();
     const stopScheduler = registerShutdownHook.mock.calls.find((call) => call[0] === 'stop-repo-sync-scheduler')[1];
     await stopScheduler();

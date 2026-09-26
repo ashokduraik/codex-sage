@@ -249,7 +249,7 @@ setting `status: 'D'`.
 | `jobs` (includes embedded `events[]`) | 180d terminal | standard soft-delete |
 | `auditEvents` | 730d | `{ retentionJob: true }` only |
 | `notifications` | 90d / read rule | standard soft-delete |
-| `usageEvents`, `usageRollups` | 730d | per phase 59 storage |
+| `projectActivities` | 730d | soft-delete by `occurredAt` |
 | `projects` | cascade on delete | trigger from phase 17 |
 
 GridFS: after version soft-delete, run orphan detection; **do not** call delete on buckets until

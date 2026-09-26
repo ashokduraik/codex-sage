@@ -41,6 +41,20 @@ export {
   projectRoutes,
 } from './projects.js';
 export { configureProjectAclCache, resolveProjectPermissions, projectMemberRoutes } from './projectMembers.js';
+export { notificationRoutes, emitProjectNotification, emitNotificationsForJobTerminal } from './notifications.js';
+export { usageRoutes, recordProjectActivity, recordProjectActivitiesForJobTerminal } from './projectActivities.js';
+export {
+  retentionHandlerRegistration,
+  enqueueDueRetentionJobs,
+  RETENTION_SCHEDULER_TICK_MS,
+  RETENTION_READY_SOURCE_VERSIONS_KEEP,
+  RETENTION_JOB_DAYS,
+  RETENTION_NOTIFICATION_DAYS,
+  RETENTION_NOTIFICATION_READ_DAYS,
+  RETENTION_USAGE_DAYS,
+  RETENTION_CONVERSATION_DAYS,
+  RETENTION_AUDIT_DAYS,
+} from './retention.js';
 export {
   appendJobEvent,
   deferRunningJob,
@@ -64,3 +78,5 @@ export async function identityRoutes(app) {
 export const IDENTITY_MODELS = Object.freeze([Organization, User, Role]);
 export const PROJECT_MODELS = Object.freeze([Project]);
 export const JOB_MODELS = Object.freeze([Job]);
+export { NOTIFICATION_MODELS } from './notifications.js';
+export { PROJECT_ACTIVITY_MODELS } from './projectActivities.js';
