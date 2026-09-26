@@ -130,7 +130,7 @@ export async function findRolesByIds(orgId, roleIds, options = {}) {
 /**
  * Lists active roles with keyset pagination.
  * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
- * @param {{ cursor?: string, limit?: number }} [filters] List filters.
+ * @param {{ q?: string, cursor?: string, limit?: number }} [filters] List filters.
  * @returns {Promise<{
  *   items: import('mongoose').Document[],
  *   pageInfo: { nextCursor: string | null, hasMore: boolean },
@@ -141,6 +141,14 @@ export async function listRolesPage(orgId, filters = {}) {
   const limit = clampIdentityListLimit(filters.limit === undefined ? IDENTITY_LIST_PAGE_SIZE_DEFAULT : filters.limit);
   /** @type {Record<string, unknown>} */
   const query = { orgId };
+
+  if (filters.q && String(filters.q).trim().length > 0) {
+    const fragment = String(filters.q)
+      .trim()
+      .replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const pattern = new RegExp(fragment, 'i');
+    query.$or = [{ name: pattern }, { code: pattern }, { description: pattern }];
+  }
 
   if (filters.cursor) {
     let decoded;
@@ -154,7 +162,13 @@ export async function listRolesPage(orgId, filters = {}) {
       }
       throw err;
     }
-    Object.assign(query, { $and: [keysetAfterFilter(decoded)] });
+    const keyset = keysetAfterFilter(decoded);
+    if (query.$or) {
+      query.$and = [{ $or: query.$or }, keyset];
+      delete query.$or;
+    } else {
+      Object.assign(query, { $and: [keyset] });
+    }
   }
 
   const rows = await Role.find(query)
@@ -414,7 +428,7 @@ export function assertKnownPermissions(permissions) {
 /**
  * Lists roles with keyset pagination.
  * @param {string} orgId Tenant id.
- * @param {{ cursor?: string, limit?: number }} filters List filters.
+ * @param {{ q?: string, cursor?: string, limit?: number }} filters List filters.
  * @returns {Promise<{ items: object[], pageInfo: { nextCursor: string | null, hasMore: boolean } }>}
  */
 export async function listRolesForOrg(orgId, filters = {}) {
@@ -623,6 +637,7 @@ const patchRoleBodySchema = z
 
 const listRolesQuerySchema = z
   .object({
+    q: z.string().min(1).max(200).optional(),
     cursor: z.string().min(1).optional(),
     limit: z.coerce.number().int().optional(),
   })

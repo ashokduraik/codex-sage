@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { ApiError } from '../../src/platform/errors.js';
 import { classifyThrownFailure, computeRetryBackoffMs, createJobFailureError, decideFailureOutcome } from '../../src/worker/retryPolicy.js';
 import { WORKER_RETRY_BACKOFF_BASE_MS, WORKER_RETRY_BACKOFF_MAX_MS } from '../../src/worker/worker.constants.js';
 
@@ -44,6 +45,16 @@ describe('retryPolicy', () => {
       code: 'WORKER_UNCLASSIFIED_ERROR',
       message: 'boom',
       unclassified: true,
+    });
+  });
+
+  it('maps catalog ApiError retryability so empty-after-exclusions fails immediately', () => {
+    const err = ApiError.fromCode('SOURCE_VERSION_EMPTY_AFTER_EXCLUSIONS');
+    expect(classifyThrownFailure(err)).toEqual({
+      failureClass: 'user_action_required',
+      code: 'SOURCE_VERSION_EMPTY_AFTER_EXCLUSIONS',
+      message: err.message,
+      unclassified: false,
     });
   });
 

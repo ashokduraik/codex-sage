@@ -46,6 +46,8 @@ export default function AdminUsers() {
   const [resetTarget, setResetTarget] = useState(null);
   const [removeTarget, setRemoveTarget] = useState(null);
   const [rolesEditTarget, setRolesEditTarget] = useState(null);
+  // Which row's actions panel is open. Closed on every action so a list refetch cannot leave a detaching menu.
+  const [openRowActionsUserId, setOpenRowActionsUserId] = useState(/** @type {string | null} */ (null));
   const [createForm, setCreateForm] = useState({
     displayName: '',
     email: '',
@@ -217,10 +219,18 @@ export default function AdminUsers() {
   }
 
   /**
+   * Closes the row actions panel.
+   */
+  function closeRowActions() {
+    setOpenRowActionsUserId(null);
+  }
+
+  /**
    * Opens the edit-roles dialog for a user.
    * @param {object} targetUser User row.
    */
   function openRolesEditor(targetUser) {
+    closeRowActions();
     updateRolesMutation.reset();
     setRolesEditTarget(targetUser);
     setEditRoleIds((targetUser.roles ?? []).map((role) => String(role.id)));
@@ -255,6 +265,7 @@ export default function AdminUsers() {
    * @param {object} targetUser User row.
    */
   async function toggleUserStatus(targetUser) {
+    closeRowActions();
     statusMutation.reset();
     const action = targetUser.userStatus === 'active' ? 'deactivate' : 'activate';
     try {
@@ -309,6 +320,7 @@ export default function AdminUsers() {
    * @param {object} targetUser User row.
    */
   function openResetDialog(targetUser) {
+    closeRowActions();
     resetMutation.reset();
     setPasswordCompleted(false);
     setNewPassword('');
@@ -470,7 +482,7 @@ export default function AdminUsers() {
                   </span>
                 </div>
                 <span className="text-xs text-muted-foreground">{formatRelative(rowUser.lastLoginAt)}</span>
-                <Popover>
+                <Popover open={openRowActionsUserId === rowUser.id} onOpenChange={(open) => setOpenRowActionsUserId(open ? rowUser.id : null)}>
                   <PopoverTrigger asChild>
                     <button
                       type="button"
@@ -527,6 +539,7 @@ export default function AdminUsers() {
                       className="w-full justify-start text-destructive hover:text-destructive"
                       disabled={busy}
                       onClick={() => {
+                        closeRowActions();
                         removeMutation.reset();
                         setRemoveTarget(rowUser);
                       }}

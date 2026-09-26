@@ -2,6 +2,13 @@
  * access/audit.js — merged resource file.
  */
 import { AuditEvent } from '../../models/audit.model.js';
+import { Conversation } from '../../models/conversations.model.js';
+import { Job } from '../../models/job.model.js';
+import { KnowledgeVersion } from '../../models/knowledgeVersion.model.js';
+import { Project } from '../../models/projects.model.js';
+import { RepositoryConnection } from '../../models/repositoryConnection.model.js';
+import { Role } from '../../models/role.model.js';
+import { SourceVersion } from '../../models/sourceVersion.model.js';
 import { User } from '../../models/user.model.js';
 import { assertOrgId, decodeCursor, encodeCursor, includeDeleted } from '../../platform/data/index.js';
 import { ApiError } from '../../platform/errors.js';
@@ -244,6 +251,9 @@ export const AUDIT_LIST_PAGE_SIZE_DEFAULT = 50;
 
 /** Hard cap on `limit` query parameter. */
 export const AUDIT_LIST_PAGE_SIZE_MAX = 200;
+
+/** Inclusive max window when both `from` and `to` are sent on the list path. */
+export const AUDIT_LIST_MAX_RANGE_DAYS = 31;
 
 /**
  * Inserts one audit event document.
@@ -547,10 +557,10 @@ export async function recordAuditEvent(input, options = {}) {
  * Loads actors by id including soft-deleted users (history must keep the email).
  * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
  * @param {string[]} userIds Actor ids.
- * @returns {Promise<Map<string, { id: string, email: string }>>}
+ * @returns {Promise<Map<string, { id: string, email: string, displayName: string | null }>>}
  */
 async function loadActorsById(orgId, userIds) {
-  /** @type {Map<string, { id: string, email: string }>} */
+  /** @type {Map<string, { id: string, email: string, displayName: string | null }>} */
   const map = new Map();
   const unique = [...new Set(userIds.filter((id) => mongoose.isValidObjectId(id)))];
   if (unique.length === 0) {
@@ -559,29 +569,184 @@ async function loadActorsById(orgId, userIds) {
   const query = User.find({
     orgId,
     _id: { $in: unique },
-  }).select({ email: 1 });
+  }).select({ email: 1, displayName: 1 });
   includeDeleted(query);
   const users = await query.exec();
   for (const user of users) {
-    map.set(String(user._id), { id: String(user._id), email: user.email });
+    map.set(String(user._id), {
+      id: String(user._id),
+      email: user.email,
+      displayName: typeof user.displayName === 'string' && user.displayName ? user.displayName : null,
+    });
   }
   return map;
 }
 
 /**
+ * Loads org-scoped documents by id, including soft-deleted rows for history.
+ * @param {import('mongoose').Model} model Target model.
+ * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
+ * @param {Iterable<string>} ids Candidate ids.
+ * @param {object} select Field projection.
+ * @returns {Promise<import('mongoose').Document[]>}
+ */
+async function findOrgDocsById(model, orgId, ids, select) {
+  const unique = [...new Set([...ids].filter((id) => mongoose.isValidObjectId(id)))];
+  if (unique.length === 0) {
+    return [];
+  }
+  const query = model.find({ orgId, _id: { $in: unique } }).select(select);
+  includeDeleted(query);
+  return query.exec();
+}
+
+/**
+ * Groups list items by resourceType so names can be batch-loaded.
+ * @param {Array<{ resourceType?: string, resourceId?: string | null }>} items Audit rows.
+ * @returns {Map<string, Set<string>>}
+ */
+function groupResourceIdsByType(items) {
+  /** @type {Map<string, Set<string>>} */
+  const byType = new Map();
+  for (const item of items) {
+    const resourceType = item.resourceType;
+    const resourceId = item.resourceId;
+    if (!resourceType || !resourceId) {
+      continue;
+    }
+    const bucket = byType.get(resourceType) ?? new Set();
+    bucket.add(String(resourceId));
+    byType.set(resourceType, bucket);
+  }
+  return byType;
+}
+
+/**
+ * Resolves a display name for each `resourceType` + `resourceId` on the page.
+ * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
+ * @param {Array<{ resourceType?: string, resourceId?: string | null }>} items Audit rows.
+ * @returns {Promise<Map<string, string>>} Keys are `${resourceType}:${resourceId}`.
+ */
+async function loadResourceNames(orgId, items) {
+  /** @type {Map<string, string>} */
+  const names = new Map();
+  const byType = groupResourceIdsByType(items);
+
+  const routeIds = byType.get('route');
+  if (routeIds) {
+    for (const resourceId of routeIds) {
+      names.set(`route:${resourceId}`, resourceId);
+    }
+  }
+
+  if (byType.has('user')) {
+    const users = await findOrgDocsById(User, orgId, byType.get('user') ?? [], { displayName: 1, email: 1 });
+    for (const user of users) {
+      const label = (typeof user.displayName === 'string' && user.displayName) || user.email;
+      if (label) {
+        names.set(`user:${String(user._id)}`, label);
+      }
+    }
+  }
+
+  if (byType.has('role')) {
+    const roles = await findOrgDocsById(Role, orgId, byType.get('role') ?? [], { name: 1 });
+    for (const role of roles) {
+      if (role.name) {
+        names.set(`role:${String(role._id)}`, role.name);
+      }
+    }
+  }
+
+  if (byType.has('conversation')) {
+    const conversations = await findOrgDocsById(Conversation, orgId, byType.get('conversation') ?? [], { title: 1 });
+    for (const conversation of conversations) {
+      if (conversation.title) {
+        names.set(`conversation:${String(conversation._id)}`, conversation.title);
+      }
+    }
+  }
+
+  if (byType.has('repository')) {
+    const connections = await findOrgDocsById(RepositoryConnection, orgId, byType.get('repository') ?? [], {
+      repositoryFullName: 1,
+    });
+    for (const connection of connections) {
+      if (connection.repositoryFullName) {
+        names.set(`repository:${String(connection._id)}`, connection.repositoryFullName);
+      }
+    }
+  }
+
+  /** @type {Set<string>} */
+  const projectIds = new Set([...(byType.get('project') ?? []), ...(byType.get('membership') ?? [])]);
+  /** @type {Array<{ type: string, id: string, projectId: string }>} */
+  const related = [];
+
+  if (byType.has('source')) {
+    const versions = await findOrgDocsById(SourceVersion, orgId, byType.get('source') ?? [], { projectId: 1 });
+    for (const version of versions) {
+      if (version.projectId) {
+        related.push({ type: 'source', id: String(version._id), projectId: String(version.projectId) });
+        projectIds.add(String(version.projectId));
+      }
+    }
+  }
+  if (byType.has('knowledge')) {
+    const versions = await findOrgDocsById(KnowledgeVersion, orgId, byType.get('knowledge') ?? [], { projectId: 1 });
+    for (const version of versions) {
+      if (version.projectId) {
+        related.push({ type: 'knowledge', id: String(version._id), projectId: String(version.projectId) });
+        projectIds.add(String(version.projectId));
+      }
+    }
+  }
+  if (byType.has('job')) {
+    const jobs = await findOrgDocsById(Job, orgId, byType.get('job') ?? [], { projectId: 1 });
+    for (const job of jobs) {
+      if (job.projectId) {
+        related.push({ type: 'job', id: String(job._id), projectId: String(job.projectId) });
+        projectIds.add(String(job.projectId));
+      }
+    }
+  }
+
+  const projects = await findOrgDocsById(Project, orgId, projectIds, { name: 1 });
+  for (const project of projects) {
+    if (!project.name) {
+      continue;
+    }
+    names.set(`project:${String(project._id)}`, project.name);
+    names.set(`membership:${String(project._id)}`, project.name);
+  }
+  for (const link of related) {
+    const projectName = names.get(`project:${link.projectId}`);
+    if (projectName) {
+      names.set(`${link.type}:${link.id}`, projectName);
+    }
+  }
+
+  return names;
+}
+
+/**
  * Maps an audit document to the API item shape.
  * @param {import('mongoose').Document} doc Audit document.
- * @param {Map<string, { id: string, email: string }>} actors Actor lookup.
+ * @param {Map<string, { id: string, email: string, displayName: string | null }>} actors Actor lookup.
+ * @param {Map<string, string>} resourceNames Resolved target labels.
  * @returns {object}
  */
-function toAuditEventDto(doc, actors) {
+function toAuditEventDto(doc, actors, resourceNames) {
   const actorId = doc.actorUserId ? String(doc.actorUserId) : null;
-  const actor = actorId ? (actors.get(actorId) ?? { id: actorId, email: null }) : null;
+  const actor = actorId ? (actors.get(actorId) ?? { id: actorId, email: null, displayName: null }) : null;
+  const resourceId = doc.resourceId ?? null;
+  const resourceKey = doc.resourceType && resourceId ? `${doc.resourceType}:${resourceId}` : null;
   return {
     id: String(doc._id),
     action: doc.action,
     resourceType: doc.resourceType,
-    resourceId: doc.resourceId ?? null,
+    resourceId,
+    resourceName: resourceKey ? (resourceNames.get(resourceKey) ?? null) : null,
     result: doc.result,
     actor,
     correlationId: doc.correlationId,
@@ -593,7 +758,7 @@ function toAuditEventDto(doc, actors) {
 }
 
 /**
- * Lists audit events for the caller's organization with actor enrichment.
+ * Lists audit events for the caller's organization with actor and resource enrichment.
  * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
  * @param {object} filters Repository filters.
  * @returns {Promise<{ items: object[], pageInfo: { nextCursor: string | null, hasMore: boolean } }>}
@@ -601,9 +766,9 @@ function toAuditEventDto(doc, actors) {
 export async function listAuditEventsForOrg(orgId, filters = {}) {
   const { items, pageInfo } = await listAuditEvents(orgId, filters);
   const actorIds = items.map((doc) => (doc.actorUserId ? String(doc.actorUserId) : null)).filter(Boolean);
-  const actors = await loadActorsById(orgId, /** @type {string[]} */ (actorIds));
+  const [actors, resourceNames] = await Promise.all([loadActorsById(orgId, /** @type {string[]} */ (actorIds)), loadResourceNames(orgId, items)]);
   return {
-    items: items.map((doc) => toAuditEventDto(doc, actors)),
+    items: items.map((doc) => toAuditEventDto(doc, actors, resourceNames)),
     pageInfo,
   };
 }
@@ -621,8 +786,8 @@ export async function getAuditEventForOrg(orgId, auditEventId) {
     throw ApiError.fromCode('NOT_FOUND');
   }
   const actorIds = doc.actorUserId ? [String(doc.actorUserId)] : [];
-  const actors = await loadActorsById(orgId, actorIds);
-  return toAuditEventDto(doc, actors);
+  const [actors, resourceNames] = await Promise.all([loadActorsById(orgId, actorIds), loadResourceNames(orgId, [doc])]);
+  return toAuditEventDto(doc, actors, resourceNames);
 }
 
 // --- from audit/audit.routes.js ---
@@ -644,6 +809,35 @@ const listQuerySchema = z
 const idParamsSchema = z.object({
   auditEventId: z.string().min(1),
 });
+
+/**
+ * Rejects a list window longer than {@link AUDIT_LIST_MAX_RANGE_DAYS} when both bounds are set.
+ * @param {Date | undefined} from Inclusive start instant.
+ * @param {Date | undefined} to Exclusive end instant.
+ * @throws {ApiError} VALIDATION_ERROR when `to` is before `from` or the span is too long.
+ */
+export function assertAuditListDateRange(from, to) {
+  if (!(from instanceof Date) || !(to instanceof Date)) {
+    return;
+  }
+  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
+    return;
+  }
+  if (to.getTime() < from.getTime()) {
+    throw ApiError.fromCode('VALIDATION_ERROR', {
+      details: [{ path: 'to', message: 'to must be after from' }],
+    });
+  }
+  const maxMs = AUDIT_LIST_MAX_RANGE_DAYS * 24 * 60 * 60 * 1000;
+  if (to.getTime() - from.getTime() > maxMs) {
+    throw ApiError.fromCode('VALIDATION_ERROR', {
+      details: [
+        { path: 'from', message: `from and to must be within ${AUDIT_LIST_MAX_RANGE_DAYS} days` },
+        { path: 'to', message: `from and to must be within ${AUDIT_LIST_MAX_RANGE_DAYS} days` },
+      ],
+    });
+  }
+}
 
 /**
  * Parses an optional ISO-8601 UTC instant.
@@ -698,10 +892,14 @@ export async function auditRoutes(app) {
         });
       }
 
+      const from = parseOptionalInstant(parsed.data.from, 'from');
+      const to = parseOptionalInstant(parsed.data.to, 'to');
+      assertAuditListDateRange(from, to);
+
       const principal = request.principal;
       return listAuditEventsForOrg(principal.orgId, {
-        from: parseOptionalInstant(parsed.data.from, 'from'),
-        to: parseOptionalInstant(parsed.data.to, 'to'),
+        from,
+        to,
         actor: parsed.data.actor,
         action: parsed.data.action,
         resourceType: parsed.data.resourceType,

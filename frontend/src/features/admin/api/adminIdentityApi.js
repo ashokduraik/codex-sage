@@ -37,6 +37,24 @@ export const ADMIN_USERS_QUERY_ROOT = Object.freeze(['admin', 'users']);
 /** Roles list (all pages aggregated by the hook). */
 export const ADMIN_ROLES_QUERY_KEY = Object.freeze(['admin', 'roles']);
 
+/**
+ * Builds the paged roles list query key from search/cursor state.
+ * @param {{ q?: string, cursor?: string, limit?: number }} filters List filters.
+ * @returns {readonly unknown[]}
+ */
+export function adminRolesQueryKey(filters = {}) {
+  return Object.freeze([
+    'admin',
+    'roles',
+    'page',
+    {
+      q: filters.q ?? '',
+      cursor: filters.cursor ?? '',
+      limit: filters.limit ?? null,
+    },
+  ]);
+}
+
 /** Permission catalog from GET /permissions. */
 export const ADMIN_PERMISSIONS_QUERY_KEY = Object.freeze(['admin', 'permissions']);
 
@@ -165,12 +183,12 @@ export async function resetUserPassword(userId, input) {
 
 /**
  * Lists one page of organization roles.
- * @param {{ cursor?: string, limit?: number, signal?: AbortSignal }} [options] Page options.
+ * @param {{ q?: string, cursor?: string, limit?: number, signal?: AbortSignal }} [options] Page options.
  * @returns {Promise<{ items: object[], pageInfo: { nextCursor: string | null, hasMore: boolean } }>}
  */
 export async function listRolesPage(options = {}) {
-  const { signal, cursor, limit } = options;
-  const query = toQueryString({ cursor, limit });
+  const { signal, q, cursor, limit } = options;
+  const query = toQueryString({ q, cursor, limit });
   return apiRequest(`/roles${query}`, { signal });
 }
 

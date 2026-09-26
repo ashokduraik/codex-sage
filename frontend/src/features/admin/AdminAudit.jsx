@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, ChevronRight, Loader2, ScrollText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
@@ -9,12 +9,12 @@ import { ApiError, correlationFromUnknown, messageFromUnknown } from '@/shared/a
 import { formatDateTime } from '@/shared/lib/format';
 import { cn } from '@/shared/lib/utils';
 import { Button } from '@/shared/ui/button';
-import { Input } from '@/shared/ui/input';
+import { DatePicker, parseCalendarDate, toCalendarDateString } from '@/shared/ui/date-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/ui/select';
 
 /**
  * Frontend mirror of the backend audit action / resource-type catalogs (Phase 10).
- * Keep in sync with backend/src/modules/audit/audit.actions.js when new actions ship.
+ * Keep in sync with backend/src/modules/access/audit.js when new actions ship.
  */
 
 /** Known `<domain>.<verb>` audit actions offered in filter selects. */
@@ -39,10 +39,123 @@ export const AUDIT_ACTIONS = Object.freeze([
   'project.archive',
   'project.restore',
   'project.delete',
+  'project.member_added',
+  'project.member_removed',
+  'job.retry',
+  'job.cancel',
+  'source.upload',
+  'knowledge.completed',
+  'knowledge.failed',
+  'repository.connected',
+  'repository.branch_changed',
+  'repository.credential_replaced',
+  'repository.credential_revoked',
+  'repository.sync_triggered',
+  'conversation.created',
+  'conversation.archived',
+  'conversation.restored',
+  'conversation.deleted',
+  'conversation.title_changed',
 ]);
 
 /** Known resource types paired with catalog actions. */
-export const AUDIT_RESOURCE_TYPES = Object.freeze(['user', 'role', 'membership', 'route', 'project']);
+export const AUDIT_RESOURCE_TYPES = Object.freeze([
+  'user',
+  'role',
+  'membership',
+  'route',
+  'project',
+  'job',
+  'source',
+  'knowledge',
+  'repository',
+  'conversation',
+]);
+
+/** How far ahead of the list footer to prefetch the next keyset page. */
+const AUDIT_LOAD_MORE_ROOT_MARGIN = '200px';
+
+/** Page size so a typical audit trail paginates instead of dumping one long list. */
+const AUDIT_LIST_PAGE_SIZE = 20;
+
+/** Inclusive calendar-day cap matching GET /audit-events when both dates are sent. */
+export const AUDIT_LIST_MAX_RANGE_DAYS = 31;
+
+/**
+ * Converts a YYYY-MM-DD filter to the inclusive UTC start instant.
+ * @param calendarDate Calendar day from the URL, or empty.
+ * @returns ISO instant, or undefined when the day is missing or invalid.
+ */
+function fromDateToUtcStart(calendarDate) {
+  if (!parseCalendarDate(calendarDate)) {
+    return undefined;
+  }
+  return `${calendarDate}T00:00:00.000Z`;
+}
+
+/**
+ * Converts a YYYY-MM-DD filter to the exclusive UTC end (start of the next day).
+ * @param calendarDate Calendar day from the URL, or empty.
+ * @returns ISO instant, or undefined when the day is missing or invalid.
+ */
+function toDateToUtcEnd(calendarDate) {
+  const parsed = parseCalendarDate(calendarDate);
+  if (!parsed) {
+    return undefined;
+  }
+  return new Date(Date.UTC(parsed.getFullYear(), parsed.getMonth(), parsed.getDate() + 1)).toISOString();
+}
+
+/**
+ * Shifts a YYYY-MM-DD calendar day by a signed day count.
+ * @param calendarDate Day key, or empty.
+ * @param deltaDays Days to add (negative to subtract).
+ * @returns Shifted YYYY-MM-DD, or empty when the input is not a real day.
+ */
+export function addCalendarDays(calendarDate, deltaDays) {
+  const parsed = parseCalendarDate(calendarDate);
+  if (!parsed) {
+    return '';
+  }
+  return toCalendarDateString(new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate() + deltaDays));
+}
+
+/**
+ * Inclusive calendar-day count between two YYYY-MM-DD keys.
+ * @param fromDate From day.
+ * @param toDate To day.
+ * @returns Day count, or null when either day is missing or invalid.
+ */
+export function inclusiveAuditDaySpan(fromDate, toDate) {
+  const from = parseCalendarDate(fromDate);
+  const to = parseCalendarDate(toDate);
+  if (!from || !to) {
+    return null;
+  }
+  const startUtc = Date.UTC(from.getFullYear(), from.getMonth(), from.getDate());
+  const endUtc = Date.UTC(to.getFullYear(), to.getMonth(), to.getDate());
+  return Math.round((endUtc - startUtc) / 86_400_000) + 1;
+}
+
+/**
+ * i18n key for an invalid audit date draft, or null when Search may run.
+ * @param fromDate Draft from day.
+ * @param toDate Draft to day.
+ * @returns Error key, or null when both days are present and within 31 days.
+ */
+export function auditDateDraftErrorKey(fromDate, toDate) {
+  if (!fromDate || !toDate || !parseCalendarDate(fromDate) || !parseCalendarDate(toDate)) {
+    return 'admin.auditDatesRequired';
+  }
+  const span = inclusiveAuditDaySpan(fromDate, toDate);
+  if (span === null || span < 1) {
+    return 'admin.auditDateOrderInvalid';
+  }
+  if (span > AUDIT_LIST_MAX_RANGE_DAYS) {
+    return 'admin.auditDateRangeInvalid';
+  }
+  return null;
+}
 
 /**
  * Context keys the UI knows how to present (identity / authz writers today).
@@ -179,10 +292,11 @@ function resourceTypeLabel(resourceType, t) {
  * @param {(key: string, options?: object) => string} t Translator.
  * @returns {string}
  */
-function targetLabel(event, t) {
+export function targetLabel(event, t) {
   const typePart = resourceTypeLabel(event.resourceType, t);
-  if (event.resourceId) {
-    return `${typePart} ${event.resourceId}`;
+  const name = typeof event.resourceName === 'string' && event.resourceName ? event.resourceName : event.resourceId;
+  if (name) {
+    return `${typePart} ${name}`;
   }
   if (event.resourceType) {
     return typePart;
@@ -240,35 +354,32 @@ export default function AdminAudit() {
   const { user: currentUser } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [openEventId, setOpenEventId] = useState(/** @type {string | null} */ (null));
+  const loadMoreRef = useRef(/** @type {HTMLDivElement | null} */ (null));
 
   const canViewAudit = Boolean(currentUser?.permissions?.includes('audit.view'));
   const canManageUsers = Boolean(currentUser?.permissions?.includes('users.manage'));
 
-  const fromDate = searchParams.get('from') ?? '';
-  const toDate = searchParams.get('to') ?? '';
-  const actor = searchParams.get('actor') ?? '';
-  const action = searchParams.get('action') ?? '';
-  const resourceType = searchParams.get('resourceType') ?? '';
+  const [draftFrom, setDraftFrom] = useState(() => searchParams.get('from') ?? '');
+  const [draftTo, setDraftTo] = useState(() => searchParams.get('to') ?? '');
+  const [draftActor, setDraftActor] = useState(() => searchParams.get('actor') ?? '');
+  const [draftAction, setDraftAction] = useState(() => searchParams.get('action') ?? '');
+  const [draftResourceType, setDraftResourceType] = useState(() => searchParams.get('resourceType') ?? '');
+  const [applied, setApplied] = useState(
+    /** @type {{ from: string, to: string, actor: string, action: string, resourceType: string } | null} */ (null),
+  );
 
-  const hasActiveFilters = Boolean(fromDate || toDate || actor || action || resourceType);
-
-  const fromIso = fromDate ? `${fromDate}T00:00:00.000Z` : undefined;
-  let toIso;
-  if (toDate) {
-    const start = new Date(`${toDate}T00:00:00.000Z`);
-    if (!Number.isNaN(start.getTime())) {
-      start.setUTCDate(start.getUTCDate() + 1);
-      toIso = start.toISOString();
-    }
-  }
+  const dateDraftErrorKey = auditDateDraftErrorKey(draftFrom, draftTo);
+  const fromIso = applied ? fromDateToUtcStart(applied.from) : undefined;
+  const toIso = applied ? toDateToUtcEnd(applied.to) : undefined;
 
   const auditQuery = useAuditEvents({
     from: fromIso,
     to: toIso,
-    actor: actor || undefined,
-    action: action || undefined,
-    resourceType: resourceType || undefined,
-    enabled: canViewAudit,
+    actor: applied?.actor || undefined,
+    action: applied?.action || undefined,
+    resourceType: applied?.resourceType || undefined,
+    limit: AUDIT_LIST_PAGE_SIZE,
+    enabled: canViewAudit && applied !== null,
   });
 
   const usersQuery = useUsers({
@@ -284,26 +395,56 @@ export default function AdminAudit() {
   const listErrorMessage = auditQuery.isError ? messageFromUnknown(auditQuery.error, t('errors.unexpected')) : '';
   const listCorrelationId = auditQuery.isError ? correlationFromUnknown(auditQuery.error) : '';
 
+  const fromMaxDate = draftTo || '';
+  const fromMinDate = draftTo ? addCalendarDays(draftTo, -(AUDIT_LIST_MAX_RANGE_DAYS - 1)) : '';
+  const toMinDate = draftFrom || '';
+  const toMaxDate = draftFrom ? addCalendarDays(draftFrom, AUDIT_LIST_MAX_RANGE_DAYS - 1) : '';
+
   /**
-   * Updates a filter query param.
-   * @param {string} key Param name.
-   * @param {string} value Param value (empty clears).
+   * Copies the draft into applied filters and the URL so the list can load.
    */
-  function setFilterParam(key, value) {
-    const params = new URLSearchParams(searchParams);
-    if (value) {
-      params.set(key, value);
-    } else {
-      params.delete(key);
+  function applySearch() {
+    if (dateDraftErrorKey) {
+      return;
+    }
+    const next = {
+      from: draftFrom,
+      to: draftTo,
+      actor: draftActor,
+      action: draftAction,
+      resourceType: draftResourceType,
+    };
+    setApplied(next);
+    const params = new URLSearchParams();
+    if (next.from) {
+      params.set('from', next.from);
+    }
+    if (next.to) {
+      params.set('to', next.to);
+    }
+    if (next.actor) {
+      params.set('actor', next.actor);
+    }
+    if (next.action) {
+      params.set('action', next.action);
+    }
+    if (next.resourceType) {
+      params.set('resourceType', next.resourceType);
     }
     setSearchParams(params, { replace: true });
     setOpenEventId(null);
   }
 
   /**
-   * Clears all audit filter params.
+   * Clears draft and applied filters and returns the page to the idle state.
    */
-  function clearFilters() {
+  function resetFilters() {
+    setDraftFrom('');
+    setDraftTo('');
+    setDraftActor('');
+    setDraftAction('');
+    setDraftResourceType('');
+    setApplied(null);
     setSearchParams(new URLSearchParams(), { replace: true });
     setOpenEventId(null);
   }
@@ -314,6 +455,23 @@ export default function AdminAudit() {
   function retryList() {
     void auditQuery.refetch();
   }
+
+  useEffect(() => {
+    const node = loadMoreRef.current;
+    if (!node || !auditQuery.hasNextPage || auditQuery.isFetchingNextPage) {
+      return undefined;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          void auditQuery.fetchNextPage();
+        }
+      },
+      { rootMargin: AUDIT_LOAD_MORE_ROOT_MARGIN },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [auditQuery.hasNextPage, auditQuery.isFetchingNextPage, auditQuery.fetchNextPage]);
 
   if (!canViewAudit) {
     return (
@@ -327,8 +485,10 @@ export default function AdminAudit() {
     );
   }
 
-  const showSkeleton = auditQuery.isPending && events.length === 0;
-  const showEmpty = !auditQuery.isPending && !auditQuery.isError && events.length === 0;
+  const hasSearched = applied !== null;
+  const showSkeleton = hasSearched && auditQuery.isPending && events.length === 0;
+  const showIdle = !hasSearched;
+  const showEmpty = hasSearched && !auditQuery.isPending && !auditQuery.isError && events.length === 0;
   const showList = !showSkeleton && events.length > 0;
 
   return (
@@ -341,25 +501,31 @@ export default function AdminAudit() {
         <p className="text-sm text-muted-foreground">{t('admin.auditSubtitle')}</p>
 
         <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
-          <div className="flex min-w-0 flex-1 flex-col gap-1">
-            <label htmlFor="audit-from" className="text-xs text-muted-foreground">
-              {t('admin.auditFrom')}
-            </label>
-            <Input id="audit-from" type="date" value={fromDate} onChange={(event) => setFilterParam('from', event.target.value)} />
-          </div>
-          <div className="flex min-w-0 flex-1 flex-col gap-1">
-            <label htmlFor="audit-to" className="text-xs text-muted-foreground">
-              {t('admin.auditTo')}
-            </label>
-            <Input id="audit-to" type="date" value={toDate} onChange={(event) => setFilterParam('to', event.target.value)} />
-          </div>
+          <DatePicker
+            id="audit-from"
+            label={t('admin.auditFrom')}
+            value={draftFrom}
+            onChange={setDraftFrom}
+            minDate={fromMinDate}
+            maxDate={fromMaxDate}
+            className="w-full sm:w-48"
+          />
+          <DatePicker
+            id="audit-to"
+            label={t('admin.auditTo')}
+            value={draftTo}
+            onChange={setDraftTo}
+            minDate={toMinDate}
+            maxDate={toMaxDate}
+            className="w-full sm:w-48"
+          />
           {canManageUsers ? (
-            <Select value={actor || 'all'} onValueChange={(value) => setFilterParam('actor', value === 'all' ? '' : value)}>
-              <SelectTrigger className="w-full sm:w-48" aria-label={t('admin.auditFilterActor')}>
-                <SelectValue placeholder={t('admin.auditFilterActor')} />
+            <Select value={draftActor || 'all'} onValueChange={(value) => setDraftActor(value === 'all' ? '' : value)}>
+              <SelectTrigger className="w-full sm:w-48" aria-label={t('admin.auditFilterUser')}>
+                <SelectValue placeholder={t('admin.auditFilterUser')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">{t('admin.auditFilterActorAll')}</SelectItem>
+                <SelectItem value="all">{t('admin.auditFilterUserAll')}</SelectItem>
                 {actorUsers.map((rowUser) => (
                   <SelectItem key={rowUser.id} value={rowUser.id}>
                     {rowUser.email || rowUser.displayName || rowUser.id}
@@ -368,20 +534,7 @@ export default function AdminAudit() {
               </SelectContent>
             </Select>
           ) : null}
-          <Select value={action || 'all'} onValueChange={(value) => setFilterParam('action', value === 'all' ? '' : value)}>
-            <SelectTrigger className="w-full sm:w-48" aria-label={t('admin.auditFilterAction')}>
-              <SelectValue placeholder={t('admin.auditFilterAction')} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t('admin.auditFilterActionAll')}</SelectItem>
-              {AUDIT_ACTIONS.map((actionKey) => (
-                <SelectItem key={actionKey} value={actionKey}>
-                  {actionLabel(actionKey, t)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={resourceType || 'all'} onValueChange={(value) => setFilterParam('resourceType', value === 'all' ? '' : value)}>
+          <Select value={draftResourceType || 'all'} onValueChange={(value) => setDraftResourceType(value === 'all' ? '' : value)}>
             <SelectTrigger className="w-full sm:w-44" aria-label={t('admin.auditFilterResourceType')}>
               <SelectValue placeholder={t('admin.auditFilterResourceType')} />
             </SelectTrigger>
@@ -394,7 +547,33 @@ export default function AdminAudit() {
               ))}
             </SelectContent>
           </Select>
+          <Select value={draftAction || 'all'} onValueChange={(value) => setDraftAction(value === 'all' ? '' : value)}>
+            <SelectTrigger className="w-full sm:w-48" aria-label={t('admin.auditFilterAction')}>
+              <SelectValue placeholder={t('admin.auditFilterAction')} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t('admin.auditFilterActionAll')}</SelectItem>
+              {AUDIT_ACTIONS.map((actionKey) => (
+                <SelectItem key={actionKey} value={actionKey}>
+                  {actionLabel(actionKey, t)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="flex items-end gap-2">
+            <Button type="button" size="sm" disabled={Boolean(dateDraftErrorKey)} onClick={applySearch}>
+              {t('common.search')}
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={resetFilters}>
+              {t('admin.auditReset')}
+            </Button>
+          </div>
         </div>
+        {dateDraftErrorKey ? (
+          <p className="mt-2 text-xs text-muted-foreground" role="status">
+            {t(dateDraftErrorKey)}
+          </p>
+        ) : null}
 
         {auditQuery.isError ? (
           <div role="alert" className="mt-4 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
@@ -424,16 +603,19 @@ export default function AdminAudit() {
           </div>
         ) : null}
 
+        {showIdle ? (
+          <div className="mt-4 rounded-lg border border-border bg-card px-4 py-8 text-center">
+            <p className="text-sm text-muted-foreground" role="status">
+              {t('admin.auditIdle')}
+            </p>
+          </div>
+        ) : null}
+
         {showEmpty ? (
           <div className="mt-4 rounded-lg border border-border bg-card px-4 py-8 text-center">
             <p className="text-sm text-muted-foreground" role="status">
-              {hasActiveFilters ? t('admin.auditEmptyFiltered') : t('admin.auditEmpty')}
+              {t('admin.auditEmptyFiltered')}
             </p>
-            {hasActiveFilters ? (
-              <Button type="button" variant="outline" size="sm" className="mt-3" onClick={clearFilters}>
-                {t('admin.auditClearFilters')}
-              </Button>
-            ) : null}
           </div>
         ) : null}
 
@@ -508,7 +690,7 @@ export default function AdminAudit() {
         ) : null}
 
         {auditQuery.hasNextPage ? (
-          <div className="mt-4 flex justify-center">
+          <div ref={loadMoreRef} className="mt-4 flex justify-center">
             <Button
               type="button"
               variant="outline"

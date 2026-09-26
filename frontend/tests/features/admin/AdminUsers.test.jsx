@@ -377,6 +377,7 @@ describe('AdminUsers', () => {
     await waitFor(() => {
       expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith('/activate'))).toBe(true);
     });
+    expect(screen.queryByRole('button', { name: 'Activate' })).toBeNull();
   });
 
   it('paginates with next cursor and returns to the first page', async () => {

@@ -346,6 +346,21 @@ describe('identity.routes', () => {
     expect(delRole.statusCode).toBe(204);
   });
 
+  it('lists roles filtered by q on code or name', async () => {
+    await runBootstrapSeed(createMockLog());
+    app = await readyApp();
+    const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
+
+    const listed = await app.inject({
+      method: 'GET',
+      url: `${API_BASE_PATH}/roles?q=ADMIN`,
+      headers: { authorization: `Bearer ${accessToken}` },
+    });
+    expect(listed.statusCode).toBe(200);
+    expect(listed.json().items.every((role) => role.code === 'ADMIN' || /admin/i.test(role.name))).toBe(true);
+    expect(listed.json().items.some((role) => role.code === 'ADMIN')).toBe(true);
+  });
+
   it('self-deactivate fails and last admin cannot be deactivated', async () => {
     await runBootstrapSeed(createMockLog());
     app = await readyApp();

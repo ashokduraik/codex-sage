@@ -9,6 +9,7 @@ import {
   deactivateUser,
   fetchPermissionsCatalog,
   listAllRoles,
+  listRolesPage,
   listUsers,
   patchRole,
   patchUser,
@@ -172,6 +173,24 @@ describe('adminIdentityApi', () => {
       newPassword: 'SuperSecret1!',
     });
     expect(fetchMock.mock.calls[0][1].headers['Idempotency-Key']).toBe('idem-reset-1');
+  });
+
+  it('listRolesPage sends q, cursor, and limit', async () => {
+    const fetchMock = /** @type {ReturnType<typeof vi.fn>} */ (fetch);
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        status: 200,
+        body: { items: [], pageInfo: { nextCursor: null, hasMore: false } },
+      }),
+    );
+
+    await listRolesPage({ q: 'admin', cursor: 'cur1', limit: 25 });
+
+    const url = String(fetchMock.mock.calls[0][0]);
+    expect(url.startsWith(`${API_BASE_URL}/roles?`)).toBe(true);
+    expect(url).toContain('q=admin');
+    expect(url).toContain('cursor=cur1');
+    expect(url).toContain('limit=25');
   });
 
   it('listAllRoles follows nextCursor until hasMore is false', async () => {

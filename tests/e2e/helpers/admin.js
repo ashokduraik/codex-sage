@@ -56,6 +56,17 @@ export async function createRoleViaUi(page, role) {
 }
 
 /**
+ * Locates a roles-table row by display name.
+ *
+ * @param {import('@playwright/test').Page} page Roles page.
+ * @param {string} name Role name.
+ * @returns {import('@playwright/test').Locator} Row locator.
+ */
+export function roleRow(page, name) {
+  return page.locator('div.grid.grid-cols-1').filter({ hasText: name });
+}
+
+/**
  * Edits an existing role's name and toggles one permission label on.
  *
  * @param {import('@playwright/test').Page} page Authenticated page.
@@ -63,12 +74,7 @@ export async function createRoleViaUi(page, role) {
  */
 export async function editRoleViaUi(page, input) {
   await openAdminSection(page, 'Roles & Permissions');
-  const named = page.locator('span.text-center', { hasText: input.currentName }).first();
-  if (await named.count()) {
-    await named.getByRole('button', { name: 'Edit role' }).click();
-  } else {
-    await page.getByRole('region', { name: input.currentName }).getByRole('button', { name: 'Edit role' }).click();
-  }
+  await roleRow(page, input.currentName).getByRole('button', { name: 'Edit role' }).click();
   const dialog = page.getByRole('dialog').filter({ hasText: input.currentName });
   await expect(dialog).toBeVisible();
   if (input.nextName) {
@@ -92,7 +98,7 @@ export async function editRoleViaUi(page, input) {
  */
 export async function deleteRoleViaUi(page, role) {
   await openAdminSection(page, 'Roles & Permissions');
-  await page.getByRole('button', { name: 'Delete role' }).first().click();
+  await roleRow(page, role.name).getByRole('button', { name: 'Delete role' }).click();
   const dialog = page.getByRole('dialog', { name: `Delete ${role.name}?` });
   await expect(dialog).toBeVisible();
   await dialog.getByRole('button', { name: 'Delete role' }).click();
@@ -159,7 +165,13 @@ export async function expectUserStatus(page, email, status) {
 export async function openUserRowActions(page, email) {
   const row = userRow(page, email);
   await expect(row).toBeVisible();
+  const editRoles = page.getByRole('button', { name: 'Edit roles', exact: true });
+  if (await editRoles.isVisible()) {
+    await page.keyboard.press('Escape');
+    await expect(editRoles).toHaveCount(0);
+  }
   await row.getByLabel('Actions').click();
+  await expect(editRoles).toBeVisible();
 }
 
 /**
@@ -172,7 +184,7 @@ export async function setUserPasswordViaUi(page, user) {
   await page.getByLabel('Search users').fill(user.email);
   await expect(page.getByText(user.email)).toBeVisible();
   await openUserRowActions(page, user.email);
-  await page.getByRole('button', { name: 'Reset password' }).click();
+  await page.getByRole('button', { name: 'Reset password' }).click({ force: true });
   const dialog = page.getByRole('dialog', { name: `Set password for ${user.displayName}` });
   await dialog.locator('#admin-new-password').fill(user.password);
   await dialog.locator('#admin-confirm-password').fill(user.password);
@@ -189,10 +201,14 @@ export async function setUserPasswordViaUi(page, user) {
  * @param {'Deactivate' | 'Activate'} action Menu label.
  */
 export async function toggleUserStatusViaUi(page, email, action) {
+  const nextStatus = action === 'Activate' ? 'Active' : 'Disabled';
   await openUserRowActions(page, email);
   const menuItem = page.getByRole('button', { name: action, exact: true });
   await expect(menuItem).toBeVisible();
-  await menuItem.click();
+  // Headless Chromium treats the animated popover as never-stable; the click still lands.
+  await menuItem.click({ force: true });
+  await expect(menuItem).toHaveCount(0);
+  await expectUserStatus(page, email, nextStatus);
 }
 
 /**
@@ -204,7 +220,7 @@ export async function toggleUserStatusViaUi(page, email, action) {
  */
 export async function addRoleViaUi(page, user, assignment) {
   await openUserRowActions(page, user.email);
-  await page.getByRole('button', { name: 'Edit roles' }).click();
+  await page.getByRole('button', { name: 'Edit roles' }).click({ force: true });
   const dialog = page.getByRole('dialog', { name: `Edit roles for ${user.displayName}` });
   const extra = dialog.getByLabel(assignment.roleName, { exact: true });
   if (!(await extra.isChecked())) {
@@ -223,21 +239,28 @@ export async function addRoleViaUi(page, user, assignment) {
 export async function removeUserViaUi(page, user) {
   await page.getByLabel('Search users').fill(user.email);
   await openUserRowActions(page, user.email);
-  await page.getByRole('button', { name: 'Remove user' }).click();
+  await page.getByRole('button', { name: 'Remove user' }).click({ force: true });
   const dialog = page.getByRole('dialog', { name: `Remove ${user.displayName}?` });
   await dialog.getByRole('button', { name: 'Remove user' }).click();
   await expect(dialog).toHaveCount(0);
 }
 
 /**
- * Filters the audit log to User created events.
+ * Filters the audit log to User created events for today, then searches.
  *
  * @param {import('@playwright/test').Page} page Admin audit page.
  */
 export async function filterAuditUserCreate(page) {
   await openAdminSection(page, 'Audit');
+  const today = new Date();
+  const todayKey = [today.getFullYear(), String(today.getMonth() + 1).padStart(2, '0'), String(today.getDate()).padStart(2, '0')].join('-');
+  await page.getByLabel('From date').click();
+  await page.getByRole('button', { name: todayKey }).click();
+  await page.getByLabel('To date').click();
+  await page.getByRole('button', { name: todayKey }).click();
   await page.getByLabel('Action filter').click();
   await page.getByRole('option', { name: 'User created' }).click();
+  await page.getByRole('button', { name: 'Search' }).click();
 }
 
 /**

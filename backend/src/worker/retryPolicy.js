@@ -1,6 +1,7 @@
 /**
  * Failure classification and exponential backoff for temporary failures.
  */
+import { getCatalogEntry } from '../platform/errorCatalog.js';
 import { WORKER_MAX_ATTEMPTS, WORKER_RETRY_BACKOFF_BASE_MS, WORKER_RETRY_BACKOFF_MAX_MS } from './worker.constants.js';
 
 /** @typedef {'temporary' | 'permanent' | 'user_action_required'} FailureClass */
@@ -38,6 +39,8 @@ export function createJobFailureError(input) {
 
 /**
  * Extracts failure classification from a thrown value.
+ * Catalog `ApiError` codes use the entry's retryability so handlers that throw
+ * `ApiError.fromCode` do not retry user-action failures as temporary.
  * Unclassified errors are treated as temporary (a bug, not a policy).
  * @param {unknown} thrown Handler throw value.
  * @returns {ClassifiedFailure & { unclassified: boolean }}
@@ -60,6 +63,23 @@ export function classifyThrownFailure(thrown) {
         unclassified: false,
       };
     }
+  }
+
+  const catalogCode =
+    thrown && typeof thrown === 'object' && 'code' in thrown && typeof (/** @type {{ code?: unknown }} */ (thrown).code) === 'string'
+      ? /** @type {{ code: string }} */ (thrown).code
+      : '';
+  const catalogEntry = catalogCode ? getCatalogEntry(catalogCode) : undefined;
+  if (
+    catalogEntry &&
+    (catalogEntry.retryability === 'temporary' || catalogEntry.retryability === 'permanent' || catalogEntry.retryability === 'user_action_required')
+  ) {
+    return {
+      failureClass: catalogEntry.retryability,
+      code: catalogCode,
+      message: thrown instanceof Error ? thrown.message : catalogEntry.message,
+      unclassified: false,
+    };
   }
 
   const message = thrown instanceof Error ? thrown.message : String(thrown ?? 'Job failed');

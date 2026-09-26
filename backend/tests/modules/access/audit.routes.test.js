@@ -178,9 +178,13 @@ describe('audit routes', () => {
     const allIds = [...bodyA.items, ...body2.items].map((item) => item.id);
     expect(new Set(allIds).size).toBe(allIds.length);
 
+    const rangeFrom = new Date();
+    rangeFrom.setUTCDate(rangeFrom.getUTCDate() - 15);
+    const rangeTo = new Date();
+    rangeTo.setUTCDate(rangeTo.getUTCDate() + 1);
     const filtered = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/audit-events?action=authz.denied&resourceType=route&actor=${actorA.toHexString()}&from=2020-01-01T00:00:00.000Z&to=2035-01-01T00:00:00.000Z`,
+      url: `${API_BASE_PATH}/audit-events?action=authz.denied&resourceType=route&actor=${actorA.toHexString()}&from=${encodeURIComponent(rangeFrom.toISOString())}&to=${encodeURIComponent(rangeTo.toISOString())}`,
       headers: { authorization: `Bearer ${tokenA}` },
     });
     expect(filtered.statusCode).toBe(200);
@@ -204,6 +208,19 @@ describe('audit routes', () => {
     expect(listB.statusCode).toBe(200);
     expect(listB.json().items).toHaveLength(1);
     expect(listB.json().items[0].correlationId).toBe('REQ-b-1');
+  });
+
+  it('rejects a from/to window longer than 31 days', async () => {
+    await runBootstrapSeed(createMockLog());
+    app = await readyApp();
+    const tokenA = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
+    const rejected = await app.inject({
+      method: 'GET',
+      url: `${API_BASE_PATH}/audit-events?from=2026-09-01T00:00:00.000Z&to=2026-10-03T00:00:00.000Z`,
+      headers: { authorization: `Bearer ${tokenA}` },
+    });
+    expect(rejected.statusCode).toBe(400);
+    expect(rejected.json().error.code).toBe('VALIDATION_ERROR');
   });
 
   it('returns detail for same org and 404 for cross-tenant ids', async () => {

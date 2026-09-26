@@ -2,7 +2,7 @@ import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
 import { API_BASE_URL } from '@/shared/api/index';
-import AdminAudit from '@/features/admin/AdminAudit';
+import AdminAudit, { addCalendarDays, auditDateDraftErrorKey, inclusiveAuditDaySpan, targetLabel } from '@/features/admin/AdminAudit';
 
 /**
  * @param {object} body
@@ -31,11 +31,14 @@ function jsonResponse(body, status = 200, headers = {}) {
   };
 }
 
+const SEARCH_ROUTE = '/admin/audit?from=2026-09-01&to=2026-09-12';
+
 const EVENT_SUCCESS = {
   id: 'e1',
   action: 'user.create',
   resourceType: 'user',
   resourceId: 'u-target',
+  resourceName: 'Ada Lovelace',
   result: 'success',
   actor: { id: 'u-actor', email: 'admin@acme.io' },
   correlationId: 'REQ-ABC',
@@ -56,6 +59,7 @@ const EVENT_DENIED = {
   action: 'authz.denied',
   resourceType: 'route',
   resourceId: null,
+  resourceName: null,
   result: 'denied',
   actor: { id: 'u-actor', email: 'viewer@acme.io' },
   correlationId: 'REQ-DEF',
@@ -68,6 +72,7 @@ const EVENT_FAILED = {
   action: 'user.deactivate',
   resourceType: 'user',
   resourceId: 'u-fail',
+  resourceName: null,
   result: 'failed',
   actor: null,
   correlationId: null,
@@ -80,6 +85,7 @@ const EVENT_SPARSE = {
   action: 'user.update',
   resourceType: 'user',
   resourceId: null,
+  resourceName: null,
   result: 'success',
   actor: { id: 'u-only-id', email: null },
   createdAt: null,
@@ -137,6 +143,24 @@ function stubAuditFetch(fetchMock, options = {}) {
   });
 }
 
+/**
+ * Collects audit-events request URLs from a fetch mock.
+ * @param {ReturnType<typeof vi.fn>} fetchMock Fetch spy.
+ * @returns {string[]}
+ */
+function auditFetchUrls(fetchMock) {
+  return fetchMock.mock.calls.map((call) => String(call[0])).filter((url) => url.includes('/audit-events'));
+}
+
+/**
+ * Runs Search once draft dates are valid.
+ */
+async function clickAuditSearch() {
+  const searchButton = await screen.findByRole('button', { name: 'Search' });
+  expect(searchButton.disabled).toBe(false);
+  fireEvent.click(searchButton);
+}
+
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
@@ -148,18 +172,73 @@ beforeEach(() => {
   seedAuthSession('you@acme.io', {
     permissions: ['audit.view', 'users.manage'],
   });
+  vi.stubGlobal(
+    'IntersectionObserver',
+    class {
+      observe() {}
+      disconnect() {}
+      unobserve() {}
+    },
+  );
+});
+
+describe('audit date draft helpers', () => {
+  it('requires both dates, rejects inverted and over-long ranges, and accepts 31 days', () => {
+    expect(auditDateDraftErrorKey('', '')).toBe('admin.auditDatesRequired');
+    expect(auditDateDraftErrorKey('2026-09-12', '2026-09-01')).toBe('admin.auditDateOrderInvalid');
+    expect(auditDateDraftErrorKey('2026-09-01', '2026-10-02')).toBe('admin.auditDateRangeInvalid');
+    expect(auditDateDraftErrorKey('2026-09-01', '2026-10-01')).toBeNull();
+    expect(inclusiveAuditDaySpan('2026-09-01', '2026-10-01')).toBe(31);
+    expect(addCalendarDays('2026-09-01', 30)).toBe('2026-10-01');
+    expect(addCalendarDays('', 1)).toBe('');
+    expect(inclusiveAuditDaySpan('bad', '2026-09-01')).toBeNull();
+  });
+
+  it('prefers resourceName over resourceId in the target label', () => {
+    const t = (key) => {
+      if (key === 'admin.auditResourceTypes.user') {
+        return 'User';
+      }
+      if (key === 'admin.auditResourceTypes.project') {
+        return 'Project';
+      }
+      return key;
+    };
+    expect(targetLabel({ resourceType: 'user', resourceId: 'u1', resourceName: 'Ada Lovelace' }, t)).toBe('User Ada Lovelace');
+    expect(targetLabel({ resourceType: 'project', resourceId: 'p1' }, t)).toBe('Project p1');
+  });
 });
 
 describe('AdminAudit', () => {
-  it('lists events, expands detail, and never renders secrets, ip, or userAgent', async () => {
+  it('stays idle on mount and does not load audit events', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
     stubAuditFetch(fetchMock);
 
     renderWithProviders(<AdminAudit />, { route: '/admin/audit' });
 
+    expect(await screen.findByText('Choose a date range and search.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Search' }).disabled).toBe(true);
+    expect(auditFetchUrls(fetchMock)).toHaveLength(0);
+  });
+
+  it('lists events after Search, expands detail, and never renders secrets, ip, or userAgent', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    stubAuditFetch(fetchMock);
+
+    renderWithProviders(<AdminAudit />, { route: SEARCH_ROUTE });
+    expect(auditFetchUrls(fetchMock)).toHaveLength(0);
+    await clickAuditSearch();
+
     await waitFor(() => expect(screen.getByText('admin@acme.io')).toBeTruthy());
+    const firstAuditUrl = auditFetchUrls(fetchMock)[0] ?? '';
+    expect(firstAuditUrl).toContain('limit=20');
+    expect(firstAuditUrl).toContain('from=2026-09-01T00%3A00%3A00.000Z');
+    expect(firstAuditUrl).toContain('to=2026-09-13T00%3A00%3A00.000Z');
     expect(screen.getByText('User created')).toBeTruthy();
+    expect(screen.getByText('User Ada Lovelace')).toBeTruthy();
+    expect(screen.getByText('User u-fail')).toBeTruthy();
     expect(screen.getByText('Success')).toBeTruthy();
     expect(screen.getByText('Denied')).toBeTruthy();
     expect(screen.getByText('Failed')).toBeTruthy();
@@ -179,7 +258,7 @@ describe('AdminAudit', () => {
     expect(screen.queryByText('tok')).toBeNull();
   });
 
-  it('sends UTC day-boundary from/to and resets the list when filters change', async () => {
+  it('does not search until Search is clicked even when dates are in the URL', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
     stubAuditFetch(fetchMock, {
@@ -188,46 +267,49 @@ describe('AdminAudit', () => {
           items: [EVENT_SUCCESS],
           pageInfo: { nextCursor: null, hasMore: false },
         },
+      ],
+    });
+
+    renderWithProviders(<AdminAudit />, { route: SEARCH_ROUTE });
+    expect(await screen.findByText('Choose a date range and search.')).toBeTruthy();
+    expect(auditFetchUrls(fetchMock)).toHaveLength(0);
+    await clickAuditSearch();
+    await waitFor(() => expect(auditFetchUrls(fetchMock).length).toBeGreaterThan(0));
+  });
+
+  it('keeps Search disabled for an invalid or missing date range', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    stubAuditFetch(fetchMock);
+
+    renderWithProviders(<AdminAudit />, { route: '/admin/audit?from=2026-09-01&to=2026-10-02' });
+    expect(await screen.findByText('From and to dates must be within 31 days.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Search' }).disabled).toBe(true);
+    expect(auditFetchUrls(fetchMock)).toHaveLength(0);
+  });
+
+  it('writes a picked calendar day into the from draft without fetching until Search', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    stubAuditFetch(fetchMock, {
+      pages: [
         {
-          items: [],
+          items: [EVENT_SUCCESS],
           pageInfo: { nextCursor: null, hasMore: false },
         },
       ],
     });
 
     renderWithProviders(<AdminAudit />, { route: '/admin/audit' });
-    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getByText('Choose a date range and search.')).toBeTruthy());
 
-    fireEvent.change(screen.getByLabelText('From date'), {
-      target: { value: '2026-09-01' },
-    });
-    fireEvent.change(screen.getByLabelText('To date'), {
-      target: { value: '2026-09-12' },
-    });
+    const today = new Date();
+    const todayKey = [today.getFullYear(), String(today.getMonth() + 1).padStart(2, '0'), String(today.getDate()).padStart(2, '0')].join('-');
 
-    await waitFor(() => {
-      const urls = fetchMock.mock.calls.map((call) => String(call[0]));
-      expect(urls.some((url) => url.includes('from=2026-09-01T00%3A00%3A00.000Z'))).toBe(true);
-      expect(urls.some((url) => url.includes('to=2026-09-13T00%3A00%3A00.000Z'))).toBe(true);
-    });
-  });
-
-  it('omits an invalid to-date from the audit query', async () => {
-    const fetchMock = vi.fn();
-    vi.stubGlobal('fetch', fetchMock);
-    stubAuditFetch(fetchMock, {
-      pages: [
-        {
-          items: [EVENT_SUCCESS],
-          pageInfo: { nextCursor: null, hasMore: false },
-        },
-      ],
-    });
-
-    renderWithProviders(<AdminAudit />, { route: '/admin/audit?to=not-a-date' });
-    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
-    const urls = fetchMock.mock.calls.map((call) => String(call[0]));
-    expect(urls.every((url) => !url.includes('to='))).toBe(true);
+    fireEvent.click(screen.getByLabelText('From date'));
+    fireEvent.click(await screen.findByRole('button', { name: todayKey }));
+    expect(auditFetchUrls(fetchMock)).toHaveLength(0);
+    expect(screen.getByRole('button', { name: 'Search' }).disabled).toBe(true);
   });
 
   it('loads the next page with nextCursor when Load more is clicked', async () => {
@@ -246,37 +328,78 @@ describe('AdminAudit', () => {
       ],
     });
 
-    renderWithProviders(<AdminAudit />, { route: '/admin/audit' });
+    renderWithProviders(<AdminAudit />, { route: SEARCH_ROUTE });
+    await clickAuditSearch();
     await waitFor(() => expect(screen.getByText('admin@acme.io')).toBeTruthy());
     expect(screen.getByRole('button', { name: 'Load more' })).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Load more' }));
     await waitFor(() => expect(screen.getByText('viewer@acme.io')).toBeTruthy());
-    const auditUrls = fetchMock.mock.calls.map((call) => String(call[0])).filter((url) => url.includes('/audit-events'));
-    expect(auditUrls.some((url) => url.includes('cursor=cursor-2'))).toBe(true);
+    expect(auditFetchUrls(fetchMock).some((url) => url.includes('cursor=cursor-2'))).toBe(true);
     expect(screen.queryByRole('button', { name: 'Load more' })).toBeNull();
   });
 
-  it('shows distinct empty states and clear-filters resets the query', async () => {
+  it('loads the next page when the list sentinel intersects the viewport', async () => {
+    /** @type {((entries: Array<{ isIntersecting: boolean }>) => void) | undefined} */
+    let observeCallback;
+    vi.stubGlobal(
+      'IntersectionObserver',
+      class {
+        /**
+         * @param {(entries: Array<{ isIntersecting: boolean }>) => void} callback
+         */
+        constructor(callback) {
+          observeCallback = callback;
+        }
+        observe() {}
+        disconnect() {}
+        unobserve() {}
+      },
+    );
+
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
     stubAuditFetch(fetchMock, {
       pages: [
-        { items: [], pageInfo: { nextCursor: null, hasMore: false } },
-        { items: [], pageInfo: { nextCursor: null, hasMore: false } },
+        {
+          items: [EVENT_SUCCESS],
+          pageInfo: { nextCursor: 'cursor-2', hasMore: true },
+        },
+        {
+          items: [EVENT_DENIED],
+          pageInfo: { nextCursor: null, hasMore: false },
+        },
       ],
     });
 
-    renderWithProviders(<AdminAudit />, {
-      route: '/admin/audit?action=user.create',
-    });
-
-    await waitFor(() => expect(screen.getByText('No audit events match these filters.')).toBeTruthy());
-    fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
-    await waitFor(() => expect(screen.getByText('No audit events yet.')).toBeTruthy());
+    renderWithProviders(<AdminAudit />, { route: SEARCH_ROUTE });
+    await clickAuditSearch();
+    await waitFor(() => expect(screen.getByText('admin@acme.io')).toBeTruthy());
+    expect(typeof observeCallback).toBe('function');
+    observeCallback?.([{ isIntersecting: true }]);
+    await waitFor(() => expect(screen.getByText('viewer@acme.io')).toBeTruthy());
+    expect(auditFetchUrls(fetchMock).some((url) => url.includes('cursor=cursor-2'))).toBe(true);
   });
 
-  it('renders a loading skeleton before the first page resolves', async () => {
+  it('shows a filtered empty state after Search and Reset returns to idle', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    stubAuditFetch(fetchMock, {
+      pages: [{ items: [], pageInfo: { nextCursor: null, hasMore: false } }],
+    });
+
+    renderWithProviders(<AdminAudit />, {
+      route: '/admin/audit?from=2026-09-01&to=2026-09-12&action=user.create',
+    });
+
+    await clickAuditSearch();
+    await waitFor(() => expect(screen.getByText('No audit events match these filters.')).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
+    await waitFor(() => expect(screen.getByText('Choose a date range and search.')).toBeTruthy());
+    expect(screen.getByRole('button', { name: 'Search' }).disabled).toBe(true);
+  });
+
+  it('renders a loading skeleton after Search before the first page resolves', async () => {
     const fetchMock = vi.fn(
       () =>
         new Promise(() => {
@@ -285,7 +408,9 @@ describe('AdminAudit', () => {
     );
     vi.stubGlobal('fetch', fetchMock);
 
-    renderWithProviders(<AdminAudit />, { route: '/admin/audit' });
+    renderWithProviders(<AdminAudit />, { route: SEARCH_ROUTE });
+    expect(screen.queryByLabelText('Loading…')).toBeNull();
+    await clickAuditSearch();
     expect(screen.getByLabelText('Loading…')).toBeTruthy();
   });
 
@@ -300,7 +425,8 @@ describe('AdminAudit', () => {
       },
     });
 
-    renderWithProviders(<AdminAudit />, { route: '/admin/audit' });
+    renderWithProviders(<AdminAudit />, { route: SEARCH_ROUTE });
+    await clickAuditSearch();
     const alert = await screen.findByRole('alert');
     expect(within(alert).getByText('Internal server error')).toBeTruthy();
     expect(within(alert).getByText(/Support reference: REQ-ERR/)).toBeTruthy();
@@ -331,10 +457,12 @@ describe('AdminAudit', () => {
       },
     });
 
-    renderWithProviders(<AdminAudit />, { route: '/admin/audit' });
+    renderWithProviders(<AdminAudit />, { route: SEARCH_ROUTE });
+    await clickAuditSearch();
     const alert = await screen.findByRole('alert');
     expect(within(alert).getByText('Request validation failed.')).toBeTruthy();
     expect(screen.queryByText('No audit events yet.')).toBeNull();
+    expect(screen.queryByText('Choose a date range and search.')).toBeNull();
   });
 
   it('labels missing optional fields as not recorded and uses actor id fallback', async () => {
@@ -349,13 +477,14 @@ describe('AdminAudit', () => {
       ],
     });
 
-    renderWithProviders(<AdminAudit />, { route: '/admin/audit' });
+    renderWithProviders(<AdminAudit />, { route: SEARCH_ROUTE });
+    await clickAuditSearch();
     await waitFor(() => expect(screen.getByText('u-only-id')).toBeTruthy());
     fireEvent.click(screen.getByText('u-only-id'));
     await waitFor(() => expect(screen.getAllByText(/Not recorded/).length).toBeGreaterThan(0));
   });
 
-  it('sends action and resourceType from the URL and retries after a list failure', async () => {
+  it('sends action and resourceType after Search and retries after a list failure', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
     let auditCalls = 0;
@@ -383,9 +512,10 @@ describe('AdminAudit', () => {
     });
 
     renderWithProviders(<AdminAudit />, {
-      route: '/admin/audit?action=user.create&resourceType=user',
+      route: '/admin/audit?from=2026-09-01&to=2026-09-12&action=user.create&resourceType=user',
     });
 
+    await clickAuditSearch();
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toContain('Internal server error');
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
@@ -405,6 +535,7 @@ describe('AdminAudit', () => {
               action: 'custom.action',
               resourceType: 'user',
               resourceId: null,
+              resourceName: null,
               result: 'weird',
               actor: { id: '', email: '' },
               createdAt: '2026-09-11T10:00:00.000Z',
@@ -415,7 +546,8 @@ describe('AdminAudit', () => {
       ],
     });
 
-    renderWithProviders(<AdminAudit />, { route: '/admin/audit' });
+    renderWithProviders(<AdminAudit />, { route: SEARCH_ROUTE });
+    await clickAuditSearch();
     await waitFor(() => expect(screen.getByText('weird')).toBeTruthy());
     expect(screen.getByText('System')).toBeTruthy();
     fireEvent.click(screen.getByText('System'));
@@ -433,22 +565,23 @@ describe('AdminAudit', () => {
       },
     });
 
-    renderWithProviders(<AdminAudit />, { route: '/admin/audit' });
+    renderWithProviders(<AdminAudit />, { route: SEARCH_ROUTE });
+    await clickAuditSearch();
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toContain('You do not have permission to perform this action.');
     expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
   });
 
-  it('omits the actor filter when the caller lacks users.manage', async () => {
+  it('omits the users filter when the caller lacks users.manage', async () => {
     clearAuthSession();
     seedAuthSession('you@acme.io', { permissions: ['audit.view'] });
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
     stubAuditFetch(fetchMock);
 
-    renderWithProviders(<AdminAudit />, { route: '/admin/audit' });
-    await waitFor(() => expect(screen.getByText('admin@acme.io')).toBeTruthy());
-    expect(screen.queryByLabelText('Actor filter')).toBeNull();
+    renderWithProviders(<AdminAudit />, { route: SEARCH_ROUTE });
+    expect(await screen.findByText('Choose a date range and search.')).toBeTruthy();
+    expect(screen.queryByLabelText('Users')).toBeNull();
     const urls = fetchMock.mock.calls.map((call) => String(call[0]));
     expect(urls.every((url) => !url.includes('/users'))).toBe(true);
   });

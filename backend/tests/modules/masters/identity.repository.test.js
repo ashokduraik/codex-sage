@@ -9,7 +9,7 @@ import { TEST_APP_CONFIG } from '../../appConfig.js';
 import { IDENTITY_MODELS } from '../../../src/modules/masters/index.js';
 
 import { createUserInRepo, findUserByEmail, findUserById, listUsersInRepo, softDeleteUser } from '../../../src/modules/masters/users.js';
-import { createRoleInRepo, softDeleteRole, softDeleteRoleInRepo, updateRoleInRepo } from '../../../src/modules/masters/roles.js';
+import { createRoleInRepo, listRolesPage, softDeleteRole, softDeleteRoleInRepo, updateRoleInRepo } from '../../../src/modules/masters/roles.js';
 import { User } from '../../../src/models/user.model.js';
 import mongoose from 'mongoose';
 import { Role } from '../../../src/models/role.model.js';
@@ -91,6 +91,23 @@ describe('identity models and repositories', () => {
     expect(found?.passwordHash).toBeUndefined();
     const withHash = await User.findById(created._id).select('+passwordHash');
     expect(withHash?.passwordHash).toBe('secret-hash-value');
+  });
+
+  it('lists roles matching a name or code search', async () => {
+    const org = await createTestOrganization({ name: 'Acme', slug: 'acme-role-search' });
+    await ensureTestRoles(org._id);
+    await createRoleInRepo(org._id, {
+      code: 'ANALYST',
+      name: 'Security Analyst',
+      description: 'Reads reports',
+      permissions: ['org.view'],
+    });
+
+    const byCode = await listRolesPage(org._id, { q: 'ANALYST' });
+    expect(byCode.items.map((role) => role.code)).toEqual(['ANALYST']);
+
+    const byName = await listRolesPage(org._id, { q: 'org admin' });
+    expect(byName.items.map((role) => role.code)).toEqual(['ADMIN']);
   });
 
   it('updates ADMIN name and permissions', async () => {

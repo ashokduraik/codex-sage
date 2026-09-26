@@ -6,6 +6,19 @@ describe('auditCatalog', () => {
     expect(AUDIT_ACTIONS).toContain('user.create');
     expect(AUDIT_ACTIONS).toContain('authz.denied');
     expect(AUDIT_ACTIONS).toContain('project.create');
-    expect(AUDIT_RESOURCE_TYPES).toEqual(['user', 'role', 'membership', 'route', 'project']);
+    expect(AUDIT_ACTIONS).toContain('repository.connected');
+    expect(AUDIT_ACTIONS).toContain('conversation.created');
+    expect(AUDIT_RESOURCE_TYPES).toEqual([
+      'user',
+      'role',
+      'membership',
+      'route',
+      'project',
+      'job',
+      'source',
+      'knowledge',
+      'repository',
+      'conversation',
+    ]);
   });
 });

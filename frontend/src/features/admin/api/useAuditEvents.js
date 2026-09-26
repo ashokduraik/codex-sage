@@ -33,7 +33,7 @@ export function isInvalidAuditCursorError(error) {
  *   resourceType?: string,
  *   limit?: number,
  *   enabled?: boolean,
- * }} filters List filters from the URL.
+ * }} filters Applied list filters. The query stays idle when `enabled` is false.
  * @returns Infinite query result for audit events.
  */
 export function useAuditEvents(filters = {}) {

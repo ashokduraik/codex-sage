@@ -44,6 +44,7 @@ export function projectCard(page, projectName) {
  * @returns {Promise<string>} Project id.
  */
 export async function projectIdFromCard(page, projectName) {
+  await searchProjectsFor(page, projectName);
   const href = await projectCard(page, projectName).getAttribute('href');
   const projectId = href?.split('/').pop();
   if (!projectId) {

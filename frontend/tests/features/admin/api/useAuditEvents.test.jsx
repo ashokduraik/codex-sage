@@ -181,6 +181,23 @@ describe('useAuditEvents', () => {
     expect(lastUrl).not.toContain('cursor=');
   });
 
+  it('does not fetch when enabled is false', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+
+    renderHook(() => useAuditEvents({ enabled: false, action: 'user.create' }), {
+      wrapper: createWrapper(queryClient),
+    });
+
+    await new Promise((resolve) => {
+      setTimeout(resolve, 20);
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('includes from, to, actor, action, and resourceType in the request URL', async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonFetch({ items: [], pageInfo: { nextCursor: null, hasMore: false } }));
     vi.stubGlobal('fetch', fetchMock);

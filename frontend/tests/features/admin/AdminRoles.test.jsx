@@ -73,7 +73,7 @@ beforeEach(() => {
 });
 
 describe('AdminRoles', () => {
-  it('renders role columns including a custom role with human-readable labels only', async () => {
+  it('renders a searchable summary with S.No, code, and name', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (url) => {
@@ -95,17 +95,44 @@ describe('AdminRoles', () => {
       route: '/admin/roles',
     });
 
+    expect(await screen.findByLabelText('Search roles')).toBeTruthy();
+    expect(screen.getByText('S.No')).toBeTruthy();
     expect((await screen.findAllByText('Org Admin')).length).toBeGreaterThan(0);
     expect(screen.getAllByText('Custom Analyst').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Manage users').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Ask questions').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Other permissions').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Additional permission').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('ADMIN').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('ANALYST').length).toBeGreaterThan(0);
+    expect(screen.getByText('1')).toBeTruthy();
+    expect(screen.getByText('2')).toBeTruthy();
+    expect(screen.getByText('3 permissions')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'First page' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Next page' })).toBeTruthy();
 
     const text = container.textContent ?? '';
     expect(text).not.toContain('users.manage');
     expect(text).not.toContain('chat.ask');
     expect(text).not.toContain('legacy.unknown');
+  });
+
+  it('sends the search query to GET /roles', async () => {
+    const fetchMock = vi.fn(async (url) => {
+      const path = String(url).replace(API_BASE_URL, '');
+      if (path.startsWith('/roles')) {
+        return jsonResponse({
+          items: [ROLES[0]],
+          pageInfo: { nextCursor: null, hasMore: false },
+        });
+      }
+      if (path.startsWith('/permissions')) {
+        return jsonResponse(CATALOG);
+      }
+      return jsonResponse({});
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderWithProviders(<AdminRoles />, { route: '/admin/roles?q=ADMIN' });
+    expect(await screen.findByText('Org Admin')).toBeTruthy();
+    const rolesCall = fetchMock.mock.calls.find(([url]) => String(url).includes('/roles?'));
+    expect(String(rolesCall[0])).toContain('q=ADMIN');
   });
 
   it('shows loading then empty when no roles exist', async () => {
@@ -127,7 +154,7 @@ describe('AdminRoles', () => {
     );
 
     renderWithProviders(<AdminRoles />, { route: '/admin/roles' });
-    expect(await screen.findByText('No roles are available in this organization.')).toBeTruthy();
+    expect(await screen.findByText('No roles match this search.')).toBeTruthy();
   });
 
   it('shows an error state with retry', async () => {
@@ -191,7 +218,11 @@ describe('AdminRoles', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create role' }));
     fireEvent.change(screen.getByLabelText('Code'), { target: { value: 'reader' } });
     fireEvent.change(screen.getByLabelText('Role name'), { target: { value: 'Reader' } });
+    expect(screen.getByRole('heading', { name: 'Users and roles' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Chat' })).toBeTruthy();
+    expect(screen.getByText('0 of 3 selected')).toBeTruthy();
     fireEvent.click(screen.getByLabelText('Ask questions'));
+    expect(screen.getByText('1 of 3 selected')).toBeTruthy();
     fireEvent.click(screen.getAllByRole('button', { name: 'Create role' }).at(-1));
 
     await waitFor(() => {

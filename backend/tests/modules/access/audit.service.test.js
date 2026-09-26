@@ -1,26 +1,35 @@
 /**
  * Unit/integration tests for audit model, repository, and service helpers.
  */
-import { createTestOrganization } from '../../identityFixtures.js';
+import { createTestOrganization, ensureTestRoles, nextTestUserCode } from '../../identityFixtures.js';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import mongoose from 'mongoose';
 import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
 import { encodeCursor, ROW_STATUS_DELETED } from '../../../src/platform/data/index.js';
-import { IDENTITY_MODELS } from '../../../src/modules/masters/index.js';
+import { IDENTITY_MODELS, PROJECT_MODELS, createUserInRepo } from '../../../src/modules/masters/index.js';
 import { AUDIT_MODELS } from '../../../src/modules/access/audit.js';
 import { AuditEvent } from '../../../src/models/audit.model.js';
+import { Conversation } from '../../../src/models/conversations.model.js';
+import { Job } from '../../../src/models/job.model.js';
+import { KnowledgeVersion } from '../../../src/models/knowledgeVersion.model.js';
+import { Project } from '../../../src/models/projects.model.js';
+import { RepositoryConnection } from '../../../src/models/repositoryConnection.model.js';
+import { SourceVersion } from '../../../src/models/sourceVersion.model.js';
 import {
   clampAuditListLimit,
   AUDIT_LIST_PAGE_SIZE_DEFAULT,
   AUDIT_LIST_PAGE_SIZE_MAX,
   insertAuditEvent,
   listAuditEvents,
+  listAuditEventsForOrg,
+  getAuditEventForOrg,
+  assertAuditListDateRange,
 } from '../../../src/modules/access/audit.js';
 import { buildAuditContextFromRequest, recordAuditEvent, shouldAuditAuthorizationDenial } from '../../../src/modules/access/audit.js';
 
 const harness = createMongoHarness({
-  models: [...IDENTITY_MODELS, ...AUDIT_MODELS],
+  models: [...IDENTITY_MODELS, ...PROJECT_MODELS, SourceVersion, Conversation, Job, KnowledgeVersion, RepositoryConnection, ...AUDIT_MODELS],
   uri: TEST_APP_CONFIG.mongo.uri,
 });
 
@@ -320,6 +329,199 @@ describe('audit model, repository, and service', () => {
     expect(shouldAuditAuthorizationDenial(['audit.view'])).toBe(true);
     expect(shouldAuditAuthorizationDenial(['projects.view'])).toBe(false);
     expect(shouldAuditAuthorizationDenial([])).toBe(false);
+  });
+
+  it('resolves resourceName from resourceType and leaves missing targets null', async () => {
+    const org = await createTestOrganization({
+      name: 'Audit Names Org',
+      slug: `audit-names-${Date.now()}`,
+    });
+    const { admin } = await ensureTestRoles(org._id);
+    const targetUser = await createUserInRepo(org._id, {
+      code: nextTestUserCode(),
+      email: `ada-${Date.now()}@example.com`,
+      displayName: 'Ada Lovelace',
+      userStatus: 'active',
+      roleIds: [admin._id],
+    });
+    const project = await Project.create({
+      orgId: org._id,
+      name: 'Payments API',
+      lifecycleStatus: 'awaiting_source',
+      knowledgeHealth: 'none',
+      sourceConfig: { sourceType: 'upload' },
+      createdBy: null,
+      updatedBy: null,
+    });
+    const sourceVersion = await SourceVersion.create({
+      orgId: org._id,
+      projectId: project._id,
+      origin: 'upload',
+      exclusionRulesetId: 'default',
+      versionLifecycle: 'accepted',
+      fileCounts: { accepted: 1, skipped: 0, excludedFromGraph: 0 },
+      createdBy: null,
+      updatedBy: null,
+    });
+    await insertAuditEvent({
+      orgId: org._id,
+      actorUserId: targetUser._id,
+      action: 'user.create',
+      resourceType: 'user',
+      resourceId: String(targetUser._id),
+      result: 'success',
+      correlationId: 'REQ-name-user',
+    });
+    await insertAuditEvent({
+      orgId: org._id,
+      action: 'project.create',
+      resourceType: 'project',
+      resourceId: String(project._id),
+      result: 'success',
+      correlationId: 'REQ-name-project',
+    });
+    await insertAuditEvent({
+      orgId: org._id,
+      action: 'source.upload',
+      resourceType: 'source',
+      resourceId: String(sourceVersion._id),
+      result: 'success',
+      correlationId: 'REQ-name-source',
+    });
+    await insertAuditEvent({
+      orgId: org._id,
+      action: 'user.update',
+      resourceType: 'user',
+      resourceId: new mongoose.Types.ObjectId().toHexString(),
+      result: 'success',
+      correlationId: 'REQ-name-missing',
+    });
+    await insertAuditEvent({
+      orgId: org._id,
+      action: 'authz.denied',
+      resourceType: 'route',
+      resourceId: '/users',
+      result: 'denied',
+      correlationId: 'REQ-name-route',
+    });
+    const conversation = await Conversation.create({
+      orgId: org._id,
+      projectId: project._id,
+      ownerUserId: targetUser._id,
+      title: 'How does login work?',
+      createdBy: null,
+      updatedBy: null,
+    });
+    const job = await Job.create({
+      orgId: org._id,
+      projectId: project._id,
+      jobType: 'ingest',
+      createdBy: null,
+      updatedBy: null,
+    });
+    const knowledge = await KnowledgeVersion.create({
+      orgId: org._id,
+      projectId: project._id,
+      sourceVersionId: sourceVersion._id,
+      graphIdentity: {
+        indexedAt: '2026-09-26T00:00:00.000Z',
+        sourceVersionId: String(sourceVersion._id),
+        indexedFileCount: 1,
+        skippedFileCount: 0,
+        mode: 'indexAll',
+        graphDir: '.codegraph',
+      },
+      publishedHealth: 'ready',
+      excludedFileCount: 0,
+      createdBy: null,
+      updatedBy: null,
+    });
+    const repository = await RepositoryConnection.create({
+      orgId: org._id,
+      projectId: project._id,
+      provider: 'github',
+      hostKind: 'github',
+      repositoryFullName: 'acme/payments',
+      repositoryWebUrl: 'https://github.com/acme/payments',
+      selectedBranch: 'main',
+      defaultBranchAtAttach: 'main',
+      createdBy: null,
+      updatedBy: null,
+    });
+    await insertAuditEvent({
+      orgId: org._id,
+      action: 'role.create',
+      resourceType: 'role',
+      resourceId: String(admin._id),
+      result: 'success',
+      correlationId: 'REQ-name-role',
+    });
+    await insertAuditEvent({
+      orgId: org._id,
+      action: 'membership.update',
+      resourceType: 'membership',
+      resourceId: String(project._id),
+      result: 'success',
+      correlationId: 'REQ-name-membership',
+    });
+    await insertAuditEvent({
+      orgId: org._id,
+      action: 'conversation.created',
+      resourceType: 'conversation',
+      resourceId: String(conversation._id),
+      result: 'success',
+      correlationId: 'REQ-name-conversation',
+    });
+    await insertAuditEvent({
+      orgId: org._id,
+      action: 'job.retry',
+      resourceType: 'job',
+      resourceId: String(job._id),
+      result: 'success',
+      correlationId: 'REQ-name-job',
+    });
+    await insertAuditEvent({
+      orgId: org._id,
+      action: 'knowledge.completed',
+      resourceType: 'knowledge',
+      resourceId: String(knowledge._id),
+      result: 'success',
+      correlationId: 'REQ-name-knowledge',
+    });
+    await insertAuditEvent({
+      orgId: org._id,
+      action: 'repository.connected',
+      resourceType: 'repository',
+      resourceId: String(repository._id),
+      result: 'success',
+      correlationId: 'REQ-name-repository',
+    });
+
+    const listed = await listAuditEventsForOrg(org._id);
+    const byCorrelation = Object.fromEntries(listed.items.map((item) => [item.correlationId, item]));
+    expect(byCorrelation['REQ-name-user'].resourceName).toBe('Ada Lovelace');
+    expect(byCorrelation['REQ-name-project'].resourceName).toBe('Payments API');
+    expect(byCorrelation['REQ-name-source'].resourceName).toBe('Payments API');
+    expect(byCorrelation['REQ-name-missing'].resourceName).toBeNull();
+    expect(byCorrelation['REQ-name-route'].resourceName).toBe('/users');
+    expect(byCorrelation['REQ-name-role'].resourceName).toBe(admin.name);
+    expect(byCorrelation['REQ-name-membership'].resourceName).toBe('Payments API');
+    expect(byCorrelation['REQ-name-conversation'].resourceName).toBe('How does login work?');
+    expect(byCorrelation['REQ-name-job'].resourceName).toBe('Payments API');
+    expect(byCorrelation['REQ-name-knowledge'].resourceName).toBe('Payments API');
+    expect(byCorrelation['REQ-name-repository'].resourceName).toBe('acme/payments');
+    expect(byCorrelation['REQ-name-user'].actor).toMatchObject({
+      email: targetUser.email,
+      displayName: 'Ada Lovelace',
+    });
+    const detail = await getAuditEventForOrg(org._id, byCorrelation['REQ-name-project'].id);
+    expect(detail.resourceName).toBe('Payments API');
+  });
+
+  it('accepts a 31-day list window and ignores a one-sided bound', () => {
+    expect(() => assertAuditListDateRange(new Date('2026-09-01T00:00:00.000Z'), new Date('2026-10-02T00:00:00.000Z'))).not.toThrow();
+    expect(() => assertAuditListDateRange(new Date('2026-09-01T00:00:00.000Z'), new Date('2026-10-03T00:00:00.000Z'))).toThrow();
+    expect(() => assertAuditListDateRange(new Date('not-a-date'), new Date('2026-09-01T00:00:00.000Z'))).not.toThrow();
   });
 
   it('round-trips encodeCursor for list pages', () => {

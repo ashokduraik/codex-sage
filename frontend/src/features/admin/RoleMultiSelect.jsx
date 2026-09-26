@@ -1,14 +1,15 @@
+/**
+ * Role assignment list for invite and edit-roles dialogs.
+ */
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Checkbox } from '@/shared/ui/checkbox';
-import { Label } from '@/shared/ui/label';
 import { cn } from '@/shared/lib/utils';
 
 /**
- * Multi-select checklist for assigning organization roles.
+ * Multi-select list for assigning organization roles.
  *
  * @param {{
- *   roles: Array<{ id: string, name: string }>,
+ *   roles: Array<{ id: string, name: string, code?: string }>,
  *   selectedRoleIds: string[],
  *   onChange: (roleIds: string[]) => void,
  *   disabled?: boolean,
@@ -44,18 +45,42 @@ export function RoleMultiSelect({ roles, selectedRoleIds, onChange, disabled = f
   }
 
   return (
-    <div className="max-h-48 space-y-2 overflow-y-auto rounded-md border border-border p-3">
-      {roles.map((role) => {
+    <div className="overflow-hidden rounded-lg border border-border bg-card">
+      {roles.map((role, index) => {
         const roleId = String(role.id);
-        const inputId = `${idPrefix}-${roleId}`;
         const checked = selectedSet.has(roleId);
         return (
-          <div key={roleId} className="flex items-center gap-2">
-            <Checkbox id={inputId} checked={checked} disabled={disabled} onCheckedChange={(value) => toggleRole(roleId, value === true)} />
-            <Label htmlFor={inputId} className={cn('cursor-pointer font-normal', disabled && 'opacity-70')}>
-              {role.name}
-            </Label>
-          </div>
+          <label
+            key={roleId}
+            className={cn(
+              'flex w-full items-center justify-between gap-3 border-b border-border px-4 py-2.5 last:border-b-0',
+              index % 2 === 1 && 'bg-muted/20',
+              disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:bg-muted/40',
+            )}
+          >
+            <input
+              id={`${idPrefix}-${roleId}`}
+              type="checkbox"
+              className="sr-only"
+              checked={checked}
+              disabled={disabled}
+              aria-label={role.name}
+              onChange={(event) => toggleRole(roleId, event.target.checked)}
+            />
+            <span className="min-w-0">
+              <span className="block text-sm text-foreground/90">{role.name}</span>
+              {role.code ? <span className="mt-0.5 block font-mono text-xs text-muted-foreground">{role.code}</span> : null}
+            </span>
+            <span
+              className={cn(
+                'flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold',
+                checked ? 'bg-brand text-brand-foreground' : 'bg-muted text-muted-foreground/40',
+              )}
+              aria-hidden="true"
+            >
+              {checked ? '✓' : '—'}
+            </span>
+          </label>
         );
       })}
     </div>
