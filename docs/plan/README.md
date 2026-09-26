@@ -91,7 +91,9 @@ stay empty until a later ADR.
 
 **Ingest close-out (this slice):** in-app notifications (poll), ingest/search usage facts,
 retention job (last 3 ready source versions), frontend reingest. Phase 05 evaluation is
-written with this close-out. Playwright E2E / CI remains Phase 63.
+written with this close-out. A **local** Playwright journey suite lives in
+[`tests/e2e/`](../../tests/e2e/) (`npm run test:e2e`; operator-started stack). GitHub
+Actions CI remains Phase 63.
 
 ### Frontend — `frontend/`
 
@@ -180,7 +182,7 @@ Taken from `AGENTS.md` and `.cursor/rules/`. Repeated here so a phase document d
 - Descriptive names that state the behaviour (`it('returns 403 when the caller lacks chat.ask')`).
 - Test the public surface, plus the unhappy paths: errors, authorization failures, empty and
   loading states, cross-tenant attempts.
-- Playwright E2E only in phase 63.
+- Playwright E2E journeys live in `tests/e2e/` (local live stack). CI wiring remains Phase 63.
 
 ### Frontend specifics
 

@@ -2,6 +2,7 @@
   "name": "codex-sage",
   "version": "0.0.0",
   "private": true,
+  "type": "module",
   "description": "Root scripts for setup, install, and run of backend and frontend",
   "scripts": {
     "setup": "bash scripts/setup.sh",
@@ -10,6 +11,9 @@
     "build": "bash scripts/build.sh",
     "start": "bash scripts/start.sh",
     "test": "bash scripts/test.sh",
+    "test:e2e": "playwright test -c tests/e2e/playwright.config.js",
+    "test:e2e:env": "node --test tests/e2e/helpers/validate-e2e-env.test.js",
+    "playwright:install": "bash scripts/playwright-install-chromium.sh",
     "lint": "bash scripts/lint.sh",
     "clean": "bash scripts/clean.sh",
     "prepare": "husky",
@@ -19,6 +23,8 @@
     "node": ">=26"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "dotenv": "^18.0.4",
     "husky": "^9.1.7",
     "lint-staged": "^17.6.0",
     "prettier": "^3.8.1"

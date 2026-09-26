@@ -14,7 +14,7 @@ inspectable evidence.
 
 ```bash
 npm run setup   # check Node, bootstrap .env files, install deps
-npm run dev     # backend API on :3000 + frontend Vite (proxies /api → :3000)
+npm run dev     # API :3000 + worker + frontend Vite (proxies /api → :3000)
 ```
 
 ### First run (backend)
@@ -31,9 +31,9 @@ All root commands operate on **both** `backend/` and `frontend/`.
 
 | Command           | What it does                                                                                                               |
 | ----------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `npm run setup`   | Verify Node >= 26, copy `.env.example` → `.env` only if missing, then install                                              |
+| `npm run setup`   | Verify Node >= 26, copy `.env.example` → `.env` only if missing (apps + `tests/e2e/`), then install                        |
 | `npm run install` | `npm ci` per app when a lockfile exists; otherwise `npm install`                                                           |
-| `npm run dev`     | Dev servers: backend (`node --watch`, **:3000**) and frontend (Vite; `/api` proxied to **:3000**)                          |
+| `npm run dev`     | Dev servers: backend API (`node --watch`, **:3000**), ingest worker, and frontend (Vite; `/api` proxied to **:3000**)      |
 | `npm run build`   | Production builds: backend (no-op; plain JavaScript) and frontend (`vite build`)                                           |
 | `npm run start`   | Production run: one Fastify process serves `/api/v1` and the built SPA (`frontend/dist`); requires a prior `npm run build` |
 | `npm run test`    | Vitest with coverage in both apps                                                                                          |

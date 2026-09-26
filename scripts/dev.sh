@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Run backend (node --watch, port 3000) and frontend (Vite) together for local development.
-# Prefixed logs; Ctrl-C / TERM cleanly stops both processes.
+# Run backend API, ingest worker, and frontend (Vite) together for local development.
+# Prefixed logs; Ctrl-C / TERM cleanly stops all three processes.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -8,6 +8,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib/common.sh"
 
 BACKEND_PID=""
+WORKER_PID=""
 FRONTEND_PID=""
 SHUTTING_DOWN=0
 
@@ -18,8 +19,10 @@ cleanup() {
   SHUTTING_DOWN=1
   trap - INT TERM EXIT
   killTree "${BACKEND_PID}"
+  killTree "${WORKER_PID}"
   killTree "${FRONTEND_PID}"
   wait "${BACKEND_PID}" 2>/dev/null || true
+  wait "${WORKER_PID}" 2>/dev/null || true
   wait "${FRONTEND_PID}" 2>/dev/null || true
 }
 
@@ -32,7 +35,7 @@ onSignal() {
 trap onSignal INT TERM
 trap cleanup EXIT
 
-logInfo "Starting backend (API on :3000) and frontend (Vite; /api proxied to :3000)..."
+logInfo "Starting backend (API on :3000), worker, and frontend (Vite; /api proxied to :3000)..."
 
 (
   cd "${REPO_ROOT}/backend"
@@ -41,23 +44,48 @@ logInfo "Starting backend (API on :3000) and frontend (Vite; /api proxied to :30
 BACKEND_PID=$!
 
 (
+  cd "${REPO_ROOT}/backend"
+  npm run dev:worker 2>&1 | prefixStream "worker"
+) &
+WORKER_PID=$!
+
+(
   cd "${REPO_ROOT}/frontend"
   npm run dev 2>&1 | prefixStream "frontend"
 ) &
 FRONTEND_PID=$!
 
 BACKEND_STATUS=0
+WORKER_STATUS=0
 FRONTEND_STATUS=0
 
-# Poll until either child exits, then stop the other.
+# Poll until any child exits, then stop the others.
 while true; do
   if ! kill -0 "${BACKEND_PID}" 2>/dev/null; then
     set +e
     wait "${BACKEND_PID}"
     BACKEND_STATUS=$?
     set -e
+    killTree "${WORKER_PID}"
     killTree "${FRONTEND_PID}"
     set +e
+    wait "${WORKER_PID}"
+    WORKER_STATUS=$?
+    wait "${FRONTEND_PID}"
+    FRONTEND_STATUS=$?
+    set -e
+    break
+  fi
+  if ! kill -0 "${WORKER_PID}" 2>/dev/null; then
+    set +e
+    wait "${WORKER_PID}"
+    WORKER_STATUS=$?
+    set -e
+    killTree "${BACKEND_PID}"
+    killTree "${FRONTEND_PID}"
+    set +e
+    wait "${BACKEND_PID}"
+    BACKEND_STATUS=$?
     wait "${FRONTEND_PID}"
     FRONTEND_STATUS=$?
     set -e
@@ -69,9 +97,12 @@ while true; do
     FRONTEND_STATUS=$?
     set -e
     killTree "${BACKEND_PID}"
+    killTree "${WORKER_PID}"
     set +e
     wait "${BACKEND_PID}"
     BACKEND_STATUS=$?
+    wait "${WORKER_PID}"
+    WORKER_STATUS=$?
     set -e
     break
   fi
@@ -81,7 +112,7 @@ done
 SHUTTING_DOWN=1
 trap - INT TERM EXIT
 
-if [ "${BACKEND_STATUS}" -ne 0 ] || [ "${FRONTEND_STATUS}" -ne 0 ]; then
-  logError "A process exited with an error (backend=${BACKEND_STATUS}, frontend=${FRONTEND_STATUS})."
+if [ "${BACKEND_STATUS}" -ne 0 ] || [ "${WORKER_STATUS}" -ne 0 ] || [ "${FRONTEND_STATUS}" -ne 0 ]; then
+  logError "A process exited with an error (backend=${BACKEND_STATUS}, worker=${WORKER_STATUS}, frontend=${FRONTEND_STATUS})."
   exit 1
 fi

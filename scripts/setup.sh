@@ -48,6 +48,17 @@ bootstrapEnvFiles() {
       logInfo "Created ${app}/.env from .env.example"
     fi
   done
+
+  local e2e_example="${REPO_ROOT}/tests/e2e/.env.example"
+  local e2e_env="${REPO_ROOT}/tests/e2e/.env"
+  if [ ! -f "${e2e_example}" ]; then
+    logWarn "tests/e2e/.env.example is missing; skipping env bootstrap for e2e."
+  elif [ -f "${e2e_env}" ]; then
+    logInfo "tests/e2e/.env already exists; leaving it unchanged."
+  else
+    cp "${e2e_example}" "${e2e_env}"
+    logInfo "Created tests/e2e/.env from .env.example"
+  fi
 }
 
 requireNodeVersion
