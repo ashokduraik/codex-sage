@@ -1,0 +1,186 @@
+{
+  "fingerprint": {
+    "recordedAt": "2026-09-26T16:14:03.675Z",
+    "hostname": "Ashoks-MacBook-Pro.local",
+    "platform": "darwin",
+    "release": "25.6.0",
+    "arch": "arm64",
+    "nodeVersion": "v26.5.0",
+    "hostMemoryBytes": 51539607552,
+    "hostFreeMemoryBytes": 4276764672,
+    "cpuCount": 18,
+    "command": "",
+    "ollamaUrl": "http://127.0.0.1:11434",
+    "ollamaVersion": "0.33.2"
+  },
+  "artifact": {
+    "requestedModel": "qwen3.8:latest",
+    "digest": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+    "details": {
+      "parent_model": "qwen3.8:27b-q4_K_M",
+      "format": "gguf",
+      "family": "qwen35",
+      "families": [
+        "qwen35"
+      ],
+      "parameter_size": "27.3B",
+      "quantization_level": "Q4_K_M"
+    },
+    "advertisedContextLength": 262144,
+    "tokenizer": {
+      "ggmlModel": "gpt2",
+      "ggmlPre": "qwen35"
+    },
+    "usesLatestTag": true
+  },
+  "ladder": {
+    "skipped": false,
+    "steps": [
+      {
+        "numCtx": 32768,
+        "fillRatio": 0.25,
+        "targetPromptTokens": 8192,
+        "ok": true,
+        "oom": false,
+        "error": null,
+        "elapsedMs": 16978,
+        "promptEvalCount": 5194,
+        "evalCount": 2,
+        "promptEvalDurationNs": 14881573000,
+        "evalDurationNs": 155774000,
+        "loadDurationNs": 1915242208,
+        "totalDurationNs": 16969867750,
+        "nodeRssBeforeBytes": 79134720,
+        "nodeRssAfterBytes": 91717632
+      },
+      {
+        "numCtx": 65536,
+        "fillRatio": 0.25,
+        "targetPromptTokens": 16384,
+        "ok": true,
+        "oom": false,
+        "error": null,
+        "elapsedMs": 36592,
+        "promptEvalCount": 10368,
+        "evalCount": 2,
+        "promptEvalDurationNs": 31722855000,
+        "evalDurationNs": 166539000,
+        "loadDurationNs": 4656248250,
+        "totalDurationNs": 36577221958,
+        "nodeRssBeforeBytes": 91799552,
+        "nodeRssAfterBytes": 46055424
+      },
+      {
+        "numCtx": 131072,
+        "fillRatio": 0.25,
+        "targetPromptTokens": 32768,
+        "ok": true,
+        "oom": false,
+        "error": null,
+        "elapsedMs": 75828,
+        "promptEvalCount": 20715,
+        "evalCount": 2,
+        "promptEvalDurationNs": 70800902000,
+        "evalDurationNs": 179716000,
+        "loadDurationNs": 4773094125,
+        "totalDurationNs": 75805112708,
+        "nodeRssBeforeBytes": 46546944,
+        "nodeRssAfterBytes": 48676864
+      }
+    ]
+  },
+  "reservedOutput": {
+    "ok": true,
+    "oom": false,
+    "error": null,
+    "elapsedMs": 11877,
+    "promptEvalCount": 39,
+    "evalCount": 201,
+    "promptEvalDurationNs": 422467000,
+    "evalDurationNs": 11038082000,
+    "loadDurationNs": 2180875,
+    "totalDurationNs": 11867562583,
+    "nodeRssBeforeBytes": 48889856,
+    "nodeRssAfterBytes": 48119808
+  },
+  "parity": {
+    "skipped": false,
+    "fixtures": {
+      "system": {
+        "ok": true,
+        "oom": false,
+        "error": null,
+        "elapsedMs": 5974,
+        "promptEvalCount": 31,
+        "evalCount": 1,
+        "promptEvalDurationNs": 405516000,
+        "evalDurationNs": 1000,
+        "loadDurationNs": 5562922709,
+        "totalDurationNs": 5970009917,
+        "nodeRssBeforeBytes": 48218112,
+        "nodeRssAfterBytes": 49643520
+      },
+      "turns": {
+        "ok": true,
+        "oom": false,
+        "error": null,
+        "elapsedMs": 422,
+        "promptEvalCount": 35,
+        "evalCount": 1,
+        "promptEvalDurationNs": 400629000,
+        "evalDurationNs": 1000,
+        "loadDurationNs": 924292,
+        "totalDurationNs": 418942167,
+        "nodeRssBeforeBytes": 49659904,
+        "nodeRssAfterBytes": 50511872
+      },
+      "toolJson": {
+        "ok": true,
+        "oom": false,
+        "error": null,
+        "elapsedMs": 428,
+        "promptEvalCount": 44,
+        "evalCount": 1,
+        "promptEvalDurationNs": 407113000,
+        "evalDurationNs": 1000,
+        "loadDurationNs": 909792,
+        "totalDurationNs": 425485459,
+        "nodeRssBeforeBytes": 50511872,
+        "nodeRssAfterBytes": 50774016
+      },
+      "codeExcerpt": {
+        "ok": true,
+        "oom": false,
+        "error": null,
+        "elapsedMs": 431,
+        "promptEvalCount": 49,
+        "evalCount": 1,
+        "promptEvalDurationNs": 409971000,
+        "evalDurationNs": 1000,
+        "loadDurationNs": 837834,
+        "totalDurationNs": 428921834,
+        "nodeRssBeforeBytes": 50774016,
+        "nodeRssAfterBytes": 50921472
+      }
+    }
+  },
+  "excerptFloor": {
+    "ok": true,
+    "oom": false,
+    "error": null,
+    "elapsedMs": 419,
+    "promptEvalCount": 27,
+    "evalCount": 1,
+    "promptEvalDurationNs": 397919000,
+    "evalDurationNs": 1000,
+    "loadDurationNs": 963708,
+    "totalDurationNs": 415847208,
+    "nodeRssBeforeBytes": 50921472,
+    "nodeRssAfterBytes": 51052544
+  },
+  "recommendations": {
+    "validatedContextCapacity": 131072,
+    "reservedOutputTokens": 457,
+    "excerptMinTokens": 27
+  }
+}

@@ -27,6 +27,11 @@ describe('ERROR_CATALOG', () => {
     expect(ERROR_CATALOG.KNOWLEDGE_UPDATING.retryability).toBe('temporary');
     expect(ERROR_CATALOG.KNOWLEDGE_UPDATING.message).toBe('Project knowledge is being updated.');
     expect(ERROR_CATALOG.CONTEXT_ACCOUNTING_UNAVAILABLE.retryability).toBe('temporary');
+    expect(ERROR_CATALOG.CONTEXT_BUDGET_EXCEEDED).toMatchObject({
+      class: 'user',
+      httpStatus: 422,
+      retryability: 'user_action_required',
+    });
     expect(ERROR_CATALOG[MONGO_UNAVAILABLE_CODE].httpStatus).toBe(503);
     expect(ERROR_CATALOG.SEARCH_RESULT_NOT_FOUND).toMatchObject({
       class: 'knowledge',

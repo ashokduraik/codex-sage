@@ -6,6 +6,9 @@ const VALID_ENV = {
   JWT_ACCESS_TOKEN_SECRET: 'test-jwt-access-token-secret-at-least-32-chars',
   WORKSPACE_ROOT: '/tmp/codex-sage-workspace-test-config',
   REPO_CREDENTIAL_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString('base64'),
+  LLM_BASE_URL: 'http://127.0.0.1:11434/v1',
+  LLM_MODEL_ID: 'qwen3.8:latest',
+  LLM_CONTEXT_CAPACITY: '131072',
 };
 describe('loadConfig', () => {
   it('uses defaults when optional env variables are absent', () => {
@@ -26,6 +29,11 @@ describe('loadConfig', () => {
     expect(cfg.repositories.allowPrivateHosts).toBe(false);
     expect(Buffer.isBuffer(cfg.repositories.encryptionKey)).toBe(true);
     expect(cfg.repositories.encryptionKey.length).toBe(32);
+    expect(cfg.llm.baseUrl).toBe(VALID_ENV.LLM_BASE_URL);
+    expect(cfg.llm.modelId).toBe(VALID_ENV.LLM_MODEL_ID);
+    expect(cfg.llm.contextCapacity).toBe(131072);
+    expect(cfg.llm.apiKey).toBeNull();
+    expect(cfg.llm).not.toHaveProperty('artifactId');
   });
   it('reads overrides from env', () => {
     const cfg = loadConfig({
@@ -164,18 +172,25 @@ describe('loadConfig', () => {
     const serialized = JSON.stringify(cfg);
     expect(serialized).not.toMatch(/pool|SOCKET|API_BASE_PATH|SHUTDOWN/i);
     expect(cfg).not.toHaveProperty('poolSize');
-    expect(Object.keys(cfg)).toEqual(['env', 'server', 'logging', 'mongo', 'auth', 'workspace', 'repositories']);
+    expect(Object.keys(cfg)).toEqual(['env', 'server', 'logging', 'mongo', 'auth', 'workspace', 'repositories', 'llm']);
   });
   it('falls back to process.env by default when MONGODB_URI is set', () => {
     const previousUri = process.env.MONGODB_URI;
     const previousJwt = process.env.JWT_ACCESS_TOKEN_SECRET;
+    const previousLlmUrl = process.env.LLM_BASE_URL;
+    const previousLlmModel = process.env.LLM_MODEL_ID;
+    const previousLlmCapacity = process.env.LLM_CONTEXT_CAPACITY;
     process.env.MONGODB_URI = VALID_ENV.MONGODB_URI;
     process.env.JWT_ACCESS_TOKEN_SECRET = VALID_ENV.JWT_ACCESS_TOKEN_SECRET;
+    process.env.LLM_BASE_URL = VALID_ENV.LLM_BASE_URL;
+    process.env.LLM_MODEL_ID = VALID_ENV.LLM_MODEL_ID;
+    process.env.LLM_CONTEXT_CAPACITY = VALID_ENV.LLM_CONTEXT_CAPACITY;
     try {
       const cfg = loadConfig();
       expect(typeof cfg.server.port).toBe('number');
       expect(cfg.mongo.uri.length).toBeGreaterThan(0);
       expect(cfg.auth.jwtAccessTokenSecret.length).toBeGreaterThanOrEqual(32);
+      expect(cfg.llm.modelId).toBe(VALID_ENV.LLM_MODEL_ID);
     } finally {
       if (previousUri === undefined) {
         delete process.env.MONGODB_URI;
@@ -187,10 +202,79 @@ describe('loadConfig', () => {
       } else {
         process.env.JWT_ACCESS_TOKEN_SECRET = previousJwt;
       }
+      if (previousLlmUrl === undefined) {
+        delete process.env.LLM_BASE_URL;
+      } else {
+        process.env.LLM_BASE_URL = previousLlmUrl;
+      }
+      if (previousLlmModel === undefined) {
+        delete process.env.LLM_MODEL_ID;
+      } else {
+        process.env.LLM_MODEL_ID = previousLlmModel;
+      }
+      if (previousLlmCapacity === undefined) {
+        delete process.env.LLM_CONTEXT_CAPACITY;
+      } else {
+        process.env.LLM_CONTEXT_CAPACITY = previousLlmCapacity;
+      }
     }
   });
   it('throws when API_HOST is blank', () => {
     expect(() => loadConfig({ ...VALID_ENV, API_HOST: '   ' })).toThrow(/API_HOST/);
+  });
+  it('throws when LLM_BASE_URL is missing', () => {
+    const { LLM_BASE_URL: _omit, ...withoutUrl } = VALID_ENV;
+    expect(() => loadConfig(withoutUrl)).toThrow(/LLM_BASE_URL/);
+  });
+  it('throws when LLM_BASE_URL is blank', () => {
+    expect(() => loadConfig({ ...VALID_ENV, LLM_BASE_URL: '   ' })).toThrow(/LLM_BASE_URL/);
+  });
+  it('throws when LLM_BASE_URL is not http or https', () => {
+    expect(() => loadConfig({ ...VALID_ENV, LLM_BASE_URL: 'ftp://127.0.0.1:11434/v1' })).toThrow(/LLM_BASE_URL/);
+    expect(() => loadConfig({ ...VALID_ENV, LLM_BASE_URL: 'not-a-url' })).toThrow(/LLM_BASE_URL/);
+  });
+  it('does not put the LLM_BASE_URL value in the thrown message', () => {
+    const secret = 'http://user:s3cret@127.0.0.1:11434/v1';
+    try {
+      loadConfig({ ...VALID_ENV, LLM_BASE_URL: 'not-a-url' });
+      expect.unreachable('expected loadConfig to throw');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      expect(message).not.toContain(secret);
+      expect(message).not.toContain('not-a-url');
+      expect(message).toContain('LLM_BASE_URL');
+    }
+  });
+  it('throws when LLM_MODEL_ID is missing or blank', () => {
+    const { LLM_MODEL_ID: _omit, ...withoutModel } = VALID_ENV;
+    expect(() => loadConfig(withoutModel)).toThrow(/LLM_MODEL_ID/);
+    expect(() => loadConfig({ ...VALID_ENV, LLM_MODEL_ID: '   ' })).toThrow(/LLM_MODEL_ID/);
+  });
+  it('throws when LLM_CONTEXT_CAPACITY is missing or not a positive integer', () => {
+    const { LLM_CONTEXT_CAPACITY: _omit, ...withoutCapacity } = VALID_ENV;
+    expect(() => loadConfig(withoutCapacity)).toThrow(/LLM_CONTEXT_CAPACITY/);
+    expect(() => loadConfig({ ...VALID_ENV, LLM_CONTEXT_CAPACITY: '0' })).toThrow(/LLM_CONTEXT_CAPACITY/);
+    expect(() => loadConfig({ ...VALID_ENV, LLM_CONTEXT_CAPACITY: '-1' })).toThrow(/LLM_CONTEXT_CAPACITY/);
+    expect(() => loadConfig({ ...VALID_ENV, LLM_CONTEXT_CAPACITY: 'abc' })).toThrow(/LLM_CONTEXT_CAPACITY/);
+  });
+  it('reads optional LLM_API_KEY when set and trims it', () => {
+    const cfg = loadConfig({ ...VALID_ENV, LLM_API_KEY: '  sk-test-key  ' });
+    expect(cfg.llm.apiKey).toBe('sk-test-key');
+  });
+  it('treats blank LLM_API_KEY as absent', () => {
+    const cfg = loadConfig({ ...VALID_ENV, LLM_API_KEY: '   ' });
+    expect(cfg.llm.apiKey).toBeNull();
+  });
+  it('does not put the LLM_API_KEY value in the thrown message', () => {
+    const secret = 'sk-must-not-leak';
+    try {
+      loadConfig({ ...VALID_ENV, LLM_BASE_URL: 'not-a-url', LLM_API_KEY: secret });
+      expect.unreachable('expected loadConfig to throw');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      expect(message).not.toContain(secret);
+      expect(message).toContain('LLM_BASE_URL');
+    }
   });
 });
 describe('parseAppRunningPlatform', () => {

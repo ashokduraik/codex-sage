@@ -319,6 +319,10 @@ export const ERROR_CODE_MESSAGES = Object.freeze({
     i18nKey: 'errors.codes.CONTEXT_ACCOUNTING_UNAVAILABLE',
     category: 'temporary',
   }),
+  CONTEXT_BUDGET_EXCEEDED: Object.freeze({
+    i18nKey: 'errors.codes.CONTEXT_BUDGET_EXCEEDED',
+    category: 'validation',
+  }),
   NETWORK: Object.freeze({
     i18nKey: 'errors.network',
     category: 'temporary',

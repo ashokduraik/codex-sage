@@ -133,7 +133,7 @@ Partial pipeline (P1–P3) is a valid MVP gate if product approves.
 ### 4.5 Skips and honesty
 
 - Use Playwright `test.skip(condition, reason)` or separate projects `@smoke` vs `@full` — not
-  empty passes. Skipped tests log a clear reason (`no E2E_GITHUB_TOKEN`, `no OLLAMA_BASE_URL`).
+  empty passes. Skipped tests log a clear reason (`no E2E_GITHUB_TOKEN`, `no LLM_BASE_URL`).
 - Frontend must not show fabricated progress; E2E waits on **authoritative** API/job state (phase
   22/35), with timeouts as named constants in the Playwright helpers.
 
@@ -179,7 +179,7 @@ Per-environment only (document in root and `backend/.env.example`, `frontend/.en
 | `E2E_WEB_BASE_URL` | E2E | Vite dev or preview URL |
 | `E2E_MONGODB_DB_NAME` | Optional | Default `codex_sage_test` |
 | `E2E_GITHUB_TOKEN` / `E2E_TEST_REPO_URL` | Optional P4 | Repository connect path |
-| `OLLAMA_BASE_URL` / LLM vars from phase 45 | Optional P5 | Chat path |
+| `LLM_BASE_URL` / `LLM_MODEL_ID` / `LLM_CONTEXT_CAPACITY` | Optional P5 | Chat path |
 
 Playwright timeouts, poll intervals for job completion, and SSE read deadlines are **named
 constants** in `e2e/` helpers, not env vars.

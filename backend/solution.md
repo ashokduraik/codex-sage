@@ -23,24 +23,24 @@ Ingest and Q&A are the heart of the product. Both flows below are normative.
 
 ## 1. Decisions and evaluation status
 
-| Topic                 | Decision                                                                       |
-| --------------------- | ------------------------------------------------------------------------------ |
-| Evaluation chat model | **`qwen3.8:latest`** on Ollama; currently a 27.3B Q4_K_M artifact (~18 GB)     |
-| Model lock            | Not production-pinned; re-evaluate and pin only when implementation begins     |
-| Effective context     | Benchmark 32K / 64K / 128K; configure the largest passing budget               |
-| Code intelligence     | **`@colbymchenry/codegraph` Node library**, current graph only                 |
-| Code retrieval        | CodeGraph only; no code embeddings, vector search, or external reranker        |
-| Documents             | Markdown/MDX/text in Mongo; scoped FTS + bounded reads; no embeddings          |
-| Graph updates         | Worker-controlled in-place sync; project Q&A queues while graph is unavailable |
-| CodeGraph telemetry   | Disabled in every environment                                                  |
-| LLM client            | **Vercel AI SDK (`ai`)** → Ollama OpenAI-compatible API                        |
-| ODM                   | **Mongoose** for CRUD and domain models                                        |
-| Raw bytes             | **GridFS** (not LocalStack S3)                                                 |
-| Jobs                  | **MongoDB job collection** + worker poller (**no Redis / BullMQ**)             |
-| Atlas                 | **Not required.** Local MongoDB **8+**                                         |
-| SQL / DB Q&A          | **Out of MVP**                                                                 |
-| Images                | **Ignored**                                                                    |
-| `node_modules`        | **Skip at upload/extract**; else reject and ask re-upload                      |
+| Topic                 | Decision                                                                                                                        |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Evaluation chat model | **`qwen3.8:latest`** via OpenAI-compatible `/v1` (local Ollama is one example host); currently a 27.3B Q4_K_M artifact (~18 GB) |
+| Model lock            | Not production-pinned; re-evaluate and pin only when implementation begins                                                      |
+| Effective context     | Benchmark 32K / 64K / 128K; configure the largest passing budget                                                                |
+| Code intelligence     | **`@colbymchenry/codegraph` Node library**, current graph only                                                                  |
+| Code retrieval        | CodeGraph only; no code embeddings, vector search, or external reranker                                                         |
+| Documents             | Markdown/MDX/text in Mongo; scoped FTS + bounded reads; no embeddings                                                           |
+| Graph updates         | Worker-controlled in-place sync; project Q&A queues while graph is unavailable                                                  |
+| CodeGraph telemetry   | Disabled in every environment                                                                                                   |
+| LLM client            | **Vercel AI SDK (`ai`)** → configured OpenAI-compatible `/v1` API                                                               |
+| ODM                   | **Mongoose** for CRUD and domain models                                                                                         |
+| Raw bytes             | **GridFS** (not LocalStack S3)                                                                                                  |
+| Jobs                  | **MongoDB job collection** + worker poller (**no Redis / BullMQ**)                                                              |
+| Atlas                 | **Not required.** Local MongoDB **8+**                                                                                          |
+| SQL / DB Q&A          | **Out of MVP**                                                                                                                  |
+| Images                | **Ignored**                                                                                                                     |
+| `node_modules`        | **Skip at upload/extract**; else reject and ask re-upload                                                                       |
 
 These are evaluation decisions, not proof of scale, accuracy, latency, or reliability. Before an
 implementation ADR locks them, representative tests must establish CodeGraph coverage and recovery,
@@ -49,7 +49,7 @@ concurrency.
 
 ### 1.1 Qwen3.8 feasibility and execution
 
-The current `qwen3.8:latest` artifact is reported by Ollama as 27.3B parameters, Q4_K_M,
+The current `qwen3.8:latest` artifact is reported by a local OpenAI-compatible host as 27.3B parameters, Q4_K_M,
 approximately 18 GB, with an advertised 256K context. The target machine is known only as having
 approximately 35 GB of usable inference memory; GPU model, host RAM, CPU, and OS are not known.
 
@@ -111,26 +111,26 @@ tool-round cap, but exhausting any budget terminates the run.
 
 ## 2. Technologies & software
 
-| Layer                 | Choice                                                                                            |
-| --------------------- | ------------------------------------------------------------------------------------------------- |
-| Runtime               | Node.js 26+, JavaScript                                                                           |
-| HTTP                  | Fastify 5, `/api/v1`                                                                              |
-| Data access           | **Mongoose** (schemas, validation, CRUD, middleware)                                              |
-| DB                    | Local MongoDB **8+** (current stable; use latest 8.x)                                             |
-| Blobs                 | GridFS                                                                                            |
-| Queue                 | MongoDB `jobs` collection                                                                         |
-| Orchestration         | `@langchain/langgraph` + tool nodes                                                               |
-| LLM I/O (chat)        | **`ai` (Vercel AI SDK)** → Ollama OpenAI-compat (`/v1`) for understand / draft / verify streaming |
-| Chat                  | Evaluation: **`qwen3.8:latest`**; pin the passing artifact before implementation                  |
-| Code graph            | **`@colbymchenry/codegraph`** Node library on a tenant/project-isolated workspace                 |
-| Code graph store      | Current per-project CodeGraph SQLite index on an encrypted server volume                          |
-| Document retrieval    | MongoDB text index + bounded GridFS/source reads for Markdown/MDX/text                            |
-| Embeddings / reranker | **None**                                                                                          |
-| Docs parse            | `unified` / `remark` for bounded Markdown/MDX sections; plain-text line slices                    |
-| Auth                  | JWT + argon2                                                                                      |
-| Soft delete           | `status: 'A' \| 'D'`; lifecycle in separate fields                                                |
+| Layer                 | Choice                                                                                       |
+| --------------------- | -------------------------------------------------------------------------------------------- |
+| Runtime               | Node.js 26+, JavaScript                                                                      |
+| HTTP                  | Fastify 5, `/api/v1`                                                                         |
+| Data access           | **Mongoose** (schemas, validation, CRUD, middleware)                                         |
+| DB                    | Local MongoDB **8+** (current stable; use latest 8.x)                                        |
+| Blobs                 | GridFS                                                                                       |
+| Queue                 | MongoDB `jobs` collection                                                                    |
+| Orchestration         | `@langchain/langgraph` + tool nodes                                                          |
+| LLM I/O (chat)        | **`ai` (Vercel AI SDK)** → OpenAI-compatible `/v1` for understand / draft / verify streaming |
+| Chat                  | Evaluation: **`qwen3.8:latest`**; pin the passing artifact before implementation             |
+| Code graph            | **`@colbymchenry/codegraph`** Node library on a tenant/project-isolated workspace            |
+| Code graph store      | Current per-project CodeGraph SQLite index on an encrypted server volume                     |
+| Document retrieval    | MongoDB text index + bounded GridFS/source reads for Markdown/MDX/text                       |
+| Embeddings / reranker | **None**                                                                                     |
+| Docs parse            | `unified` / `remark` for bounded Markdown/MDX sections; plain-text line slices               |
+| Auth                  | JWT + argon2                                                                                 |
+| Soft delete           | `status: 'A' \| 'D'`; lifecycle in separate fields                                           |
 
-**Software:** Node 24+, MongoDB **8+**, Ollama with the evaluation Qwen artifact, encrypted local
+**Software:** Node 24+, MongoDB **8+**, an OpenAI-compatible LLM host with the evaluation Qwen artifact, encrypted local
 storage for materialized source/CodeGraph indexes, Git optional.
 
 **Packages (indicative):**
@@ -154,19 +154,19 @@ CodeGraph/document tools, context budgeting, and evidence verification.
 
 It **does** improve the product path around the model:
 
-| Benefit                    | Why it matters here                                                                          |
-| -------------------------- | -------------------------------------------------------------------------------------------- |
-| Reliable token streaming   | `streamText` → easier SSE `delta` events to the UI                                           |
-| Abort / cancel             | Client disconnect maps cleanly to stop generation                                            |
-| Usage when reported        | Input/output token fields for message metrics (§68-style)                                    |
-| OpenAI-compatible provider | Point `@ai-sdk/openai` (or Ollama adapter) at the configured Ollama `/v1` endpoint and model |
-| Structured output helpers  | Useful for UNDERSTAND / VERIFY JSON decisions                                                |
+| Benefit                    | Why it matters here                                         |
+| -------------------------- | ----------------------------------------------------------- |
+| Reliable token streaming   | `streamText` → easier SSE `delta` events to the UI          |
+| Abort / cancel             | Client disconnect maps cleanly to stop generation           |
+| Usage when reported        | Input/output token fields for message metrics (§68-style)   |
+| OpenAI-compatible provider | Point `@ai-sdk/openai` at `LLM_BASE_URL` and `LLM_MODEL_ID` |
+| Structured output helpers  | Useful for UNDERSTAND / VERIFY JSON decisions               |
 
 **How it fits the Q&A sequence (nothing replaced):**
 
 ```text
 LangGraph node (e.g. DRAFT_ANSWER)
-  → Node calls ai.streamText({ model: ollamaQwen, messages: [...] })
+  → Node calls ai.streamText({ model: configuredChat, messages: [...] })
   → tokens → Node forwards SSE deltas to UI
   → LangGraph still owns tools, clarify, verify loops, caps
 ```
@@ -189,7 +189,7 @@ Fastify  ── Mongoose CRUD · RBAC · enqueue jobs · stream chat
    ├── encrypted project workspaces
    │     └── current CodeGraph SQLite index + materialized source tree
    ├── Workers (poll jobs → materialize → index/sync → validate/publish)
-   └── Ollama (qwen3.8 evaluation artifact behind a bounded inference queue)
+   └── OpenAI-compatible LLM (qwen3.8 evaluation artifact behind a bounded inference queue)
 ```
 
 HTTP never indexes or rebuilds a graph inline. Materialized source and graph files must live on an
@@ -334,7 +334,7 @@ S6 finalize             (job + project lifecycle)
 
 1. A failed job **never disappears** — UI can open job events + error codes later.
 2. Do **not** mark project `knowledge_ready` unless S5 succeeded for the intended version.
-3. Distinguish errors: `temporary` (Ollama/network) → auto-retry with backoff; `permanent` (corrupt file) → no endless retry; `user_action_required` (bad archive) → clear message.
+3. Distinguish errors: `temporary` (LLM host/network) → auto-retry with backoff; `permanent` (corrupt file) → no endless retry; `user_action_required` (bad archive) → clear message.
 4. Idempotent retries: the same key/version/stage must not create duplicate document sections or
    parallel graph writers.
 5. CodeGraph filesystem watching is disabled; only the source-version worker may update the graph.
@@ -452,7 +452,7 @@ Timeline example
 | **Mongoose / MongoDB**    | Conversations, queued messages, summaries, document FTS, knowledge metadata, evidence                                   |
 | **CodeGraph library**     | Queries the current project graph for symbols, routes, relationships, source, and flows                                 |
 | **LangGraph (in Node)**   | State machine: decide next step, call scoped tools, budget context, call LLM                                            |
-| **Ollama**                | Runs the human-controlled Qwen3.8 artifact behind a bounded inference queue                                             |
+| **OpenAI-compatible LLM** | Runs the human-controlled Qwen3.8 artifact behind a bounded inference queue                                             |
 
 There are no embedding or reranker model calls.
 
@@ -531,7 +531,7 @@ LangGraph state = {
 }
 ```
 
-From here, **LangGraph decides the next node**; Node executes each node’s side effects (Mongo, Ollama, SSE).
+From here, **LangGraph decides the next node**; Node executes each node’s side effects (Mongo, LLM, SSE).
 
 ---
 
@@ -596,7 +596,7 @@ artifact through `ai.generateText` with thinking disabled → validates the stru
 
 #### Node B — CLARIFY_SET (optional)
 
-**Who:** LangGraph + Node + UI (not Ollama again unless understand already produced the set)
+**Who:** LangGraph + Node + UI (not the LLM again unless understand already produced the set)
 
 1. **LLM (during UNDERSTAND)** already produced **all** clarification questions in one JSON array (single_select / multi_select / free_text).
 2. **Node** saves clarification set on the message / `Clarification` collection; SSE `clarification` event with the **full list**.
@@ -697,17 +697,17 @@ SSE: `status: verifying_answer` (no internal reasoning text).
 
 **Rule of thumb**
 
-| Call type                                                     | Library                                         | Why                                                          |
-| ------------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------ |
-| Qwen3.8 UNDERSTAND / tool choice / draft / conditional verify | `ai` SDK → configured Ollama OpenAI endpoint    | Structured output, streaming, abort, reliable provider usage |
-| Structural code retrieval                                     | `@colbymchenry/codegraph` Node API              | Current graph relationships and located source               |
-| Document discovery/read                                       | Mongoose/Mongo FTS + GridFS/materialized slices | On-demand bounded evidence without vectors                   |
+| Call type                                                     | Library                                                | Why                                                          |
+| ------------------------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------ |
+| Qwen3.8 UNDERSTAND / tool choice / draft / conditional verify | `ai` SDK → configured OpenAI-compatible `/v1` endpoint | Structured output, streaming, abort, reliable provider usage |
+| Structural code retrieval                                     | `@colbymchenry/codegraph` Node API                     | Current graph relationships and located source               |
+| Document discovery/read                                       | Mongoose/Mongo FTS + GridFS/materialized slices        | On-demand bounded evidence without vectors                   |
 
 Every Qwen call goes through the exact tokenizer/context budgeter before the `ai` SDK. CodeGraph and
 document outputs also pass through the result-byte and prompt-token budgets.
 
 ```text
-UI          Node/Fastify          MongoDB       LangGraph      CodeGraph       ai/Ollama
+UI          Node/Fastify          MongoDB       LangGraph      CodeGraph       ai/LLM
 │ POST msg  │                     │             │              │               │
 │──────────►│ auth + ACL          │             │              │               │
 │           │ graph updating?     │             │              │               │
@@ -735,15 +735,15 @@ UI          Node/Fastify          MongoDB       LangGraph      CodeGraph       a
 **Concrete `ai` usage in code terms (illustrative):**
 
 ```ts
-// shared: OpenAI-compatible client pointed at Ollama
+// shared: OpenAI-compatible client pointed at LLM_BASE_URL
 import { createOpenAI } from '@ai-sdk/openai';
 import { generateText, streamText, Output } from 'ai';
 
-const ollama = createOpenAI({
-  baseURL: 'http://127.0.0.1:11434/v1',
-  apiKey: 'ollama', // required by client; ignored by Ollama
+const llm = createOpenAI({
+  baseURL: process.env.LLM_BASE_URL, // illustrative; production reads loadConfig()
+  apiKey: process.env.LLM_API_KEY || 'not-needed',
 });
-const chat = ollama(configuredModelId);
+const chat = llm(configuredModelId);
 
 // Every messages array is produced by the exact tokenizer/context budgeter first.
 const { output, usage } = await generateText({
@@ -760,8 +760,7 @@ for await (const partial of result.textStream) {
 ```
 
 The application never pulls or upgrades the model automatically. Human operators control the
-installed model and version. Each run records the configured model identifier and the Ollama
-artifact metadata/digest when the runtime exposes it.
+installed model and version. Each run records the configured model identifier (artifact id).
 
 ---
 
@@ -781,14 +780,14 @@ artifact metadata/digest when the runtime exposes it.
 All tools run in Node and enforce `organizationId + projectId + currentKnowledgeVersionId +
 status:'A'` before resolving a workspace path or Mongo query.
 
-| Tool                  | Runs on                  | Uses Ollama? |
-| --------------------- | ------------------------ | ------------ |
-| `explore_code`        | CodeGraph Node API       | No           |
-| `search_documents`    | Mongo text index         | No           |
-| `list_documents`      | Mongo source metadata    | No           |
-| `read_document_slice` | GridFS/materialized file | No           |
-| `read_file_slice`     | GridFS/materialized file | No           |
-| `abstain`             | Node                     | No           |
+| Tool                  | Runs on                  | Uses LLM? |
+| --------------------- | ------------------------ | --------- |
+| `explore_code`        | CodeGraph Node API       | No        |
+| `search_documents`    | Mongo text index         | No        |
+| `list_documents`      | Mongo source metadata    | No        |
+| `read_document_slice` | GridFS/materialized file | No        |
+| `read_file_slice`     | GridFS/materialized file | No        |
+| `abstain`             | Node                     | No        |
 
 **Not in MVP:** live Mongo query execution against the _target_ app DB, shell, web, cross-project, images.
 
@@ -825,7 +824,7 @@ User: “What about the second step?”
 
 | Failure                                    | Behavior                                                                            |
 | ------------------------------------------ | ----------------------------------------------------------------------------------- |
-| Qwen/Ollama timeout or OOM                 | Temporary error; message failed; retryable SSE error + correlation id               |
+| Qwen/LLM timeout or OOM                    | Temporary error; message failed; retryable SSE error + correlation id               |
 | Tokenizer missing/mismatched               | Fail closed before LLM call with `CONTEXT_ACCOUNTING_UNAVAILABLE`                   |
 | Prompt cannot fit after ordered compaction | Ask user to narrow the question or abstain                                          |
 | CodeGraph update/recovery active           | Persist queued message; return `202`; process after validated publish               |
@@ -1193,28 +1192,28 @@ That is **not** the platform MongoDB used for tenants, documents, jobs, and conv
 
 ## 15. Success checks
 
-| Check              | Pass when                                                                                                                 |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------- |
-| Scale              | Ingest designed for ~2M LOC Node+Mongo apps; files over 1 MiB excluded from the graph and force `partially_available`     |
-| Upload             | `node_modules` + images skipped before GridFS when paths visible                                                          |
-| Retrieval          | CodeGraph for code; Mongo FTS + bounded reads for docs; **no** embeddings, vector search, or reranker                     |
-| Ollama             | Bounded inference queue for the configured chat artifact only                                                             |
-| Ingest             | Upload → job events → document sections + current graph + knowledge ready/partial/failed                                  |
-| Stage failure      | Failed job retained; retry resumes from checkpoint or rebuilds the graph from last accepted source                        |
-| Re-upload / git    | New sourceVersion; hash diff; unchanged paths skip document re-index; sync every 30 min                                   |
-| Sync failure       | Q&A stays disabled; worker rebuilds from last successfully accepted source tree; queued messages resume or fail retryable |
-| Clarify            | Backend sends full question set; UI one-at-a-time; one answers payload                                                    |
-| Tools              | Agent only uses listed project-scoped tools                                                                               |
-| Verify             | Citations/paths/scope checked; revise while run budgets remain; else abstain or grounded partial                          |
-| QA                 | Question → tools → verified Markdown + evidence (or abstain)                                                              |
-| CRUD               | Domain persistence via Mongoose                                                                                           |
-| RBAC               | Admin APIs enforce org + project permissions; JWT + argon2                                                                |
-| Audit              | Sensitive admin/source/knowledge actions append AuditEvent; listable with audit.view                                      |
-| Conversations      | Edit replaces downstream messages on one thread; archive/restore/soft-delete; search by title/messages                    |
-| Search / knowledge | Browse + search APIs; Ask-about-this attaches results into chat                                                           |
-| Source preview     | Authorized slice API with configured byte/token cap                                                                       |
-| Notifications      | In-app events for knowledge/sync/attention; read APIs                                                                     |
-| Usage              | Actual counters at org/project/user; no fabricated metrics                                                                |
-| Retention          | Scheduled policy soft-deletes per defaults                                                                                |
-| Rate limit         | 429 with structured error on abuse budgets                                                                                |
-| Idempotency        | Replay of upload/retry/sync/chat key returns same resource                                                                |
+| Check                 | Pass when                                                                                                                 |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Scale                 | Ingest designed for ~2M LOC Node+Mongo apps; files over 1 MiB excluded from the graph and force `partially_available`     |
+| Upload                | `node_modules` + images skipped before GridFS when paths visible                                                          |
+| Retrieval             | CodeGraph for code; Mongo FTS + bounded reads for docs; **no** embeddings, vector search, or reranker                     |
+| OpenAI-compatible LLM | Bounded inference queue for the configured chat artifact only                                                             |
+| Ingest                | Upload → job events → document sections + current graph + knowledge ready/partial/failed                                  |
+| Stage failure         | Failed job retained; retry resumes from checkpoint or rebuilds the graph from last accepted source                        |
+| Re-upload / git       | New sourceVersion; hash diff; unchanged paths skip document re-index; sync every 30 min                                   |
+| Sync failure          | Q&A stays disabled; worker rebuilds from last successfully accepted source tree; queued messages resume or fail retryable |
+| Clarify               | Backend sends full question set; UI one-at-a-time; one answers payload                                                    |
+| Tools                 | Agent only uses listed project-scoped tools                                                                               |
+| Verify                | Citations/paths/scope checked; revise while run budgets remain; else abstain or grounded partial                          |
+| QA                    | Question → tools → verified Markdown + evidence (or abstain)                                                              |
+| CRUD                  | Domain persistence via Mongoose                                                                                           |
+| RBAC                  | Admin APIs enforce org + project permissions; JWT + argon2                                                                |
+| Audit                 | Sensitive admin/source/knowledge actions append AuditEvent; listable with audit.view                                      |
+| Conversations         | Edit replaces downstream messages on one thread; archive/restore/soft-delete; search by title/messages                    |
+| Search / knowledge    | Browse + search APIs; Ask-about-this attaches results into chat                                                           |
+| Source preview        | Authorized slice API with configured byte/token cap                                                                       |
+| Notifications         | In-app events for knowledge/sync/attention; read APIs                                                                     |
+| Usage                 | Actual counters at org/project/user; no fabricated metrics                                                                |
+| Retention             | Scheduled policy soft-deletes per defaults                                                                                |
+| Rate limit            | 429 with structured error on abuse budgets                                                                                |
+| Idempotency           | Replay of upload/retry/sync/chat key returns same resource                                                                |

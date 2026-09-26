@@ -37,4 +37,10 @@ export const TEST_APP_CONFIG = {
     keyId: 'k1',
     allowPrivateHosts: false,
   },
+  llm: {
+    baseUrl: 'http://127.0.0.1:11434/v1',
+    modelId: 'qwen3.8:latest',
+    contextCapacity: 131072,
+    apiKey: null,
+  },
 };

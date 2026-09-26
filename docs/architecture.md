@@ -72,7 +72,7 @@ load balancer / edge if operators need them.
 ┌─────────────────────────────────────────────────────────────────┐
 │  Browser (React)                                                │
 │  Talks only to the API host (JSON/SSE under /api/v1; SPA assets │
-│  from the same origin in production). Never to Ollama, MongoDB, │
+│  from the same origin in production). Never to the LLM host, MongoDB, │
 │  CodeGraph, or the worker.                                      │
 └────────────────────────────┬────────────────────────────────────┘
                              │ HTTPS  /api/v1  (+ static SPA in prod)
@@ -85,7 +85,7 @@ load balancer / edge if operators need them.
 │  Fast path: JWT, RBAC, CRUD, enqueue a job, open an SSE stream  │
 │  Chat: run the LangGraph workflow in this same process          │
 │  Production: also serves `frontend/dist` (SPA + hashed assets)  │
-│  Reads: CodeGraph (read-only) + MongoDB + Ollama over HTTP      │
+│  Reads: CodeGraph (read-only) + MongoDB + OpenAI-compatible LLM │
 │                                                                 │
 │  Does not poll jobs, unpack source trees, or rebuild the index. │
 └───────┬──────────────────┬───────────────────┬──────────────────┘
@@ -93,8 +93,8 @@ load balancer / edge if operators need them.
         │ MongoDB          │ disk (read)       │ HTTP /v1
         ▼                  ▼                   ▼
 ┌───────────────┐  ┌──────────────┐   ┌─────────────────┐
-│ MongoDB 8+    │  │ Project      │   │ Ollama          │
-│ + GridFS      │  │ workspace    │   │ (model server)  │
+│ MongoDB 8+    │  │ Project      │   │ OpenAI-compat   │
+│ + GridFS      │  │ workspace    │   │ LLM (/v1)       │
 │ + jobs queue  │  │ + .codegraph │   └─────────────────┘
 │ + idempotency │  └──────▲───────┘
 └───────▲───────┘         │
@@ -211,7 +211,7 @@ Client request
           └── index ready or partial → open SSE, run LangGraph
 ```
 
-Ollama sits behind a **bounded inference queue** so one chat cannot starve the machine.
+The OpenAI-compatible LLM sits behind a **bounded inference queue** so one chat cannot starve the machine.
 How many concurrent model calls are safe is an evaluation result, not a guessed constant.
 CodeGraph telemetry is off everywhere (set in-process by the CodeGraph adapter before
 library import: `CODEGRAPH_TELEMETRY=0` and `DO_NOT_TRACK=1` — not via `.env`).
@@ -300,16 +300,21 @@ next stage boundary. A sweeper requeues or fails jobs whose heartbeat expired.
  9–16           See §6.2; stream `delta` / `clarification` / `evidence` / `done`
 ```
 
-The worker is **not** on this path unless the graph is updating (step 4). Ollama is the
-only network hop for model inference. CodeGraph and LangGraph are in-process calls.
+The worker is **not** on this path unless the graph is updating (step 4). The
+OpenAI-compatible LLM is the only network hop for model inference. CodeGraph and
+LangGraph are in-process calls.
 
 If the browser disconnects mid-stream, the run still finishes in Mongo (`completed` or
 `failed`). The UI reloads the message by id.
 
 ### 6.2 LangGraph workflow
 
-Every model call: assemble the exact messages → count tokens for the **active model** →
-compact or fail with `CONTEXT_ACCOUNTING_UNAVAILABLE`. Never send an unmeasured prompt.
+Every model call: assemble the exact messages → count tokens for the **active model**
+(`backend/src/modules/conversation/contextBudgeter.js`) → compact, or fail closed.
+Capacity comes from required `LLM_CONTEXT_CAPACITY`. The artifact id is the
+configured model id after the startup `GET /models` probe (not a code constant). Missing tokenizer /
+artifact mismatch → `CONTEXT_ACCOUNTING_UNAVAILABLE`. Still over after compaction →
+`CONTEXT_BUDGET_EXCEEDED` (clarify or abstain). Never send an unmeasured prompt.
 
 ```text
                  UNDERSTAND          “What is the user asking? Do we need
@@ -452,7 +457,7 @@ Mechanisms below match the accepted stack ADRs
 | Fastify | GridFS | MongoDB GridFS | Accepted source/doc bytes |
 | Fastify | LangGraph | in-process library | Chat state machine; the route handler still owns SSE |
 | Fastify | CodeGraph | in-process, **read lease** | Explore / `buildContext` on the current workspace |
-| Fastify | Ollama | HTTP `/v1` via `ai` SDK | Budgeted generate / stream |
+| Fastify | OpenAI-compatible LLM | HTTP `/v1` (probe now; `ai` SDK in Phase 45) | Budgeted generate / stream |
 | Fastify | GitHub/GitLab | HTTPS REST (probe + persist the connection; encrypted PAT nested) | Identity, branches, default branch, encrypted PAT |
 | Fastify | Worker | **only** by inserting a `Job` row | `202 { jobId }` — no RPC |
 | Worker | MongoDB | atomic claim | Jobs, source/knowledge metadata |

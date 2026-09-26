@@ -25,6 +25,15 @@ export {
   updateConversationTitle,
   conversationRoutes,
 } from './conversation.js';
+export {
+  COMPACTION_MAX_PASSES,
+  EXCERPT_MIN_TOKENS,
+  RESERVED_OUTPUT_TOKENS,
+  createTokenizerAdapter,
+  getContextBudgetConfig,
+  prepareModelInput,
+} from './contextBudgeter.js';
+export { assertLlmAvailable } from './llm.js';
 export { Message } from '../../models/messages.model.js';
 
 import { Conversation } from '../../models/conversations.model.js';

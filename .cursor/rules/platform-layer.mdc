@@ -1,0 +1,34 @@
+---
+description: backend/src/platform is infra only — no domain or business logic
+alwaysApply: true
+---
+
+# Platform layer — infra only
+
+`backend/src/platform/` is process and shared infrastructure. It is **not** a home for
+product behavior.
+
+## Allowed in `platform/`
+
+Env/config loading, error catalog, Mongo connection, logger, secret crypto, shutdown,
+base schema helpers, idempotency.
+
+## Forbidden in `platform/`
+
+Context budgeter, tokenizer/compaction, LLM client, LangGraph, agent tools, ingest,
+identity/RBAC use cases, knowledge assembly, conversation prompt logic.
+
+## Where domain code goes
+
+The four modules only: `access`, `masters`, `knowledge`, `conversation`. Cross-module
+callers import that module’s public `index.js`.
+
+```js
+// ❌ BAD — conversation math dumped into platform
+// backend/src/platform/context/contextBudgeter.js
+
+// ✅ GOOD — conversation owns context accounting
+// backend/src/modules/conversation/contextBudgeter.js
+```
+
+Do not add `platform/context/` or `platform/llm/`. See `node-api.mdc`.

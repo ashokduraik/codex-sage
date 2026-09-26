@@ -36,6 +36,42 @@ const jwtSecretSchema = z.string().min(JWT_ACCESS_TOKEN_SECRET_MIN_LENGTH, {
   error: `must be at least ${JWT_ACCESS_TOKEN_SECRET_MIN_LENGTH} characters`,
 });
 
+/** Required OpenAI-compatible root; never include the received value in error output. */
+const llmBaseUrlSchema = z
+  .string()
+  .trim()
+  .min(1, { error: 'required http or https OpenAI-compatible base URL (no default)' })
+  .refine(
+    (value) => {
+      try {
+        const parsed = new URL(value);
+        return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+      } catch {
+        return false;
+      }
+    },
+    { error: 'must be an http or https URL' },
+  );
+
+/** Required model id already served at LLM_BASE_URL (exact `/v1/models` id). */
+const llmModelIdSchema = z.string().trim().min(1, { error: 'required model id (no default)' });
+
+/** Operational context window from env; must be a positive integer. */
+const llmContextCapacitySchema = z.coerce.number().int({ error: 'expected a positive integer' }).positive({ error: 'expected a positive integer' });
+
+/**
+ * Optional Bearer token. Empty or unset is null — never a dummy default.
+ * @param {string | undefined} raw Env value.
+ * @returns {string | null}
+ */
+function parseOptionalLlmApiKey(raw) {
+  if (typeof raw !== 'string') {
+    return null;
+  }
+  const trimmed = raw.trim();
+  return trimmed === '' ? null : trimmed;
+}
+
 /**
  * Reads the repository credential encryption key without requiring Mongo/JWT env.
  * @param {NodeJS.ProcessEnv} [env] Env overlay.
@@ -174,6 +210,13 @@ export function loadConfig(env = process.env) {
     errors.push(crypto.error);
   }
   const allowPrivateHosts = env.REPO_PROBE_ALLOW_PRIVATE_HOSTS === 'true';
+  const llmBaseUrlResult = llmBaseUrlSchema.safeParse(env.LLM_BASE_URL ?? '');
+  collectFieldError(errors, 'LLM_BASE_URL', llmBaseUrlResult);
+  const llmModelIdResult = llmModelIdSchema.safeParse(env.LLM_MODEL_ID ?? '');
+  collectFieldError(errors, 'LLM_MODEL_ID', llmModelIdResult);
+  const llmCapacityResult = llmContextCapacitySchema.safeParse(env.LLM_CONTEXT_CAPACITY ?? '');
+  collectFieldError(errors, 'LLM_CONTEXT_CAPACITY', llmCapacityResult);
+  const llmApiKey = parseOptionalLlmApiKey(env.LLM_API_KEY);
 
   if (errors.length > 0) {
     throw new Error(`Invalid configuration:\n${errors.join('\n')}`);
@@ -207,6 +250,12 @@ export function loadConfig(env = process.env) {
       encryptionKey: crypto.encryptionKey,
       keyId: crypto.keyId,
       allowPrivateHosts,
+    },
+    llm: {
+      baseUrl: llmBaseUrlResult.data,
+      modelId: llmModelIdResult.data,
+      contextCapacity: llmCapacityResult.data,
+      apiKey: llmApiKey,
     },
   };
 }

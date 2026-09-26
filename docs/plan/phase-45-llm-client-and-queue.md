@@ -8,13 +8,13 @@
 - **Size:** 1–2 days
 - **Requirements covered:** `backend/requirments.md` §65 (streaming lifecycle — client abort support),
   §68 (token usage when reported), §69 (duration — hook for callers); `backend/solution.md` §2.1
-  (`ai` SDK + Ollama OpenAI-compat), §5.3 (swimlane — budget then `ai` call);
-  `docs/architecture.md` §6 (Ollama as inference hop)
+  (`ai` SDK + OpenAI-compatible `/v1`), §5.3 (swimlane — budget then `ai` call);
+  `docs/architecture.md` §6 (OpenAI-compatible LLM as inference hop)
 
 ## 1. Goal
 
 After this phase a shared **`llmClient` module** wraps the Vercel **`ai` SDK** against a configured
-**Ollama OpenAI-compatible** endpoint (`generateText`, `streamText`), always after Phase 43
+**OpenAI-compatible** endpoint (`generateText`, `streamText`), always after Phase 43
 `prepareModelInput`. A **bounded in-process inference queue** serializes/limit-concurrency so one
 long chat stream cannot starve other users' runs. The service **never auto-pulls or upgrades** the
 model; operators pin the artifact locally (solution §1.1).
@@ -25,7 +25,7 @@ abort cancels `streamText`, usage fields pass through when the mock returns them
 
 ## 2. Why this phase is here
 
-LangGraph nodes (Phases 47–49) need one blessed path to Ollama — not ad-hoc `fetch` per node.
+LangGraph nodes (Phases 47–49) need one blessed path to the OpenAI-compatible LLM — not ad-hoc `fetch` per node.
 Solution §2.1 lists streaming, abort, structured output, and usage reporting as reasons for `ai`.
 Phase 43 ensures prompts are measured; this phase ensures **calls** are bounded, observable, and
 environment-configured.
@@ -55,14 +55,14 @@ prepareModelInput (43) → enqueue(inferenceTask) → ai SDK call → map usage 
   when absent, return `null` — never fabricate (backend §68).
 - **Model identity:** expose configured `modelId` string on results for persistence (Phase 49).
 - **No `@fastify/rate-limit`**, no in-app HTTP rate limiting (README §4, solution §13.1).
-- Env: **Ollama base URL** and **model id** only (per-environment); see §7.
+- Env: **`LLM_BASE_URL`**, **`LLM_MODEL_ID`**, optional **`LLM_API_KEY`** (per-environment); see §7.
 
 ### Out of scope (owner phase)
 
 - LangGraph graph definition — **Phase 47**.
 - SSE mapping of deltas — **Phase 50**.
-- Installing or pulling Ollama models in code — **forbidden** (`ollama pull` is operator docs only).
-- Choosing `@ai-sdk/openai` vs dedicated Ollama adapter package — **open question** §12.
+- Installing or pulling models in code — **forbidden** (operator installs the host artifact).
+- Choosing `@ai-sdk/openai` vs another OpenAI-compatible adapter package — **open question** §12.
 - Pin ADR content — written when Phase 05 completes (this doc describes the hook only).
 - Worker-process LLM — chat inference runs in API process per architecture §6.
 
@@ -90,14 +90,14 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { generateText, streamText } from 'ai';
 
 const client = createOpenAI({
-  baseURL: config.ollamaBaseUrl,
-  apiKey: config.ollamaApiKeyPlaceholder,
+  baseURL: config.llm.baseUrl,
+  apiKey: config.llm.apiKey ?? 'not-needed',
 });
-const model = client(config.ollamaModelId);
+const model = client(config.llm.modelId);
 ```
 
-**Do not implement** until user confirms package choice (`@ai-sdk/openai` vs Ollama-specific
-adapter). `apiKey` is a dummy string when Ollama ignores it (solution §5.3).
+**Do not implement** until user confirms package choice (`@ai-sdk/openai` vs another
+OpenAI-compatible adapter). `apiKey` is omitted or a dummy string when the host ignores it.
 
 ### 4.3 Queue semantics
 
@@ -121,7 +121,7 @@ Before network I/O:
 
 1. Phase 05 / `contextModelConfig` has valid artifact + capacity (Phase 43).
 2. `prepareModelInput` succeeded (no `CONTEXT_ACCOUNTING_UNAVAILABLE`).
-3. `ollamaBaseUrl` + `ollamaModelId` present in validated env config.
+3. `llm.baseUrl` + `llm.modelId` present in validated env config.
 4. Queue accepts task (depth/concurrency).
 
 Structured errors only; no silent fallback to unbudgeted prompts.
@@ -138,7 +138,7 @@ Phase 50 maps chunks to SSE; this module does not write HTTP responses.
 
 ### 4.6 Operator responsibilities (documented, not coded)
 
-- Ollama running locally with model pulled manually (`solution §1.1`).
+- OpenAI-compatible host running with the configured model available (`solution §1.1`).
 - Model id in env matches Phase 05 pinned artifact after evaluation.
 - Never rely on `latest` alias in production (ADR when Phase 05 completes).
 
@@ -190,19 +190,15 @@ Read only in `platform/config.js` (single env loader rule).
 
 | Variable | Purpose |
 |---|---|
-| `OLLAMA_BASE_URL` | OpenAI-compat root, e.g. `http://127.0.0.1:11434/v1` |
-| `OLLAMA_MODEL_ID` | Model name passed to SDK, e.g. evaluation artifact id |
+| `LLM_BASE_URL` | OpenAI-compat root, e.g. `http://127.0.0.1:11434/v1` |
+| `LLM_MODEL_ID` | Model name passed to SDK (artifact id) |
+| `LLM_CONTEXT_CAPACITY` | Reviewed operational window (Phase 43) |
+| `LLM_API_KEY` | Optional Bearer; omit when the host ignores auth |
 
 Document in `backend/.env.example` and mirror to `backend/.env` on change (`env-example-sync.mdc`).
 
 **Not env:** queue max depth, max concurrency, request timeout, reserved output — Phase 05 → named
 constants in `inferenceQueue.js` / `contextModelConfig.js`.
-
-Optional placeholder env (confirm §12):
-
-| Variable | Purpose |
-|---|---|
-| `OLLAMA_API_KEY` | Dummy for SDK; default constant `ollama` if unset |
 
 Never log env values.
 
@@ -216,8 +212,8 @@ Never log env values.
 | `backend/src/platform/llm/inferenceQueue.js` | Bounded queue |
 | `backend/src/platform/llm/llm.types.js` | Shapes |
 | `backend/src/platform/llm/*.test.js` | Unit + mocked provider tests |
-| `backend/src/platform/config.js` | Validate Ollama URL + model id |
-| `backend/.env.example` | Document Ollama vars |
+| `backend/src/platform/config.js` | Validate `LLM_*` URL + model id (already done) |
+| `backend/.env.example` | Document `LLM_*` vars |
 | `backend/package.json` | Add `ai` and provider package **at implementation time** via `dependency-versions.mdc` |
 
 ## 9. Tests (≥ 80% line and branch)
@@ -232,7 +228,7 @@ Never log env values.
 
 ### Integration
 
-- HTTP mock Ollama `/v1/chat/completions` — optional if SDK mock sufficient for coverage.
+- HTTP mock OpenAI `/v1/chat/completions` — optional if SDK mock sufficient for coverage.
 
 ### Unhappy paths
 
@@ -244,9 +240,9 @@ Never log env values.
 - [ ] All LLM I/O goes through `llmClient`; LangGraph not added yet but contract ready.
 - [ ] Every call preceded by Phase 43 `prepareModelInput`.
 - [ ] Queue depth/concurrency not hardcoded with invented production values.
-- [ ] No `ollama pull` or model download in codebase.
+- [ ] No model pull or download in codebase.
 - [ ] Usage and duration never fabricated.
-- [ ] Ollama URL + model id documented in `.env.example`.
+- [ ] `LLM_*` URL + model id documented in `.env.example`.
 - [ ] Coverage ≥ 80% line and branch on `platform/llm/*`.
 - [ ] ADR for pinned model deferred until Phase 05 — placeholder note in `docs/adr/README.md` only if
       needed.
@@ -260,10 +256,10 @@ Never log env values.
 
 ## 12. Risks & open questions
 
-1. **SDK provider:** `@ai-sdk/openai` pointed at Ollama `/v1` vs a dedicated Ollama adapter package?
-2. **API key env:** required dummy constant only, or optional `OLLAMA_API_KEY` env?
+1. **SDK provider:** `@ai-sdk/openai` pointed at `LLM_BASE_URL` vs another OpenAI-compatible adapter?
+2. **API key:** optional `LLM_API_KEY` is decided (omit when unset); SDK dummy only if the package requires a string.
 3. **Queue limits:** max depth and concurrency from Phase 05 — what are evaluation targets?
 4. **Error code:** separate `LLM_CONFIG_UNAVAILABLE` / `LLM_QUEUE_FULL` vs extend existing catalog?
 5. **Request timeout:** named constant value — Phase 05 or separate open question?
 6. **Fairness:** global FIFO vs per-`orgId` fair queue when one tenant runs long drafts?
-7. **CI:** Phase 63 may skip live Ollama — confirm mock-only CI path is acceptable.
+7. **CI:** Phase 63 may skip a live LLM host — confirm mock-only CI path is acceptable.

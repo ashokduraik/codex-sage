@@ -35,6 +35,8 @@
 | [0030](./0030-login-session-embedded-tokens.md) | Login session with embedded refresh-token hashes | Accepted |
 | [0031](./0031-http-multi-collection-transactions.md) | HTTP APIs that write two domain collections use a transaction | Accepted |
 | [0032](./0032-dynamic-roles-and-identity-code.md) | Dynamic org roles and identity `code` | Accepted |
+| [0033](./0033-qwen-artifact-and-context-budget.md) | Ollama env, live digest, and context-budget numbers | Superseded by 0034 |
+| [0034](./0034-openai-compatible-llm.md) | OpenAI-compatible LLM env, probe, and artifact id | Accepted |
 
 One decision = one ADR. Accepted ADRs are immutable; supersede with a new number rather
 than rewriting history.

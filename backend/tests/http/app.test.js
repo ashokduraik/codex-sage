@@ -75,8 +75,14 @@ describe('buildApp', () => {
   it('builds with the default config without throwing when env is valid', async () => {
     const previousUri = process.env.MONGODB_URI;
     const previousJwt = process.env.JWT_ACCESS_TOKEN_SECRET;
+    const previousLlmUrl = process.env.LLM_BASE_URL;
+    const previousLlmModel = process.env.LLM_MODEL_ID;
+    const previousLlmCapacity = process.env.LLM_CONTEXT_CAPACITY;
     process.env.MONGODB_URI = 'mongodb://127.0.0.1:27017/codex_sage_test?replicaSet=rs0';
     process.env.JWT_ACCESS_TOKEN_SECRET = 'test-jwt-access-token-secret-at-least-32-chars';
+    process.env.LLM_BASE_URL = 'http://127.0.0.1:11434/v1';
+    process.env.LLM_MODEL_ID = 'qwen3.8:latest';
+    process.env.LLM_CONTEXT_CAPACITY = '131072';
     try {
       app = buildApp();
       await app.ready();
@@ -91,6 +97,21 @@ describe('buildApp', () => {
         delete process.env.JWT_ACCESS_TOKEN_SECRET;
       } else {
         process.env.JWT_ACCESS_TOKEN_SECRET = previousJwt;
+      }
+      if (previousLlmUrl === undefined) {
+        delete process.env.LLM_BASE_URL;
+      } else {
+        process.env.LLM_BASE_URL = previousLlmUrl;
+      }
+      if (previousLlmModel === undefined) {
+        delete process.env.LLM_MODEL_ID;
+      } else {
+        process.env.LLM_MODEL_ID = previousLlmModel;
+      }
+      if (previousLlmCapacity === undefined) {
+        delete process.env.LLM_CONTEXT_CAPACITY;
+      } else {
+        process.env.LLM_CONTEXT_CAPACITY = previousLlmCapacity;
       }
     }
   });

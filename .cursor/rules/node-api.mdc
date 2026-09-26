@@ -17,8 +17,10 @@ instead of doing that work inline.
   only after 1000 code lines (`file-colocation.mdc`).
 - **Mongoose models** live in `backend/src/models/` (`*.model.js`). Modules import them from
   there and may re-export them on their public surface.
-- Cross-cutting concerns (db client, queue enqueue, config, logging, errors) live in a shared
-  platform/shared layer inside `backend/`.
+- Cross-cutting **infra** (db client, config, logging, errors, idempotency) lives in
+  `backend/src/platform/`. That directory is not for product behavior — see
+  `platform-layer.mdc`. Domain logic stays in `access`, `masters`, `knowledge`, or
+  `conversation`.
 - **Do not invent API request/response shapes.** Align with requirements or ask the user
   (`no-assumptions.mdc`). When a shared OpenAPI/contracts approach is introduced, follow it
   and update these rules.

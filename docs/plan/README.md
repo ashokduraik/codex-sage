@@ -53,7 +53,7 @@ phase. Anything not listed here and not in the source documents above is an open
 |---|---|
 | D1 | Plan layout: one markdown file per phase in `docs/plan/`, indexed by this README |
 | D2 | Phase shape: phases 1–12 are backend/platform foundations. From phase 13 onward, a backend capability is followed by a later frontend slice that consumes it — not necessarily in the same pull request. D9 still applies: one phase ≈ one reviewable PR |
-| D3 | Tech choices in `solution.md` are **not** treated as pre-locked. Phase 4 records them as ADRs (including stack choices Phase 01 already installs). Phase 5 runs a real evaluation/benchmark (Qwen3.8 context + tokenizer parity + CodeGraph at ~2M LOC) whose results lock the numbers |
+| D3 | Tech choices in `solution.md` are **not** treated as pre-locked. Phase 4 records them as ADRs (including stack choices Phase 01 already installs). Phase 5 measured CodeGraph scale and locked preview caps. Qwen context capacity, tokenizer parity fixtures, and reserved-output tokens are locked by `npm run measure-llm-context` (`scripts/measure-llm-context.mjs`); re-run on each host — see `docs/evaluation/README.md` |
 | D4 | Benchmark corpus: public open-source repositories, with selection criteria documented (no customer code) |
 | D5 | MongoDB: an **external MongoDB 8 replica set** is supplied through a connection-string env var. Multi-document transactions are available and may be used |
 | D6 | Identity: **invite/seed only**. There is no public self-registration. `frontend/src/features/auth/RegisterPage.jsx` is removed in Phase 14. Password reset is **admin-mediated only** (D15). Signed-in self-service *password change* stays |
@@ -235,7 +235,7 @@ measurement/decision · `DOC` documentation.
 | 02 | [Error model, correlation IDs & safe logging](./phase-02-error-model-and-logging.md) | BE | 01 | be §39, §104, §105, §148, §149 |
 | 03 | [Data-layer conventions, base schema & test harness](./phase-03-data-layer-conventions.md) | BE | 01 | be §89, §101; sol §6; rules row-status, soft-delete |
 | 04 | [Architecture decision records for the chosen stack](./phase-04-stack-adrs.md) | DOC | — | sol §1–2; rules docs-and-adr |
-| 05 | [Evaluation & benchmark: model context, tokenizer parity, CodeGraph at scale](./phase-05-evaluation-benchmark.md) | EVAL | 04 | be §43, §44, §70, §139; sol §1.1–1.2, §4.4 |
+| 05 | [Evaluation & benchmark: model context, tokenizer parity, CodeGraph at scale](./phase-05-evaluation-benchmark.md) | EVAL | 04 | be §139; sol §4.4 (CodeGraph + preview caps; tokenizer/context → 43) |
 
 ### Part B — Identity, access control, audit
 
@@ -318,7 +318,7 @@ measurement/decision · `DOC` documentation.
 |---|---|---|---|---|
 | 41 | [Conversation & message models with lifecycle APIs](./phase-41-conversation-models.md) | BE | 17, 18 | be §40, §41, §45, §48, §140–143; sol §10.2 |
 | 42 | [Conversation search & automatic titles](./phase-42-conversation-search-and-titles.md) | BE | 41 | be §49, §50; sol §10.3–10.4 |
-| 43 | [Context budgeter & tokenizer parity](./phase-43-context-budgeter.md) | BE | 05, 41 | be §43, §44, §70; sol §1.2 |
+| 43 | [Context budgeter & tokenizer parity](./phase-43-context-budgeter.md) | BE+EVAL | 02 | be §43, §44, §70; sol §1.2 |
 | 44 | [Conversation summarization, pinned facts & context metrics](./phase-44-summarization-and-context-metrics.md) | BE | 43 | be §42, §43, §44, §58, §59; fe §36–38 |
 | 45 | [LLM client & bounded inference queue](./phase-45-llm-client-and-queue.md) | BE | 05, 43 | be §65, §68, §69; sol §2.1, §5.3 |
 | 46 | [Agent tools](./phase-46-agent-tools.md) | BE | 26, 27, 43 | be §22, §57, §133; sol §5.5 |

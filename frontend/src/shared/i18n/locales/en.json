@@ -863,7 +863,8 @@
       "JOB_NOT_RETRYABLE": "This job cannot be retried.",
       "JOB_RETRY_LIMIT_EXCEEDED": "This job has reached the retry limit.",
       "INVALID_JOB_TRANSITION": "That job action is not allowed in the current state.",
-      "CONTEXT_ACCOUNTING_UNAVAILABLE": "Context accounting is temporarily unavailable."
+      "CONTEXT_ACCOUNTING_UNAVAILABLE": "Context accounting is temporarily unavailable.",
+      "CONTEXT_BUDGET_EXCEEDED": "The question does not fit in the validated context budget."
     }
   },
   "status": {

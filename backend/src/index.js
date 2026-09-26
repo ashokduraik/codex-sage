@@ -10,7 +10,7 @@ import { SOURCE_MODELS } from './modules/knowledge/index.js';
 import { DOCUMENT_MODELS } from './modules/knowledge/index.js';
 import { KNOWLEDGE_MODELS } from './modules/knowledge/index.js';
 import { REPOSITORY_MODELS } from './modules/knowledge/index.js';
-import { CONVERSATION_MODELS } from './modules/conversation/index.js';
+import { CONVERSATION_MODELS, assertLlmAvailable } from './modules/conversation/index.js';
 import { ProjectJobLock } from './models/projectJobLock.model.js';
 import { loadConfig } from './platform/config.js';
 import { syncSchemaIndexes } from './platform/data/index.js';
@@ -26,10 +26,11 @@ import { attachShutdownSignals, registerProcessHandlers, registerShutdownHook } 
  *   1. Register process-level rejection/exception safety nets.
  *   2. Load validated config from the environment.
  *   3. Connect to MongoDB (fail fast on first connect).
- *   4. Sync schema indexes in non-production.
- *   5. Run the idempotent bootstrap seed.
- *   6. Assert stored role permissions exist in the catalog.
- *   7. Build the Fastify app, register shutdown hooks, and listen.
+ *   4. Probe the OpenAI-compatible LLM and attach artifact id (fail fast).
+ *   5. Sync schema indexes in non-production.
+ *   6. Run the idempotent bootstrap seed.
+ *   7. Assert stored role permissions exist in the catalog.
+ *   8. Build the Fastify app, register shutdown hooks, and listen.
  */
 async function start() {
   registerProcessHandlers({
@@ -56,6 +57,13 @@ async function start() {
   };
   try {
     await connectMongo(config, shutdownLog);
+  } catch {
+    process.exit(1);
+  }
+
+  try {
+    const runtime = await assertLlmAvailable(config.llm, shutdownLog);
+    config.llm.artifactId = runtime.artifactId;
   } catch {
     process.exit(1);
   }

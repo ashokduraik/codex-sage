@@ -302,6 +302,12 @@ export const ERROR_CATALOG = Object.freeze({
     retryability: 'temporary',
     message: 'Context accounting is temporarily unavailable.',
   }),
+  CONTEXT_BUDGET_EXCEEDED: Object.freeze({
+    class: 'user',
+    httpStatus: 422,
+    retryability: 'user_action_required',
+    message: 'The question does not fit in the validated context budget.',
+  }),
   SOURCE_ZIP_SLIP: Object.freeze({
     class: 'source',
     httpStatus: 400,
