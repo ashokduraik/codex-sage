@@ -1,6 +1,7 @@
 /**
  * Knowledge search route integration tests.
  */
+import { nextTestUserCode } from '../../identityFixtures.js';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import mongoose from 'mongoose';
 import { API_BASE_PATH, buildApp } from '../../../src/http/app.js';
@@ -239,12 +240,14 @@ describe('search routes', () => {
     const org = await findOrganizationBySlug('default');
     const project = await createProject(app, adminToken, 'Search Forbidden', 'idem-search-403');
     const role = await createRoleInRepo(org._id, {
+      code: 'NOSEARCH',
       name: 'No search',
       permissions: ['org.view', 'projects.view'],
       createdBy: null,
     });
     const passwordHash = await hashPassword('NoSearchPass1!');
     const user = await createUserInRepo(org._id, {
+      code: nextTestUserCode(),
       email: 'nosearch@example.com',
       displayName: 'No Search',
       passwordHash,

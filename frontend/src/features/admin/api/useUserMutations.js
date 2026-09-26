@@ -50,6 +50,7 @@ export function useCreateUser() {
   return useMutation({
     /**
      * @param {{
+     *   code: string,
      *   email: string,
      *   displayName: string,
      *   roleIds: string[],
@@ -72,7 +73,7 @@ export function useUpdateUserRoles() {
      * @param {{
      *   userId: string,
      *   roleIds: string[],
-     *   roles: Array<{ id: string, name: string, isBuiltIn?: boolean }>,
+     *   roles: Array<{ id: string, name: string }>,
      * }} input Role replacement.
      */
     mutationFn: ({ userId, roleIds }) => patchUser(userId, { roleIds }),

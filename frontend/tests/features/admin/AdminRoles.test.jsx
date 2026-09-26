@@ -1,4 +1,4 @@
-import { cleanup, screen } from '@testing-library/react';
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
 import { API_BASE_URL } from '@/shared/api/index';
@@ -46,15 +46,15 @@ const CATALOG = {
 const ROLES = [
   {
     id: 'r-admin',
+    code: 'ADMIN',
     name: 'Org Admin',
     permissions: ['users.manage', 'roles.manage', 'chat.ask'],
-    isBuiltIn: true,
   },
   {
     id: 'r-custom',
+    code: 'ANALYST',
     name: 'Custom Analyst',
     permissions: ['chat.ask', 'legacy.unknown'],
-    isBuiltIn: false,
   },
 ];
 
@@ -155,5 +155,52 @@ describe('AdminRoles', () => {
       },
     });
     expect(screen.getByRole('alert').textContent).toMatch(/permission/i);
+  });
+
+  it('creates a role with a code and catalog permissions', async () => {
+    const fetchMock = vi.fn(async (url, init = {}) => {
+      const path = String(url).replace(API_BASE_URL, '');
+      const method = (init.method ?? 'GET').toUpperCase();
+      if (path.startsWith('/roles') && method === 'POST') {
+        return jsonResponse(
+          {
+            id: 'r-new',
+            code: 'READER',
+            name: 'Reader',
+            permissions: ['chat.ask'],
+          },
+          201,
+        );
+      }
+      if (path.startsWith('/roles')) {
+        return jsonResponse({
+          items: ROLES,
+          pageInfo: { nextCursor: null, hasMore: false },
+        });
+      }
+      if (path.startsWith('/permissions')) {
+        return jsonResponse(CATALOG);
+      }
+      return jsonResponse({});
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderWithProviders(<AdminRoles />, { route: '/admin/roles' });
+    expect((await screen.findAllByText('Org Admin')).length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create role' }));
+    fireEvent.change(screen.getByLabelText('Code'), { target: { value: 'reader' } });
+    fireEvent.change(screen.getByLabelText('Role name'), { target: { value: 'Reader' } });
+    fireEvent.click(screen.getByLabelText('Ask questions'));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Create role' }).at(-1));
+
+    await waitFor(() => {
+      const createCall = fetchMock.mock.calls.find(([url, init]) => String(url).endsWith('/roles') && init?.method === 'POST');
+      expect(createCall).toBeTruthy();
+      const body = JSON.parse(createCall[1].body);
+      expect(body.code).toBe('READER');
+      expect(body.name).toBe('Reader');
+      expect(body.permissions).toEqual(['chat.ask']);
+    });
   });
 });

@@ -139,6 +139,24 @@ export const ERROR_CATALOG = Object.freeze({
     retryability: 'user_action_required',
     message: 'A role with this name already exists in the organization.',
   }),
+  IDENTITY_DUPLICATE_ROLE_CODE: Object.freeze({
+    class: 'user',
+    httpStatus: 409,
+    retryability: 'user_action_required',
+    message: 'A role with this code already exists in the organization.',
+  }),
+  IDENTITY_DUPLICATE_USER_CODE: Object.freeze({
+    class: 'user',
+    httpStatus: 409,
+    retryability: 'user_action_required',
+    message: 'A user with this code already exists in the organization.',
+  }),
+  IDENTITY_DUPLICATE_ORG_CODE: Object.freeze({
+    class: 'user',
+    httpStatus: 409,
+    retryability: 'user_action_required',
+    message: 'An organization with this code already exists.',
+  }),
   BUILT_IN_ROLE_IMMUTABLE: Object.freeze({
     class: 'user',
     httpStatus: 409,

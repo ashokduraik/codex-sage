@@ -1,11 +1,12 @@
 /**
  * Project members service unit tests.
  */
+import { createTestOrganization, ensureTestRoles, nextTestUserCode } from '../../identityFixtures.js';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
 import { AUDIT_MODELS, listAuditEvents } from '../../../src/modules/access/audit.js';
-import { IDENTITY_MODELS, createOrganization, createUserInRepo, ensureBuiltInRoles, findBuiltInRole } from '../../../src/modules/masters/index.js';
+import { IDENTITY_MODELS, createUserInRepo, findRoleByCode } from '../../../src/modules/masters/index.js';
 import { PROJECT_MODELS, createProjectInRepo } from '../../../src/modules/masters/projects.js';
 import { addProjectMember, removeProjectMember } from '../../../src/modules/masters/projectMembers.js';
 
@@ -28,10 +29,11 @@ describe('projectMembers.service', () => {
   });
 
   it('idempotent add, soft remove, and audits', async () => {
-    const org = await createOrganization({ name: 'Svc PM', slug: `svcp-${Date.now()}` });
-    await ensureBuiltInRoles(org._id);
-    const adminRole = await findBuiltInRole(org._id, 'org_admin');
+    const org = await createTestOrganization({ name: 'Svc PM', slug: `svcp-${Date.now()}` });
+    await ensureTestRoles(org._id);
+    const adminRole = await findRoleByCode(org._id, 'ADMIN');
     const actor = await createUserInRepo(org._id, {
+      code: nextTestUserCode(),
       email: `actor-${Date.now()}@example.com`,
       displayName: 'Actor',
       userStatus: 'active',
@@ -39,10 +41,11 @@ describe('projectMembers.service', () => {
       projectAccessMode: 'all',
     });
     const target = await createUserInRepo(org._id, {
+      code: nextTestUserCode(),
       email: `target-${Date.now()}@example.com`,
       displayName: 'Target',
       userStatus: 'active',
-      roleIds: [(await findBuiltInRole(org._id, 'member'))._id],
+      roleIds: [(await findRoleByCode(org._id, 'MEMBER'))._id],
       projectAccessMode: 'selected',
     });
     const project = await createProjectInRepo(org._id, {

@@ -219,6 +219,18 @@ export const ERROR_CODE_MESSAGES = Object.freeze({
     i18nKey: 'errors.codes.IDENTITY_DUPLICATE_ROLE_NAME',
     category: 'validation',
   }),
+  IDENTITY_DUPLICATE_ROLE_CODE: Object.freeze({
+    i18nKey: 'errors.codes.IDENTITY_DUPLICATE_ROLE_CODE',
+    category: 'validation',
+  }),
+  IDENTITY_DUPLICATE_USER_CODE: Object.freeze({
+    i18nKey: 'errors.codes.IDENTITY_DUPLICATE_USER_CODE',
+    category: 'validation',
+  }),
+  IDENTITY_DUPLICATE_ORG_CODE: Object.freeze({
+    i18nKey: 'errors.codes.IDENTITY_DUPLICATE_ORG_CODE',
+    category: 'validation',
+  }),
   BUILT_IN_ROLE_IMMUTABLE: Object.freeze({
     i18nKey: 'errors.codes.BUILT_IN_ROLE_IMMUTABLE',
     category: 'validation',

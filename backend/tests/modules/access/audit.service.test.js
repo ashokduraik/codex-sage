@@ -1,12 +1,13 @@
 /**
  * Unit/integration tests for audit model, repository, and service helpers.
  */
+import { createTestOrganization } from '../../identityFixtures.js';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import mongoose from 'mongoose';
 import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
 import { encodeCursor, ROW_STATUS_DELETED } from '../../../src/platform/data/index.js';
-import { IDENTITY_MODELS, createOrganization } from '../../../src/modules/masters/index.js';
+import { IDENTITY_MODELS } from '../../../src/modules/masters/index.js';
 import { AUDIT_MODELS } from '../../../src/modules/access/audit.js';
 import { AuditEvent } from '../../../src/models/audit.model.js';
 import {
@@ -37,7 +38,7 @@ describe('audit model, repository, and service', () => {
   });
 
   it('throws on updateOne / deleteOne without retentionJob', async () => {
-    const org = await createOrganization({
+    const org = await createTestOrganization({
       name: 'Audit Org',
       slug: `audit-org-${Date.now()}`,
     });
@@ -55,7 +56,7 @@ describe('audit model, repository, and service', () => {
   });
 
   it('allows retentionJob soft-delete to status D only', async () => {
-    const org = await createOrganization({
+    const org = await createTestOrganization({
       name: 'Audit Org 2',
       slug: `audit-org2-${Date.now()}`,
     });
@@ -90,7 +91,7 @@ describe('audit model, repository, and service', () => {
   });
 
   it('rejects mismatched resourceType and invalid result without throwing', async () => {
-    const org = await createOrganization({
+    const org = await createTestOrganization({
       name: 'Audit Org mismatch',
       slug: `audit-mismatch-${Date.now()}`,
     });
@@ -135,7 +136,7 @@ describe('audit model, repository, and service', () => {
   });
 
   it('filters by from/to/actor/action/resourceType and rejects bad actor', async () => {
-    const org = await createOrganization({
+    const org = await createTestOrganization({
       name: 'Audit Org filters',
       slug: `audit-filters-${Date.now()}`,
     });
@@ -187,7 +188,7 @@ describe('audit model, repository, and service', () => {
   });
 
   it('returns null for invalid detail ids', async () => {
-    const org = await createOrganization({
+    const org = await createTestOrganization({
       name: 'Audit Org detail',
       slug: `audit-detail-${Date.now()}`,
     });
@@ -217,7 +218,7 @@ describe('audit model, repository, and service', () => {
   });
 
   it('rejects unknown actions without throwing to the caller', async () => {
-    const org = await createOrganization({
+    const org = await createTestOrganization({
       name: 'Audit Org 3',
       slug: `audit-org3-${Date.now()}`,
     });
@@ -238,7 +239,7 @@ describe('audit model, repository, and service', () => {
   });
 
   it('inserts a valid event with sanitized context', async () => {
-    const org = await createOrganization({
+    const org = await createTestOrganization({
       name: 'Audit Org 4',
       slug: `audit-org4-${Date.now()}`,
     });
@@ -257,7 +258,7 @@ describe('audit model, repository, and service', () => {
   });
 
   it('paginates with a keyset cursor without duplicates', async () => {
-    const org = await createOrganization({
+    const org = await createTestOrganization({
       name: 'Audit Org 5',
       slug: `audit-org5-${Date.now()}`,
     });
@@ -286,7 +287,7 @@ describe('audit model, repository, and service', () => {
   });
 
   it('rejects a malformed cursor with VALIDATION_ERROR', async () => {
-    const org = await createOrganization({
+    const org = await createTestOrganization({
       name: 'Audit Org 6',
       slug: `audit-org6-${Date.now()}`,
     });

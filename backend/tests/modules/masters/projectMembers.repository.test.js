@@ -1,12 +1,13 @@
 /**
  * Project member overlay repository tests — reactivation and accessible ids.
  */
+import { createTestOrganization } from '../../identityFixtures.js';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import mongoose from 'mongoose';
 import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
 import { dropProjectMembersCollectionIfPresent } from '../../../src/platform/data/index.js';
-import { IDENTITY_MODELS, createOrganization } from '../../../src/modules/masters/index.js';
+import { IDENTITY_MODELS } from '../../../src/modules/masters/index.js';
 import { PROJECT_MODELS, createProjectInRepo } from '../../../src/modules/masters/projects.js';
 import {
   createProjectMember,
@@ -38,7 +39,7 @@ describe('projectMembers.repository', () => {
   });
 
   it('reactivates soft-deleted members and lists accessible project ids', async () => {
-    const org = await createOrganization({ name: 'PM Org', slug: `pm-${Date.now()}` });
+    const org = await createTestOrganization({ name: 'PM Org', slug: `pm-${Date.now()}` });
     const userId = new mongoose.Types.ObjectId();
     const project = await createProjectInRepo(org._id, {
       name: 'One',
@@ -73,7 +74,7 @@ describe('projectMembers.repository', () => {
   });
 
   it('does not clobber lifecycleStatus or counts when pushing a member', async () => {
-    const org = await createOrganization({ name: 'PM Iso', slug: `pm-iso-${Date.now()}` });
+    const org = await createTestOrganization({ name: 'PM Iso', slug: `pm-iso-${Date.now()}` });
     const actorId = new mongoose.Types.ObjectId();
     const project = await createProjectInRepo(org._id, {
       name: 'Isolated',
@@ -108,7 +109,7 @@ describe('projectMembers.repository', () => {
   });
 
   it('covers invalid ids, missing project, duplicate push, and list sort', async () => {
-    const org = await createOrganization({ name: 'PM Edges', slug: `pm-e-${Date.now()}` });
+    const org = await createTestOrganization({ name: 'PM Edges', slug: `pm-e-${Date.now()}` });
     const actorId = new mongoose.Types.ObjectId();
     const firstUser = new mongoose.Types.ObjectId();
     const secondUser = new mongoose.Types.ObjectId();
@@ -174,7 +175,7 @@ describe('projectMembers.repository', () => {
   });
 
   it('picks the newest deleted grant when several tombstones exist', async () => {
-    const org = await createOrganization({ name: 'PM Tomb', slug: `pm-t-${Date.now()}` });
+    const org = await createTestOrganization({ name: 'PM Tomb', slug: `pm-t-${Date.now()}` });
     const userId = new mongoose.Types.ObjectId();
     const olderId = new mongoose.Types.ObjectId();
     const newerId = new mongoose.Types.ObjectId();
@@ -215,7 +216,7 @@ describe('projectMembers.repository', () => {
   });
 
   it('forwards an optional Mongo session on member writes and reads', async () => {
-    const org = await createOrganization({ name: 'PM Sess', slug: `pm-s-${Date.now()}` });
+    const org = await createTestOrganization({ name: 'PM Sess', slug: `pm-s-${Date.now()}` });
     const userId = new mongoose.Types.ObjectId();
     const project = await createProjectInRepo(org._id, {
       name: 'Sessioned',

@@ -31,7 +31,7 @@ export {
   applyPasswordUpdate,
   touchLastLoginAt,
 } from './users.js';
-export { findBuiltInRole, createRoleInRepo, ensureBuiltInRoles } from './roles.js';
+export { ADMIN_ROLE_CODE, findRoleByCode, createRoleInRepo, ensureAdminRole } from './roles.js';
 export {
   adjustProjectConversationCount,
   findProjectById,

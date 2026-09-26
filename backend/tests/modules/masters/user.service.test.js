@@ -22,7 +22,7 @@ vi.mock('../../../src/modules/access/index.js', () => ({
 }));
 
 vi.mock('../../../src/modules/masters/users.helper.js', () => ({
-  assertRolesExistInOrg: vi.fn(async (_orgId, roleIds) => roleIds.map((id) => ({ _id: id, name: 'Role', isBuiltIn: false }))),
+  assertRolesExistInOrg: vi.fn(async (_orgId, roleIds) => roleIds.map((id) => ({ _id: id, name: 'Role' }))),
   wouldRemoveLastAdmin: vi.fn(async () => false),
   isRoleReferencedByActiveUser: vi.fn(async () => false),
   countActiveUsersManageHolders: vi.fn(async () => 0),
@@ -30,8 +30,9 @@ vi.mock('../../../src/modules/masters/users.helper.js', () => ({
 }));
 
 vi.mock('../../../src/modules/masters/roles.js', () => ({
-  findRolesByIds: vi.fn(async (_orgId, ids) => ids.map((id) => ({ _id: id, name: 'Role', isBuiltIn: false }))),
+  findRolesByIds: vi.fn(async (_orgId, ids) => ids.map((id) => ({ _id: id, name: 'Role' }))),
   isDuplicateKeyError: vi.fn((err) => typeof err === 'object' && err !== null && err.code === 11000),
+  duplicateKeyField: vi.fn(() => 'email'),
 }));
 
 vi.mock('../../../src/modules/masters/projectMembers.js', () => ({
@@ -83,6 +84,7 @@ describe('user.service', () => {
       createUser({
         orgId: '665f1c9d4b2a8e0012a4f010',
         actorUserId: 'actor',
+        code: 'U1',
         email: 'a@example.com',
         displayName: 'A',
         roleIds: ['bbbbbbbbbbbbbbbbbbbbbbbb'],
@@ -172,6 +174,7 @@ describe('mapUserToDto', () => {
     const dto = mapUserToDto(
       {
         _id: '6712f0b1c9a41d2f8e4b3a04',
+        code: 'ADA',
         email: 'ada@acme.example',
         displayName: 'Ada',
         userStatus: 'invited',
@@ -179,7 +182,7 @@ describe('mapUserToDto', () => {
         createdAt: new Date('2026-09-11T09:14:22.481Z'),
         passwordHash: 'should-not-leak',
       },
-      [{ _id: '6712f0b1c9a41d2f8e4b3a03', name: 'Member', isBuiltIn: true }],
+      [{ _id: '6712f0b1c9a41d2f8e4b3a03', name: 'Member' }],
     );
     expect(dto.passwordResetStatus).toBe('none');
     expect(containsForbiddenSecretKey(dto)).toBe(false);

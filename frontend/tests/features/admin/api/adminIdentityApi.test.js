@@ -4,12 +4,15 @@ import { resetApiSessionForTests } from '@/shared/api/apiSession.js';
 import { resetRefreshClientForTests } from '@/shared/api/refreshClient.js';
 import {
   activateUser,
+  createRole,
   createUser,
   deactivateUser,
   fetchPermissionsCatalog,
   listAllRoles,
   listUsers,
+  patchRole,
   patchUser,
+  removeRole,
   removeUser,
   resetUserPassword,
 } from '@/features/admin/api/adminIdentityApi.js';
@@ -92,6 +95,7 @@ describe('adminIdentityApi', () => {
     );
 
     await createUser({
+      code: 'A1',
       email: 'a@b.co',
       displayName: 'A',
       roleIds: ['r1'],
@@ -103,6 +107,7 @@ describe('adminIdentityApi', () => {
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({
+          code: 'A1',
           email: 'a@b.co',
           displayName: 'A',
           roleIds: ['r1'],
@@ -209,5 +214,48 @@ describe('adminIdentityApi', () => {
     const catalog = await fetchPermissionsCatalog();
     expect(catalog.groups[0].id).toBe('org');
     expect(fetchMock.mock.calls[0][0]).toBe(`${API_BASE_URL}/permissions`);
+  });
+
+  it('createRole posts code name and permissions', async () => {
+    const fetchMock = /** @type {ReturnType<typeof vi.fn>} */ (fetch);
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        status: 201,
+        body: { id: 'r1', code: 'READER', name: 'Reader', permissions: ['chat.ask'] },
+      }),
+    );
+
+    await createRole({
+      code: 'READER',
+      name: 'Reader',
+      permissions: ['chat.ask'],
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${API_BASE_URL}/roles`,
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          code: 'READER',
+          name: 'Reader',
+          permissions: ['chat.ask'],
+        }),
+      }),
+    );
+  });
+
+  it('patchRole and removeRole call the role id path', async () => {
+    const fetchMock = /** @type {ReturnType<typeof vi.fn>} */ (fetch);
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ status: 200, body: { id: 'r1', name: 'X' } }))
+      .mockResolvedValueOnce(jsonResponse({ status: 204, body: undefined }));
+
+    await patchRole('r1', { name: 'X' });
+    await removeRole('r1');
+
+    expect(String(fetchMock.mock.calls[0][0])).toBe(`${API_BASE_URL}/roles/r1`);
+    expect(fetchMock.mock.calls[0][1].method).toBe('PATCH');
+    expect(String(fetchMock.mock.calls[1][0])).toBe(`${API_BASE_URL}/roles/r1`);
+    expect(fetchMock.mock.calls[1][1].method).toBe('DELETE');
   });
 });

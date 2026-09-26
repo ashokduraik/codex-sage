@@ -5,12 +5,13 @@ import { skipLiveStack } from '../helpers/env.js';
 import { expectChangePaths, expectKnowledgeFacets, searchAndOpenPreview } from '../helpers/knowledge.js';
 import { isKnowledgeBrowsable, openProcessingCenter, waitForTerminalHealth, waitForTerminalJobStatus } from '../helpers/processing.js';
 import {
+  cleanupCreatedProjects,
   createProjectViaUi,
-  deleteProjectViaUi,
   generateE2eProjectName,
   navigateViaSidebar,
   openProjectFromList,
   openProjectTab,
+  projectIdFromCard,
 } from '../helpers/projects.js';
 import { chooseUploadFile, expectFolderUnsupportedAlert, uploadSourceDialog, uploadZipViaUi } from '../helpers/sources.js';
 import { writeNonZipUpload, writeSampleProjectZip, writeSampleProjectZipWithExtraFile } from '../helpers/zip.js';
@@ -27,6 +28,10 @@ test.describe('Journey: ZIP ingest and knowledge via UI', () => {
     await loginViaUi(page);
     await navigateViaSidebar(page, 'Projects');
     await expect(page).toHaveURL('/projects');
+  });
+
+  test.afterAll(async ({ browser }) => {
+    await cleanupCreatedProjects(browser, [projectName]);
   });
 
   test('rejects a non-ZIP file', async ({ page }) => {
@@ -47,8 +52,7 @@ test.describe('Journey: ZIP ingest and knowledge via UI', () => {
 
   test('processing and health reach a terminal state', async ({ page }) => {
     test.setTimeout(360_000);
-    await openProjectFromList(page, projectName);
-    const projectId = page.url().split('/projects/')[1]?.split('/')[0];
+    const projectId = await projectIdFromCard(page, projectName);
     await openProcessingCenter(page, projectId);
     await waitForTerminalJobStatus(page);
     await page.goto(`/projects/${projectId}`);
@@ -82,9 +86,5 @@ test.describe('Journey: ZIP ingest and knowledge via UI', () => {
     const secondHealth = await waitForTerminalHealth(page);
     test.skip(!isKnowledgeBrowsable(secondHealth), `Second ingest health is ${secondHealth}`);
     await expectChangePaths(page);
-  });
-
-  test('deletes the created project', async ({ page }) => {
-    await deleteProjectViaUi(page, projectName);
   });
 });

@@ -63,31 +63,39 @@ Same external MongoDB 8 replica set as development; database name forced to
 
 ### `organizations`
 
-Opts out of the tenant `orgId` plugin (`_id` is the org id). Fields: `name`, `slug`, `config`,
-plus base fields. Unique partial index on `{ slug: 1 }` where `status: 'A'`.
+Opts out of the tenant `orgId` plugin (`_id` is the org id). Fields: `code` (uppercase
+`[A-Z0-9_-]{2,64}`, set on create only), `name`, `slug`, `config`, plus base fields.
+Unique partial indexes on `{ slug: 1 }` and `{ code: 1 }` where `status: 'A'`. Seeded
+org uses `code: "DEFAULT_ORG"`. See ADR 0032.
 
 ### `users`
 
-Tenant-scoped. Fields: `email`, `displayName`, `passwordHash` (`select: false`),
+Tenant-scoped. Fields: `code` (uppercase `[A-Z0-9_-]{2,64}`, set on create only),
+`email`, `displayName`, `passwordHash` (`select: false`),
 `passwordUpdatedAt`, `mustChangePassword` (boolean, default `false`; set on admin-set
 password, cleared on self-service change), `userStatus` (`active` \| `invited` \|
 `disabled`), `lastLoginAt`, `roleIds` (one or more org roles), `projectAccessMode`
 (`all` \| `selected` \| `none`, default `selected`), plus base fields. Unique partial
-index on `{ orgId: 1, email: 1 }` where `status: 'A'`. List/keyset indexes:
+indexes on `{ orgId: 1, email: 1 }` and `{ orgId: 1, code: 1 }` where `status: 'A'`.
+List/keyset indexes:
 `{ orgId: 1, status: 1, createdAt: -1, _id: -1 }`, `{ orgId: 1, displayName: 1 }`,
 plus `{ orgId: 1, status: 1, _id: -1 }` and `{ orgId: 1, userStatus: 1, _id: -1 }`.
 Role-in-use / list-by-role index: `{ orgId: 1, roleIds: 1 }`. Email is mutable after
-create (admin `PATCH`); no `passwordHistory` in this slice
-(`PASSWORD_HISTORY_LENGTH = 0`). See ADR 0028.
+create (admin `PATCH`); `code` is not. No `passwordHistory` in this slice
+(`PASSWORD_HISTORY_LENGTH = 0`). Seeded admin uses `code: "ADMIN"`. See ADR 0028
+and ADR 0032.
 
 ### `roles`
 
-Tenant-scoped. Built-in roles use `isBuiltIn: true` and `builtInKey` (`org_admin`,
-`project_admin`, `member`, `viewer`) with empty `permissions` (resolved from code — see
-[`permissions.md`](./permissions.md)). Custom roles store `permissions`. Unique partial
-indexes on `{ orgId: 1, name: 1 }` and `{ orgId: 1, builtInKey: 1 }` (built-ins only).
-Keyset list index: `{ orgId: 1, status: 1, createdAt: -1, _id: -1 }`. Built-in roles may
-change `description` only; name, permissions, and soft-delete are immutable.
+Tenant-scoped. Fields: `code` (uppercase `[A-Z0-9_-]{2,64}`, set on create only),
+`name`, `description`, `permissions` (catalog keys stored on the document), plus
+base fields. Seed creates one role with `code: "ADMIN"` and every catalog
+permission. Admins may create any number of additional roles with any catalog
+subset. Unique partial indexes on `{ orgId: 1, name: 1 }` and `{ orgId: 1, code: 1 }`
+where `status: 'A'`. Keyset list index: `{ orgId: 1, status: 1, createdAt: -1, _id: -1 }`.
+Name, description, permissions, and soft-delete are writable on every role; `code`
+is immutable after create. Soft-delete fails with `ROLE_IN_USE` while any
+row-status-A user still holds the role. See ADR 0032.
 
 ### `loginsessions`
 
@@ -349,7 +357,8 @@ Rows older than 730 days are soft-deleted (Phase 60).
 
 ## Bootstrap seed
 
-On API startup the process ensures the default organization, four built-in roles, admin
-user (password hashed from the named constant `DEFAULT_ADMIN_PASSWORD`, `userStatus: 'active'`),
-and org_admin user exist (ADR 0011). Defaults are named constants — not env vars.
+On API startup the process ensures the default organization (`code: "DEFAULT_ORG"`),
+one admin role (`code: "ADMIN"`, every catalog permission), and the admin user
+(password hashed from the named constant `DEFAULT_ADMIN_PASSWORD`, `userStatus: 'active'`,
+`code: "ADMIN"`) exist (ADR 0011, ADR 0032). Defaults are named constants — not env vars.
 Worker processes do not seed.

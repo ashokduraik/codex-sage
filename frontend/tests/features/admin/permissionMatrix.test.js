@@ -24,13 +24,11 @@ const ROLES = [
     id: 'r-admin',
     name: 'Org Admin',
     permissions: ['users.manage', 'roles.manage', 'chat.ask'],
-    isBuiltIn: true,
   },
   {
     id: 'r-custom',
     name: 'Custom Analyst',
     permissions: ['chat.ask', 'legacy.unknown'],
-    isBuiltIn: false,
   },
 ];
 

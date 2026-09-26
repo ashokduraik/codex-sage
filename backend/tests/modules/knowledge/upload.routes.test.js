@@ -1,6 +1,7 @@
 /**
  * Source upload route integration tests — GridFS, jobs, ACL, idempotency.
  */
+import { nextTestUserCode, ensureTestRoles } from '../../identityFixtures.js';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -17,9 +18,9 @@ import {
   DEFAULT_ADMIN_PASSWORD,
   IDENTITY_MODELS,
   createUserInRepo,
-  findBuiltInRole,
   findOrganizationBySlug,
   runBootstrapSeed,
+  findRoleByCode,
 } from '../../../src/modules/masters/index.js';
 import { IDEMPOTENCY_MODELS } from '../../../src/platform/idempotency/index.js';
 import { PROJECT_MODELS, Project } from '../../../src/modules/masters/projects.js';
@@ -316,9 +317,11 @@ describe('source upload routes', () => {
     const created = await createProjectRequest(app, adminToken, { name: 'Upload Forbidden', sourceType: 'upload' }, 'idem-upload-proj-forbidden');
     const projectId = created.json().id;
 
-    const viewerRole = await findBuiltInRole(org._id, 'viewer');
+    await ensureTestRoles(org._id);
+    const viewerRole = await findRoleByCode(org._id, 'VIEWER');
     const passwordHash = await hashPassword('ViewerPass1!');
     const viewer = await createUserInRepo(org._id, {
+      code: nextTestUserCode(),
       email: 'viewer-upload@example.com',
       displayName: 'Viewer Upload',
       passwordHash,

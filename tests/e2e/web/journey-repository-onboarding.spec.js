@@ -6,12 +6,13 @@ import { expectKnowledgeFacets } from '../helpers/knowledge.js';
 import { isKnowledgeBrowsable, openProcessingCenter, waitForTerminalHealth, waitForTerminalJobStatus } from '../helpers/processing.js';
 import {
   cancelFollowUpAndCreateDialogs,
+  cleanupCreatedProjects,
   createProjectViaUi,
-  deleteProjectViaUi,
   generateE2eProjectName,
   navigateViaSidebar,
   openProjectFromList,
   openProjectTab,
+  projectIdFromCard,
 } from '../helpers/projects.js';
 import {
   attachPublicRepoViaUi,
@@ -50,6 +51,10 @@ test.describe('Journey: repository onboarding via UI', () => {
     await expect(page).toHaveURL('/projects');
   });
 
+  test.afterAll(async ({ browser }) => {
+    await cleanupCreatedProjects(browser, [publicProjectName, privateProjectName]);
+  });
+
   test('create stays on the URL step when the repository URL is empty', async ({ page }) => {
     publicProjectName = generateE2eProjectName();
     await createProjectViaUi(page, publicProjectName, 'repo');
@@ -63,7 +68,10 @@ test.describe('Journey: repository onboarding via UI', () => {
   test('attach rejects an unreachable repository URL', async ({ page }) => {
     await openConnectFromSources(page, publicProjectName);
     await submitInvalidRepoUrl(page);
-    await expectConnectRepoError(page, /Could not reach the repository|Repository not found|could not be verified/i);
+    await expectConnectRepoError(
+      page,
+      /Could not reach the repository|The repository host could not be reached|Repository not found|could not be verified/i,
+    );
     await expectConnectUrlStep(page);
     await connectRepoDialog(page).getByRole('button', { name: 'Cancel' }).click();
   });
@@ -77,8 +85,7 @@ test.describe('Journey: repository onboarding via UI', () => {
 
   test('processing and health reach a terminal state', async ({ page }) => {
     test.setTimeout(360_000);
-    await openProjectFromList(page, publicProjectName);
-    const projectId = page.url().split('/projects/')[1]?.split('/')[0];
+    const projectId = await projectIdFromCard(page, publicProjectName);
     await openProcessingCenter(page, projectId);
     await waitForTerminalJobStatus(page);
     await page.goto(`/projects/${projectId}`);
@@ -103,12 +110,5 @@ test.describe('Journey: repository onboarding via UI', () => {
     await openProjectFromList(page, privateProjectName);
     await openProjectTab(page, 'Sources');
     await expect(page.getByText('Connected').first()).toBeVisible();
-  });
-
-  test('deletes created projects', async ({ page }) => {
-    await deleteProjectViaUi(page, publicProjectName);
-    if (privateProjectName) {
-      await deleteProjectViaUi(page, privateProjectName);
-    }
   });
 });

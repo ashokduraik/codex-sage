@@ -1,6 +1,7 @@
 /**
  * Probe route integration tests — ACL, validation, and token redaction.
  */
+import { nextTestUserCode, ensureTestRoles } from '../../identityFixtures.js';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { API_BASE_PATH, buildApp } from '../../../src/http/app.js';
 import { createMongoHarness } from '../../mongoHarness.js';
@@ -13,9 +14,9 @@ import {
   DEFAULT_ADMIN_PASSWORD,
   IDENTITY_MODELS,
   createUserInRepo,
-  findBuiltInRole,
   findOrganizationBySlug,
   runBootstrapSeed,
+  findRoleByCode,
 } from '../../../src/modules/masters/index.js';
 import { IDEMPOTENCY_MODELS } from '../../../src/platform/idempotency/index.js';
 import { PROJECT_MODELS } from '../../../src/modules/masters/projects.js';
@@ -185,8 +186,10 @@ describe('repository probe routes', () => {
     const org = await findOrganizationBySlug('default');
     const project = await createProject(app, adminToken, 'Probe ACL', 'idem-probe-proj-4');
 
-    const viewerRole = await findBuiltInRole(org._id, 'viewer');
+    await ensureTestRoles(org._id);
+    const viewerRole = await findRoleByCode(org._id, 'VIEWER');
     const viewer = await createUserInRepo(org._id, {
+      code: nextTestUserCode(),
       email: 'viewer-probe@example.com',
       displayName: 'Viewer Probe',
       passwordHash: await hashPassword('ViewerPass1!'),
@@ -432,8 +435,10 @@ describe('repository attach routes', () => {
     });
     expect(attached.statusCode).toBe(201);
 
-    const viewerRole = await findBuiltInRole(org._id, 'viewer');
+    await ensureTestRoles(org._id);
+    const viewerRole = await findRoleByCode(org._id, 'VIEWER');
     const viewer = await createUserInRepo(org._id, {
+      code: nextTestUserCode(),
       email: 'viewer-attach@example.com',
       displayName: 'Viewer Attach',
       passwordHash: await hashPassword('ViewerPass1!'),

@@ -1,12 +1,13 @@
 /**
  * Notification fan-out, list, and mark-read service tests.
  */
+import { createTestOrganization, ensureTestRoles, nextTestUserCode } from '../../identityFixtures.js';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import mongoose from 'mongoose';
 import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
 import { Notification } from '../../../src/models/notification.model.js';
-import { IDENTITY_MODELS, createOrganization, createUserInRepo, ensureBuiltInRoles, findBuiltInRole } from '../../../src/modules/masters/index.js';
+import { IDENTITY_MODELS, createUserInRepo, findRoleByCode } from '../../../src/modules/masters/index.js';
 import { PROJECT_MODELS, createProjectInRepo } from '../../../src/modules/masters/projects.js';
 import {
   emitNotificationsForJobTerminal,
@@ -26,13 +27,14 @@ const harness = createMongoHarness({
  * @returns {Promise<{ orgId: string, userId: string, projectId: string }>}
  */
 async function seedNotifyProject() {
-  const org = await createOrganization({
+  const org = await createTestOrganization({
     name: 'Notify Org',
     slug: `notify-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
   });
-  await ensureBuiltInRoles(org._id);
-  const role = await findBuiltInRole(org._id, 'project_admin');
+  await ensureTestRoles(org._id);
+  const role = await findRoleByCode(org._id, 'PROJECT_ADMIN');
   const user = await createUserInRepo(org._id, {
+    code: nextTestUserCode(),
     email: `n-${Date.now()}@example.com`,
     displayName: 'Notifier',
     userStatus: 'active',

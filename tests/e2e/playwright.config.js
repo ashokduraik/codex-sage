@@ -39,6 +39,8 @@ export default defineConfig({
   expect: {
     timeout: E2E_EXPECT_TIMEOUT_MS,
   },
+  // Journeys share the bootstrap admin and one Mongo org — parallel files race on list/search and sessions.
+  workers: 1,
   retries: process.env.CI ? 1 : 0,
   use: {
     baseURL: process.env.E2E_BASE_URL ?? 'http://localhost:5173',

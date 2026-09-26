@@ -1,6 +1,7 @@
 /**
  * Auth route integration tests via app.inject.
  */
+import { nextTestUserCode, ensureTestRoles } from '../../identityFixtures.js';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { API_BASE_PATH, buildApp } from '../../../src/http/app.js';
 import { createMongoHarness } from '../../mongoHarness.js';
@@ -13,11 +14,11 @@ import {
   IDENTITY_MODELS,
   findOrganizationBySlug,
   findUserByEmail,
-  findBuiltInRole,
   createUserInRepo,
   softDeleteUser,
   updateUserPasswordHash,
   runBootstrapSeed,
+  findRoleByCode,
 } from '../../../src/modules/masters/index.js';
 import { User } from '../../../src/models/user.model.js';
 import { hashPassword } from '../../../src/modules/access/auth.js';
@@ -250,9 +251,11 @@ describe('auth.routes', () => {
     app = await readyApp();
     const organization = await findOrganizationBySlug('default');
     const orgId = organization._id;
-    const memberRole = await findBuiltInRole(orgId, 'member');
+    await ensureTestRoles(orgId);
+    const memberRole = await findRoleByCode(orgId, 'MEMBER');
 
     await createUserInRepo(orgId, {
+      code: nextTestUserCode(),
       email: 'invited@example.com',
       displayName: 'Invited',
       userStatus: 'invited',
@@ -260,6 +263,7 @@ describe('auth.routes', () => {
     });
 
     const disabled = await createUserInRepo(orgId, {
+      code: nextTestUserCode(),
       email: 'disabled@example.com',
       displayName: 'Disabled',
       userStatus: 'active',
@@ -269,6 +273,7 @@ describe('auth.routes', () => {
     await User.updateOne({ _id: disabled._id }, { $set: { userStatus: 'disabled' } });
 
     const softDeleted = await createUserInRepo(orgId, {
+      code: nextTestUserCode(),
       email: 'deleted@example.com',
       displayName: 'Deleted',
       userStatus: 'active',

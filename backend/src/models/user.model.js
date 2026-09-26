@@ -14,13 +14,40 @@ import { createBaseSchema, ROW_STATUS_ACTIVE } from '../platform/data/index.js';
 
 const ObjectId = mongoose.Schema.Types.ObjectId;
 
+/** Allowed identity code: 2–64 uppercase letters, digits, hyphens, or underscores. */
+export const MASTER_CODE_PATTERN = /^[A-Z0-9_-]{2,64}$/;
+
 /** invited / active / disabled — not the same as row status A/D. */
 export const USER_STATUS_VALUES = Object.freeze(['active', 'invited', 'disabled']);
 
 /** Which projects a member can see: all, selected, or none. */
 export const PROJECT_ACCESS_MODE_VALUES = Object.freeze(['all', 'selected', 'none']);
 
+/**
+ * Returns whether `value` is a valid identity code.
+ * @param {unknown} value Candidate code.
+ * @returns {boolean}
+ */
+function isValidMasterCode(value) {
+  return typeof value === 'string' && MASTER_CODE_PATTERN.test(value);
+}
+
 const userSchema = createBaseSchema({
+  // Stable unique handle in the org, e.g. "ADMIN" or "E2E-123". Set on create only
+  code: {
+    type: String,
+    required: true,
+    trim: true,
+    uppercase: true,
+    validate: {
+      /**
+       * @param {string} value Candidate code.
+       * @returns {boolean}
+       */
+      validator: isValidMasterCode,
+      message: 'code must match [A-Z0-9_-]{2,64}',
+    },
+  },
   // Login email; unique per organization among active users
   email: { type: String, required: true, lowercase: true, trim: true },
   // Name shown in the UI, e.g. "Alice"
@@ -61,6 +88,7 @@ const userSchema = createBaseSchema({
 });
 
 userSchema.index({ orgId: 1, email: 1 }, { unique: true, partialFilterExpression: { status: ROW_STATUS_ACTIVE } });
+userSchema.index({ orgId: 1, code: 1 }, { unique: true, partialFilterExpression: { status: ROW_STATUS_ACTIVE } });
 userSchema.index({ orgId: 1, status: 1, createdAt: -1, _id: -1 });
 userSchema.index({ orgId: 1, displayName: 1 });
 userSchema.index({ orgId: 1, status: 1, _id: -1 });

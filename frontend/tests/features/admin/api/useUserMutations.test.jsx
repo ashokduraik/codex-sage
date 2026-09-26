@@ -65,6 +65,7 @@ describe('useUserMutations', () => {
 
     await act(async () => {
       await result.current.mutateAsync({
+        code: 'N1',
         email: 'n@b.co',
         displayName: 'N',
         roleIds: ['r1'],

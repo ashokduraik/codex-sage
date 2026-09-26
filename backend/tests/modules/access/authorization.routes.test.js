@@ -1,6 +1,7 @@
 /**
  * Authorization HTTP integration tests.
  */
+import { ensureTestRoles, nextTestUserCode } from '../../identityFixtures.js';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import Fastify from 'fastify';
 import { API_BASE_PATH, buildApp } from '../../../src/http/app.js';
@@ -18,7 +19,6 @@ import {
   DEFAULT_ORG_SLUG,
   IDENTITY_MODELS,
   createUserInRepo,
-  ensureBuiltInRoles,
   findOrganizationBySlug,
   findUserByEmail,
   runBootstrapSeed,
@@ -99,10 +99,11 @@ describe('authorization routes', () => {
   it('returns the full catalog for roles.manage and forbids viewers', async () => {
     await runBootstrapSeed(createMockLog());
     const org = await findOrganizationBySlug(DEFAULT_ORG_SLUG);
-    const { roles } = await ensureBuiltInRoles(org._id);
-    const viewer = roles.find((role) => role.builtInKey === 'viewer');
+    const { roles } = await ensureTestRoles(org._id);
+    const viewer = roles.find((role) => role.code === 'VIEWER');
     const password = 'viewer-pass-1';
     const user = await createUserInRepo(org._id, {
+      code: nextTestUserCode(),
       email: `viewer-${Date.now()}@example.com`,
       displayName: 'Viewer',
       userStatus: 'active',
@@ -136,13 +137,18 @@ describe('authorization routes', () => {
     await runBootstrapSeed(createMockLog());
     const org = await findOrganizationBySlug(DEFAULT_ORG_SLUG);
     const role = await Role.create({
+      code:
+        String(`NoManage-${Date.now()}`)
+          .toUpperCase()
+          .replace(/[^A-Z0-9-]/g, '-')
+          .slice(0, 64) || 'ROLE',
       orgId: org._id,
       name: `NoManage-${Date.now()}`,
       permissions: ['org.view'],
-      isBuiltIn: false,
     });
     const password = 'member-pass-1';
     const user = await createUserInRepo(org._id, {
+      code: nextTestUserCode(),
       email: `nomgr-${Date.now()}@example.com`,
       displayName: 'No Manage',
       userStatus: 'active',
@@ -179,13 +185,18 @@ describe('authorization routes', () => {
     await runBootstrapSeed(createMockLog());
     const org = await findOrganizationBySlug(DEFAULT_ORG_SLUG);
     const role = await Role.create({
+      code:
+        String(`AskOnly-${Date.now()}`)
+          .toUpperCase()
+          .replace(/[^A-Z0-9-]/g, '-')
+          .slice(0, 64) || 'ROLE',
       orgId: org._id,
       name: `AskOnly-${Date.now()}`,
       permissions: ['chat.ask'],
-      isBuiltIn: false,
     });
     const password = 'ask-pass-1';
     const user = await createUserInRepo(org._id, {
+      code: nextTestUserCode(),
       email: `ask-${Date.now()}@example.com`,
       displayName: 'Asker',
       userStatus: 'active',

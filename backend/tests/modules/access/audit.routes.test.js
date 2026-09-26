@@ -1,6 +1,7 @@
 /**
  * Audit HTTP integration tests (list, detail, tenant isolation, retro-fits).
  */
+import { createTestOrganization, ensureTestRoles, nextTestUserCode } from '../../identityFixtures.js';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import mongoose from 'mongoose';
 import { API_BASE_PATH, buildApp } from '../../../src/http/app.js';
@@ -14,9 +15,7 @@ import {
   DEFAULT_ADMIN_PASSWORD,
   DEFAULT_ORG_SLUG,
   IDENTITY_MODELS,
-  createOrganization,
   createUserInRepo,
-  ensureBuiltInRoles,
   findOrganizationBySlug,
   runBootstrapSeed,
 } from '../../../src/modules/masters/index.js';
@@ -80,10 +79,11 @@ describe('audit routes', () => {
   it('returns 401 without a token and 403 without audit.view', async () => {
     await runBootstrapSeed(createMockLog());
     const org = await findOrganizationBySlug(DEFAULT_ORG_SLUG);
-    const { roles } = await ensureBuiltInRoles(org._id);
-    const viewer = roles.find((role) => role.builtInKey === 'viewer');
+    const { roles } = await ensureTestRoles(org._id);
+    const viewer = roles.find((role) => role.code === 'VIEWER');
     const password = 'viewer-pass-audit-1';
     const user = await createUserInRepo(org._id, {
+      code: nextTestUserCode(),
       email: `viewer-audit-${Date.now()}@example.com`,
       displayName: 'Viewer',
       userStatus: 'active',
@@ -111,14 +111,15 @@ describe('audit routes', () => {
   it('scopes list to the caller org and supports filters + keyset pagination', async () => {
     await runBootstrapSeed(createMockLog());
     const orgA = await findOrganizationBySlug(DEFAULT_ORG_SLUG);
-    const orgB = await createOrganization({
+    const orgB = await createTestOrganization({
       name: 'Other Org',
       slug: `other-audit-${Date.now()}`,
     });
-    const { roles: rolesB } = await ensureBuiltInRoles(orgB._id);
-    const adminB = rolesB.find((role) => role.builtInKey === 'org_admin');
+    const { roles: rolesB } = await ensureTestRoles(orgB._id);
+    const adminB = rolesB.find((role) => role.code === 'ADMIN');
     const passwordB = 'other-admin-pass-1';
     const userB = await createUserInRepo(orgB._id, {
+      code: nextTestUserCode(),
       email: `admin-b-${Date.now()}@example.com`,
       displayName: 'Admin B',
       userStatus: 'active',
@@ -208,7 +209,7 @@ describe('audit routes', () => {
   it('returns detail for same org and 404 for cross-tenant ids', async () => {
     await runBootstrapSeed(createMockLog());
     const orgA = await findOrganizationBySlug(DEFAULT_ORG_SLUG);
-    const orgB = await createOrganization({
+    const orgB = await createTestOrganization({
       name: 'Detail Org',
       slug: `detail-audit-${Date.now()}`,
     });
@@ -345,10 +346,11 @@ describe('audit routes', () => {
   it('audits admin/security 403 denials but not projects.view denials', async () => {
     await runBootstrapSeed(createMockLog());
     const org = await findOrganizationBySlug(DEFAULT_ORG_SLUG);
-    const { roles } = await ensureBuiltInRoles(org._id);
-    const viewer = roles.find((role) => role.builtInKey === 'viewer');
+    const { roles } = await ensureTestRoles(org._id);
+    const viewer = roles.find((role) => role.code === 'VIEWER');
     const password = 'viewer-deny-audit-1';
     const user = await createUserInRepo(org._id, {
+      code: nextTestUserCode(),
       email: `viewer-deny-${Date.now()}@example.com`,
       displayName: 'Viewer Deny',
       userStatus: 'active',

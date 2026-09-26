@@ -84,6 +84,7 @@ export async function listUsers(options = {}) {
 /**
  * Creates an invited user with one or more roles.
  * @param {{
+ *   code: string,
  *   email: string,
  *   displayName: string,
  *   roleIds: string[],
@@ -95,6 +96,7 @@ export async function createUser(input) {
   return apiRequest('/users', {
     method: 'POST',
     body: {
+      code: input.code,
       email: input.email,
       displayName: input.displayName,
       roleIds: input.roleIds,
@@ -205,4 +207,52 @@ export async function listAllRoles(options = {}) {
  */
 export async function fetchPermissionsCatalog(options = {}) {
   return apiRequest('/permissions', { signal: options.signal });
+}
+
+/**
+ * Creates a role with catalog permissions.
+ * @param {{
+ *   code: string,
+ *   name: string,
+ *   description?: string,
+ *   permissions: string[],
+ * }} input Create payload.
+ * @returns {Promise<object>} Created role DTO.
+ */
+export async function createRole(input) {
+  return apiRequest('/roles', {
+    method: 'POST',
+    body: {
+      code: input.code,
+      name: input.name,
+      description: input.description,
+      permissions: input.permissions,
+    },
+  });
+}
+
+/**
+ * Updates a role. `code` is not accepted.
+ * @param {string} roleId Target role id.
+ * @param {{
+ *   name?: string,
+ *   description?: string,
+ *   permissions?: string[],
+ * }} patch Fields to update.
+ * @returns {Promise<object>} Updated role DTO.
+ */
+export async function patchRole(roleId, patch) {
+  return apiRequest(`/roles/${roleId}`, {
+    method: 'PATCH',
+    body: patch,
+  });
+}
+
+/**
+ * Soft-deletes a role.
+ * @param {string} roleId Target role id.
+ * @returns {Promise<object | undefined>}
+ */
+export async function removeRole(roleId) {
+  return apiRequest(`/roles/${roleId}`, { method: 'DELETE' });
 }

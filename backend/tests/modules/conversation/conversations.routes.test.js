@@ -1,6 +1,7 @@
 /**
  * Conversation route integration tests — owner privacy, lifecycle, search, titles.
  */
+import { nextTestUserCode } from '../../identityFixtures.js';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import mongoose from 'mongoose';
 import { API_BASE_PATH, buildApp } from '../../../src/http/app.js';
@@ -16,9 +17,9 @@ import {
   IDENTITY_MODELS,
   createRoleInRepo,
   createUserInRepo,
-  findBuiltInRole,
   findOrganizationBySlug,
   runBootstrapSeed,
+  findRoleByCode,
 } from '../../../src/modules/masters/index.js';
 import { PROJECT_MODELS, Project } from '../../../src/modules/masters/projects.js';
 import { addProjectMember } from '../../../src/modules/masters/projectMembers.js';
@@ -277,9 +278,10 @@ describe('conversation routes', () => {
     const created = await createConversation(app, admin.accessToken, project.id, { title: 'Admin private thread' }, 'idem-conv-priv-1');
     const conversationId = created.json().id;
 
-    const adminRole = await findBuiltInRole(org._id, 'org_admin');
+    const adminRole = await findRoleByCode(org._id, 'ADMIN');
     const passwordHash = await hashPassword('OtherAdmin1!');
     await createUserInRepo(org._id, {
+      code: nextTestUserCode(),
       email: 'other-admin@example.com',
       displayName: 'Other Admin',
       userStatus: 'active',
@@ -443,12 +445,14 @@ describe('conversation routes', () => {
     const created = await createConversation(app, admin.accessToken, project.id, { title: 'Scoped' }, 'idem-conv-acl-1');
 
     const role = await createRoleInRepo(org._id, {
+      code: 'NOCHAT',
       name: 'No chat',
       permissions: ['org.view', 'projects.view'],
       createdBy: null,
     });
     const passwordHash = await hashPassword('NoChatPass1!');
     const user = await createUserInRepo(org._id, {
+      code: nextTestUserCode(),
       email: 'nochat@example.com',
       displayName: 'No Chat',
       passwordHash,

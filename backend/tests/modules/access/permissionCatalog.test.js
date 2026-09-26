@@ -1,11 +1,11 @@
+import { createTestOrganization } from '../../identityFixtures.js';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
-import { IDENTITY_MODELS, createOrganization } from '../../../src/modules/masters/index.js';
+import { IDENTITY_MODELS } from '../../../src/modules/masters/index.js';
 import { Role } from '../../../src/models/role.model.js';
 import {
   ALL_PERMISSION_KEYS,
-  BUILT_IN_ROLE_PERMISSIONS,
   PERMISSION_GROUPS,
   assertRolePermissionsInCatalog,
   isKnownPermissionKey,
@@ -80,22 +80,6 @@ describe('permissionCatalog', () => {
       }),
     );
   });
-
-  it('gives org_admin every catalog permission', () => {
-    expect(BUILT_IN_ROLE_PERMISSIONS.org_admin).toEqual(ALL_PERMISSION_KEYS);
-  });
-
-  it('includes chat.ask on viewer', () => {
-    expect(BUILT_IN_ROLE_PERMISSIONS.viewer).toContain('chat.ask');
-  });
-
-  it('gives member viewer permissions plus archive and upload', () => {
-    for (const key of BUILT_IN_ROLE_PERMISSIONS.viewer) {
-      expect(BUILT_IN_ROLE_PERMISSIONS.member).toContain(key);
-    }
-    expect(BUILT_IN_ROLE_PERMISSIONS.member).toContain('conversations.archive');
-    expect(BUILT_IN_ROLE_PERMISSIONS.member).toContain('sources.upload');
-  });
 });
 
 const harness = createMongoHarness({
@@ -117,24 +101,14 @@ describe('assertRolePermissionsInCatalog', () => {
   });
 
   it('passes when every stored permission is in the catalog', async () => {
-    const org = await createOrganization({ name: 'Acme', slug: `acme-${Date.now()}` });
-    await Role.create({
-      orgId: org._id,
-      name: 'Ok',
-      permissions: ['org.view'],
-      isBuiltIn: false,
-    });
+    const org = await createTestOrganization({ name: 'Acme', slug: `acme-${Date.now()}` });
+    await Role.create({ code: 'OK', orgId: org._id, name: 'Ok', permissions: ['org.view'] });
     await expect(assertRolePermissionsInCatalog()).resolves.toBeUndefined();
   });
 
   it('fails when a role stores an unknown permission', async () => {
-    const org = await createOrganization({ name: 'Acme', slug: `acme-${Date.now()}` });
-    await Role.create({
-      orgId: org._id,
-      name: 'Bad',
-      permissions: ['totally.unknown'],
-      isBuiltIn: false,
-    });
+    const org = await createTestOrganization({ name: 'Acme', slug: `acme-${Date.now()}` });
+    await Role.create({ code: 'BAD', orgId: org._id, name: 'Bad', permissions: ['totally.unknown'] });
     await expect(assertRolePermissionsInCatalog()).rejects.toThrow(/catalog drift/);
   });
 });

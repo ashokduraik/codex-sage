@@ -1,8 +1,8 @@
 # Permission catalog
 
 Single source of truth for organization-scoped permissions. Implemented in
-`backend/src/modules/authorization/permissionCatalog.js` (solution §8.2). The UI renders
-`label` and `description` only; `key` is an opaque value used when editing roles.
+`backend/src/modules/access/permissions.js`. The UI renders `label` and
+`description` only; `key` is an opaque value used when editing roles.
 
 ## Groups
 
@@ -32,20 +32,11 @@ Single source of truth for organization-scoped permissions. Implemented in
 | Administration | `usage.view` | View usage |
 | Notifications | `notifications.view` | View notifications |
 
-## Built-in role maps (code-resolved)
+## Roles
 
-Built-in roles store empty `permissions[]` in Mongo. Effective permissions come from
-`backend/src/modules/authorization/builtInRolePermissions.js`:
-
-| Role | Permissions |
-|---|---|
-| `org_admin` | Every catalog key |
-| `viewer` | View + search + `chat.ask` (see Phase 09 decision) |
-| `member` | Viewer set + `conversations.archive` + `sources.upload` |
-| `project_admin` | Member set + project create/update/delete, `repos.connect`, `knowledge.trigger` |
-
-Custom roles persist their own `permissions[]`, validated against this catalog at
-startup and when Phase 11 writes roles.
+Every role stores `permissions[]` on the document, validated against this catalog
+at startup and on create/update. Seed creates one role with `code: "ADMIN"` and
+every catalog key. Additional roles are created by admins (ADR 0032).
 
 ## Cache staleness
 

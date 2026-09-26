@@ -1,17 +1,11 @@
 /**
  * Unit tests for resolveProjectPermissions matrix and cache behaviour.
  */
+import { createTestOrganization, ensureTestRoles, nextTestUserCode } from '../../identityFixtures.js';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
-import {
-  IDENTITY_MODELS,
-  createOrganization,
-  createUserInRepo,
-  ensureBuiltInRoles,
-  findBuiltInRole,
-  bumpOrganizationAclVersion,
-} from '../../../src/modules/masters/index.js';
+import { IDENTITY_MODELS, createUserInRepo, bumpOrganizationAclVersion, findRoleByCode } from '../../../src/modules/masters/index.js';
 import { PROJECT_MODELS, createProjectInRepo } from '../../../src/modules/masters/projects.js';
 import {
   createProjectAclCache,
@@ -40,18 +34,27 @@ describe('resolveProjectPermissions', () => {
     await harness.afterAll();
   });
 
+  const ROLE_CODE_BY_OLD_KEY = Object.freeze({
+    org_admin: 'ADMIN',
+    project_admin: 'PROJECT_ADMIN',
+    member: 'MEMBER',
+    viewer: 'VIEWER',
+  });
+
   /**
    * @param {'all' | 'selected' | 'none'} mode
-   * @param {string} builtInKey
+   * @param {string} roleKey Old built-in key or identity code.
    */
-  async function seed(mode, builtInKey = 'member') {
-    const org = await createOrganization({
+  async function seed(mode, roleKey = 'member') {
+    const org = await createTestOrganization({
       name: 'ACL Org',
       slug: `acl-${Date.now()}-${Math.random().toString(16).slice(2)}`,
     });
-    await ensureBuiltInRoles(org._id);
-    const role = await findBuiltInRole(org._id, builtInKey);
+    await ensureTestRoles(org._id);
+    const roleCode = ROLE_CODE_BY_OLD_KEY[roleKey] ?? roleKey;
+    const role = await findRoleByCode(org._id, roleCode);
     const user = await createUserInRepo(org._id, {
+      code: nextTestUserCode(),
       email: `u-${Date.now()}@example.com`,
       displayName: 'User',
       userStatus: 'active',
@@ -138,8 +141,10 @@ describe('resolveProjectPermissions', () => {
     const b = await seed('all', 'member');
     expect((await resolveProjectPermissions(String(a.org._id), String(a.user._id), String(b.project._id))).kind).toBe('NO_ACCESS');
 
-    const memberRole = await findBuiltInRole(a.org._id, 'member');
+    await ensureTestRoles(a.org._id);
+    const memberRole = await findRoleByCode(a.org._id, 'MEMBER');
     const inactive = await createUserInRepo(a.org._id, {
+      code: nextTestUserCode(),
       email: `off-${Date.now()}@example.com`,
       displayName: 'Off',
       userStatus: 'disabled',
@@ -151,12 +156,12 @@ describe('resolveProjectPermissions', () => {
 
   it('ignores overlay attempts to remove org permissions and foreign roleId', async () => {
     const { org, user, project } = await seed('all', 'member');
-    const foreignOrg = await createOrganization({
+    const foreignOrg = await createTestOrganization({
       name: 'Foreign',
       slug: `foreign-${Date.now()}`,
     });
-    await ensureBuiltInRoles(foreignOrg._id);
-    const foreignRole = await findBuiltInRole(foreignOrg._id, 'org_admin');
+    await ensureTestRoles(foreignOrg._id);
+    const foreignRole = await findRoleByCode(foreignOrg._id, 'ADMIN');
 
     await createProjectMember(org._id, {
       projectId: String(project._id),

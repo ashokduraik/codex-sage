@@ -3,15 +3,19 @@ import { expect, test } from '@playwright/test';
 import { changePasswordViaUi, loginViaUi, signOutViaUi } from '../helpers/auth.js';
 import { e2eEnv, skipLiveStack } from '../helpers/env.js';
 import {
-  addViewerRoleViaUi,
+  addRoleViaUi,
   createInvitedUserViaUi,
+  createRoleViaUi,
+  editRoleViaUi,
   expectBootstrapAdminListed,
+  expectUserStatus,
   filterAuditUserCreate,
   generateE2eUser,
   openAdminSection,
   removeUserViaUi,
   setUserPasswordViaUi,
   toggleUserStatusViaUi,
+  userRow,
 } from '../helpers/admin.js';
 
 test.describe('Journey: admin identity and audit via UI', () => {
@@ -20,6 +24,17 @@ test.describe('Journey: admin identity and audit via UI', () => {
   test.skip(skipLiveStack, 'E2E_SKIP=1 — live-stack journey specs disabled');
 
   const user = generateE2eUser();
+  const stamp = Date.now();
+  const memberRole = {
+    code: `E2E-MEMBER-${stamp}`,
+    name: `E2E Member ${stamp}`,
+    permissionLabels: ['View organization', 'View projects', 'Ask questions'],
+  };
+  const extraRole = {
+    code: `E2E-EXTRA-${stamp}`,
+    name: `E2E Extra ${stamp}`,
+    permissionLabels: ['View organization'],
+  };
 
   test.beforeEach(async ({ page }) => {
     await loginViaUi(page);
@@ -29,28 +44,36 @@ test.describe('Journey: admin identity and audit via UI', () => {
     await expectBootstrapAdminListed(page);
   });
 
-  test('roles matrix is visible and read-only', async ({ page }) => {
-    await openAdminSection(page, 'Roles & Permissions');
-    await expect(page.getByRole('heading', { name: 'Roles & Permissions' })).toBeVisible();
-    await expect(page.getByText('Org Admin').first()).toBeVisible();
-    await expect(page.getByRole('button', { name: /Invite user|Create role|Delete/ })).toHaveCount(0);
+  test('creates and edits custom roles from the matrix page', async ({ page }) => {
+    await createRoleViaUi(page, memberRole);
+    await createRoleViaUi(page, extraRole);
+    await expect(page.getByText('Org Admin', { exact: true }).filter({ visible: true }).first()).toBeVisible();
+    await editRoleViaUi(page, {
+      currentName: extraRole.name,
+      enablePermissionLabels: ['View projects'],
+    });
   });
 
   test('creates an invited user and sets a password', async ({ page }) => {
-    await createInvitedUserViaUi(page, user);
+    await createInvitedUserViaUi(page, user, { roleName: memberRole.name });
     await setUserPasswordViaUi(page, user);
-    await expect(page.getByText('Active').first()).toBeVisible();
+    await expect(page.getByText(user.email)).toBeVisible();
+    await expect(userRow(page, user.email).getByText(user.code, { exact: true })).toBeVisible();
   });
 
   test('edits roles and toggles user status', async ({ page }) => {
     await openAdminSection(page, 'Users');
     await page.getByLabel('Search users').fill(user.email);
-    await addViewerRoleViaUi(page, user);
-    await expect(page.getByText('Viewer').first()).toBeVisible();
+    await addRoleViaUi(page, user, { roleName: extraRole.name });
+    await expect(userRow(page, user.email).getByText(extraRole.name, { exact: true })).toBeVisible();
+    if (await userRow(page, user.email).getByText('Invited', { exact: true }).isVisible()) {
+      await toggleUserStatusViaUi(page, user.email, 'Activate');
+    }
+    await expectUserStatus(page, user.email, 'Active');
     await toggleUserStatusViaUi(page, user.email, 'Deactivate');
-    await expect(page.getByText('Disabled').first()).toBeVisible();
+    await expectUserStatus(page, user.email, 'Disabled');
     await toggleUserStatusViaUi(page, user.email, 'Activate');
-    await expect(page.getByText('Active').first()).toBeVisible();
+    await expectUserStatus(page, user.email, 'Active');
   });
 
   test('audit filter shows the user.create event', async ({ page }) => {

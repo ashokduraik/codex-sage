@@ -1,5 +1,5 @@
 /**
- * Role service unit tests — built-in and catalog guards.
+ * Role service unit tests — catalog guards and dynamic ADMIN updates.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Role } from '../../../src/models/role.model.js';
@@ -59,6 +59,7 @@ describe('role.service', () => {
       createRole({
         orgId: ORG_ID,
         actorUserId: 'actor',
+        code: 'CUSTOM',
         name: 'Custom',
         permissions: ['not.real'],
         correlationId: 'c1',
@@ -67,26 +68,39 @@ describe('role.service', () => {
     expect(createSpy).not.toHaveBeenCalled();
   });
 
-  it('updateRole forwards built-in immutability from the repository', async () => {
+  it('updateRole allows ADMIN name and permission changes', async () => {
+    const saved = {
+      _id: ROLE_ID,
+      code: 'ADMIN',
+      name: 'Org Admin',
+      description: 'Full organization administration.',
+      permissions: ['org.view'],
+      createdAt: new Date('2026-09-11T09:14:22.481Z'),
+      /**
+       * Persists the in-memory patch so mapRoleToDto sees the new name.
+       * @returns {Promise<object>}
+       */
+      async save() {
+        return this;
+      },
+    };
     vi.spyOn(Role, 'findOne').mockReturnValue({
       session() {
         return this;
       },
-      exec: vi.fn().mockResolvedValue({
-        _id: ROLE_ID,
-        isBuiltIn: true,
-        name: 'Viewer',
-      }),
+      exec: vi.fn().mockResolvedValue(saved),
     });
-    await expect(
-      updateRole({
-        orgId: ORG_ID,
-        actorUserId: 'actor',
-        roleId: ROLE_ID,
-        permissions: ['org.view'],
-        correlationId: 'c1',
-      }),
-    ).rejects.toMatchObject({ code: 'BUILT_IN_ROLE_IMMUTABLE' });
+    const dto = await updateRole({
+      orgId: ORG_ID,
+      actorUserId: 'actor',
+      roleId: ROLE_ID,
+      name: 'Renamed Admin',
+      permissions: ['org.view'],
+      correlationId: 'c1',
+    });
+    expect(dto.name).toBe('Renamed Admin');
+    expect(dto.code).toBe('ADMIN');
+    expect(dto).not.toHaveProperty('isBuiltIn');
   });
 
   it('softDeleteRole throws ROLE_IN_USE when users reference it', async () => {
@@ -96,8 +110,8 @@ describe('role.service', () => {
       },
       exec: vi.fn().mockResolvedValue({
         _id: ROLE_ID,
+        code: 'CUSTOM',
         name: 'Custom',
-        isBuiltIn: false,
       }),
     });
     isRoleReferencedByActiveUser.mockResolvedValue(true);
@@ -111,18 +125,18 @@ describe('role.service', () => {
     ).rejects.toMatchObject({ code: 'ROLE_IN_USE' });
   });
 
-  it('maps a built-in role with code-resolved permissions', () => {
+  it('maps a role from stored permissions and exposes code', () => {
     const dto = mapRoleToDto({
       _id: '6712f0b1c9a41d2f8e4b3a03',
+      code: 'VIEWER',
       name: 'Viewer',
       description: 'Read only',
-      isBuiltIn: true,
-      builtInKey: 'viewer',
-      permissions: [],
+      permissions: ['org.view', 'chat.ask'],
       createdAt: new Date('2026-09-11T09:14:22.481Z'),
     });
-    expect(dto.permissions).toContain('org.view');
-    expect(dto.isBuiltIn).toBe(true);
+    expect(dto.code).toBe('VIEWER');
+    expect(dto.permissions).toEqual(['org.view', 'chat.ask']);
+    expect(dto).not.toHaveProperty('isBuiltIn');
     expect(dto).not.toHaveProperty('passwordHash');
   });
 });

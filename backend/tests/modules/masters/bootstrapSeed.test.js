@@ -13,6 +13,7 @@ import {
   findUserByEmail,
   runBootstrapSeed,
 } from '../../../src/modules/masters/index.js';
+import { DEFAULT_ORG_CODE } from '../../../src/modules/masters/organizations.js';
 import { Organization } from '../../../src/models/organization.model.js';
 import { Role } from '../../../src/models/role.model.js';
 
@@ -46,20 +47,23 @@ describe('runBootstrapSeed', () => {
     await harness.afterAll();
   });
 
-  it('creates organization, four roles, and admin user on first seed', async () => {
+  it('creates organization, ADMIN role, and admin user on first seed', async () => {
     const log = createMockLog();
     const result = await runBootstrapSeed(log);
     expect(result.result).toBe('created');
     expect(result.slug).toBe(DEFAULT_ORG_SLUG);
-    expect(result.builtInRoles).toEqual(['org_admin', 'project_admin', 'member', 'viewer']);
+    expect(result.adminRoleCode).toBe('ADMIN');
     expect(result.adminUserStatus).toBe('active');
 
     const org = await findOrganizationBySlug(DEFAULT_ORG_SLUG);
     expect(org).toBeTruthy();
+    expect(org.code).toBe(DEFAULT_ORG_CODE);
     const roles = await Role.find({ orgId: org._id }).sort({ name: 1 });
-    expect(roles).toHaveLength(4);
+    expect(roles).toHaveLength(1);
+    expect(roles[0].code).toBe('ADMIN');
     const admin = await findUserByEmail(org._id, DEFAULT_ADMIN_EMAIL);
     expect(admin).toBeTruthy();
+    expect(admin.code).toBe('ADMIN');
     expect(admin.userStatus).toBe('active');
     expect(admin.roleIds).toHaveLength(1);
     expect(admin.projectAccessMode).toBe('all');

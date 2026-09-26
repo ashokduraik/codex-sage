@@ -104,7 +104,6 @@ export function startWorkerRuntime(options) {
       const registeredTypes = listRegisteredJobTypes();
       const job = await claimNextJob({ workerId, registeredTypes });
       if (!job) {
-        log.debug?.({ workerId, inFlight: inFlight.size }, 'worker poll empty');
         return;
       }
       await recordJobClaimedEvent(job);

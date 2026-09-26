@@ -22,10 +22,17 @@ Decided with Phase 11. Do not re-open these without an explicit product change.
 - On change: write audit `user.email_changed` (old/new email in context; never secrets)
   and revoke all sessions for that user with reason `email_changed`.
 
-## Built-in roles — description only
+## Roles are dynamic; `code` is immutable
 
-- Built-in roles (`org_admin`, `project_admin`, `member`, `viewer`) may have
-  **description** updated via `PATCH /roles/:roleId`.
-- Changing `name` or `permissions`, or soft-deleting a built-in role, fails with
-  `409 BUILT_IN_ROLE_IMMUTABLE`.
-- Built-in permission sets stay code-resolved; do not materialize them into Mongo for edits.
+- Seed creates one role with `code: "ADMIN"` and every catalog permission.
+  Admins may create any number of additional roles via `POST /roles` with any
+  subset of catalog keys.
+- `PATCH /roles/:roleId` may change `name`, `description`, and `permissions` on
+  every role, including `ADMIN`. The body must not accept `code`.
+- Soft-delete is allowed on every role and fails with `409 ROLE_IN_USE` while any
+  row-status-A user still holds it. Startup does not recreate a deleted `ADMIN`.
+- Organizations, users, and roles each have an immutable unique `code`
+  (`[A-Z0-9_-]{2,64}`, uppercase, set on create only). Duplicate active codes
+  return `409 IDENTITY_DUPLICATE_*_CODE`.
+- Permissions are stored on the role document. Do not resolve them from a
+  built-in code map.

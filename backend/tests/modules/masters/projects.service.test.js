@@ -1,12 +1,13 @@
 /**
  * Project service unit tests (Mongo harness).
  */
+import { createTestOrganization, ensureTestRoles, nextTestUserCode } from '../../identityFixtures.js';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import mongoose from 'mongoose';
 import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
 import { AUDIT_MODELS, listAuditEvents } from '../../../src/modules/access/audit.js';
-import { IDENTITY_MODELS, createOrganization, createUserInRepo, findBuiltInRole, ensureBuiltInRoles } from '../../../src/modules/masters/index.js';
+import { IDENTITY_MODELS, createUserInRepo, findRoleByCode } from '../../../src/modules/masters/index.js';
 import {
   archiveProject,
   createProject,
@@ -41,10 +42,11 @@ function mockLog() {
  * @returns {Promise<{ orgId: mongoose.Types.ObjectId, actor: mongoose.Types.ObjectId }>}
  */
 async function seedActorWithAllProjects() {
-  const org = await createOrganization({ name: 'Svc Org', slug: `svc-${Date.now()}` });
-  await ensureBuiltInRoles(org._id);
-  const orgAdmin = await findBuiltInRole(org._id, 'org_admin');
+  const org = await createTestOrganization({ name: 'Svc Org', slug: `svc-${Date.now()}` });
+  await ensureTestRoles(org._id);
+  const orgAdmin = await findRoleByCode(org._id, 'ADMIN');
   const actor = await createUserInRepo(org._id, {
+    code: nextTestUserCode(),
     email: `actor-${Date.now()}@example.com`,
     displayName: 'Actor',
     userStatus: 'active',

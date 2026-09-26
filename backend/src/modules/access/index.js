@@ -17,7 +17,7 @@ export { PASSWORD_MIN_LENGTH, adminSetPassword, getPasswordResetStatus, password
 export {
   isKnownPermissionKey,
   assertRolePermissionsInCatalog,
-  getBuiltInRolePermissions,
+  ALL_PERMISSION_KEYS,
   invalidateRole,
   hasRequiredPermissions,
   resolveEffectivePermissions,

@@ -28,7 +28,8 @@ open → archive → restore → delete-with-preview
 ```
 
 - **Spec:** [`web/journey-project-lifecycle.spec.js`](./web/journey-project-lifecycle.spec.js)
-- Shared `E2E-*` name; last step soft-deletes
+- Shared `E2E-*` name; last step exercises delete-with-preview
+- `afterAll` soft-deletes the project if that step was skipped after a failure
 
 ### 3. Repository onboarding via UI — **done**
 
@@ -41,11 +42,11 @@ wait job History + health terminal
 if ready/partial → Knowledge facets
 if failed → Retry on processing
 private attach on a second project (skip without env)
-soft-delete
 ```
 
 - **Spec:** [`web/journey-repository-onboarding.spec.js`](./web/journey-repository-onboarding.spec.js)
 - One repository per project — public and private are separate projects
+- `afterAll` soft-deletes every project this journey created
 
 ### 4. ZIP ingest + knowledge via UI — **done**
 
@@ -56,18 +57,18 @@ upload sample ZIP → Processing History
 wait health terminal
 if ready/partial → Knowledge + Search + preview
 second ZIP → Changes path diffs
-soft-delete
 ```
 
 - **Spec:** [`web/journey-zip-ingest-and-knowledge.spec.js`](./web/journey-zip-ingest-and-knowledge.spec.js)
 - Worker required. Timeout fails with a start-worker message.
+- `afterAll` soft-deletes the created project
 
 ### 5. Admin identity + audit via UI — **done**
 
 ```
-Users list includes bootstrap admin
-Roles matrix visible (read-only)
-create invited user → set password → edit roles → deactivate/activate
+Users list includes bootstrap admin (code ADMIN)
+Create custom roles on Roles & Permissions, edit permissions
+create invited user (with code) → set password → edit roles → deactivate/activate
 Audit filter User created
 login as that user → forced change password → Sign out
 admin removes the user

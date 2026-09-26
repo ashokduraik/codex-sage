@@ -1,6 +1,7 @@
 /**
  * Password change and admin-set integration tests via app.inject.
  */
+import { createTestOrganization, nextTestUserCode, ensureTestRoles } from '../../identityFixtures.js';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { API_BASE_PATH, buildApp } from '../../../src/http/app.js';
 import { createMongoHarness } from '../../mongoHarness.js';
@@ -11,13 +12,12 @@ import {
   DEFAULT_ADMIN_EMAIL,
   DEFAULT_ADMIN_PASSWORD,
   IDENTITY_MODELS,
-  createOrganization,
   createUserInRepo,
-  findBuiltInRole,
   findUserById,
   findUserByIdWithPassword,
   runBootstrapSeed,
   softDeleteUser,
+  findRoleByCode,
 } from '../../../src/modules/masters/index.js';
 import { LoginSession } from '../../../src/models/loginSession.model.js';
 import { hashPassword } from '../../../src/modules/access/auth.js';
@@ -195,8 +195,10 @@ describe('password.routes and adminPasswordReset.routes', () => {
   it('admin set-password completes, never echoes the secret, and activates invited users', async () => {
     const seed = await runBootstrapSeed(createMockLog());
     const orgId = seed.orgId;
-    const memberRole = await findBuiltInRole(orgId, 'member');
+    await ensureTestRoles(orgId);
+    const memberRole = await findRoleByCode(orgId, 'MEMBER');
     const invited = await createUserInRepo(orgId, {
+      code: nextTestUserCode(),
       email: 'invited@example.com',
       displayName: 'Invited',
       userStatus: 'invited',
@@ -249,11 +251,12 @@ describe('password.routes and adminPasswordReset.routes', () => {
 
   it('admin set-password for another org returns 404', async () => {
     await runBootstrapSeed(createMockLog());
-    const otherOrg = await createOrganization({
+    const otherOrg = await createTestOrganization({
       name: 'Other',
       slug: 'other-org-pw',
     });
     const outsider = await createUserInRepo(otherOrg._id, {
+      code: nextTestUserCode(),
       email: 'out@example.com',
       displayName: 'Out',
       userStatus: 'active',
@@ -291,8 +294,10 @@ describe('password.routes and adminPasswordReset.routes', () => {
   it('admin set-password without users.manage returns 403', async () => {
     const seed = await runBootstrapSeed(createMockLog());
     const orgId = seed.orgId;
-    const memberRole = await findBuiltInRole(orgId, 'member');
+    await ensureTestRoles(orgId);
+    const memberRole = await findRoleByCode(orgId, 'MEMBER');
     await createUserInRepo(orgId, {
+      code: nextTestUserCode(),
       email: 'member@example.com',
       displayName: 'Member',
       userStatus: 'active',
@@ -301,6 +306,7 @@ describe('password.routes and adminPasswordReset.routes', () => {
       roleIds: [memberRole._id],
     });
     const target = await createUserInRepo(orgId, {
+      code: nextTestUserCode(),
       email: 'target@example.com',
       displayName: 'Target',
       userStatus: 'active',
@@ -325,6 +331,7 @@ describe('password.routes and adminPasswordReset.routes', () => {
     const seed = await runBootstrapSeed(createMockLog());
     const orgId = seed.orgId;
     const gone = await createUserInRepo(orgId, {
+      code: nextTestUserCode(),
       email: 'gone@example.com',
       displayName: 'Gone',
       userStatus: 'active',
@@ -375,6 +382,7 @@ describe('password.routes and adminPasswordReset.routes', () => {
   it('rejects validation and TOO_SHORT on admin set-password', async () => {
     const seed = await runBootstrapSeed(createMockLog());
     const target = await createUserInRepo(seed.orgId, {
+      code: nextTestUserCode(),
       email: 't@example.com',
       displayName: 'T',
       userStatus: 'active',
@@ -407,13 +415,9 @@ describe('password.routes and adminPasswordReset.routes', () => {
     const seed = await runBootstrapSeed(createMockLog());
     const orgId = seed.orgId;
     const { Role } = await import('../../../src/models/role.model.js');
-    const managerRole = await Role.create({
-      orgId,
-      name: 'User Managers',
-      isBuiltIn: false,
-      permissions: ['users.manage'],
-    });
+    const managerRole = await Role.create({ code: 'USER-MANAGERS', orgId, name: 'User Managers', permissions: ['users.manage'] });
     await createUserInRepo(orgId, {
+      code: nextTestUserCode(),
       email: 'mgr@example.com',
       displayName: 'Mgr',
       userStatus: 'active',
@@ -422,6 +426,7 @@ describe('password.routes and adminPasswordReset.routes', () => {
       roleIds: [managerRole._id],
     });
     const target = await createUserInRepo(orgId, {
+      code: nextTestUserCode(),
       email: 'tgt@example.com',
       displayName: 'Tgt',
       userStatus: 'active',
@@ -446,6 +451,7 @@ describe('password.routes and adminPasswordReset.routes', () => {
     const seed = await runBootstrapSeed(createMockLog());
     const orgId = seed.orgId;
     const target = await createUserInRepo(orgId, {
+      code: nextTestUserCode(),
       email: 'same@example.com',
       displayName: 'Same',
       userStatus: 'active',

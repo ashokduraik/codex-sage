@@ -1,6 +1,7 @@
 /**
  * Source preview and change-summary route integration tests.
  */
+import { nextTestUserCode } from '../../identityFixtures.js';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import mongoose from 'mongoose';
 import { API_BASE_PATH, buildApp } from '../../../src/http/app.js';
@@ -271,12 +272,14 @@ describe('source preview and change-summary routes', () => {
     expect(missing.statusCode).toBe(404);
 
     const role = await createRoleInRepo(org._id, {
+      code: 'NOPREVIEW',
       name: 'No preview',
       permissions: ['org.view', 'projects.view'],
       createdBy: null,
     });
     const passwordHash = await hashPassword('NoPreviewPass1!');
     const user = await createUserInRepo(org._id, {
+      code: nextTestUserCode(),
       email: 'nopreview@example.com',
       displayName: 'No Preview',
       passwordHash,

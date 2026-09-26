@@ -1,6 +1,7 @@
 /**
  * Job control routes integration tests — retry, cancel, ACL, idempotency.
  */
+import { nextTestUserCode, ensureTestRoles } from '../../identityFixtures.js';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import mongoose from 'mongoose';
@@ -19,10 +20,10 @@ import {
   DEFAULT_ADMIN_PASSWORD,
   IDENTITY_MODELS,
   createUserInRepo,
-  findBuiltInRole,
   findOrganizationBySlug,
   findUserByEmail,
   runBootstrapSeed,
+  findRoleByCode,
 } from '../../../src/modules/masters/index.js';
 import { PROJECT_MODELS, Project } from '../../../src/modules/masters/projects.js';
 import { addProjectMember } from '../../../src/modules/masters/projectMembers.js';
@@ -364,8 +365,10 @@ describe('jobControl.routes', () => {
     expect(unauth.statusCode).toBe(401);
 
     const passwordHash = await hashPassword('ViewerPass1!');
-    const viewerRole = await findBuiltInRole(org._id, 'viewer');
+    await ensureTestRoles(org._id);
+    const viewerRole = await findRoleByCode(org._id, 'VIEWER');
     const viewer = await createUserInRepo(org._id, {
+      code: nextTestUserCode(),
       email: 'viewer-ctrl@example.com',
       displayName: 'Viewer Ctrl',
       userStatus: 'active',

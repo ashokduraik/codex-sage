@@ -1,6 +1,7 @@
 /**
  * Job routes integration tests — list/detail ACL, pagination, unhappy paths.
  */
+import { nextTestUserCode, ensureTestRoles } from '../../identityFixtures.js';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import mongoose from 'mongoose';
 import { API_BASE_PATH, buildApp } from '../../../src/http/app.js';
@@ -16,9 +17,9 @@ import {
   DEFAULT_ADMIN_PASSWORD,
   IDENTITY_MODELS,
   createUserInRepo,
-  findBuiltInRole,
   findOrganizationBySlug,
   runBootstrapSeed,
+  findRoleByCode,
 } from '../../../src/modules/masters/index.js';
 import { PROJECT_MODELS } from '../../../src/modules/masters/projects.js';
 import { JOB_MODELS, Job, createPendingJob, JOB_ENQUEUED_MESSAGE, JOB_EVENT_CODE_ENQUEUED } from '../../../src/modules/masters/jobs.js';
@@ -296,9 +297,11 @@ describe('jobs.routes', () => {
   it('returns 404 when caller has no project access to the job', async () => {
     await runBootstrapSeed(createMockLog());
     const org = await findOrganizationBySlug('default');
-    const viewerRole = await findBuiltInRole(org._id, 'viewer');
+    await ensureTestRoles(org._id);
+    const viewerRole = await findRoleByCode(org._id, 'VIEWER');
     const passwordHash = await hashPassword('viewerpass1');
     await createUserInRepo(org._id, {
+      code: nextTestUserCode(),
       email: 'viewer-jobs@example.com',
       displayName: 'Viewer Jobs',
       userStatus: 'active',

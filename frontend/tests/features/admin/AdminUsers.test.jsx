@@ -28,22 +28,21 @@ function jsonResponse(body, status = 200) {
 const ROLE_VIEWER = {
   id: '507f1f77bcf86cd799439011',
   name: 'Viewer',
-  isBuiltIn: true,
   permissions: ['chat.ask'],
 };
 const ROLE_MEMBER = {
   id: '507f1f77bcf86cd799439012',
   name: 'Member',
-  isBuiltIn: true,
   permissions: ['chat.ask', 'sources.upload'],
 };
 
 const USER_LENA = {
   id: 'u1',
+  code: 'LENA',
   displayName: 'Lena Park',
   email: 'lena.park@acme.io',
   userStatus: 'active',
-  roles: [{ id: ROLE_VIEWER.id, name: 'Viewer', isBuiltIn: true }],
+  roles: [{ id: ROLE_VIEWER.id, name: 'Viewer' }],
   lastLoginAt: '2024-01-01T00:00:00.000Z',
 };
 
@@ -200,6 +199,9 @@ describe('AdminUsers', () => {
     fireEvent.change(screen.getByLabelText('Email'), {
       target: { value: 'new.hire@acme.io' },
     });
+    fireEvent.change(screen.getByLabelText('Code'), {
+      target: { value: 'new-hire' },
+    });
     fireEvent.click(await screen.findByLabelText('Member'));
 
     const dialogInvite = screen.getAllByRole('button', { name: /Invite user/i }).at(-1);
@@ -209,6 +211,7 @@ describe('AdminUsers', () => {
       const createCall = fetchMock.mock.calls.find(([url, init]) => String(url).endsWith('/users') && init?.method === 'POST');
       expect(createCall).toBeTruthy();
       const body = JSON.parse(createCall[1].body);
+      expect(body.code).toBe('NEW-HIRE');
       expect(body.roleIds).toEqual(expect.arrayContaining([ROLE_VIEWER.id, ROLE_MEMBER.id]));
       expect(createCall[1].headers['Idempotency-Key']).toBeTruthy();
     });
@@ -234,6 +237,9 @@ describe('AdminUsers', () => {
     });
     fireEvent.change(screen.getByLabelText('Email'), {
       target: { value: 'dup@acme.io' },
+    });
+    fireEvent.change(screen.getByLabelText('Code'), {
+      target: { value: 'DUP' },
     });
     fireEvent.click(screen.getAllByRole('button', { name: /Invite user/i }).at(-1));
 
@@ -697,6 +703,9 @@ describe('AdminUsers', () => {
     });
     fireEvent.change(screen.getByLabelText('Email'), {
       target: { value: 'dup@acme.io' },
+    });
+    fireEvent.change(screen.getByLabelText('Code'), {
+      target: { value: 'DUP' },
     });
     fireEvent.click(screen.getAllByRole('button', { name: /Invite user/i }).at(-1));
     expect(await screen.findByText('Duplicate.')).toBeTruthy();

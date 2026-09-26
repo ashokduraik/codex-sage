@@ -49,6 +49,7 @@ export default function AdminUsers() {
   const [createForm, setCreateForm] = useState({
     displayName: '',
     email: '',
+    code: '',
     roleIds: /** @type {string[]} */ ([]),
   });
   const [editRoleIds, setEditRoleIds] = useState(/** @type {string[]} */ ([]));
@@ -187,6 +188,7 @@ export default function AdminUsers() {
     setCreateForm({
       displayName: '',
       email: '',
+      code: '',
       roleIds: roles[0] ? [String(roles[0].id)] : [],
     });
     setCreateOpen(true);
@@ -196,11 +198,12 @@ export default function AdminUsers() {
    * Submits create-user.
    */
   async function submitCreate() {
-    if (!createForm.displayName.trim() || !createForm.email.trim() || !createForm.roleIds.length) {
+    if (!createForm.displayName.trim() || !createForm.email.trim() || !createForm.code.trim() || !createForm.roleIds.length) {
       return;
     }
     try {
       await createMutation.mutateAsync({
+        code: createForm.code.trim().toUpperCase(),
         email: createForm.email.trim(),
         displayName: createForm.displayName.trim(),
         roleIds: createForm.roleIds,
@@ -238,7 +241,6 @@ export default function AdminUsers() {
         roles: selectedRoles.map((role) => ({
           id: String(role.id),
           name: role.name,
-          isBuiltIn: Boolean(role.isBuiltIn),
         })),
       });
       setRolesEditTarget(null);
@@ -394,8 +396,9 @@ export default function AdminUsers() {
         ) : null}
 
         <div className="mt-4 overflow-hidden rounded-lg border border-border bg-card">
-          <div className="hidden gap-2 border-b border-border bg-muted/50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground md:grid md:grid-cols-[1.5fr_1.2fr_0.8fr_1fr_40px]">
+          <div className="hidden gap-2 border-b border-border bg-muted/50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground md:grid md:grid-cols-[1.4fr_0.7fr_1.2fr_0.8fr_1fr_40px]">
             <span>{t('admin.name')}</span>
+            <span>{t('admin.identityCode')}</span>
             <span>{t('admin.rolesColumn')}</span>
             <span>{t('admin.status')}</span>
             <span>{t('admin.lastActivity')}</span>
@@ -421,11 +424,15 @@ export default function AdminUsers() {
             return (
               <div
                 key={rowUser.id}
-                className="grid grid-cols-1 gap-2 border-b border-border px-4 py-3 text-sm last:border-0 md:grid-cols-[1.5fr_1.2fr_0.8fr_1fr_40px] md:items-center md:py-2.5"
+                className="grid grid-cols-1 gap-2 border-b border-border px-4 py-3 text-sm last:border-0 md:grid-cols-[1.4fr_0.7fr_1.2fr_0.8fr_1fr_40px] md:items-center md:py-2.5"
               >
                 <div className="min-w-0">
                   <div className="truncate font-medium">{rowUser.displayName}</div>
                   <div className="truncate text-xs text-muted-foreground">{rowUser.email}</div>
+                </div>
+                <div className="min-w-0">
+                  <span className="md:hidden text-xs font-semibold uppercase text-muted-foreground">{t('admin.identityCode')}</span>
+                  <div className="truncate font-mono text-xs">{rowUser.code || '—'}</div>
                 </div>
                 <div className="min-w-0">
                   <span className="md:hidden text-xs font-semibold uppercase text-muted-foreground">{t('admin.rolesColumn')}</span>
@@ -592,6 +599,18 @@ export default function AdminUsers() {
               />
             </div>
             <div className="space-y-1.5">
+              <Label htmlFor="admin-create-code">{t('admin.identityCode')}</Label>
+              <Input
+                id="admin-create-code"
+                value={createForm.code}
+                disabled={createBusy}
+                onChange={(event) => {
+                  createMutation.reset();
+                  setCreateForm({ ...createForm, code: event.target.value.toUpperCase() });
+                }}
+              />
+            </div>
+            <div className="space-y-1.5">
               <Label>{t('admin.rolesColumn')}</Label>
               <RoleMultiSelect
                 roles={roles}
@@ -612,7 +631,9 @@ export default function AdminUsers() {
             </Button>
             <Button
               onClick={() => void submitCreate()}
-              disabled={createBusy || !createForm.displayName.trim() || !createForm.email.trim() || createForm.roleIds.length < 1}
+              disabled={
+                createBusy || !createForm.displayName.trim() || !createForm.email.trim() || !createForm.code.trim() || createForm.roleIds.length < 1
+              }
               aria-busy={createBusy}
             >
               {createBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : null}

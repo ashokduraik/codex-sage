@@ -1,6 +1,7 @@
 /**
  * Project members API integration tests.
  */
+import { createTestOrganization, ensureTestRoles, nextTestUserCode } from '../../identityFixtures.js';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import mongoose from 'mongoose';
 import { API_BASE_PATH, buildApp } from '../../../src/http/app.js';
@@ -14,14 +15,12 @@ import {
   DEFAULT_ADMIN_EMAIL,
   DEFAULT_ADMIN_PASSWORD,
   IDENTITY_MODELS,
-  createOrganization,
   createUserInRepo,
-  ensureBuiltInRoles,
-  findBuiltInRole,
   findOrganizationBySlug,
   findUserByEmail,
   runBootstrapSeed,
   updateUser,
+  findRoleByCode,
 } from '../../../src/modules/masters/index.js';
 import { PROJECT_MODELS, createProjectInRepo } from '../../../src/modules/masters/projects.js';
 import { findActiveProjectMember } from '../../../src/modules/masters/projectMembers.js';
@@ -94,8 +93,10 @@ describe('projectMembers.routes', () => {
     const project = await createProject(app, accessToken, 'Members Proj', 'idem-mem-proj-1');
 
     const passwordHash = await hashPassword('memberpass1');
-    const memberRole = await findBuiltInRole(org._id, 'member');
+    await ensureTestRoles(org._id);
+    const memberRole = await findRoleByCode(org._id, 'MEMBER');
     const target = await createUserInRepo(org._id, {
+      code: nextTestUserCode(),
       email: 'target-member@example.com',
       displayName: 'Target',
       userStatus: 'active',
@@ -205,8 +206,10 @@ describe('projectMembers.routes', () => {
     const { accessToken: adminToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
 
     const passwordHash = await hashPassword('selpass12');
-    const memberRole = await findBuiltInRole(org._id, 'member');
+    await ensureTestRoles(org._id);
+    const memberRole = await findRoleByCode(org._id, 'MEMBER');
     const selectedUser = await createUserInRepo(org._id, {
+      code: nextTestUserCode(),
       email: 'selected@example.com',
       displayName: 'Selected',
       userStatus: 'active',
@@ -216,6 +219,7 @@ describe('projectMembers.routes', () => {
     });
 
     await createUserInRepo(org._id, {
+      code: nextTestUserCode(),
       email: 'none@example.com',
       displayName: 'None',
       userStatus: 'active',
@@ -272,13 +276,14 @@ describe('projectMembers.routes', () => {
     const { accessToken: adminToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const project = await createProject(app, adminToken, 'Iso', 'idem-iso-proj-1');
 
-    const other = await createOrganization({
+    const other = await createTestOrganization({
       name: 'Other Org',
       slug: `other-${Date.now()}`,
     });
-    await ensureBuiltInRoles(other._id);
-    const otherAdminRole = await findBuiltInRole(other._id, 'org_admin');
+    await ensureTestRoles(other._id);
+    const otherAdminRole = await findRoleByCode(other._id, 'ADMIN');
     const otherUser = await createUserInRepo(other._id, {
+      code: nextTestUserCode(),
       email: 'other-admin@example.com',
       displayName: 'Other',
       userStatus: 'active',
@@ -323,8 +328,10 @@ describe('projectMembers.routes', () => {
     expect(foreignUserAdd.json().error.code).toBe('USER_NOT_FOUND');
 
     const passwordHash = await hashPassword('viewpass12');
-    const viewerRole = await findBuiltInRole(org._id, 'viewer');
+    await ensureTestRoles(org._id);
+    const viewerRole = await findRoleByCode(org._id, 'VIEWER');
     const viewer = await createUserInRepo(org._id, {
+      code: nextTestUserCode(),
       email: 'viewer-acl@example.com',
       displayName: 'Viewer',
       userStatus: 'active',
@@ -351,6 +358,7 @@ describe('projectMembers.routes', () => {
     expect(patchForbidden.statusCode).toBe(403);
 
     const noAccessUser = await createUserInRepo(org._id, {
+      code: nextTestUserCode(),
       email: 'noaccess@example.com',
       displayName: 'NoAccess',
       userStatus: 'active',

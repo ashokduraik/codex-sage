@@ -1,6 +1,7 @@
 /**
  * Knowledge browse route integration tests.
  */
+import { nextTestUserCode } from '../../identityFixtures.js';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import mongoose from 'mongoose';
 import { API_BASE_PATH, buildApp } from '../../../src/http/app.js';
@@ -339,12 +340,14 @@ describe('knowledge browse routes', () => {
     const org = await findOrganizationBySlug('default');
     const project = await createProject(app, adminToken, 'Browse Forbidden', 'idem-browse-403');
     const role = await createRoleInRepo(org._id, {
+      code: 'NOKNOW',
       name: 'No knowledge',
       permissions: ['org.view', 'projects.view'],
       createdBy: null,
     });
     const passwordHash = await hashPassword('NoKnowPass1!');
     const user = await createUserInRepo(org._id, {
+      code: nextTestUserCode(),
       email: 'noknow@example.com',
       displayName: 'No Know',
       passwordHash,

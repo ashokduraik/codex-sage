@@ -10,7 +10,7 @@ test.describe('Journey: auth via UI', () => {
 
   test('invalid password shows an alert', async ({ page }) => {
     await loginExpectingError(page);
-    await expect(page.getByRole('alert')).toContainText(/Invalid email or password/i);
+    await expect(page.getByRole('alert')).toContainText(/Invalid email or credentials/i);
     await expect(page).toHaveURL(/\/login/);
   });
 

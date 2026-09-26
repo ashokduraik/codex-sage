@@ -31,6 +31,7 @@ Configuration: [`tests/e2e/.env`](./.env) (copy from [`.env.example`](./.env.exa
 1. Loads `tests/e2e/.env` (Playwright config + global-setup).
 2. [`global-setup.js`](./global-setup.js) — [`validateE2eEnv`](./helpers/validate-e2e-env.js), then probes `GET /health` and `/login`.
 3. Runs journey specs under [`web/`](./web/).
+4. Each project-creating journey soft-deletes its `E2E-*` projects in `afterAll` (including after a failed serial step).
 
 Private-repo tests **skip** when `E2E_PRIVATE_REPO_URL` or `E2E_GITHUB_TOKEN` is blank. They do not fail the run.
 
@@ -61,12 +62,12 @@ npm run test:e2e:env
 
 ## Specs & helpers
 
-| Journey                     | Spec                                           |
-| --------------------------- | ---------------------------------------------- |
-| Auth                        | `web/journey-auth.spec.js`                     |
-| Project lifecycle           | `web/journey-project-lifecycle.spec.js`        |
-| Repository onboarding       | `web/journey-repository-onboarding.spec.js`    |
-| ZIP ingest + knowledge      | `web/journey-zip-ingest-and-knowledge.spec.js` |
-| Admin users / roles / audit | `web/journey-admin.spec.js`                    |
+| Journey                     | Spec                                                                               |
+| --------------------------- | ---------------------------------------------------------------------------------- |
+| Auth                        | `web/journey-auth.spec.js`                                                         |
+| Project lifecycle           | `web/journey-project-lifecycle.spec.js`                                            |
+| Repository onboarding       | `web/journey-repository-onboarding.spec.js`                                        |
+| ZIP ingest + knowledge      | `web/journey-zip-ingest-and-knowledge.spec.js`                                     |
+| Admin users / roles / audit | `web/journey-admin.spec.js` (creates roles in the UI; invite requires user `code`) |
 
 Helpers live in [`helpers/`](./helpers/). Chat, conversations, notifications, usage, and retention are **not** covered — those UIs are not on the real API yet.

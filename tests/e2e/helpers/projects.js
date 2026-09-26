@@ -1,4 +1,10 @@
+/**
+ * Project list, create, archive, and teardown helpers for live-stack Playwright journeys.
+ */
 import { expect } from '@playwright/test';
+
+import { loginViaUi } from './auth.js';
+import { e2eEnv } from './env.js';
 
 /**
  * Builds a unique project name for one E2E run.
@@ -53,8 +59,8 @@ export async function projectIdFromCard(page, projectName) {
  */
 export async function openNewProjectDialog(page) {
   await page.goto('/projects');
-  await expect(page.getByRole('heading', { name: 'Projects' })).toBeVisible();
-  await page.getByRole('button', { name: 'Create project' }).click();
+  await expect(page.getByRole('heading', { name: 'Projects', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Create project' }).first().click();
   await expect(page.getByRole('dialog', { name: 'Create project' })).toBeVisible();
 }
 
@@ -113,19 +119,23 @@ export async function createProjectViaUi(page, projectName, sourceType) {
 }
 
 /**
- * Cancels an open follow-up source dialog, then the create dialog if it remains.
+ * Cancels the stacked follow-up source dialog, then the create dialog behind it.
+ * Radix keeps the create dialog mounted and aria-hidden until the follow-up unmounts,
+ * so this waits for it to become interactive before clicking Cancel.
  *
  * @param {import('@playwright/test').Page} page Page with dialogs open.
  */
 export async function cancelFollowUpAndCreateDialogs(page) {
   const followUp = page.getByRole('dialog').filter({ has: page.getByRole('heading', { name: /Upload source|Connect repository/ }) });
-  if (await followUp.isVisible().catch(() => false)) {
-    await followUp.getByRole('button', { name: 'Cancel' }).click();
-  }
+  await expect(followUp).toBeVisible();
+  await followUp.getByRole('button', { name: 'Cancel' }).click();
+  await expect(followUp).toHaveCount(0);
   const createDialog = page.getByRole('dialog', { name: 'Create project' });
-  if (await createDialog.isVisible().catch(() => false)) {
+  await createDialog.waitFor({ state: 'visible', timeout: 2_000 }).catch(() => undefined);
+  if (await createDialog.isVisible()) {
     await createDialog.getByRole('button', { name: 'Cancel' }).click();
   }
+  await expect(createDialog).toHaveCount(0);
 }
 
 /**
@@ -149,7 +159,7 @@ const PROJECT_TAB_PATHS = Object.freeze({
 });
 
 /**
- * Opens a project tab by URL so the sidebar Knowledge/Search links are not clicked.
+ * Opens a project tab via the in-page nav so sidebar Knowledge/Search are not clicked.
  *
  * @param {import('@playwright/test').Page} page Project detail page.
  * @param {keyof typeof PROJECT_TAB_PATHS} tabLabel Tab name.
@@ -159,12 +169,14 @@ export async function openProjectTab(page, tabLabel) {
   if (!projectId) {
     throw new Error(`openProjectTab requires a project detail URL, got ${page.url()}`);
   }
-  const suffix = PROJECT_TAB_PATHS[tabLabel];
-  if (suffix === undefined) {
+  if (PROJECT_TAB_PATHS[tabLabel] === undefined) {
     throw new Error(`Unknown project tab: ${tabLabel}`);
   }
-  const path = suffix ? `/projects/${projectId}/${suffix}` : `/projects/${projectId}`;
-  await page.goto(path);
+  // Click the project-shell tab (SPA). A second page.goto would boot-refresh and
+  // can revoke the session when the previous navigation's refresh is still rotating.
+  const tabLink = page.getByRole('main').getByRole('link', { name: tabLabel, exact: true });
+  await expect(tabLink).toBeVisible();
+  await tabLink.click();
   if (tabLabel !== 'Overview') {
     await expect(page.getByRole('heading', { name: tabLabel, level: 1 })).toBeVisible();
   }
@@ -210,16 +222,89 @@ export async function restoreProjectViaUi(page) {
  * @param {string} projectName Visible project title.
  */
 export async function deleteProjectViaUi(page, projectName) {
-  if (!page.url().includes('/projects/')) {
-    await page.goto('/projects');
+  const onDetail = /\/projects\/[^/?#]+/.test(new URL(page.url()).pathname);
+  if (!onDetail) {
+    const listed = projectCard(page, projectName);
+    if (!(await listed.isVisible().catch(() => false))) {
+      await page.goto('/projects');
+    }
     await openProjectFromList(page, projectName);
   }
   await openProjectActions(page);
   await page.getByRole('button', { name: 'Delete' }).click();
   await expect(page.getByRole('heading', { name: `Delete ${projectName}?` })).toBeVisible();
-  await page.getByRole('button', { name: 'Delete project' }).click();
+  const confirm = page.getByRole('button', { name: 'Delete project' });
+  await expect(confirm).toBeEnabled();
+  await confirm.click();
   await expect(page).toHaveURL(/\/projects$/);
   await expect(projectCard(page, projectName)).toHaveCount(0);
+}
+
+/**
+ * Soft-deletes a leftover E2E project when it is still listed (active or archived).
+ * No-ops when the name is blank or the card is already gone.
+ *
+ * @param {import('@playwright/test').Page} page Authenticated page.
+ * @param {string | undefined} projectName Name created during the journey.
+ */
+export async function deleteCreatedProjectIfPresent(page, projectName) {
+  if (!projectName) {
+    return;
+  }
+  await page.goto('/projects');
+  await expect(page.getByRole('heading', { name: 'Projects', exact: true })).toBeVisible();
+  await page.getByRole('main').getByPlaceholder('Search projects…').fill(projectName);
+
+  const card = projectCard(page, projectName);
+  const foundActive = await card
+    .waitFor({ state: 'visible', timeout: 4_000 })
+    .then(() => true)
+    .catch(() => false);
+  if (!foundActive) {
+    const activeToggle = page.getByRole('button', { name: 'Active', exact: true });
+    if (!(await activeToggle.isVisible().catch(() => false))) {
+      return;
+    }
+    await activeToggle.click();
+    await expect(page.getByRole('button', { name: 'Archived', exact: true })).toBeVisible();
+    const foundArchived = await card
+      .waitFor({ state: 'visible', timeout: 4_000 })
+      .then(() => true)
+      .catch(() => false);
+    if (!foundArchived) {
+      return;
+    }
+  }
+  await deleteProjectViaUi(page, projectName);
+}
+
+/**
+ * Logs in on a fresh context and soft-deletes leftover E2E projects after a journey.
+ * Runs even when an earlier serial test failed (Playwright still calls afterAll).
+ *
+ * @param {import('@playwright/test').Browser} browser Playwright browser.
+ * @param {Array<string | undefined>} projectNames Names created during the suite.
+ */
+export async function cleanupCreatedProjects(browser, projectNames) {
+  const names = [];
+  for (const name of projectNames) {
+    if (typeof name === 'string' && name.trim()) {
+      names.push(name.trim());
+    }
+  }
+  if (names.length === 0) {
+    return;
+  }
+  const context = await browser.newContext({ baseURL: e2eEnv.baseUrl });
+  const page = await context.newPage();
+  try {
+    await loginViaUi(page);
+    for (const projectName of names) {
+      await deleteCreatedProjectIfPresent(page, projectName);
+    }
+  } finally {
+    await context.close();
+  }
 }
 
 /**
@@ -229,6 +314,6 @@ export async function deleteProjectViaUi(page, projectName) {
  * @param {string} projectName Name to search.
  */
 export async function searchProjectsFor(page, projectName) {
-  await page.getByPlaceholder('Search projects…').fill(projectName);
+  await page.getByRole('main').getByPlaceholder('Search projects…').fill(projectName);
   await expect(projectCard(page, projectName)).toBeVisible();
 }

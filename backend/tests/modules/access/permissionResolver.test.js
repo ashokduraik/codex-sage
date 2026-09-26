@@ -1,10 +1,11 @@
 /**
  * Unit tests for permission resolution (Mongo).
  */
+import { createTestOrganization, ensureTestRoles } from '../../identityFixtures.js';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
-import { IDENTITY_MODELS, createOrganization, ensureBuiltInRoles } from '../../../src/modules/masters/index.js';
+import { IDENTITY_MODELS } from '../../../src/modules/masters/index.js';
 import { Role } from '../../../src/models/role.model.js';
 import { ALL_PERMISSION_KEYS } from '../../../src/modules/access/permissions.js';
 import { createRoleCache } from '../../../src/modules/access/permissions.js';
@@ -29,26 +30,16 @@ describe('permissionResolver', () => {
   });
 
   it('unions permissions across roles and de-duplicates', async () => {
-    const org = await createOrganization({ name: 'Acme', slug: `acme-${Date.now()}` });
+    const org = await createTestOrganization({ name: 'Acme', slug: `acme-${Date.now()}` });
     const cache = createRoleCache();
-    const roleA = await Role.create({
-      orgId: org._id,
-      name: 'A',
-      permissions: ['org.view', 'chat.ask'],
-      isBuiltIn: false,
-    });
-    const roleB = await Role.create({
-      orgId: org._id,
-      name: 'B',
-      permissions: ['chat.ask', 'search.run'],
-      isBuiltIn: false,
-    });
+    const roleA = await Role.create({ code: 'RA', orgId: org._id, name: 'A', permissions: ['org.view', 'chat.ask'] });
+    const roleB = await Role.create({ code: 'RB', orgId: org._id, name: 'B', permissions: ['chat.ask', 'search.run'] });
     const effective = await resolveEffectivePermissions(String(org._id), [String(roleA._id), String(roleB._id)], { cache });
     expect(effective.sort()).toEqual(['chat.ask', 'org.view', 'search.run'].sort());
   });
 
   it('returns an empty set for missing membership roles and unknown role ids', async () => {
-    const org = await createOrganization({ name: 'Acme', slug: `acme-${Date.now()}` });
+    const org = await createTestOrganization({ name: 'Acme', slug: `acme-${Date.now()}` });
     const cache = createRoleCache();
     expect(await resolveEffectivePermissions(String(org._id), [], { cache })).toEqual([]);
     expect(
@@ -59,50 +50,35 @@ describe('permissionResolver', () => {
   });
 
   it('ignores an unrecognised permission string on a custom role', async () => {
-    const org = await createOrganization({ name: 'Acme', slug: `acme-${Date.now()}` });
+    const org = await createTestOrganization({ name: 'Acme', slug: `acme-${Date.now()}` });
     const cache = createRoleCache();
-    const role = await Role.create({
-      orgId: org._id,
-      name: 'Custom',
-      permissions: ['org.view', 'not.a.real.permission'],
-      isBuiltIn: false,
-    });
+    const role = await Role.create({ code: 'CUSTOM', orgId: org._id, name: 'Custom', permissions: ['org.view', 'not.a.real.permission'] });
     const effective = await resolveEffectivePermissions(String(org._id), [String(role._id)], { cache });
     expect(effective).toEqual(['org.view']);
   });
 
-  it('resolves org_admin to every catalog permission from code', async () => {
-    const org = await createOrganization({ name: 'Acme', slug: `acme-${Date.now()}` });
-    const { roles } = await ensureBuiltInRoles(org._id);
-    const orgAdmin = roles.find((role) => role.builtInKey === 'org_admin');
+  it('resolves ADMIN stored permissions to every catalog permission', async () => {
+    const org = await createTestOrganization({ name: 'Acme', slug: `acme-${Date.now()}` });
+    const { roles } = await ensureTestRoles(org._id);
+    const orgAdmin = roles.find((role) => role.code === 'ADMIN');
     const cache = createRoleCache();
     const effective = await resolveEffectivePermissions(String(org._id), [String(orgAdmin._id)], { cache });
     expect(effective.sort()).toEqual([...ALL_PERMISSION_KEYS].sort());
   });
 
   it('does not resolve roles belonging to another organization', async () => {
-    const orgA = await createOrganization({ name: 'A', slug: `a-${Date.now()}` });
-    const orgB = await createOrganization({ name: 'B', slug: `b-${Date.now()}` });
-    const roleB = await Role.create({
-      orgId: orgB._id,
-      name: 'Other',
-      permissions: ['users.manage'],
-      isBuiltIn: false,
-    });
+    const orgA = await createTestOrganization({ name: 'A', slug: `a-${Date.now()}` });
+    const orgB = await createTestOrganization({ name: 'B', slug: `b-${Date.now()}` });
+    const roleB = await Role.create({ code: 'OTHER', orgId: orgB._id, name: 'Other', permissions: ['users.manage'] });
     const cache = createRoleCache();
     const effective = await resolveEffectivePermissions(String(orgA._id), [String(roleB._id)], { cache });
     expect(effective).toEqual([]);
   });
 
   it('uses the cache until invalidateRole', async () => {
-    const org = await createOrganization({ name: 'Acme', slug: `acme-${Date.now()}` });
+    const org = await createTestOrganization({ name: 'Acme', slug: `acme-${Date.now()}` });
     const cache = createRoleCache();
-    const role = await Role.create({
-      orgId: org._id,
-      name: 'Custom',
-      permissions: ['org.view'],
-      isBuiltIn: false,
-    });
+    const role = await Role.create({ code: 'CUSTOM', orgId: org._id, name: 'Custom', permissions: ['org.view'] });
     const first = await resolveEffectivePermissions(String(org._id), [String(role._id)], {
       cache,
     });

@@ -15,7 +15,7 @@ import {
 import { z } from 'zod';
 import { assertRolesExistInOrg, wouldRemoveLastAdmin } from './users.helper.js';
 import { bumpProjectAclVersion } from './projectMembers.js';
-import { findRolesByIds, isDuplicateKeyError } from './roles.js';
+import { duplicateKeyField, findRolesByIds, isDuplicateKeyError } from './roles.js';
 import mongoose from 'mongoose';
 
 export {
@@ -145,6 +145,7 @@ export async function findUserByIdWithPassword(orgId, userId, options = {}) {
  * Creates a user in an organization.
  * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
  * @param {{
+ *   code: string,
  *   email: string,
  *   displayName: string,
  *   userStatus?: string,
@@ -163,6 +164,7 @@ export async function createUserInRepo(orgId, input, options = {}) {
   /** @type {Record<string, unknown>} */
   const doc = {
     orgId,
+    code: String(input.code).toUpperCase(),
     email: input.email,
     displayName: input.displayName,
     userStatus: input.userStatus ?? 'invited',
@@ -194,7 +196,7 @@ export async function createUserInRepo(orgId, input, options = {}) {
  *   roleIds?: Array<import('mongoose').Types.ObjectId | string>,
  *   projectAccessMode?: 'all' | 'selected' | 'none',
  *   updatedBy?: import('mongoose').Types.ObjectId | string | null,
- * }} patch Fields to set.
+ * }} patch Fields to set. HTTP PATCH does not accept `code`.
  * @param {{ session?: import('mongoose').ClientSession }} [options] Optional session.
  * @returns {Promise<import('mongoose').Document | null>}
  */
@@ -456,13 +458,13 @@ export function mapUserToDto(user, roles = []) {
   const reset = getPasswordResetStatus(user);
   return {
     id: String(user._id ?? user.id),
+    code: typeof user.code === 'string' ? user.code : '',
     email: user.email,
     displayName: user.displayName,
     userStatus: user.userStatus,
     roles: roles.map((role) => ({
       id: String(role._id ?? role.id),
       name: role.name,
-      isBuiltIn: Boolean(role.isBuiltIn),
     })),
     lastLoginAt: user.lastLoginAt instanceof Date ? user.lastLoginAt.toISOString() : null,
     passwordResetStatus: reset.state,
@@ -490,6 +492,7 @@ async function loadRolesForUser(orgId, user) {
  * @param {{
  *   orgId: string,
  *   actorUserId: string,
+ *   code: string,
  *   email: string,
  *   displayName: string,
  *   roleIds: string[],
@@ -513,6 +516,7 @@ export async function createUser(input) {
         createdUser = await createUserInRepo(
           input.orgId,
           {
+            code: input.code,
             email: input.email,
             displayName: input.displayName,
             userStatus: 'invited',
@@ -524,7 +528,7 @@ export async function createUser(input) {
         );
       } catch (err) {
         if (isDuplicateKeyError(err)) {
-          throw ApiError.fromCode('IDENTITY_DUPLICATE_EMAIL');
+          throw ApiError.fromCode(duplicateKeyField(err) === 'code' ? 'IDENTITY_DUPLICATE_USER_CODE' : 'IDENTITY_DUPLICATE_EMAIL');
         }
         throw err;
       }
@@ -1023,8 +1027,15 @@ const objectIdStringSchema = z.string().regex(/^[a-fA-F0-9]{24}$/, 'must be a 24
 
 const roleIdsSchema = z.array(objectIdStringSchema).min(1);
 
+const identityCodeSchema = z
+  .string()
+  .trim()
+  .transform((value) => value.toUpperCase())
+  .refine((value) => /^[A-Z0-9_-]{2,64}$/.test(value), { message: 'code must match [A-Z0-9_-]{2,64}' });
+
 const createUserBodySchema = z
   .object({
+    code: identityCodeSchema,
     email: z.string().email().max(320),
     displayName: z.string().trim().min(1).max(120),
     roleIds: roleIdsSchema,
@@ -1099,6 +1110,7 @@ export async function userRoutes(app) {
     const ctx = serviceContext(request);
     const user = await createUser({
       ...ctx,
+      code: parsed.data.code,
       email: parsed.data.email,
       displayName: parsed.data.displayName,
       roleIds: parsed.data.roleIds,

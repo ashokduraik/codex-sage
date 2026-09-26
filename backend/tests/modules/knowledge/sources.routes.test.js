@@ -1,6 +1,7 @@
 /**
  * Reingest route integration tests — ACL, idempotency, and 404 isolation.
  */
+import { nextTestUserCode, ensureTestRoles } from '../../identityFixtures.js';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import mongoose from 'mongoose';
 import { API_BASE_PATH, buildApp } from '../../../src/http/app.js';
@@ -14,9 +15,9 @@ import {
   DEFAULT_ADMIN_PASSWORD,
   IDENTITY_MODELS,
   createUserInRepo,
-  findBuiltInRole,
   findOrganizationBySlug,
   runBootstrapSeed,
+  findRoleByCode,
 } from '../../../src/modules/masters/index.js';
 import { IDEMPOTENCY_MODELS } from '../../../src/platform/idempotency/index.js';
 import { PROJECT_MODELS } from '../../../src/modules/masters/projects.js';
@@ -193,9 +194,11 @@ describe('source reingest routes', () => {
       fileCounts: { accepted: 1, skipped: 0, excludedFromGraph: 0 },
     });
 
-    const viewerRole = await findBuiltInRole(org._id, 'viewer');
+    await ensureTestRoles(org._id);
+    const viewerRole = await findRoleByCode(org._id, 'VIEWER');
     const passwordHash = await hashPassword('ViewerPass1!');
     const viewer = await createUserInRepo(org._id, {
+      code: nextTestUserCode(),
       email: 'viewer-reingest@example.com',
       displayName: 'Viewer Reingest',
       passwordHash,

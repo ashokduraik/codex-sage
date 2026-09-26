@@ -310,6 +310,7 @@ describe('retention.service', () => {
 
   it('enqueues one retention job per org and skips when one is already active', async () => {
     const org = await Organization.create({
+      code: `RETAIN_${new mongoose.Types.ObjectId().toHexString().slice(0, 8).toUpperCase()}`,
       name: 'Retain Co',
       slug: `retain-${new mongoose.Types.ObjectId().toHexString().slice(0, 8)}`,
       createdBy: null,

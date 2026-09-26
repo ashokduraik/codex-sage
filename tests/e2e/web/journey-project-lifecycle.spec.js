@@ -3,7 +3,9 @@ import { expect, test } from '@playwright/test';
 import { loginViaUi } from '../helpers/auth.js';
 import { skipLiveStack } from '../helpers/env.js';
 import {
+  archiveProjectViaUi,
   cancelFollowUpAndCreateDialogs,
+  cleanupCreatedProjects,
   createProjectSubmitButton,
   createProjectViaUi,
   deleteProjectViaUi,
@@ -12,7 +14,6 @@ import {
   navigateViaSidebar,
   openNewProjectDialog,
   openProjectFromList,
-  archiveProjectViaUi,
   projectCard,
   restoreProjectViaUi,
   searchProjectsFor,
@@ -29,6 +30,10 @@ test.describe('Journey: project lifecycle via UI', () => {
     await loginViaUi(page);
     await navigateViaSidebar(page, 'Projects');
     await expect(page).toHaveURL('/projects');
+  });
+
+  test.afterAll(async ({ browser }) => {
+    await cleanupCreatedProjects(browser, [projectName]);
   });
 
   test('create stays disabled without a name or source type', async ({ page }) => {

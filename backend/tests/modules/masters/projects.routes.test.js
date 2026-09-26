@@ -1,6 +1,7 @@
 /**
  * Project routes integration tests via app.inject.
  */
+import { nextTestUserCode, ensureTestRoles } from '../../identityFixtures.js';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import mongoose from 'mongoose';
 import { API_BASE_PATH, buildApp } from '../../../src/http/app.js';
@@ -15,9 +16,9 @@ import {
   DEFAULT_ADMIN_PASSWORD,
   IDENTITY_MODELS,
   createUserInRepo,
-  findBuiltInRole,
   findOrganizationBySlug,
   runBootstrapSeed,
+  findRoleByCode,
 } from '../../../src/modules/masters/index.js';
 import { PROJECT_MODELS, Project } from '../../../src/modules/masters/projects.js';
 
@@ -96,9 +97,11 @@ describe('projects.routes', () => {
   it('returns 401 unauthenticated and 403 without projects.create', async () => {
     await runBootstrapSeed(createMockLog());
     const org = await findOrganizationBySlug('default');
-    const memberRole = await findBuiltInRole(org._id, 'member');
+    await ensureTestRoles(org._id);
+    const memberRole = await findRoleByCode(org._id, 'MEMBER');
     const passwordHash = await hashPassword('memberpass1');
     await createUserInRepo(org._id, {
+      code: nextTestUserCode(),
       email: 'member-proj@example.com',
       displayName: 'Member',
       userStatus: 'active',

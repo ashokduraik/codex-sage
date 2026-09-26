@@ -8,7 +8,7 @@ Local rules for Playwright cross-service journeys. Root [`/AGENTS.md`](../../AGE
 - **Project lifecycle:** create validation, create without source, search, archive, restore, soft-delete.
 - **Repository onboarding:** empty/invalid URL, public attach, optional private attach, ingest wait, knowledge when ready/partial.
 - **ZIP ingest + knowledge:** reject non-zip, upload fixture, processing/health wait, search/preview, second ZIP → changes.
-- **Admin:** users, read-only roles matrix, invite + password + roles + status, audit `user.create`, forced password change, remove user.
+- **Admin:** users (code column), create/edit roles in the UI, invite + password + roles + status, audit `user.create`, forced password change, remove user. Do not click seeded Member/Viewer — create roles in the journey.
 
 Catalog + matrix: [`workflows.md`](./workflows.md). Runbook: [`README.md`](./README.md).
 
@@ -18,6 +18,7 @@ Catalog + matrix: [`workflows.md`](./workflows.md). Runbook: [`README.md`](./REA
 - Add **journey specs** (user flows), not widget micro-tests. Prefer one serial `describe` per journey.
 - Put reusable steps in [`helpers/`](./helpers/).
 - Validate env in [`global-setup.js`](./global-setup.js) via [`validate-e2e-env.js`](./helpers/validate-e2e-env.js).
+- Soft-delete every project the journey created in `test.afterAll` via `cleanupCreatedProjects` — not only on the happy path.
 - Skip private-repo tests with `test.skip` when URL/token are missing — do not fail the whole run.
 - Document new env vars in [`.env.example`](./.env.example) and mirror to `.env` (never commit `.env`).
 - Match product UI semantics (disabled buttons vs HTML `required`).

@@ -2,10 +2,9 @@
  * masters/organizations.js — merged resource file.
  */
 import { Organization } from '../../models/organization.model.js';
-import { BUILT_IN_ROLE_KEYS } from '../../models/role.model.js';
 import { ApiError } from '../../platform/errors.js';
 import { hashPassword } from '../access/index.js';
-import { ensureBuiltInRoles } from './roles.js';
+import { ADMIN_ROLE_CODE, duplicateKeyField, ensureAdminRole, isDuplicateKeyError } from './roles.js';
 import { createUserInRepo, findUserByEmail, findUserByIdWithPassword, setPasswordHashIfMissing, updateUser } from './users.js';
 import mongoose from 'mongoose';
 
@@ -44,6 +43,7 @@ export async function findOrganizationById(organizationId, options = {}) {
 /**
  * Creates an organization (system/bootstrap stamps null actors).
  * @param {{
+ *   code: string,
  *   name: string,
  *   slug: string,
  *   config?: object,
@@ -54,19 +54,27 @@ export async function findOrganizationById(organizationId, options = {}) {
  * @returns {Promise<import('mongoose').Document>}
  */
 export async function createOrganization(input, options = {}) {
-  const [doc] = await Organization.create(
-    [
-      {
-        name: input.name,
-        slug: input.slug,
-        config: input.config ?? {},
-        createdBy: input.createdBy ?? null,
-        updatedBy: input.updatedBy ?? null,
-      },
-    ],
-    options.session ? { session: options.session } : undefined,
-  );
-  return doc;
+  try {
+    const [doc] = await Organization.create(
+      [
+        {
+          code: String(input.code).toUpperCase(),
+          name: input.name,
+          slug: input.slug,
+          config: input.config ?? {},
+          createdBy: input.createdBy ?? null,
+          updatedBy: input.updatedBy ?? null,
+        },
+      ],
+      options.session ? { session: options.session } : undefined,
+    );
+    return doc;
+  } catch (err) {
+    if (isDuplicateKeyError(err) && duplicateKeyField(err) === 'code') {
+      throw ApiError.fromCode('IDENTITY_DUPLICATE_ORG_CODE');
+    }
+    throw err;
+  }
 }
 
 /**
@@ -94,6 +102,12 @@ export const DEFAULT_ORG_NAME = 'Default Organization';
 /** Tenant handle (slug) of the first organization. */
 export const DEFAULT_ORG_SLUG = 'default';
 
+/** Identity code of the first organization. */
+export const DEFAULT_ORG_CODE = 'DEFAULT_ORG';
+
+/** Identity code of the bootstrap administrator user. */
+export const DEFAULT_ADMIN_USER_CODE = 'ADMIN';
+
 /** First administrator email (stored lowercase). */
 export const DEFAULT_ADMIN_EMAIL = 'admin@localhost';
 
@@ -113,7 +127,7 @@ export const DEFAULT_ADMIN_PASSWORD = 'abc123';
  * @property {string} slug
  * @property {string} adminUserId
  * @property {string} adminUserStatus
- * @property {string[]} builtInRoles
+ * @property {string} [adminRoleCode]
  */
 
 /**
@@ -124,7 +138,7 @@ export const DEFAULT_ADMIN_PASSWORD = 'abc123';
  */
 
 /**
- * Ensures the default organization, built-in roles, and admin user exist.
+ * Ensures the default organization, ADMIN role, and admin user exist.
  * @param {SeedLogger} log Structured logger (info always; debug per step).
  * @returns {Promise<BootstrapSeedResult>}
  * @throws {ApiError} BOOTSTRAP_FAILED when the seed cannot complete.
@@ -144,6 +158,7 @@ export async function runBootstrapSeed(log) {
         try {
           organization = await createOrganization(
             {
+              code: DEFAULT_ORG_CODE,
               name: DEFAULT_ORG_NAME,
               slug: DEFAULT_ORG_SLUG,
               createdBy: null,
@@ -171,33 +186,32 @@ export async function runBootstrapSeed(log) {
       }
 
       const orgId = organization._id;
-      const { roles, createdCount: rolesCreated } = await ensureBuiltInRoles(orgId, {
+      const { role: adminRole, created: adminRoleCreated } = await ensureAdminRole(orgId, {
         session,
-        onStep: ({ key, created }) => {
-          debug({ step: 'role', builtInKey: key, outcome: created ? 'created' : 'already_present' }, 'bootstrap seed step');
+        onStep: ({ code, created }) => {
+          debug({ step: 'role', code, outcome: created ? 'created' : 'already_present' }, 'bootstrap seed step');
         },
       });
-      if (rolesCreated > 0) {
+      if (adminRoleCreated) {
         insertedAny = true;
-      }
-
-      const orgAdmin = roles.find((role) => role.builtInKey === 'org_admin');
-      if (!orgAdmin) {
-        throw ApiError.fromCode('BOOTSTRAP_FAILED', {
-          message: 'org_admin role missing after seed.',
-        });
       }
 
       let adminUser = await findUserByEmail(orgId, DEFAULT_ADMIN_EMAIL, { session });
       if (!adminUser) {
+        if (!adminRole) {
+          throw ApiError.fromCode('BOOTSTRAP_FAILED', {
+            message: 'ADMIN role missing; cannot create the bootstrap administrator.',
+          });
+        }
         try {
           adminUser = await createUserInRepo(
             orgId,
             {
+              code: DEFAULT_ADMIN_USER_CODE,
               email: DEFAULT_ADMIN_EMAIL,
               displayName: DEFAULT_ADMIN_NAME,
               userStatus: 'invited',
-              roleIds: [orgAdmin._id],
+              roleIds: [adminRole._id],
               projectAccessMode: 'all',
               createdBy: null,
               updatedBy: null,
@@ -214,14 +228,20 @@ export async function runBootstrapSeed(log) {
           debug({ step: 'admin_user', outcome: 'already_present' }, 'bootstrap seed step');
         }
       } else {
-        const hasOrgAdminRole = (adminUser.roleIds ?? []).some((id) => String(id) === String(orgAdmin._id));
-        if (!hasOrgAdminRole || adminUser.projectAccessMode !== 'all') {
+        /** @type {Record<string, unknown>} */
+        const adminPatch = {};
+        if ((!adminUser.roleIds || adminUser.roleIds.length === 0) && adminRole) {
+          adminPatch.roleIds = [adminRole._id];
+        }
+        if (adminUser.projectAccessMode !== 'all') {
+          adminPatch.projectAccessMode = 'all';
+        }
+        if (Object.keys(adminPatch).length > 0) {
           adminUser = await updateUser(
             orgId,
             adminUser._id,
             {
-              roleIds: hasOrgAdminRole ? adminUser.roleIds : [orgAdmin._id],
-              projectAccessMode: 'all',
+              ...adminPatch,
               updatedBy: null,
             },
             { session },
@@ -245,7 +265,7 @@ export async function runBootstrapSeed(log) {
         slug: organization.slug,
         adminUserId: String(adminUser._id),
         adminUserStatus: adminUser.userStatus,
-        builtInRoles: [...BUILT_IN_ROLE_KEYS],
+        adminRoleCode: adminRole ? ADMIN_ROLE_CODE : undefined,
       };
     });
   } catch (err) {
@@ -295,18 +315,10 @@ export async function runBootstrapSeed(log) {
       slug: summary.slug,
       adminUserId: summary.adminUserId,
       adminUserStatus: summary.adminUserStatus,
-      builtInRoles: summary.builtInRoles,
+      adminRoleCode: summary.adminRoleCode,
     },
     'bootstrap seed succeeded',
   );
 
   return summary;
-}
-
-/**
- * @param {unknown} err Driver / Mongoose error.
- * @returns {boolean}
- */
-function isDuplicateKeyError(err) {
-  return typeof err === 'object' && err !== null && /** @type {{ code?: number }} */ (err).code === 11000;
 }

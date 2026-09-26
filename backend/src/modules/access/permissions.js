@@ -255,54 +255,6 @@ export async function assertRolePermissionsInCatalog() {
   }
 }
 
-/** Shared read + ask surface for viewer and above. */
-const VIEWER_PERMISSIONS = Object.freeze([
-  'org.view',
-  'projects.view',
-  'knowledge.view',
-  'knowledge.browse',
-  'sources.preview',
-  'chat.ask',
-  'conversations.view',
-  'conversations.search',
-  'search.run',
-  'notifications.view',
-]);
-
-/** Standard member: viewer plus upload and conversation archive. */
-const MEMBER_PERMISSIONS = Object.freeze([...VIEWER_PERMISSIONS, 'conversations.archive', 'sources.upload']);
-
-/** Project admin: member plus project/source/knowledge write capabilities. */
-const PROJECT_ADMIN_PERMISSIONS = Object.freeze([
-  ...MEMBER_PERMISSIONS,
-  'projects.create',
-  'projects.update',
-  'projects.delete',
-  'repos.connect',
-  'knowledge.trigger',
-]);
-
-/**
- * Map of builtInKey → frozen permission array.
- * Built-in roles store empty arrays in Mongo; permissions resolve from this map.
- * @type {Readonly<Record<string, ReadonlyArray<string>>>}
- */
-export const BUILT_IN_ROLE_PERMISSIONS = Object.freeze({
-  org_admin: ALL_PERMISSION_KEYS,
-  project_admin: PROJECT_ADMIN_PERMISSIONS,
-  member: MEMBER_PERMISSIONS,
-  viewer: VIEWER_PERMISSIONS,
-});
-
-/**
- * Returns the code-resolved permission list for a built-in role key.
- * @param {string} builtInKey Built-in role key.
- * @returns {ReadonlyArray<string> | undefined}
- */
-export function getBuiltInRolePermissions(builtInKey) {
-  return BUILT_IN_ROLE_PERMISSIONS[builtInKey];
-}
-
 // --- from authorization/roleCache.js ---
 /**
  * In-process TTL cache for role id → permission array.
@@ -482,17 +434,11 @@ export function invalidateOrganization(orgId) {
  * Resolves role ids to an effective permission set for one organization.
  */
 /**
- * Loads permission keys for one role document (built-in from code, custom from DB).
- * @param {{ isBuiltIn?: boolean, builtInKey?: string | null, permissions?: string[] }} role Role doc.
+ * Loads permission keys stored on one role document.
+ * @param {{ permissions?: string[] }} role Role doc.
  * @returns {string[]}
  */
 function permissionsForRoleDocument(role) {
-  if (role.isBuiltIn && role.builtInKey) {
-    const fromCode = getBuiltInRolePermissions(role.builtInKey);
-    if (fromCode) {
-      return [...fromCode];
-    }
-  }
   const stored = Array.isArray(role.permissions) ? role.permissions : [];
   return stored.filter((key) => typeof key === 'string' && isKnownPermissionKey(key));
 }

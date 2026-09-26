@@ -1,6 +1,7 @@
 /**
  * Identity admin routes integration tests via app.inject.
  */
+import { createTestOrganization, ensureTestRoles, nextTestUserCode } from '../../identityFixtures.js';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { API_BASE_PATH, buildApp } from '../../../src/http/app.js';
 import { createMongoHarness } from '../../mongoHarness.js';
@@ -13,11 +14,9 @@ import {
   DEFAULT_ADMIN_EMAIL,
   DEFAULT_ADMIN_PASSWORD,
   IDENTITY_MODELS,
-  createOrganization,
   createUserInRepo,
-  ensureBuiltInRoles,
-  findBuiltInRole,
   runBootstrapSeed,
+  findRoleByCode,
 } from '../../../src/modules/masters/index.js';
 import { containsForbiddenSecretKey } from '../../containsForbiddenSecretKey.js';
 
@@ -78,9 +77,11 @@ describe('identity.routes', () => {
   it('returns 401 without a token and 403 without users.manage', async () => {
     await runBootstrapSeed(createMockLog());
     const org = await (await import('../../../src/modules/masters/organizations.js')).findOrganizationBySlug('default');
-    const memberRole = await findBuiltInRole(org._id, 'member');
+    await ensureTestRoles(org._id);
+    const memberRole = await findRoleByCode(org._id, 'MEMBER');
     const passwordHash = await hashPassword('memberpass1');
     await createUserInRepo(org._id, {
+      code: nextTestUserCode(),
       email: 'member@example.com',
       displayName: 'Member',
       userStatus: 'active',
@@ -112,7 +113,8 @@ describe('identity.routes', () => {
     app = await readyApp();
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const org = await (await import('../../../src/modules/masters/organizations.js')).findOrganizationBySlug('default');
-    const memberRole = await findBuiltInRole(org._id, 'member');
+    await ensureTestRoles(org._id);
+    const memberRole = await findRoleByCode(org._id, 'MEMBER');
 
     const create = await app.inject({
       method: 'POST',
@@ -122,6 +124,7 @@ describe('identity.routes', () => {
         'idempotency-key': 'create-user-lifecycle-1',
       },
       payload: {
+        code: nextTestUserCode(),
         email: 'ada@acme.example',
         displayName: 'Ada Lovelace',
         roleIds: [String(memberRole._id)],
@@ -170,9 +173,10 @@ describe('identity.routes', () => {
 
   it('cross-organization access returns 404 not 403', async () => {
     await runBootstrapSeed(createMockLog());
-    const other = await createOrganization({ name: 'Other', slug: 'other-org' });
-    const { roles } = await ensureBuiltInRoles(other._id);
+    const other = await createTestOrganization({ name: 'Other', slug: 'other-org' });
+    const { roles } = await ensureTestRoles(other._id);
     const otherUser = await createUserInRepo(other._id, {
+      code: nextTestUserCode(),
       email: 'other@example.com',
       displayName: 'Other',
       userStatus: 'active',
@@ -192,9 +196,11 @@ describe('identity.routes', () => {
   it('keyset pagination across pages has no duplicates', async () => {
     await runBootstrapSeed(createMockLog());
     const org = await (await import('../../../src/modules/masters/organizations.js')).findOrganizationBySlug('default');
-    const memberRole = await findBuiltInRole(org._id, 'member');
+    await ensureTestRoles(org._id);
+    const memberRole = await findRoleByCode(org._id, 'MEMBER');
     for (let i = 0; i < 5; i += 1) {
       await createUserInRepo(org._id, {
+        code: nextTestUserCode(),
         email: `page${i}@example.com`,
         displayName: `Page${i}`,
         userStatus: 'active',
@@ -254,9 +260,11 @@ describe('identity.routes', () => {
   it('PATCH email revokes sessions and role create/update/delete work', async () => {
     await runBootstrapSeed(createMockLog());
     const org = await (await import('../../../src/modules/masters/organizations.js')).findOrganizationBySlug('default');
-    const memberRole = await findBuiltInRole(org._id, 'member');
+    await ensureTestRoles(org._id);
+    const memberRole = await findRoleByCode(org._id, 'MEMBER');
     const passwordHash = await hashPassword('targetpass1');
     const target = await createUserInRepo(org._id, {
+      code: nextTestUserCode(),
       email: 'target@example.com',
       displayName: 'Target',
       userStatus: 'active',
@@ -289,6 +297,7 @@ describe('identity.routes', () => {
       url: `${API_BASE_PATH}/roles`,
       headers: { authorization: `Bearer ${admin.accessToken}` },
       payload: {
+        code: 'ANALYST',
         name: 'Analyst',
         description: 'Custom',
         permissions: ['org.view', 'chat.ask'],
@@ -297,23 +306,37 @@ describe('identity.routes', () => {
     expect(createRole.statusCode).toBe(201);
     const roleId = createRole.json().id;
 
-    const patchBuiltIn = await app.inject({
+    const adminRole = await findRoleByCode(org._id, 'ADMIN');
+    const patchAdmin = await app.inject({
       method: 'PATCH',
-      url: `${API_BASE_PATH}/roles/${memberRole._id}`,
+      url: `${API_BASE_PATH}/roles/${adminRole._id}`,
       headers: { authorization: `Bearer ${admin.accessToken}` },
-      payload: { description: 'Updated member description' },
+      payload: { name: 'Renamed Admin', permissions: ['org.view', 'users.manage', 'roles.manage'] },
     });
-    expect(patchBuiltIn.statusCode).toBe(200);
-    expect(patchBuiltIn.json().description).toBe('Updated member description');
+    expect(patchAdmin.statusCode).toBe(200);
+    expect(patchAdmin.json().name).toBe('Renamed Admin');
+    expect(patchAdmin.json().code).toBe('ADMIN');
 
-    const patchBuiltInPerms = await app.inject({
-      method: 'PATCH',
+    const delAssigned = await app.inject({
+      method: 'DELETE',
       url: `${API_BASE_PATH}/roles/${memberRole._id}`,
       headers: { authorization: `Bearer ${admin.accessToken}` },
-      payload: { permissions: ['org.view'] },
     });
-    expect(patchBuiltInPerms.statusCode).toBe(409);
-    expect(patchBuiltInPerms.json().error.code).toBe('BUILT_IN_ROLE_IMMUTABLE');
+    expect(delAssigned.statusCode).toBe(409);
+    expect(delAssigned.json().error.code).toBe('ROLE_IN_USE');
+
+    const dupRole = await app.inject({
+      method: 'POST',
+      url: `${API_BASE_PATH}/roles`,
+      headers: { authorization: `Bearer ${admin.accessToken}` },
+      payload: {
+        code: 'ANALYST',
+        name: 'Analyst Duplicate',
+        permissions: ['chat.ask'],
+      },
+    });
+    expect(dupRole.statusCode).toBe(409);
+    expect(dupRole.json().error.code).toBe('IDENTITY_DUPLICATE_ROLE_CODE');
 
     const delRole = await app.inject({
       method: 'DELETE',
@@ -338,8 +361,8 @@ describe('identity.routes', () => {
 
   it('creating a user with a foreign roleId returns 404', async () => {
     await runBootstrapSeed(createMockLog());
-    const other = await createOrganization({ name: 'Foreign', slug: 'foreign-org' });
-    const { roles } = await ensureBuiltInRoles(other._id);
+    const other = await createTestOrganization({ name: 'Foreign', slug: 'foreign-org' });
+    const { roles } = await ensureTestRoles(other._id);
     app = await readyApp();
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const res = await app.inject({
@@ -350,6 +373,7 @@ describe('identity.routes', () => {
         'idempotency-key': 'create-user-foreign-role-1',
       },
       payload: {
+        code: nextTestUserCode(),
         email: 'x@example.com',
         displayName: 'X',
         roleIds: [String(roles[0]._id)],
@@ -363,12 +387,14 @@ describe('identity.routes', () => {
     app = await readyApp();
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const org = await (await import('../../../src/modules/masters/organizations.js')).findOrganizationBySlug('default');
-    const memberRole = await findBuiltInRole(org._id, 'member');
+    await ensureTestRoles(org._id);
+    const memberRole = await findRoleByCode(org._id, 'MEMBER');
     const missing = await app.inject({
       method: 'POST',
       url: `${API_BASE_PATH}/users`,
       headers: { authorization: `Bearer ${accessToken}` },
       payload: {
+        code: nextTestUserCode(),
         email: 'needs-key@example.com',
         displayName: 'Needs Key',
         roleIds: [String(memberRole._id)],
@@ -383,8 +409,10 @@ describe('identity.routes', () => {
     app = await readyApp();
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const org = await (await import('../../../src/modules/masters/organizations.js')).findOrganizationBySlug('default');
-    const memberRole = await findBuiltInRole(org._id, 'member');
+    await ensureTestRoles(org._id);
+    const memberRole = await findRoleByCode(org._id, 'MEMBER');
     const payload = {
+      code: nextTestUserCode(),
       email: 'idempotent@example.com',
       displayName: 'Idempotent',
       roleIds: [String(memberRole._id)],
@@ -426,7 +454,8 @@ describe('identity.routes', () => {
     app = await readyApp();
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const org = await (await import('../../../src/modules/masters/organizations.js')).findOrganizationBySlug('default');
-    const memberRole = await findBuiltInRole(org._id, 'member');
+    await ensureTestRoles(org._id);
+    const memberRole = await findRoleByCode(org._id, 'MEMBER');
     const headers = {
       authorization: `Bearer ${accessToken}`,
       'idempotency-key': 'create-user-reuse-1',
@@ -437,6 +466,7 @@ describe('identity.routes', () => {
       url: `${API_BASE_PATH}/users`,
       headers,
       payload: {
+        code: nextTestUserCode(),
         email: 'reuse-a@example.com',
         displayName: 'Reuse A',
         roleIds: [String(memberRole._id)],
@@ -449,6 +479,7 @@ describe('identity.routes', () => {
       url: `${API_BASE_PATH}/users`,
       headers,
       payload: {
+        code: nextTestUserCode(),
         email: 'reuse-b@example.com',
         displayName: 'Reuse B',
         roleIds: [String(memberRole._id)],
@@ -463,8 +494,10 @@ describe('identity.routes', () => {
     app = await readyApp();
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const org = await (await import('../../../src/modules/masters/organizations.js')).findOrganizationBySlug('default');
-    const memberRole = await findBuiltInRole(org._id, 'member');
+    await ensureTestRoles(org._id);
+    const memberRole = await findRoleByCode(org._id, 'MEMBER');
     const payload = {
+      code: nextTestUserCode(),
       email: 'concurrent@example.com',
       displayName: 'Concurrent',
       roleIds: [String(memberRole._id)],
@@ -504,8 +537,10 @@ describe('identity.routes', () => {
   it('reset-password response and logs contain no secret', async () => {
     await runBootstrapSeed(createMockLog());
     const org = await (await import('../../../src/modules/masters/organizations.js')).findOrganizationBySlug('default');
-    const memberRole = await findBuiltInRole(org._id, 'member');
+    await ensureTestRoles(org._id);
+    const memberRole = await findRoleByCode(org._id, 'MEMBER');
     const target = await createUserInRepo(org._id, {
+      code: nextTestUserCode(),
       email: 'resetme@example.com',
       displayName: 'Reset',
       userStatus: 'invited',

@@ -1,16 +1,25 @@
 /**
  * masters/roles.js — merged resource file.
  */
-import { BUILT_IN_ROLES, Role } from '../../models/role.model.js';
-import { assertOrgId, decodeCursor, encodeCursor, softDelete } from '../../platform/data/index.js';
+import { Role } from '../../models/role.model.js';
+import { assertOrgId, decodeCursor, encodeCursor, includeDeleted, softDelete } from '../../platform/data/index.js';
 import { ApiError } from '../../platform/errors.js';
-import { getBuiltInRolePermissions, isKnownPermissionKey, invalidateRole, recordAuditEvent, buildAuditContextFromRequest } from '../access/index.js';
+import { ALL_PERMISSION_KEYS, isKnownPermissionKey, invalidateRole, recordAuditEvent, buildAuditContextFromRequest } from '../access/index.js';
 import { bumpProjectAclVersion } from './projectMembers.js';
 import { isRoleReferencedByActiveUser } from './users.js';
 import { z } from 'zod';
 import mongoose from 'mongoose';
 
 const IDENTITY_LIST_PAGE_SIZE_DEFAULT = 25;
+
+/** Seed sentinel and lookup key for the organization administrator role. */
+export const ADMIN_ROLE_CODE = 'ADMIN';
+
+/** Display name written when seed creates the administrator role. */
+export const ADMIN_ROLE_NAME = 'Org Admin';
+
+/** Identity `code` pattern shared with the Role schema. */
+const MASTER_CODE_PATTERN = /^[A-Z0-9_-]{2,64}$/;
 
 /**
  * Clamps a requested role list page size.
@@ -32,7 +41,7 @@ function clampIdentityListLimit(limit) {
 
 // --- from identity/role.repository.js ---
 /**
- * Role repository — tenant-scoped; built-in roles allow description-only edits.
+ * Role repository — tenant-scoped; every role stores its own permissions.
  */
 /**
  * Builds a keyset filter for createdAt/_id descending pages.
@@ -58,15 +67,21 @@ function keysetAfterFilter(cursor) {
 }
 
 /**
- * Finds a built-in role by org and key.
+ * Finds a role by org and identity code.
  * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
- * @param {string} builtInKey Built-in role key.
- * @param {{ session?: import('mongoose').ClientSession }} [options] Optional session.
+ * @param {string} code Identity code (compared uppercase).
+ * @param {{
+ *   session?: import('mongoose').ClientSession,
+ *   includeDeleted?: boolean,
+ * }} [options] Session and whether to include soft-deleted rows.
  * @returns {Promise<import('mongoose').Document | null>}
  */
-export async function findBuiltInRole(orgId, builtInKey, options = {}) {
+export async function findRoleByCode(orgId, code, options = {}) {
   assertOrgId(orgId);
-  const query = Role.findOne({ orgId, isBuiltIn: true, builtInKey });
+  const query = Role.findOne({ orgId, code: String(code).toUpperCase() });
+  if (options.includeDeleted) {
+    includeDeleted(query);
+  }
   if (options.session) {
     query.session(options.session);
   }
@@ -166,9 +181,10 @@ export async function listRolesPage(orgId, filters = {}) {
 }
 
 /**
- * Creates a custom role in an organization.
+ * Creates a role in an organization.
  * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
  * @param {{
+ *   code: string,
  *   name: string,
  *   description?: string,
  *   permissions: string[],
@@ -185,9 +201,9 @@ export async function createRoleInRepo(orgId, input, options = {}) {
       [
         {
           orgId,
+          code: String(input.code).toUpperCase(),
           name: input.name,
           description: input.description,
-          isBuiltIn: false,
           permissions: input.permissions ?? [],
           createdBy: input.createdBy ?? null,
           updatedBy: input.updatedBy ?? null,
@@ -198,69 +214,59 @@ export async function createRoleInRepo(orgId, input, options = {}) {
     return created;
   } catch (err) {
     if (isDuplicateKeyError(err)) {
-      throw ApiError.fromCode('IDENTITY_DUPLICATE_ROLE_NAME');
+      throw ApiError.fromCode(duplicateKeyField(err) === 'code' ? 'IDENTITY_DUPLICATE_ROLE_CODE' : 'IDENTITY_DUPLICATE_ROLE_NAME');
     }
     throw err;
   }
 }
 
 /**
- * Ensures the four built-in roles exist for an organization (seed path).
+ * Ensures the ADMIN role exists unless it was previously created (including soft-deleted).
  * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
  * @param {{
  *   session?: import('mongoose').ClientSession,
- *   onStep?: (detail: { key: string, created: boolean }) => void,
+ *   onStep?: (detail: { code: string, created: boolean }) => void,
  * }} [options] Session and optional step callback.
- * @returns {Promise<{ roles: import('mongoose').Document[], createdCount: number }>}
+ * @returns {Promise<{ role: import('mongoose').Document | null, created: boolean }>}
  */
-export async function ensureBuiltInRoles(orgId, options = {}) {
+export async function ensureAdminRole(orgId, options = {}) {
   assertOrgId(orgId);
-  const roles = [];
-  let createdCount = 0;
-  for (const definition of BUILT_IN_ROLES) {
-    let role = await findBuiltInRole(orgId, definition.key, {
-      session: options.session,
-    });
-    let created = false;
-    if (!role) {
-      try {
-        const [createdRole] = await Role.create(
-          [
-            {
-              orgId,
-              name: definition.name,
-              description: definition.description,
-              isBuiltIn: true,
-              builtInKey: definition.key,
-              permissions: [],
-              createdBy: null,
-              updatedBy: null,
-            },
-          ],
-          options.session ? { session: options.session } : undefined,
-        );
-        role = createdRole;
-        created = true;
-        createdCount += 1;
-      } catch (err) {
-        if (isDuplicateKeyError(err)) {
-          role = await findBuiltInRole(orgId, definition.key, {
-            session: options.session,
-          });
-        } else {
-          throw err;
-        }
-      }
-    }
-    options.onStep?.({ key: definition.key, created });
-    if (!role) {
-      throw ApiError.fromCode('BOOTSTRAP_FAILED', {
-        message: `Built-in role ${definition.key} could not be ensured.`,
-      });
-    }
-    roles.push(role);
+  const existing = await findRoleByCode(orgId, ADMIN_ROLE_CODE, { session: options.session });
+  if (existing) {
+    options.onStep?.({ code: ADMIN_ROLE_CODE, created: false });
+    return { role: existing, created: false };
   }
-  return { roles, createdCount };
+  const previouslyCreated = await findRoleByCode(orgId, ADMIN_ROLE_CODE, {
+    session: options.session,
+    includeDeleted: true,
+  });
+  if (previouslyCreated) {
+    options.onStep?.({ code: ADMIN_ROLE_CODE, created: false });
+    return { role: null, created: false };
+  }
+  try {
+    const created = await createRoleInRepo(
+      orgId,
+      {
+        code: ADMIN_ROLE_CODE,
+        name: ADMIN_ROLE_NAME,
+        description: 'Full organization administration.',
+        permissions: [...ALL_PERMISSION_KEYS],
+        createdBy: null,
+        updatedBy: null,
+      },
+      { session: options.session },
+    );
+    options.onStep?.({ code: ADMIN_ROLE_CODE, created: true });
+    return { role: created, created: true };
+  } catch (err) {
+    if (err instanceof ApiError && (err.code === 'IDENTITY_DUPLICATE_ROLE_CODE' || err.code === 'IDENTITY_DUPLICATE_ROLE_NAME')) {
+      const raced = await findRoleByCode(orgId, ADMIN_ROLE_CODE, { session: options.session });
+      options.onStep?.({ code: ADMIN_ROLE_CODE, created: false });
+      return { role: raced, created: false };
+    }
+    throw err;
+  }
 }
 
 /**
@@ -283,14 +289,11 @@ export async function softDeleteRoleInRepo(orgId, roleId, options = {}) {
   if (!role) {
     throw ApiError.fromCode('NOT_FOUND', { message: 'Role not found.' });
   }
-  if (role.isBuiltIn) {
-    throw ApiError.fromCode('BUILT_IN_ROLE_IMMUTABLE');
-  }
   return softDelete(Role, { _id: roleId, orgId }, { updatedBy: options.updatedBy ?? null, session: options.session });
 }
 
 /**
- * Updates a role. Built-ins may change description only.
+ * Updates a role. `code` is never writable here.
  * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
  * @param {import('mongoose').Types.ObjectId | string} roleId Role id.
  * @param {{ name?: string, permissions?: string[], description?: string }} patch Fields.
@@ -310,19 +313,6 @@ export async function updateRoleInRepo(orgId, roleId, patch, options = {}) {
   if (!role) {
     throw ApiError.fromCode('NOT_FOUND', { message: 'Role not found.' });
   }
-  if (role.isBuiltIn) {
-    const touchesImmutable = patch.name !== undefined || patch.permissions !== undefined;
-    if (touchesImmutable) {
-      throw ApiError.fromCode('BUILT_IN_ROLE_IMMUTABLE');
-    }
-    if (patch.description === undefined) {
-      return role;
-    }
-    role.description = patch.description;
-    role.updatedBy = options.updatedBy ?? null;
-    await role.save(options.session ? { session: options.session } : undefined);
-    return role;
-  }
   if (patch.name !== undefined) {
     role.name = patch.name;
   }
@@ -337,7 +327,7 @@ export async function updateRoleInRepo(orgId, roleId, patch, options = {}) {
     await role.save(options.session ? { session: options.session } : undefined);
   } catch (err) {
     if (isDuplicateKeyError(err)) {
-      throw ApiError.fromCode('IDENTITY_DUPLICATE_ROLE_NAME');
+      throw ApiError.fromCode(duplicateKeyField(err) === 'code' ? 'IDENTITY_DUPLICATE_ROLE_CODE' : 'IDENTITY_DUPLICATE_ROLE_NAME');
     }
     throw err;
   }
@@ -352,36 +342,57 @@ export function isDuplicateKeyError(err) {
   return typeof err === 'object' && err !== null && /** @type {{ code?: number }} */ (err).code === 11000;
 }
 
+/**
+ * Which unique field collided on a Mongo duplicate-key error.
+ * @param {unknown} err Driver / Mongoose error.
+ * @returns {'code' | 'name' | 'email' | 'slug' | null}
+ */
+export function duplicateKeyField(err) {
+  if (!isDuplicateKeyError(err) || typeof err !== 'object' || err === null) {
+    return null;
+  }
+  const record = /** @type {{ keyPattern?: Record<string, unknown>, keyValue?: Record<string, unknown> }} */ (err);
+  const pattern = record.keyPattern ?? {};
+  const keyValue = record.keyValue ?? {};
+  if ('code' in pattern || 'code' in keyValue) {
+    return 'code';
+  }
+  if ('name' in pattern || 'name' in keyValue) {
+    return 'name';
+  }
+  if ('email' in pattern || 'email' in keyValue) {
+    return 'email';
+  }
+  if ('slug' in pattern || 'slug' in keyValue) {
+    return 'slug';
+  }
+  return null;
+}
+
 // --- from identity/role.service.js ---
 /**
- * Role service — list, create, update, soft-delete with catalog and built-in guards.
+ * Role service — list, create, update, soft-delete with catalog validation.
  */
 /**
- * Maps a role document (and optional code-resolved permissions) to a DTO.
+ * Maps a role document to a DTO. Permissions come from the stored array.
  * @param {object} role Role document or lean object.
  * @returns {{
  *   id: string,
+ *   code: string,
  *   name: string,
  *   description: string | null,
  *   permissions: string[],
- *   isBuiltIn: boolean,
  *   createdAt: string,
  * }}
  */
 export function mapRoleToDto(role) {
-  let permissions = Array.isArray(role.permissions) ? [...role.permissions] : [];
-  if (role.isBuiltIn && role.builtInKey) {
-    const fromCode = getBuiltInRolePermissions(role.builtInKey);
-    if (fromCode) {
-      permissions = [...fromCode];
-    }
-  }
+  const stored = Array.isArray(role.permissions) ? role.permissions : [];
   return {
     id: String(role._id ?? role.id),
+    code: typeof role.code === 'string' ? role.code : '',
     name: role.name,
     description: role.description ?? null,
-    permissions,
-    isBuiltIn: Boolean(role.isBuiltIn),
+    permissions: stored.filter((key) => typeof key === 'string' && isKnownPermissionKey(key)),
     createdAt: role.createdAt instanceof Date ? role.createdAt.toISOString() : String(role.createdAt ?? ''),
   };
 }
@@ -419,6 +430,7 @@ export async function listRolesForOrg(orgId, filters = {}) {
  * @param {{
  *   orgId: string,
  *   actorUserId: string,
+ *   code: string,
  *   name: string,
  *   description?: string,
  *   permissions: string[],
@@ -432,6 +444,7 @@ export async function listRolesForOrg(orgId, filters = {}) {
 export async function createRole(input) {
   assertKnownPermissions(input.permissions);
   const created = await createRoleInRepo(input.orgId, {
+    code: input.code,
     name: input.name,
     description: input.description,
     permissions: input.permissions,
@@ -450,7 +463,7 @@ export async function createRole(input) {
       correlationId: input.correlationId,
       ip: input.ip,
       userAgent: input.userAgent,
-      context: { name: created.name, permissions: created.permissions },
+      context: { code: created.code, name: created.name, permissions: created.permissions },
     },
     { log: input.log },
   );
@@ -459,7 +472,7 @@ export async function createRole(input) {
 }
 
 /**
- * Updates a role (built-in: description only).
+ * Updates a role name, description, or permissions. `code` is not accepted.
  * @param {{
  *   orgId: string,
  *   actorUserId: string,
@@ -502,9 +515,7 @@ export async function updateRole(input) {
     throw ApiError.fromCode('INTERNAL_ERROR');
   }
 
-  if (!updated.isBuiltIn) {
-    invalidateRole(String(input.orgId), String(input.roleId));
-  }
+  invalidateRole(String(input.orgId), String(input.roleId));
 
   await recordAuditEvent(
     {
@@ -518,9 +529,9 @@ export async function updateRole(input) {
       ip: input.ip,
       userAgent: input.userAgent,
       context: {
+        code: updated.code,
         name: updated.name,
-        isBuiltIn: updated.isBuiltIn,
-        permissions: updated.isBuiltIn ? undefined : updated.permissions,
+        permissions: updated.permissions,
       },
     },
     { log: input.log },
@@ -530,7 +541,7 @@ export async function updateRole(input) {
 }
 
 /**
- * Soft-deletes a custom role when unused.
+ * Soft-deletes a role when unused.
  * @param {{
  *   orgId: string,
  *   actorUserId: string,
@@ -546,9 +557,6 @@ export async function softDeleteRole(input) {
   const role = await findRoleById(input.orgId, input.roleId);
   if (!role) {
     throw ApiError.fromCode('NOT_FOUND', { message: 'Role not found.' });
-  }
-  if (role.isBuiltIn) {
-    throw ApiError.fromCode('BUILT_IN_ROLE_IMMUTABLE');
   }
   if (await isRoleReferencedByActiveUser(input.orgId, input.roleId)) {
     throw ApiError.fromCode('ROLE_IN_USE');
@@ -579,7 +587,7 @@ export async function softDeleteRole(input) {
       correlationId: input.correlationId,
       ip: input.ip,
       userAgent: input.userAgent,
-      context: { name: role.name },
+      context: { code: role.code, name: role.name },
     },
     { log: input.log },
   );
@@ -587,8 +595,15 @@ export async function softDeleteRole(input) {
 
 const objectIdStringSchema = z.string().regex(/^[a-fA-F0-9]{24}$/, 'must be a 24-char hex ObjectId');
 
+const identityCodeSchema = z
+  .string()
+  .trim()
+  .transform((value) => value.toUpperCase())
+  .refine((value) => MASTER_CODE_PATTERN.test(value), { message: 'code must match [A-Z0-9_-]{2,64}' });
+
 const createRoleBodySchema = z
   .object({
+    code: identityCodeSchema,
     name: z.string().trim().min(1).max(120),
     description: z.string().trim().max(2000).optional(),
     permissions: z.array(z.string().min(1)).min(1),
@@ -669,6 +684,7 @@ export async function roleRoutes(app) {
     const ctx = serviceContext(request);
     const role = await createRole({
       ...ctx,
+      code: parsed.data.code,
       name: parsed.data.name,
       description: parsed.data.description,
       permissions: parsed.data.permissions,
