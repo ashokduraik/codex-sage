@@ -6,11 +6,13 @@ import mongoose from 'mongoose';
 import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
 import { DocumentSection } from '../../../src/models/documentSection.model.js';
+import { SourceFile } from '../../../src/models/sourceFile.model.js';
 import {
   copySectionsForPaths,
   countSectionsForVersion,
   findDocumentSectionById,
   insertDocumentSections,
+  listDocumentFilesForVersion,
   listSectionsForPath,
   listSectionsForVersion,
   searchDocumentSections,
@@ -19,7 +21,7 @@ import {
 } from '../../../src/modules/knowledge/documents.js';
 
 const harness = createMongoHarness({
-  models: [DocumentSection],
+  models: [DocumentSection, SourceFile],
   uri: TEST_APP_CONFIG.mongo.uri,
 });
 
@@ -215,5 +217,63 @@ describe('documentSection.repository', () => {
         sectionId: 'not-an-id',
       }),
     ).toBeNull();
+
+    const prefixed = await searchDocumentSections({ orgId, projectId, sourceVersionId }, { q: 'refunds', limit: 5, pathPrefix: 'docs/' });
+    expect(prefixed[0].path).toBe('docs/refunds.md');
+    expect(await searchDocumentSections({ orgId, projectId, sourceVersionId }, { q: 'refunds', limit: 5, pathPrefix: 'other/' })).toEqual([]);
+    expect(await searchDocumentSections({ orgId, projectId, sourceVersionId }, { q: 'refunds', limit: 5, pathPrefix: 'docs.' })).toEqual([]);
+  });
+
+  it('lists document files for a version with keyset and exclusion flags', async () => {
+    const orgId = new mongoose.Types.ObjectId();
+    const projectId = new mongoose.Types.ObjectId();
+    const sourceVersionId = new mongoose.Types.ObjectId();
+    await SourceFile.create({
+      orgId,
+      projectId,
+      sourceVersionId,
+      path: 'docs/a.md',
+      sha256: 'a'.repeat(64),
+      byteLength: 4,
+      kind: 'doc',
+      gridFsId: new mongoose.Types.ObjectId(),
+      excludedFromGraph: false,
+    });
+    await SourceFile.create({
+      orgId,
+      projectId,
+      sourceVersionId,
+      path: 'docs/z.md',
+      sha256: 'b'.repeat(64),
+      byteLength: 8,
+      kind: 'doc',
+      gridFsId: new mongoose.Types.ObjectId(),
+      excludedFromGraph: true,
+    });
+    await SourceFile.create({
+      orgId,
+      projectId,
+      sourceVersionId,
+      path: 'src/a.js',
+      sha256: 'c'.repeat(64),
+      byteLength: 2,
+      kind: 'code',
+      gridFsId: new mongoose.Types.ObjectId(),
+    });
+
+    expect(await listDocumentFilesForVersion({ orgId, projectId, sourceVersionId, limit: 0 })).toHaveLength(2);
+
+    const first = await listDocumentFilesForVersion({ orgId, projectId, sourceVersionId, limit: 1 });
+    expect(first).toHaveLength(1);
+    expect(first[0].path).toBe('docs/a.md');
+    const rest = await listDocumentFilesForVersion({
+      orgId,
+      projectId,
+      sourceVersionId,
+      afterPath: 'docs/a.md',
+      limit: 10,
+    });
+    expect(rest.map((row) => row.path)).toEqual(['docs/z.md']);
+    expect(rest[0].excludedFromGraph).toBe(true);
   });
 });

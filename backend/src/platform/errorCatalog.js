@@ -320,6 +320,12 @@ export const ERROR_CATALOG = Object.freeze({
     retryability: 'temporary',
     message: 'The language model is busy.',
   }),
+  TOOL_UNKNOWN: Object.freeze({
+    class: 'user',
+    httpStatus: 400,
+    retryability: 'user_action_required',
+    message: 'Unknown agent tool.',
+  }),
   LLM_PROVIDER_ERROR: Object.freeze({
     class: 'system',
     httpStatus: 503,

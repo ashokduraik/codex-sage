@@ -2,8 +2,15 @@
  * knowledge/documents.js — merged resource file.
  */
 import { DocumentSection } from '../../models/documentSection.model.js';
+import { SourceFile } from '../../models/sourceFile.model.js';
 import { assertOrgId, ROW_STATUS_ACTIVE, ROW_STATUS_DELETED } from '../../platform/data/index.js';
 import mongoose from 'mongoose';
+
+/** Default page size for document-path listings used by agent tools. */
+export const LIST_DOCUMENT_FILES_PAGE_SIZE = 20;
+
+/** Hard cap so a tool cannot request an unbounded SourceFile page. */
+export const LIST_DOCUMENT_FILES_MAX_LIMIT = 100;
 
 // --- from documents/documentSection.parse.js ---
 /**
@@ -336,7 +343,7 @@ export async function listSectionsForVersion(scope, options = {}) {
  *   projectId: string | import('mongoose').Types.ObjectId,
  *   sourceVersionId: string | import('mongoose').Types.ObjectId,
  * }} scope Version scope.
- * @param {{ q: string, limit: number }} options Query and cap.
+ * @param {{ q: string, limit: number, pathPrefix?: string }} options Query and cap.
  * @returns {Promise<object[]>}
  */
 export async function searchDocumentSections(scope, options) {
@@ -347,18 +354,66 @@ export async function searchDocumentSections(scope, options) {
   }
   const rawLimit = Number(options.limit);
   const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(Math.floor(rawLimit), 50) : 15;
-  return DocumentSection.find(
-    {
-      orgId: scope.orgId,
-      projectId: scope.projectId,
-      sourceVersionId: scope.sourceVersionId,
-      status: ROW_STATUS_ACTIVE,
-      $text: { $search: query },
-    },
-    { score: { $meta: 'textScore' } },
-  )
+  /** @type {Record<string, unknown>} */
+  const filter = {
+    orgId: scope.orgId,
+    projectId: scope.projectId,
+    sourceVersionId: scope.sourceVersionId,
+    status: ROW_STATUS_ACTIVE,
+    $text: { $search: query },
+  };
+  const pathPrefix = typeof options.pathPrefix === 'string' ? options.pathPrefix.trim() : '';
+  if (pathPrefix) {
+    filter.path = { $regex: `^${escapeRegex(pathPrefix)}` };
+  }
+  return DocumentSection.find(filter, { score: { $meta: 'textScore' } })
     .sort({ score: { $meta: 'textScore' } })
     .limit(limit)
+    .lean()
+    .exec();
+}
+
+/**
+ * Escapes user text so it is a literal prefix in a Mongo regex.
+ * @param {string} value Raw prefix.
+ * @returns {string}
+ */
+function escapeRegex(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Lists active document files for a source version (metadata only).
+ * @param {{
+ *   orgId: string | import('mongoose').Types.ObjectId,
+ *   projectId: string | import('mongoose').Types.ObjectId,
+ *   sourceVersionId: string | import('mongoose').Types.ObjectId,
+ *   afterPath?: string,
+ *   limit?: number,
+ * }} input Version scope and keyset.
+ * @returns {Promise<object[]>}
+ */
+export async function listDocumentFilesForVersion(input) {
+  assertOrgId(input.orgId);
+  const rawLimit = Number(input.limit);
+  const limit =
+    Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(Math.floor(rawLimit), LIST_DOCUMENT_FILES_MAX_LIMIT) : LIST_DOCUMENT_FILES_PAGE_SIZE;
+  /** @type {Record<string, unknown>} */
+  const filter = {
+    orgId: input.orgId,
+    projectId: input.projectId,
+    sourceVersionId: input.sourceVersionId,
+    status: ROW_STATUS_ACTIVE,
+    kind: 'doc',
+  };
+  const afterPath = typeof input.afterPath === 'string' ? input.afterPath : '';
+  if (afterPath) {
+    filter.path = { $gt: afterPath };
+  }
+  return SourceFile.find(filter)
+    .sort({ path: 1 })
+    .limit(limit)
+    .select({ path: 1, kind: 1, excludedFromGraph: 1, exclusionReason: 1, byteLength: 1 })
     .lean()
     .exec();
 }

@@ -359,7 +359,9 @@ active rows):
 | `abstain` | Stop; do not invent a code answer | No |
 
 Reject stale, cross-project, unlocated, or oversized tool results. Surviving snippets
-go through the token budgeter **before** they enter graph state.
+go through `prepareModelInput` **before** they enter graph state. Evidence ids are
+run-scoped (`ev_01`, `ev_02`, …). Slice tools reuse the same `loadSourceFileSlice`
+helper as `GET …/files/slice`.
 
 **DRAFT** prompt: rewritten question, short chat history, **only** accepted tool
 results (with ids), and grounding rules.

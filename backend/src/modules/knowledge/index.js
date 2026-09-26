@@ -4,7 +4,7 @@
 export { UPLOAD_MAX_ARCHIVE_BYTES, consumeSourceArchivePreHandler, sourceUploadRoutes } from './uploads.js';
 export { MULTIPART_MAX_FILES, sourceRoutes } from './sources.js';
 export { changeSummaryRoutes } from './changeSummary.js';
-export { sourcePreviewRoutes } from './sourcePreview.js';
+export { loadSourceFileSlice, SOURCE_PREVIEW_MAX_BYTES, SOURCE_PREVIEW_MAX_LINES, sourcePreviewRoutes } from './sourcePreview.js';
 export { repositoryRoutes } from './repositories.js';
 export { repoSyncHandlerRegistration, enqueueDueRepositorySyncs, REPO_SYNC_SCHEDULER_TICK_MS } from './repoSync.js';
 export { ingestHandlerRegistration, reingestHandlerRegistration } from './ingest.js';
@@ -27,7 +27,10 @@ export {
   isRecoverableCodegraphFailure,
   runCodegraphUpdateWithRecovery,
 } from './knowledge.js';
-export { searchRoutes } from './search.js';
+export { searchRoutes, SEARCH_DOC_MAX_RESULTS, SEARCH_GRAPH_MAX_RESULTS, SEARCH_SNIPPET_MAX_CHARS } from './search.js';
+export { createCodegraphAdapter, CODEGRAPH_READ_LEASE_TTL_MS } from './codegraph.js';
+export { resolveProjectWorkspacePath } from './sources.js';
+export { isDocumentPath, listDocumentFilesForVersion, listSectionsForPath, searchDocumentSections } from './documents.js';
 
 import { DocumentSection } from '../../models/documentSection.model.js';
 import { KnowledgeVersion } from '../../models/knowledgeVersion.model.js';

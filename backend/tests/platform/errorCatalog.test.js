@@ -47,6 +47,11 @@ describe('ERROR_CATALOG', () => {
       httpStatus: 503,
       retryability: 'temporary',
     });
+    expect(ERROR_CATALOG.TOOL_UNKNOWN).toMatchObject({
+      class: 'user',
+      httpStatus: 400,
+      retryability: 'user_action_required',
+    });
     expect(ERROR_CATALOG[MONGO_UNAVAILABLE_CODE].httpStatus).toBe(503);
     expect(ERROR_CATALOG.SEARCH_RESULT_NOT_FOUND).toMatchObject({
       class: 'knowledge',

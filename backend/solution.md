@@ -777,7 +777,7 @@ installed model and version. Each run records the configured model identifier (a
 
 ### 5.5 Tools (reference)
 
-All tools run in Node and enforce `organizationId + projectId + currentKnowledgeVersionId +
+All tools run in Node and enforce `orgId + projectId + currentKnowledgeVersionId +
 status:'A'` before resolving a workspace path or Mongo query.
 
 | Tool                  | Runs on                  | Uses LLM? |

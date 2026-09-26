@@ -190,7 +190,7 @@ without new deps.
 | `backend/src/modules/chat/runBudget.constants.js` | Placeholder exports for 05-derived values |
 | `backend/src/modules/chat/graph/chatGraph.js` | Wire AGENT_TOOLS edges into compile |
 | `backend/src/modules/chat/graph/routing.js` | Loop vs exit conditions |
-| `backend/src/modules/chat/tools/index.js` | **Consume** executeTool |
+| `backend/src/modules/conversation/index.js` (`executeTool`) | **Consume** executeTool |
 | `backend/src/platform/errorCatalog.js` | Register `RUN_BUDGET_EXCEEDED` if new code needed |
 
 ## 9. Tests (≥ 80% line and branch)

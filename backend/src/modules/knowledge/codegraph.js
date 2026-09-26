@@ -487,7 +487,7 @@ async function fingerprintDatabase(databasePath) {
  *   queryWorkflows: (graph: object, limit: number) => object[],
  *   queryStats: (graph: object) => object | null,
  *   explore: (workspacePath: string, input: object) => Promise<unknown>,
- *   buildContext: (workspacePath: string, input: object) => Promise<unknown>,
+ *   buildContext: (graph: object, input?: object) => Promise<unknown>,
  * }}
  */
 export function createCodegraphAdapter(config = {}) {
@@ -928,15 +928,27 @@ export function createCodegraphAdapter(config = {}) {
     },
 
     /**
-     * Read-side buildContext — wraps the library method when present.
-     * @param {string} _workspacePath Unused until a caller supplies a lease.
-     * @returns {Promise<never>}
+     * Bounded task context on an already-leased graph. Wraps the library
+     * `buildContext` when present; otherwise uses symbol/API query fallbacks.
+     * @param {object} graph Open read-only graph.
+     * @param {{ query?: string, limit?: number }} [input] Explore query and node cap.
+     * @returns {Promise<object>}
      */
-    async buildContext(_workspacePath) {
-      throw Object.assign(new Error('CodeGraph buildContext is not implemented yet.'), {
-        code: 'NOT_IMPLEMENTED',
-        failureClass: 'permanent',
-      });
+    async buildContext(graph, input = {}) {
+      const query = typeof input.query === 'string' ? input.query.trim() : '';
+      const rawLimit = Number(input.limit);
+      const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(Math.floor(rawLimit), 50) : 15;
+      if (inspectQuerySurface(graph).buildContext) {
+        return graph.buildContext(query, {
+          maxNodes: limit,
+          includeCode: true,
+          format: 'json',
+        });
+      }
+      return {
+        symbols: this.querySymbols(graph, query, limit),
+        apis: this.queryApis(graph, limit),
+      };
     },
   };
 }

@@ -207,12 +207,28 @@ describe('codegraph.adapter', () => {
     expect(calls).toBe(2);
   });
 
-  it('explore and buildContext throw NOT_IMPLEMENTED', async () => {
+  it('explore stays unimplemented and buildContext falls back to queries', async () => {
     const adapter = createCodegraphAdapter({
       loadLibrary: async () => mockLib,
     });
     await expect(adapter.explore()).rejects.toMatchObject({ code: 'NOT_IMPLEMENTED' });
-    await expect(adapter.buildContext()).rejects.toMatchObject({ code: 'NOT_IMPLEMENTED' });
+    await expect(adapter.buildContext({})).resolves.toEqual({ symbols: [], apis: [] });
+  });
+
+  it('buildContext wraps the library method when the graph exposes it', async () => {
+    const adapter = createCodegraphAdapter({
+      loadLibrary: async () => mockLib,
+    });
+    const graph = {
+      buildContext: vi.fn(async (query, options) => ({ query, options, codeBlocks: [] })),
+    };
+    const result = await adapter.buildContext(graph, { query: 'login', limit: 8 });
+    expect(graph.buildContext).toHaveBeenCalledWith('login', {
+      maxNodes: 8,
+      includeCode: true,
+      format: 'json',
+    });
+    expect(result).toMatchObject({ query: 'login' });
   });
 
   it('validate hard-fails when the mock index state is failed', async () => {
@@ -409,7 +425,7 @@ describe('codegraph.adapter', () => {
     adapter.releaseWriter(undefined);
     expect(release).toHaveBeenCalled();
     await expect(adapter.explore('/tmp')).rejects.toMatchObject({ code: 'NOT_IMPLEMENTED' });
-    await expect(adapter.buildContext('/tmp')).rejects.toMatchObject({ code: 'NOT_IMPLEMENTED' });
+    await expect(adapter.buildContext({})).resolves.toEqual({ symbols: [], apis: [] });
   });
 
   it('refuses a read lease when the Mongo writer lock is held', async () => {
