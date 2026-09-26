@@ -86,30 +86,19 @@ export async function jobRoutes(app) {
           details: [{ path: 'limit', message: 'limit must be a positive integer' }],
         });
       }
-      return listProjectJobs(
-        request.projectScope.orgId,
-        request.projectScope.projectId,
-        parsed.data,
-      );
+      return listProjectJobs(request.projectScope.orgId, request.projectScope.projectId, parsed.data);
     },
   );
 
-  app.get(
-    '/jobs/:jobId',
-    { config: { routeAccess: 'authenticated' } },
-    async (request) => {
-      const params = jobIdParamsSchema.safeParse(request.params ?? {});
-      if (!params.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
-      }
-      return getJobById(
-        /** @type {string} */ (request.principal.orgId),
-        /** @type {string} */ (request.principal.userId),
-        params.data.jobId,
-        { requestMemo: request.projectAclMemo },
-      );
-    },
-  );
+  app.get('/jobs/:jobId', { config: { routeAccess: 'authenticated' } }, async (request) => {
+    const params = jobIdParamsSchema.safeParse(request.params ?? {});
+    if (!params.success) {
+      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+    }
+    return getJobById(/** @type {string} */ (request.principal.orgId), /** @type {string} */ (request.principal.userId), params.data.jobId, {
+      requestMemo: request.projectAclMemo,
+    });
+  });
 }
 
 // --- from jobs/jobControl.routes.js ---
@@ -254,10 +243,7 @@ export function mapJobEventToDto(event) {
     eventCode: event.eventCode,
     severity: event.severity,
     message: event.message,
-    data:
-      event.data && typeof event.data === 'object' && !Array.isArray(event.data)
-        ? { ...event.data }
-        : {},
+    data: event.data && typeof event.data === 'object' && !Array.isArray(event.data) ? { ...event.data } : {},
     createdAt: toIsoOrNull(event.createdAt),
   };
 }
@@ -396,13 +382,7 @@ export async function getJobById(orgId, userId, jobId, options = {}) {
  */
 export const ALLOWED_JOB_TRANSITIONS = Object.freeze({
   pending: Object.freeze(['running', 'cancelled']),
-  running: Object.freeze([
-    'completed',
-    'completed_with_warnings',
-    'failed',
-    'cancelled',
-    'pending',
-  ]),
+  running: Object.freeze(['completed', 'completed_with_warnings', 'failed', 'cancelled', 'pending']),
   failed: Object.freeze(['retrying']),
   retrying: Object.freeze(['pending', 'running', 'cancelled']),
   cancelled: Object.freeze(['retrying']),
@@ -568,12 +548,7 @@ export async function retryJob(input) {
   });
   if (!updated) {
     const fresh = await findJobById(input.orgId, input.jobId);
-    if (
-      fresh &&
-      (fresh.jobStatus === 'pending' ||
-        fresh.jobStatus === 'retrying' ||
-        fresh.jobStatus === 'running')
-    ) {
+    if (fresh && (fresh.jobStatus === 'pending' || fresh.jobStatus === 'retrying' || fresh.jobStatus === 'running')) {
       return {
         statusCode: 200,
         body: toControlResponse(fresh, {
@@ -685,10 +660,7 @@ export async function cancelJob(input) {
       body: toControlResponse(job, {
         cancellation: {
           requested: true,
-          requestedAt:
-            job.cancelRequestedAt instanceof Date
-              ? job.cancelRequestedAt.toISOString()
-              : String(job.cancelRequestedAt),
+          requestedAt: job.cancelRequestedAt instanceof Date ? job.cancelRequestedAt.toISOString() : String(job.cancelRequestedAt),
         },
       }),
     };
@@ -774,10 +746,7 @@ export async function cancelJob(input) {
           body: toControlResponse(fresh, {
             cancellation: {
               requested: true,
-              requestedAt:
-                fresh.cancelRequestedAt instanceof Date
-                  ? fresh.cancelRequestedAt.toISOString()
-                  : String(fresh.cancelRequestedAt),
+              requestedAt: fresh.cancelRequestedAt instanceof Date ? fresh.cancelRequestedAt.toISOString() : String(fresh.cancelRequestedAt),
             },
           }),
         };
@@ -814,10 +783,7 @@ export async function cancelJob(input) {
       body: toControlResponse(updated, {
         cancellation: {
           requested: true,
-          requestedAt:
-            updated.cancelRequestedAt instanceof Date
-              ? updated.cancelRequestedAt.toISOString()
-              : String(updated.cancelRequestedAt),
+          requestedAt: updated.cancelRequestedAt instanceof Date ? updated.cancelRequestedAt.toISOString() : String(updated.cancelRequestedAt),
         },
       }),
     };

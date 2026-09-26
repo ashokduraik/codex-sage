@@ -7,18 +7,8 @@ import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
 import { IDENTITY_MODELS } from '../../../src/modules/masters/index.js';
 import { createOrganization } from '../../../src/modules/masters/organizations.js';
-import {
-  createUserInRepo,
-  findUserByEmail,
-  findUserById,
-  listUsersInRepo,
-  softDeleteUser,
-} from '../../../src/modules/masters/users.js';
-import {
-  ensureBuiltInRoles,
-  softDeleteRoleInRepo,
-  updateRoleInRepo,
-} from '../../../src/modules/masters/roles.js';
+import { createUserInRepo, findUserByEmail, findUserById, listUsersInRepo, softDeleteUser } from '../../../src/modules/masters/users.js';
+import { ensureBuiltInRoles, softDeleteRoleInRepo, updateRoleInRepo } from '../../../src/modules/masters/roles.js';
 import { User } from '../../../src/models/user.model.js';
 import mongoose from 'mongoose';
 import { Role } from '../../../src/models/role.model.js';
@@ -113,9 +103,7 @@ describe('identity models and repositories', () => {
   it('rejects a rename of a built-in role', async () => {
     const org = await createOrganization({ name: 'Acme', slug: 'acme-rename' });
     const { roles } = await ensureBuiltInRoles(org._id);
-    await expect(
-      updateRoleInRepo(org._id, roles[0]._id, { name: 'Renamed' }),
-    ).rejects.toMatchObject({ code: 'BUILT_IN_ROLE_IMMUTABLE' });
+    await expect(updateRoleInRepo(org._id, roles[0]._id, { name: 'Renamed' })).rejects.toMatchObject({ code: 'BUILT_IN_ROLE_IMMUTABLE' });
   });
 
   it('rejects a soft delete of a built-in role', async () => {
@@ -212,10 +200,7 @@ describe('identity models and repositories', () => {
       roleIds: [PLACEHOLDER_ROLE_ID],
     });
     const page = await listUsersInRepo(org._id, { limit: 10 });
-    expect(page.items.map((u) => String(u._id))).toEqual([
-      String(second._id),
-      String(first._id),
-    ]);
+    expect(page.items.map((u) => String(u._id))).toEqual([String(second._id), String(first._id)]);
     expect(page.pageInfo.hasMore).toBe(false);
   });
 

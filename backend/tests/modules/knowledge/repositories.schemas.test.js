@@ -12,9 +12,7 @@ import {
 
 describe('repositories.schemas', () => {
   it('accepts a probe body with or without a token', () => {
-    expect(
-      probeBodySchema.safeParse({ repositoryUrl: 'https://github.com/acme/app' }).success,
-    ).toBe(true);
+    expect(probeBodySchema.safeParse({ repositoryUrl: 'https://github.com/acme/app' }).success).toBe(true);
     expect(
       probeBodySchema.safeParse({
         repositoryUrl: 'https://github.com/acme/app',
@@ -52,13 +50,9 @@ describe('repositories.schemas', () => {
   });
 
   it('requires selectedBranch on patch and accessToken on replace', () => {
-    expect(patchBranchBodySchema.safeParse({ selectedBranch: 'develop' }).success).toBe(
-      true,
-    );
+    expect(patchBranchBodySchema.safeParse({ selectedBranch: 'develop' }).success).toBe(true);
     expect(patchBranchBodySchema.safeParse({}).success).toBe(false);
-    expect(replaceCredentialBodySchema.safeParse({ accessToken: 'new' }).success).toBe(
-      true,
-    );
+    expect(replaceCredentialBodySchema.safeParse({ accessToken: 'new' }).success).toBe(true);
     expect(replaceCredentialBodySchema.safeParse({}).success).toBe(false);
   });
 

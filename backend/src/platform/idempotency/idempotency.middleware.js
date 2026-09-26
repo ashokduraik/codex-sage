@@ -41,11 +41,7 @@ export function readIdempotencyKey(request) {
     throw ApiError.fromCode('IDEMPOTENCY_KEY_REQUIRED');
   }
   const key = raw.trim();
-  if (
-    key.length < IDEMPOTENCY_KEY_MIN_LENGTH ||
-    key.length > IDEMPOTENCY_KEY_MAX_LENGTH ||
-    !IDEMPOTENCY_KEY_PATTERN.test(key)
-  ) {
+  if (key.length < IDEMPOTENCY_KEY_MIN_LENGTH || key.length > IDEMPOTENCY_KEY_MAX_LENGTH || !IDEMPOTENCY_KEY_PATTERN.test(key)) {
     throw ApiError.fromCode('VALIDATION_ERROR', {
       details: [
         {
@@ -268,10 +264,7 @@ export async function idempotencyOnSend(request, reply, payload) {
     });
   }
 
-  const resourceId =
-    body && typeof body === 'object' && typeof body.id === 'string' && body.id.length > 0
-      ? body.id
-      : null;
+  const resourceId = body && typeof body === 'object' && typeof body.id === 'string' && body.id.length > 0 ? body.id : null;
   await completeIdempotencyRecord({
     orgId: request.principal.orgId,
     recordId: ctx.recordId,

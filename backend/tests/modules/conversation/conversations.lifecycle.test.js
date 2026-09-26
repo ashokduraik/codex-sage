@@ -22,10 +22,7 @@ describe('conversations.lifecycle', () => {
       expect(err.code).toBe('CONVERSATION_NOT_FOUND');
     }
     try {
-      assertConversationWritable(
-        { ownerUserId: otherId, lifecycleStatus: 'active' },
-        ownerId,
-      );
+      assertConversationWritable({ ownerUserId: otherId, lifecycleStatus: 'active' }, ownerId);
     } catch (err) {
       expect(err.code).toBe('CONVERSATION_NOT_FOUND');
     }
@@ -33,22 +30,14 @@ describe('conversations.lifecycle', () => {
 
   it('rejects writes to archived conversations', () => {
     try {
-      assertConversationWritable(
-        { ownerUserId: ownerId, lifecycleStatus: 'archived' },
-        ownerId,
-      );
+      assertConversationWritable({ ownerUserId: ownerId, lifecycleStatus: 'archived' }, ownerId);
     } catch (err) {
       expect(err.code).toBe('INVALID_STATE_TRANSITION');
     }
   });
 
   it('allows writes on an owned active conversation', () => {
-    expect(() =>
-      assertConversationWritable(
-        { ownerUserId: ownerId, lifecycleStatus: 'active' },
-        ownerId,
-      ),
-    ).not.toThrow();
+    expect(() => assertConversationWritable({ ownerUserId: ownerId, lifecycleStatus: 'active' }, ownerId)).not.toThrow();
   });
 
   it('rejects archive of an already archived row and restore of an active row', () => {
@@ -63,8 +52,6 @@ describe('conversations.lifecycle', () => {
       expect(err.code).toBe('INVALID_STATE_TRANSITION');
     }
     expect(() => assertConversationArchiveAllowed({ lifecycleStatus: 'active' })).not.toThrow();
-    expect(() =>
-      assertConversationRestoreAllowed({ lifecycleStatus: 'archived' }),
-    ).not.toThrow();
+    expect(() => assertConversationRestoreAllowed({ lifecycleStatus: 'archived' })).not.toThrow();
   });
 });

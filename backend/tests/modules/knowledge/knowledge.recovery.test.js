@@ -1,11 +1,8 @@
 /**
  * Unit tests for same-job CodeGraph recovery.
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  isRecoverableCodegraphFailure,
-  runCodegraphUpdateWithRecovery,
-} from '../../../src/modules/knowledge/knowledge.js';
+import { describe, expect, it, vi } from 'vitest';
+import { isRecoverableCodegraphFailure, runCodegraphUpdateWithRecovery } from '../../../src/modules/knowledge/knowledge.js';
 import { createJobFailureError } from '../../../src/worker/retryPolicy.js';
 
 describe('knowledge.recovery', () => {

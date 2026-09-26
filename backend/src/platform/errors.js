@@ -2,12 +2,7 @@
  * Domain error class and global Fastify error / not-found handlers.
  * Every client-facing JSON error is catalog-driven and carries a correlation reference.
  */
-import {
-  allowsErrorDetails,
-  ERROR_CATALOG,
-  getCatalogEntry,
-  isKnownErrorCode,
-} from './errorCatalog.js';
+import { allowsErrorDetails, ERROR_CATALOG, getCatalogEntry, isKnownErrorCode } from './errorCatalog.js';
 
 /**
  * Default replay detector (name check only — no class import).
@@ -15,11 +10,7 @@ import {
  * @returns {boolean}
  */
 function defaultIsReplayError(error) {
-  return Boolean(
-    error &&
-      typeof error === 'object' &&
-      /** @type {{ name?: string }} */ (error).name === 'IdempotencyReplay',
-  );
+  return Boolean(error && typeof error === 'object' && /** @type {{ name?: string }} */ (error).name === 'IdempotencyReplay');
 }
 
 /** @type {(error: unknown) => boolean} */
@@ -96,12 +87,7 @@ export class ApiError extends Error {
     if (!entry) {
       throw new Error(`Unknown error code: ${code}`);
     }
-    return new ApiError(
-      entry.httpStatus,
-      code,
-      options.message ?? entry.message,
-      options.details,
-    );
+    return new ApiError(entry.httpStatus, code, options.message ?? entry.message, options.details);
   }
 }
 
@@ -130,18 +116,13 @@ function resolveErrorCode(error) {
   }
 
   // Missing/invalid double-submit → treat as expired session (re-login), not validation.
-  const thrownCode =
-    typeof error === 'object' && error !== null
-      ? /** @type {{ code?: unknown }} */ (error).code
-      : undefined;
+  const thrownCode = typeof error === 'object' && error !== null ? /** @type {{ code?: unknown }} */ (error).code : undefined;
   if (thrownCode === 'FST_CSRF_MISSING_SECRET' || thrownCode === 'FST_CSRF_INVALID_TOKEN') {
     return { code: 'SESSION_EXPIRED', unknownCode: false };
   }
 
   const statusFromError =
-    typeof error === 'object' &&
-    error !== null &&
-    typeof /** @type {{ statusCode?: unknown }} */ (error).statusCode === 'number'
+    typeof error === 'object' && error !== null && typeof (/** @type {{ statusCode?: unknown }} */ (error).statusCode) === 'number'
       ? /** @type {{ statusCode: number }} */ (error).statusCode
       : undefined;
 
@@ -170,11 +151,7 @@ export function buildErrorEnvelope(error, reference) {
   const forceInternal = unknownCode || (!isApiError && code === 'INTERNAL_ERROR');
   const resolvedCode = forceInternal ? 'INTERNAL_ERROR' : code;
   const resolvedEntry = forceInternal ? ERROR_CATALOG.INTERNAL_ERROR : entry;
-  const statusCode = forceInternal
-    ? 500
-    : isApiError
-      ? error.statusCode
-      : resolvedEntry.httpStatus;
+  const statusCode = forceInternal ? 500 : isApiError ? error.statusCode : resolvedEntry.httpStatus;
 
   let message = resolvedEntry.message;
   if (isApiError && !forceInternal && statusCode < 500) {
@@ -246,10 +223,7 @@ export function registerErrorHandler(app, options = {}) {
   app.setErrorHandler(async (error, request, reply) => {
     if (isIdempotencyReplayError(error)) {
       if (!canSendJsonError(reply)) {
-        request.log.error(
-          { reqId: request.id },
-          'idempotency replay after headers sent — skipping body',
-        );
+        request.log.error({ reqId: request.id }, 'idempotency replay after headers sent — skipping body');
         return;
       }
       const replay = /** @type {{ responseStatus: number, responseBody: unknown }} */ (error);
@@ -290,10 +264,7 @@ export function registerErrorHandler(app, options = {}) {
     }
 
     if (!canSendJsonError(reply)) {
-      request.log.error(
-        { reqId: reference },
-        'error after headers sent — skipping JSON error body',
-      );
+      request.log.error({ reqId: reference }, 'error after headers sent — skipping JSON error body');
       return;
     }
 

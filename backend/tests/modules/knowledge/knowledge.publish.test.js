@@ -15,11 +15,7 @@ vi.mock('../../../src/modules/access/index.js', async (importOriginal) => {
   };
 });
 
-import {
-  publishKnowledgeVersion,
-  resolvePublishedHealth,
-  sanitizeGraphIdentityForPublish,
-} from '../../../src/modules/knowledge/knowledge.js';
+import { publishKnowledgeVersion, resolvePublishedHealth, sanitizeGraphIdentityForPublish } from '../../../src/modules/knowledge/knowledge.js';
 
 const ORG_ID = '665f1c9d4b2a8e0012a4f010';
 const PROJECT_ID = '665f1c9d4b2a8e0012a4f011';
@@ -116,10 +112,7 @@ describe('knowledge.publish', () => {
       outcome: 'completed_with_warnings',
     });
     expect(createSpy).toHaveBeenCalledOnce();
-    expect(recordAuditEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ action: 'knowledge.completed' }),
-      expect.anything(),
-    );
+    expect(recordAuditEvent).toHaveBeenCalledWith(expect.objectContaining({ action: 'knowledge.completed' }), expect.anything());
   });
 
   it('reuses an existing row with matching graphHash', async () => {

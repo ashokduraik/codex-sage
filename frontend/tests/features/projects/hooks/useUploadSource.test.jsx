@@ -8,8 +8,7 @@ import { ApiError } from '@/shared/api/index';
 
 vi.mock('@/features/projects/api/sourcesApi.js', () => ({
   uploadProjectSource: vi.fn(),
-  sourceVersionsQueryKey: (projectId) =>
-    Object.freeze(['projects', String(projectId), 'source-versions']),
+  sourceVersionsQueryKey: (projectId) => Object.freeze(['projects', String(projectId), 'source-versions']),
 }));
 
 import { uploadProjectSource } from '@/features/projects/api/sourcesApi.js';

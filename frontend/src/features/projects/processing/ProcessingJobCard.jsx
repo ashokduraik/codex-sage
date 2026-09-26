@@ -22,14 +22,7 @@ import { cn } from '@/shared/lib/utils';
 import { isProjectAskable } from '@/shared/components/StatusBadge.jsx';
 import { useJob } from './hooks/useJob.js';
 import { useJobControl } from './hooks/useJobControl.js';
-import {
-  hasRenderablePercent,
-  isActiveJobStatus,
-  jobStatusLabelKey,
-  jobTypeLabelKey,
-  mapJobStatus,
-  mapStageState,
-} from './jobProgressMap.js';
+import { hasRenderablePercent, isActiveJobStatus, jobStatusLabelKey, jobTypeLabelKey, mapJobStatus, mapStageState } from './jobProgressMap.js';
 
 /**
  * Collapsible activity log from job events.
@@ -42,11 +35,7 @@ function ActivityLog({ events }) {
   const rows = Array.isArray(events) ? events : [];
   return (
     <div className="mt-3">
-      <button
-        type="button"
-        onClick={() => setOpen((current) => !current)}
-        className="text-xs text-muted-foreground hover:text-foreground"
-      >
+      <button type="button" onClick={() => setOpen((current) => !current)} className="text-xs text-muted-foreground hover:text-foreground">
         {open ? t('processing.hideActivity') : t('processing.showActivity')}
       </button>
       {open ? (
@@ -56,9 +45,7 @@ function ActivityLog({ events }) {
           ) : (
             rows.map((entry) => (
               <div key={`${entry.createdAt}-${entry.eventCode}`} className="flex gap-2 py-0.5 text-xs">
-                <span className="text-muted-foreground/60">
-                  {entry.createdAt ? formatDateTime(entry.createdAt) : ''}
-                </span>
+                <span className="text-muted-foreground/60">{entry.createdAt ? formatDateTime(entry.createdAt) : ''}</span>
                 <span className="text-foreground/80">{entry.message}</span>
               </div>
             ))
@@ -100,8 +87,7 @@ export default function ProcessingJobCard({ job, project, variant }) {
   const cancellation = detail?.cancellation;
   const controlError = control.retryError || control.cancelError;
   const askable = isProjectAskable(project);
-  const succeeded =
-    display.jobStatus === 'completed' || display.jobStatus === 'completed_with_warnings';
+  const succeeded = display.jobStatus === 'completed' || display.jobStatus === 'completed_with_warnings';
   const tone =
     variant === 'active'
       ? 'border-blue-200 bg-blue-50/40'
@@ -141,10 +127,7 @@ export default function ProcessingJobCard({ job, project, variant }) {
     <div className={cn('rounded-xl border p-4', tone)}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-2">
-          <StatusIcon
-            className={cn('mt-0.5 h-4 w-4', statusVisual.className, statusVisual.spin && 'animate-spin')}
-            aria-hidden="true"
-          />
+          <StatusIcon className={cn('mt-0.5 h-4 w-4', statusVisual.className, statusVisual.spin && 'animate-spin')} aria-hidden="true" />
           <div>
             <div className="text-sm font-medium">
               {typeLabel} · {projectName}
@@ -152,32 +135,20 @@ export default function ProcessingJobCard({ job, project, variant }) {
             <div className="text-xs text-muted-foreground">
               {active
                 ? t('processing.started', {
-                    when: display.startedAt
-                      ? formatDateTime(display.startedAt)
-                      : formatDateTime(display.createdAt),
+                    when: display.startedAt ? formatDateTime(display.startedAt) : formatDateTime(display.createdAt),
                   })
                 : t('processing.historyRange', {
                     started: display.startedAt ? formatDateTime(display.startedAt) : '—',
                     completed: display.completedAt ? formatDateTime(display.completedAt) : statusLabel,
                   })}
             </div>
-            {display.partialSuccess ? (
-              <p className="mt-1 text-xs text-amber-700">{t('processing.partialSuccessFlag')}</p>
-            ) : null}
+            {display.partialSuccess ? <p className="mt-1 text-xs text-amber-700">{t('processing.partialSuccessFlag')}</p> : null}
           </div>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-2">
-          {showBar ? (
-            <span className="text-lg font-semibold text-blue-700">{percent}%</span>
-          ) : null}
+          {showBar ? <span className="text-lg font-semibold text-blue-700">{percent}%</span> : null}
           {retry?.available ? (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => void onRetry()}
-              disabled={control.isRetrying}
-              aria-busy={control.isRetrying}
-            >
+            <Button size="sm" variant="outline" onClick={() => void onRetry()} disabled={control.isRetrying} aria-busy={control.isRetrying}>
               <RefreshCw className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
               {t('processing.retry')}
             </Button>
@@ -216,9 +187,7 @@ export default function ProcessingJobCard({ job, project, variant }) {
         <div role="alert" className="mt-3 text-xs text-red-700">
           <p>{messageFromUnknown(detailQuery.error, t('processing.detailFailed'))}</p>
           {correlationFromUnknown(detailQuery.error) ? (
-            <p className="mt-1 text-muted-foreground">
-              {t('errors.correlationId', { id: correlationFromUnknown(detailQuery.error) })}
-            </p>
+            <p className="mt-1 text-muted-foreground">{t('errors.correlationId', { id: correlationFromUnknown(detailQuery.error) })}</p>
           ) : null}
           <Button size="sm" variant="outline" className="mt-2" onClick={() => void detailQuery.refetch()}>
             {t('common.retry')}
@@ -232,10 +201,7 @@ export default function ProcessingJobCard({ job, project, variant }) {
             const visual = mapStageState(stage.state);
             const Icon = visual.icon;
             return (
-              <div
-                key={stage.stage || stage.label}
-                className={cn('flex items-center gap-2 text-sm', visual.className)}
-              >
+              <div key={stage.stage || stage.label} className={cn('flex items-center gap-2 text-sm', visual.className)}>
                 <Icon className={cn('h-4 w-4', visual.spin && 'animate-spin')} aria-hidden="true" />
                 {stage.label || stage.stage}
               </div>
@@ -259,11 +225,7 @@ export default function ProcessingJobCard({ job, project, variant }) {
 
       {Array.isArray(detail?.errors) && detail.errors.length > 0 ? (
         <div className="mt-3 space-y-1">
-          <button
-            type="button"
-            className="text-xs text-red-700 hover:underline"
-            onClick={() => setDetailsOpen((current) => !current)}
-          >
+          <button type="button" className="text-xs text-red-700 hover:underline" onClick={() => setDetailsOpen((current) => !current)}>
             {detailsOpen ? t('processing.hideErrors') : t('processing.showErrors')}
           </button>
           {detailsOpen
@@ -340,10 +302,7 @@ export default function ProcessingJobCard({ job, project, variant }) {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => void onConfirmCancel()}
-              disabled={control.isCancelling}
-            >
+            <AlertDialogAction onClick={() => void onConfirmCancel()} disabled={control.isCancelling}>
               {t('processing.cancelConfirmAction')}
             </AlertDialogAction>
           </AlertDialogFooter>

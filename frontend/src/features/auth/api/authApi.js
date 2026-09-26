@@ -1,12 +1,7 @@
 /**
  * Auth HTTP calls and React Query keys (Phase 14).
  */
-import {
-  apiRequest,
-  CSRF_HEADER_NAME,
-  readCsrfTokenFromCookie,
-  setAccessToken,
-} from '@/shared/api';
+import { apiRequest, CSRF_HEADER_NAME, readCsrfTokenFromCookie, setAccessToken } from '@/shared/api';
 
 /** React Query key for the signed-in current-user document. */
 export const CURRENT_USER_QUERY_KEY = Object.freeze(['auth', 'me']);
@@ -27,10 +22,7 @@ export async function login(email, password) {
     body: { email, password },
     skipAuthRefresh: true,
   });
-  const accessToken =
-    body && typeof body === 'object'
-      ? /** @type {{ accessToken?: unknown }} */ (body).accessToken
-      : undefined;
+  const accessToken = body && typeof body === 'object' ? /** @type {{ accessToken?: unknown }} */ (body).accessToken : undefined;
   if (typeof accessToken !== 'string' || accessToken === '') {
     throw new Error('Login response missing access token');
   }

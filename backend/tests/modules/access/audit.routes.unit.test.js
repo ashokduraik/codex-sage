@@ -1,7 +1,7 @@
 /**
  * Unit tests for audit route validation edge paths.
  */
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { auditRoutes } from '../../../src/modules/access/audit.js';
 

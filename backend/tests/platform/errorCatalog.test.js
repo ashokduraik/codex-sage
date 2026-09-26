@@ -1,22 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import {
-  ERROR_CATALOG,
-  MONGO_UNAVAILABLE_CODE,
-  allowsErrorDetails,
-  getCatalogEntry,
-  isKnownErrorCode,
-} from '../../src/platform/errorCatalog.js';
+import { ERROR_CATALOG, MONGO_UNAVAILABLE_CODE, allowsErrorDetails, getCatalogEntry, isKnownErrorCode } from '../../src/platform/errorCatalog.js';
 
-const VALID_CLASSES = new Set([
-  'user',
-  'authorization',
-  'source',
-  'repository',
-  'processing',
-  'knowledge',
-  'system',
-  'temporary',
-]);
+const VALID_CLASSES = new Set(['user', 'authorization', 'source', 'repository', 'processing', 'knowledge', 'system', 'temporary']);
 const VALID_RETRY = new Set(['temporary', 'permanent', 'user_action_required']);
 
 describe('ERROR_CATALOG', () => {
@@ -38,13 +23,9 @@ describe('ERROR_CATALOG', () => {
 
   it('registers required temporary knowledge and accounting codes', () => {
     expect(ERROR_CATALOG.KNOWLEDGE_UNAVAILABLE.retryability).toBe('temporary');
-    expect(ERROR_CATALOG.KNOWLEDGE_UNAVAILABLE.message).toBe(
-      'Project knowledge is not available.',
-    );
+    expect(ERROR_CATALOG.KNOWLEDGE_UNAVAILABLE.message).toBe('Project knowledge is not available.');
     expect(ERROR_CATALOG.KNOWLEDGE_UPDATING.retryability).toBe('temporary');
-    expect(ERROR_CATALOG.KNOWLEDGE_UPDATING.message).toBe(
-      'Project knowledge is being updated.',
-    );
+    expect(ERROR_CATALOG.KNOWLEDGE_UPDATING.message).toBe('Project knowledge is being updated.');
     expect(ERROR_CATALOG.CONTEXT_ACCOUNTING_UNAVAILABLE.retryability).toBe('temporary');
     expect(ERROR_CATALOG[MONGO_UNAVAILABLE_CODE].httpStatus).toBe(503);
     expect(ERROR_CATALOG.SEARCH_RESULT_NOT_FOUND).toMatchObject({

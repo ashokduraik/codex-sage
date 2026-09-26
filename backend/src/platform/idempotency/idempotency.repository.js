@@ -20,11 +20,7 @@ export const IDEMPOTENCY_POLL_INTERVAL_MS = 100;
  * @returns {boolean}
  */
 export function isMongoDuplicateKeyError(err) {
-  return (
-    typeof err === 'object' &&
-    err !== null &&
-    /** @type {{ code?: number }} */ (err).code === 11000
-  );
+  return typeof err === 'object' && err !== null && /** @type {{ code?: number }} */ (err).code === 11000;
 }
 
 /**

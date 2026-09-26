@@ -20,10 +20,7 @@ function DefaultFallback() {
 function LoginRedirect() {
   const location = useLocation();
   const path = `${location.pathname}${location.search}`;
-  const returnTo =
-    path.startsWith('/') && !path.startsWith('//') && !path.includes('\\')
-      ? encodeURIComponent(path)
-      : encodeURIComponent('/');
+  const returnTo = path.startsWith('/') && !path.startsWith('//') && !path.includes('\\') ? encodeURIComponent(path) : encodeURIComponent('/');
   return <Navigate to={`/login?returnTo=${returnTo}`} replace />;
 }
 
@@ -33,10 +30,7 @@ function LoginRedirect() {
  * @param props - Route guard props.
  * @returns Outlet, fallback spinner, redirect, or unauthenticated UI.
  */
-export default function ProtectedRoute({
-  fallback = <DefaultFallback />,
-  unauthenticatedElement = <LoginRedirect />,
-}) {
+export default function ProtectedRoute({ fallback = <DefaultFallback />, unauthenticatedElement = <LoginRedirect /> }) {
   const { isAuthenticated, isLoadingAuth, authChecked, user } = useAuth();
   const location = useLocation();
 

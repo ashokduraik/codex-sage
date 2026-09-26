@@ -40,8 +40,7 @@ export const REPO_PROBE_MAX_RESPONSE_BYTES = 1_048_576;
  */
 export async function outboundGet(input) {
   const timeoutMs = input.timeoutMs ?? REPO_PROBE_TIMEOUT_MS;
-  const allowPrivateHosts =
-    input.allowPrivateHosts ?? loadConfig().repositories.allowPrivateHosts;
+  const allowPrivateHosts = input.allowPrivateHosts ?? loadConfig().repositories.allowPrivateHosts;
   const fetchImpl = input.fetchImpl ?? fetch;
   let currentUrl = input.url;
   let redirects = 0;
@@ -72,13 +71,7 @@ export async function outboundGet(input) {
       clearTimeout(timer);
     }
 
-    if (
-      response.status === 301 ||
-      response.status === 302 ||
-      response.status === 303 ||
-      response.status === 307 ||
-      response.status === 308
-    ) {
+    if (response.status === 301 || response.status === 302 || response.status === 303 || response.status === 307 || response.status === 308) {
       const location = response.headers.get('location');
       if (!location || redirects >= REPO_PROBE_MAX_REDIRECTS) {
         throw Object.assign(new Error('Repository probe exceeded redirect limit.'), {
@@ -267,10 +260,7 @@ export function mapAuthenticatedLookupStatus(status) {
  * @returns {MappedProbeError}
  */
 export function mapOutboundThrown(err) {
-  const code =
-    err && typeof err === 'object' && 'code' in err
-      ? String(/** @type {{ code?: unknown }} */ (err).code)
-      : '';
+  const code = err && typeof err === 'object' && 'code' in err ? String(/** @type {{ code?: unknown }} */ (err).code) : '';
   if (code === 'PROBE_HOST_NOT_ALLOWED') {
     return mapped('unreachable', 'host_not_allowed');
   }
@@ -556,9 +546,7 @@ export async function readGithubDescription(input) {
   try {
     const get = input.outboundGet ?? outboundGet;
     const response = await get({
-      url:
-        `https://api.github.com/repos/${encodeURIComponent(input.ownerPath)}/` +
-        `${encodeURIComponent(input.repoSlug)}/readme`,
+      url: `https://api.github.com/repos/${encodeURIComponent(input.ownerPath)}/` + `${encodeURIComponent(input.repoSlug)}/readme`,
       headers: githubHeaders(input.accessToken),
     });
     if (response.status !== 200 || !response.json || typeof response.json.content !== 'string') {
@@ -791,9 +779,7 @@ export async function probeRepository(input) {
     });
   }
 
-  const token = typeof input.accessToken === 'string' && input.accessToken.trim()
-    ? input.accessToken.trim()
-    : null;
+  const token = typeof input.accessToken === 'string' && input.accessToken.trim() ? input.accessToken.trim() : null;
   const deps = input.deps ?? {};
 
   const identity = {
@@ -891,22 +877,13 @@ async function lookupRepository(resolved, accessToken, deps) {
  */
 async function finishConnected(resolved, payload, accessToken, deps, tokenUsed) {
   const visibility = readVisibility(payload);
-  const webUrl =
-    typeof payload.html_url === 'string'
-      ? payload.html_url
-      : typeof payload.web_url === 'string'
-        ? payload.web_url
-        : resolved.webUrl;
-  const defaultBranch =
-    (typeof payload.default_branch === 'string' && payload.default_branch) || 'main';
-  const providerDescription =
-    typeof payload.description === 'string' ? payload.description : null;
+  const webUrl = typeof payload.html_url === 'string' ? payload.html_url : typeof payload.web_url === 'string' ? payload.web_url : resolved.webUrl;
+  const defaultBranch = (typeof payload.default_branch === 'string' && payload.default_branch) || 'main';
+  const providerDescription = typeof payload.description === 'string' ? payload.description : null;
 
   let branches = [defaultBranch];
   let branchesTruncated = false;
-  let description = providerDescription && providerDescription.trim()
-    ? providerDescription.trim()
-    : null;
+  let description = providerDescription && providerDescription.trim() ? providerDescription.trim() : null;
 
   try {
     if (resolved.provider === 'github') {

@@ -3,13 +3,7 @@
  */
 import i18n from '@/shared/i18n';
 import { API_BASE_URL } from './apiConfig.js';
-import {
-  ApiError,
-  apiErrorFromNetworkFailure,
-  apiErrorFromResponse,
-  isRequestAbortedError,
-  RequestAbortedError,
-} from './ApiError.js';
+import { ApiError, apiErrorFromNetworkFailure, apiErrorFromResponse, isRequestAbortedError, RequestAbortedError } from './ApiError.js';
 import { clearSession, setAccessToken } from './apiSession.js';
 
 /** Readable CSRF cookie name — must match backend `CSRF_COOKIE_NAME`. */
@@ -102,10 +96,7 @@ async function performRefresh() {
     });
   }
 
-  const token =
-    body && typeof body === 'object'
-      ? /** @type {{ accessToken?: unknown }} */ (body).accessToken
-      : undefined;
+  const token = body && typeof body === 'object' ? /** @type {{ accessToken?: unknown }} */ (body).accessToken : undefined;
   if (typeof token !== 'string' || token === '') {
     clearSession();
     throw new ApiError({

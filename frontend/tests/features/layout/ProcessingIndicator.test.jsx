@@ -15,9 +15,7 @@ beforeEach(() => {
 
 describe('ProcessingIndicator', () => {
   it('returns null when there is no job', () => {
-    const { container } = renderWithProviders(
-      <ProcessingIndicator job={null} project={null} />,
-    );
+    const { container } = renderWithProviders(<ProcessingIndicator job={null} project={null} />);
     expect(container.textContent).toBe('');
   });
 
@@ -30,9 +28,7 @@ describe('ProcessingIndicator', () => {
       currentStage: 'codegraph_update',
     };
     const project = { id: 'p1', name: 'Atlas' };
-    const { container } = renderWithProviders(
-      <ProcessingIndicator job={job} project={project} />,
-    );
+    const { container } = renderWithProviders(<ProcessingIndicator job={job} project={project} />);
     expect(screen.getByText(/Project structure analyzed · Atlas/)).toBeTruthy();
     expect(container.textContent).not.toMatch(/%/);
     expect(screen.getByRole('link').getAttribute('href')).toBe('/processing?projectId=p1');

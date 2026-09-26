@@ -18,12 +18,7 @@ import {
   runFinalizeStage,
   derivePartialSuccess,
 } from './ingest.helper.js';
-import {
-  runMaterializeDocsStage,
-  runCodegraphUpdateStage,
-  applySourceDiffAfterValidate,
-  hydrateSourceDiffCarry,
-} from './ingest.util.js';
+import { runMaterializeDocsStage, runCodegraphUpdateStage, applySourceDiffAfterValidate, hydrateSourceDiffCarry } from './ingest.util.js';
 import { runCodegraphUpdateWithRecovery } from './knowledge.js';
 import {
   SOURCE_FILE_STATE_CORRUPT,
@@ -40,13 +35,7 @@ import mongoose from 'mongoose';
  * Tenant-scoped ingest reads/writes for SourceVersion, SourceFile, and GridFS.
  */
 // Re-export state constants and GridFS helpers used by stages.
-export {
-  SOURCE_FILE_STATE_CORRUPT,
-  SOURCE_FILE_STATE_MISSING,
-  SOURCE_FILE_STATE_STORED,
-  findSourceGridFsFileById,
-  listSourceGridFsFilesForVersion,
-};
+export { SOURCE_FILE_STATE_CORRUPT, SOURCE_FILE_STATE_MISSING, SOURCE_FILE_STATE_STORED, findSourceGridFsFileById, listSourceGridFsFilesForVersion };
 
 /**
  * Loads an active SourceVersion scoped to the job's org and project.
@@ -209,9 +198,7 @@ export async function markOrphanGridFsObjects(input) {
     projectId: input.projectId,
     sourceVersionId: input.sourceVersionId,
   });
-  const orphanIds = files
-    .filter((file) => !input.knownGridFsIds.has(String(file._id)))
-    .map((file) => file._id);
+  const orphanIds = files.filter((file) => !input.knownGridFsIds.has(String(file._id))).map((file) => file._id);
   if (orphanIds.length === 0) {
     return 0;
   }
@@ -508,10 +495,7 @@ export async function enterIngestLifecycleAtJobStart(input) {
     return;
   }
 
-  input.log?.warn?.(
-    { lifecycleStatus: from },
-    'ingest started with unexpected lifecycle; continuing without transition',
-  );
+  input.log?.warn?.({ lifecycleStatus: from }, 'ingest started with unexpected lifecycle; continuing without transition');
 }
 
 /**
@@ -739,9 +723,4 @@ export {
   createProgressFlusher,
   INGEST_MAX_FAILED_FILE_RATIO,
 } from './ingest.helper.js';
-export {
-  applySourceDiffAfterValidate,
-  hydrateSourceDiffCarry,
-  runMaterializeDocsStage,
-  runCodegraphUpdateStage,
-} from './ingest.util.js';
+export { applySourceDiffAfterValidate, hydrateSourceDiffCarry, runMaterializeDocsStage, runCodegraphUpdateStage } from './ingest.util.js';

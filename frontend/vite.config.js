@@ -35,10 +35,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['src/**/*.{js,jsx}'],
-      exclude: [
-        'src/main.jsx',
-        'src/shared/ui/**',
-      ],
+      exclude: ['src/main.jsx', 'src/shared/ui/**'],
       thresholds: { lines: 80, branches: 80, functions: 80, statements: 80 },
       reporter: ['text', 'lcov'],
     },

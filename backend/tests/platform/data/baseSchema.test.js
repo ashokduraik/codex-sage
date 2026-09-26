@@ -4,12 +4,7 @@
 import mongoose from 'mongoose';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { ApiError } from '../../../src/platform/errors.js';
-import {
-  assertOrgId,
-  createBaseSchema,
-  includeDeleted,
-  softDelete,
-} from '../../../src/platform/data/baseSchema.js';
+import { assertOrgId, createBaseSchema, includeDeleted, softDelete } from '../../../src/platform/data/baseSchema.js';
 import { ROW_STATUS_ACTIVE, ROW_STATUS_DELETED } from '../../../src/platform/data/baseSchema.js';
 import { syncSchemaIndexes } from '../../../src/platform/data/index.js';
 import { createMongoHarness } from '../../mongoHarness.js';
@@ -18,22 +13,12 @@ import { TEST_APP_CONFIG } from '../../appConfig.js';
 const tenantSchema = createBaseSchema({
   name: { type: String, required: true },
 });
-tenantSchema.index(
-  { orgId: 1, createdAt: -1, _id: -1 },
-  { partialFilterExpression: { status: ROW_STATUS_ACTIVE } },
-);
+tenantSchema.index({ orgId: 1, createdAt: -1, _id: -1 }, { partialFilterExpression: { status: ROW_STATUS_ACTIVE } });
 
-const TenantFixture =
-  mongoose.models.TenantFixture ??
-  mongoose.model('TenantFixture', tenantSchema, 'tenant_fixtures');
+const TenantFixture = mongoose.models.TenantFixture ?? mongoose.model('TenantFixture', tenantSchema, 'tenant_fixtures');
 
-const platformSchema = createBaseSchema(
-  { name: { type: String, required: true } },
-  { tenantScoped: false },
-);
-const PlatformFixture =
-  mongoose.models.PlatformFixture ??
-  mongoose.model('PlatformFixture', platformSchema, 'platform_fixtures');
+const platformSchema = createBaseSchema({ name: { type: String, required: true } }, { tenantScoped: false });
+const PlatformFixture = mongoose.models.PlatformFixture ?? mongoose.model('PlatformFixture', platformSchema, 'platform_fixtures');
 
 const harness = createMongoHarness({
   models: [TenantFixture, PlatformFixture],
@@ -150,10 +135,7 @@ describe('createBaseSchema', () => {
   it('declares compound indexes after syncSchemaIndexes', async () => {
     await syncSchemaIndexes([TenantFixture]);
     const indexes = await TenantFixture.collection.indexes();
-    const keyset = indexes.find(
-      (idx) =>
-        idx.key?.orgId === 1 && idx.key?.createdAt === -1 && idx.key?._id === -1,
-    );
+    const keyset = indexes.find((idx) => idx.key?.orgId === 1 && idx.key?.createdAt === -1 && idx.key?._id === -1);
     expect(keyset).toBeDefined();
   });
 });

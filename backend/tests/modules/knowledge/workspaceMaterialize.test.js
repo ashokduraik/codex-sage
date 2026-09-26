@@ -12,10 +12,7 @@ import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
 import { getSourceFilesBucket } from '../../../src/modules/knowledge/sources.js';
 import { clearSourceFilesBucket } from '../../clearSourceFilesBucket.js';
-import {
-  materializeGridFsFileToDisk,
-  resetProjectWorkspaceSubtree,
-} from '../../../src/modules/knowledge/sources.js';
+import { materializeGridFsFileToDisk, resetProjectWorkspaceSubtree } from '../../../src/modules/knowledge/sources.js';
 
 const harness = createMongoHarness({
   models: [],

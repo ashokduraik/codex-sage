@@ -258,9 +258,11 @@ describe('projects.repository', () => {
       updatedBy: String(actor),
     });
     expect(cleared.sourceConfig.repositoryConnectionId).toBeNull();
-    expect(await updateProjectSourceConfig(orgId, 'not-an-id', {
-      repositoryConnectionId: String(connectionId),
-    })).toBeNull();
+    expect(
+      await updateProjectSourceConfig(orgId, 'not-an-id', {
+        repositoryConnectionId: String(connectionId),
+      }),
+    ).toBeNull();
   });
 
   it('increments and floors conversation counts', async () => {

@@ -15,11 +15,7 @@ import {
   buildKnowledgeValidatedEvent,
   buildKnowledgeReadyEvent,
 } from '../../../src/modules/knowledge/ingest.helper.js';
-import {
-  messageContainsAbsolutePath,
-  messageContainsObjectIdShape,
-  messageContainsRawErrorFragment,
-} from '../../jobEventAssertions.js';
+import { messageContainsAbsolutePath, messageContainsObjectIdShape, messageContainsRawErrorFragment } from '../../jobEventAssertions.js';
 
 describe('ingest.events', () => {
   it('builds Source received without identifiers', () => {
@@ -36,12 +32,8 @@ describe('ingest.events', () => {
   });
 
   it('omits the failed clause when M = 0 and includes it when M > 0', () => {
-    expect(buildFilesIdentifiedEvent({ filesProcessed: 12, filesFailed: 0 }).message).toBe(
-      'Project files identified (12 files)',
-    );
-    expect(buildFilesIdentifiedEvent({ filesProcessed: 12, filesFailed: 3 }).message).toBe(
-      'Project files identified (12 files, 3 failed)',
-    );
+    expect(buildFilesIdentifiedEvent({ filesProcessed: 12, filesFailed: 0 }).message).toBe('Project files identified (12 files)');
+    expect(buildFilesIdentifiedEvent({ filesProcessed: 12, filesFailed: 3 }).message).toBe('Project files identified (12 files, 3 failed)');
   });
 
   it('builds Exclusions applied with a path count and safe message shape', () => {
@@ -61,9 +53,7 @@ describe('ingest.events', () => {
   });
 
   it('builds workspace materialized and documentation identified events', () => {
-    expect(buildWorkspaceMaterializedEvent({ pathsWritten: 42 }).message).toBe(
-      'Project files materialized (42 paths)',
-    );
+    expect(buildWorkspaceMaterializedEvent({ pathsWritten: 42 }).message).toBe('Project files materialized (42 paths)');
     expect(
       buildDocumentationIdentifiedEvent({
         documentationFiles: 3,
@@ -81,20 +71,12 @@ describe('ingest.events', () => {
   });
 
   it('builds S4 structure and relationships events with honest counts', () => {
-    expect(
-      buildProjectStructureAnalyzedEvent({ indexedFiles: 42, skippedFiles: 0 }).message,
-    ).toBe('Project structure analyzed (42 files)');
-    expect(
-      buildProjectStructureAnalyzedEvent({ indexedFiles: 42, skippedFiles: 3 }).message,
-    ).toBe('Project structure analyzed (42 files, 3 skipped)');
-    expect(buildCodeRelationshipsAnalyzedEvent({ indexedFiles: 42 }).message).toBe(
-      'Code relationships analyzed (42 files)',
+    expect(buildProjectStructureAnalyzedEvent({ indexedFiles: 42, skippedFiles: 0 }).message).toBe('Project structure analyzed (42 files)');
+    expect(buildProjectStructureAnalyzedEvent({ indexedFiles: 42, skippedFiles: 3 }).message).toBe(
+      'Project structure analyzed (42 files, 3 skipped)',
     );
-    expect(
-      messageContainsAbsolutePath(
-        buildProjectStructureAnalyzedEvent({ indexedFiles: 1 }).message,
-      ),
-    ).toBe(false);
+    expect(buildCodeRelationshipsAnalyzedEvent({ indexedFiles: 42 }).message).toBe('Code relationships analyzed (42 files)');
+    expect(messageContainsAbsolutePath(buildProjectStructureAnalyzedEvent({ indexedFiles: 1 }).message)).toBe(false);
   });
 
   it('builds S5/S6 knowledge events', () => {

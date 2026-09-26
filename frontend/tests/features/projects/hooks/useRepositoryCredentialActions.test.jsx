@@ -7,16 +7,14 @@ import { describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/shared/api/index';
 
 vi.mock('@/features/projects/api/repositoriesApi.js', () => ({
-  repositoryConnectionQueryKey: (projectId) =>
-    Object.freeze(['projects', String(projectId), 'repositories', 'connection']),
+  repositoryConnectionQueryKey: (projectId) => Object.freeze(['projects', String(projectId), 'repositories', 'connection']),
   replaceProjectRepositoryCredential: vi.fn(),
   revokeProjectRepositoryCredential: vi.fn(),
   retestProjectRepositoryConnection: vi.fn(),
 }));
 
 vi.mock('@/features/projects/api/sourcesApi.js', () => ({
-  sourceVersionsQueryKey: (projectId) =>
-    Object.freeze(['projects', String(projectId), 'source-versions']),
+  sourceVersionsQueryKey: (projectId) => Object.freeze(['projects', String(projectId), 'source-versions']),
 }));
 
 import {
@@ -68,9 +66,7 @@ describe('useRepositoryCredentialActions', () => {
   });
 
   it('surfaces 403 on revoke', async () => {
-    revokeProjectRepositoryCredential.mockRejectedValue(
-      new ApiError({ status: 403, code: 'FORBIDDEN', message: 'nope' }),
-    );
+    revokeProjectRepositoryCredential.mockRejectedValue(new ApiError({ status: 403, code: 'FORBIDDEN', message: 'nope' }));
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
     });

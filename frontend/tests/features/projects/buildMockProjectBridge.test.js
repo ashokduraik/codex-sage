@@ -66,9 +66,7 @@ describe('buildMockProjectBridge', () => {
   });
 
   it('maps partially_available knowledgeHealth to Partially available', () => {
-    const bridged = buildMockProjectBridge(
-      apiProject({ knowledgeHealth: 'partially_available' }),
-    );
+    const bridged = buildMockProjectBridge(apiProject({ knowledgeHealth: 'partially_available' }));
     expect(bridged.knowledgeStatus).toBe('Partially available');
   });
 });

@@ -9,16 +9,11 @@ vi.mock('@/features/projects/api/projectsApi.js', async () => {
 });
 
 vi.mock('@/features/projects/api/repositoriesApi.js', () => ({
-  repositoryConnectionQueryKey: (projectId) =>
-    Object.freeze(['projects', String(projectId), 'repositories', 'connection']),
+  repositoryConnectionQueryKey: (projectId) => Object.freeze(['projects', String(projectId), 'repositories', 'connection']),
   getProjectRepositoryConnection: vi.fn(),
 }));
 
-import {
-  clearAuthSession,
-  renderWithProviders,
-  seedAuthSession,
-} from '@tests/renderWithProviders';
+import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
 import { getProjectRepositoryConnection } from '@/features/projects/api/repositoriesApi.js';
 import HealthPanel from '@/features/projects/HealthPanel';
 import ProjectDetailPage from '@/features/projects/ProjectDetailPage';
@@ -77,18 +72,14 @@ describe('HealthPanel', () => {
 
   it('renders partial health details for Orion', async () => {
     renderHealth('/projects/prj_orion/health');
-    await waitFor(() =>
-      expect(screen.getAllByText('Orion Analytics').length).toBeGreaterThan(0),
-    );
+    await waitFor(() => expect(screen.getAllByText('Orion Analytics').length).toBeGreaterThan(0));
     expect(screen.getAllByText('Partially available').length).toBeGreaterThan(0);
     expect(screen.getByText(/Some paths were excluded/)).toBeTruthy();
   });
 
   it('renders updating health details for Helios', async () => {
     renderHealth('/projects/prj_helios/health');
-    await waitFor(() =>
-      expect(screen.getAllByText('Helios Gateway').length).toBeGreaterThan(0),
-    );
+    await waitFor(() => expect(screen.getAllByText('Helios Gateway').length).toBeGreaterThan(0));
     expect(screen.getByText('Knowledge is currently updating.')).toBeTruthy();
   });
 

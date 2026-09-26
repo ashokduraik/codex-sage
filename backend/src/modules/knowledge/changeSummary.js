@@ -77,12 +77,8 @@ export async function findLatestComputedChangeSummary(scope) {
 export async function upsertChangeSummary(input) {
   assertOrgId(input.orgId);
   const now = new Date();
-  const previousSourceVersionId = input.previousSourceVersionId
-    ? new mongoose.Types.ObjectId(String(input.previousSourceVersionId))
-    : null;
-  const knowledgeVersionId = input.knowledgeVersionId
-    ? new mongoose.Types.ObjectId(String(input.knowledgeVersionId))
-    : null;
+  const previousSourceVersionId = input.previousSourceVersionId ? new mongoose.Types.ObjectId(String(input.previousSourceVersionId)) : null;
+  const knowledgeVersionId = input.knowledgeVersionId ? new mongoose.Types.ObjectId(String(input.knowledgeVersionId)) : null;
   const setFields = {
     previousSourceVersionId,
     knowledgeVersionId,
@@ -134,9 +130,7 @@ export function mapSummaryPaths(paths) {
   if (!Array.isArray(paths)) {
     return [];
   }
-  return paths
-    .filter((filePath) => typeof filePath === 'string' && filePath.length > 0)
-    .map((filePath) => ({ path: filePath, impact: null }));
+  return paths.filter((filePath) => typeof filePath === 'string' && filePath.length > 0).map((filePath) => ({ path: filePath, impact: null }));
 }
 
 /**

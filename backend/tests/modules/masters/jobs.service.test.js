@@ -72,11 +72,7 @@ describe('jobs.service', () => {
       visible: true,
       permissions: ['projects.view'],
     });
-    const detail = await getJobById(
-      orgId,
-      new mongoose.Types.ObjectId().toHexString(),
-      jobId,
-    );
+    const detail = await getJobById(orgId, new mongoose.Types.ObjectId().toHexString(), jobId);
     expect(detail.events[0]?.eventCode).toBe(JOB_EVENT_CODE_ENQUEUED);
   });
 
@@ -93,9 +89,7 @@ describe('jobs.service', () => {
       visible: true,
       permissions: ['org.view'],
     });
-    await expect(
-      getJobById(orgId, new mongoose.Types.ObjectId().toHexString(), jobId),
-    ).rejects.toMatchObject({
+    await expect(getJobById(orgId, new mongoose.Types.ObjectId().toHexString(), jobId)).rejects.toMatchObject({
       code: 'FORBIDDEN',
     });
   });
@@ -109,9 +103,7 @@ describe('jobs.service', () => {
       jobType: 'ingest',
     });
     resolveProjectPermissions.mockResolvedValueOnce({ kind: 'NO_ACCESS' });
-    await expect(
-      getJobById(orgId, new mongoose.Types.ObjectId().toHexString(), jobId),
-    ).rejects.toMatchObject({
+    await expect(getJobById(orgId, new mongoose.Types.ObjectId().toHexString(), jobId)).rejects.toMatchObject({
       code: 'JOB_NOT_FOUND',
     });
   });

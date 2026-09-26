@@ -68,10 +68,7 @@ export function serializeRequest(req) {
   if (!req || typeof req !== 'object') {
     return {};
   }
-  const routePath =
-    req.routeOptions?.url ??
-    req.routerPath ??
-    (typeof req.url === 'string' ? req.url.split('?')[0] : undefined);
+  const routePath = req.routeOptions?.url ?? req.routerPath ?? (typeof req.url === 'string' ? req.url.split('?')[0] : undefined);
   return {
     method: req.method,
     path: routePath,
@@ -240,8 +237,7 @@ export async function createAppLogger(config) {
  * @returns {import('pino').Logger}
  */
 export function createRequestChildLogger(logger, bindings, opts, rawReq) {
-  const urlPath =
-    typeof rawReq?.url === 'string' ? rawReq.url.split('?')[0] : undefined;
+  const urlPath = typeof rawReq?.url === 'string' ? rawReq.url.split('?')[0] : undefined;
   return logger.child(
     {
       ...bindings,
@@ -263,10 +259,7 @@ export function registerRequestLogging(app) {
     done();
   });
   app.addHook('onResponse', (request, reply, done) => {
-    request.log.debug(
-      { res: reply, responseTime: reply.elapsedTime },
-      'request completed',
-    );
+    request.log.debug({ res: reply, responseTime: reply.elapsedTime }, 'request completed');
     done();
   });
 }

@@ -16,7 +16,7 @@ import {
   DEFAULT_ADMIN_EMAIL,
   DEFAULT_ADMIN_PASSWORD,
   IDENTITY_MODELS,
-  createUser, createUserInRepo,
+  createUserInRepo,
   findBuiltInRole,
   findOrganizationBySlug,
   runBootstrapSeed,
@@ -25,26 +25,13 @@ import { IDEMPOTENCY_MODELS } from '../../../src/platform/idempotency/index.js';
 import { PROJECT_MODELS, Project } from '../../../src/modules/masters/projects.js';
 import { addProjectMember } from '../../../src/modules/masters/projectMembers.js';
 import { JOB_MODELS, Job } from '../../../src/modules/masters/jobs.js';
-import {
-  SOURCE_MODELS,
-  SourceFile,
-  SourceVersion,
-  getSourceFilesBucket,
-} from '../../../src/modules/knowledge/sources.js';
+import { SOURCE_MODELS, SourceFile, SourceVersion, getSourceFilesBucket } from '../../../src/modules/knowledge/sources.js';
 import { clearSourceFilesBucket } from '../../clearSourceFilesBucket.js';
 
 const fixturesDir = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures');
 
 const harness = createMongoHarness({
-  models: [
-    ...IDENTITY_MODELS,
-    ...AUTH_MODELS,
-    ...AUDIT_MODELS,
-    ...IDEMPOTENCY_MODELS,
-    ...PROJECT_MODELS,
-    ...JOB_MODELS,
-    ...SOURCE_MODELS,
-  ],
+  models: [...IDENTITY_MODELS, ...AUTH_MODELS, ...AUDIT_MODELS, ...IDEMPOTENCY_MODELS, ...PROJECT_MODELS, ...JOB_MODELS, ...SOURCE_MODELS],
   uri: TEST_APP_CONFIG.mongo.uri,
 });
 
@@ -125,9 +112,7 @@ describe('source upload routes', () => {
   function buildArchiveMultipart(zipBuffer, filename = 'project.zip') {
     const boundary = `----CodexSageUpload${Date.now()}`;
     const header = Buffer.from(
-      `--${boundary}\r\n` +
-        `Content-Disposition: form-data; name="archive"; filename="${filename}"\r\n` +
-        `Content-Type: application/zip\r\n\r\n`,
+      `--${boundary}\r\n` + `Content-Disposition: form-data; name="archive"; filename="${filename}"\r\n` + `Content-Type: application/zip\r\n\r\n`,
       'utf8',
     );
     const footer = Buffer.from(`\r\n--${boundary}--\r\n`, 'utf8');
@@ -169,12 +154,7 @@ describe('source upload routes', () => {
     app = await readyApp();
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const org = await findOrganizationBySlug('default');
-    const created = await createProjectRequest(
-      app,
-      accessToken,
-      { name: 'Upload Happy', sourceType: 'upload' },
-      'idem-upload-proj-happy',
-    );
+    const created = await createProjectRequest(app, accessToken, { name: 'Upload Happy', sourceType: 'upload' }, 'idem-upload-proj-happy');
     expect(created.statusCode).toBe(201);
     const projectId = created.json().id;
     expect(created.json().lifecycleStatus).toBe('awaiting_source');
@@ -212,9 +192,7 @@ describe('source upload routes', () => {
     const bucketFiles = await getSourceFilesBucket().find({}).toArray();
     expect(bucketFiles).toHaveLength(files.length);
     for (const file of files) {
-      expect(bucketFiles.some((row) => String(row._id) === String(file.gridFsId))).toBe(
-        true,
-      );
+      expect(bucketFiles.some((row) => String(row._id) === String(file.gridFsId))).toBe(true);
     }
 
     const job = await Job.findById(body.jobId).exec();
@@ -229,9 +207,7 @@ describe('source upload routes', () => {
       action: 'source.upload',
       limit: 10,
     });
-    const uploadAudit = audits.items.find(
-      (row) => row.resourceId === body.sourceVersionId,
-    );
+    const uploadAudit = audits.items.find((row) => row.resourceId === body.sourceVersionId);
     expect(uploadAudit).toBeTruthy();
     expect(uploadAudit.context.acceptedCount).toBeGreaterThan(0);
     expect(uploadAudit.context).toHaveProperty('skippedCount');
@@ -243,12 +219,7 @@ describe('source upload routes', () => {
     app = await readyApp();
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const org = await findOrganizationBySlug('default');
-    const created = await createProjectRequest(
-      app,
-      accessToken,
-      { name: 'Upload Ignored', sourceType: 'upload' },
-      'idem-upload-proj-ignored',
-    );
+    const created = await createProjectRequest(app, accessToken, { name: 'Upload Ignored', sourceType: 'upload' }, 'idem-upload-proj-ignored');
     const projectId = created.json().id;
     const zipBuffer = await readFile(path.join(fixturesDir, 'only-ignored.zip'));
 
@@ -271,12 +242,7 @@ describe('source upload routes', () => {
     app = await readyApp();
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const org = await findOrganizationBySlug('default');
-    const created = await createProjectRequest(
-      app,
-      accessToken,
-      { name: 'Upload Slip', sourceType: 'upload' },
-      'idem-upload-proj-slip',
-    );
+    const created = await createProjectRequest(app, accessToken, { name: 'Upload Slip', sourceType: 'upload' }, 'idem-upload-proj-slip');
     const projectId = created.json().id;
     const zipBuffer = await readFile(path.join(fixturesDir, 'slip.zip'));
 
@@ -298,12 +264,7 @@ describe('source upload routes', () => {
     app = await readyApp();
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const org = await findOrganizationBySlug('default');
-    const created = await createProjectRequest(
-      app,
-      accessToken,
-      { name: 'Upload Idem', sourceType: 'upload' },
-      'idem-upload-proj-idem',
-    );
+    const created = await createProjectRequest(app, accessToken, { name: 'Upload Idem', sourceType: 'upload' }, 'idem-upload-proj-idem');
     const projectId = created.json().id;
     const zipBuffer = await readFile(path.join(fixturesDir, 'valid-small.zip'));
 
@@ -350,18 +311,9 @@ describe('source upload routes', () => {
   it('returns 403 when the caller lacks sources.upload', async () => {
     await runBootstrapSeed(createMockLog());
     app = await readyApp();
-    const { accessToken: adminToken } = await login(
-      app,
-      DEFAULT_ADMIN_EMAIL,
-      DEFAULT_ADMIN_PASSWORD,
-    );
+    const { accessToken: adminToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const org = await findOrganizationBySlug('default');
-    const created = await createProjectRequest(
-      app,
-      adminToken,
-      { name: 'Upload Forbidden', sourceType: 'upload' },
-      'idem-upload-proj-forbidden',
-    );
+    const created = await createProjectRequest(app, adminToken, { name: 'Upload Forbidden', sourceType: 'upload' }, 'idem-upload-proj-forbidden');
     const projectId = created.json().id;
 
     const viewerRole = await findBuiltInRole(org._id, 'viewer');
@@ -372,8 +324,8 @@ describe('source upload routes', () => {
       passwordHash,
       userStatus: 'active',
       createdBy: null,
-          roleIds: [viewerRole._id]
-        });
+      roleIds: [viewerRole._id],
+    });
     await addProjectMember({
       orgId: String(org._id),
       projectId,
@@ -384,11 +336,7 @@ describe('source upload routes', () => {
       log: createMockLog(),
     });
 
-    const { accessToken: viewerToken } = await login(
-      app,
-      'viewer-upload@example.com',
-      'ViewerPass1!',
-    );
+    const { accessToken: viewerToken } = await login(app, 'viewer-upload@example.com', 'ViewerPass1!');
     const zipBuffer = await readFile(path.join(fixturesDir, 'valid-small.zip'));
     const res = await uploadSource(app, {
       accessToken: viewerToken,
@@ -405,12 +353,7 @@ describe('source upload routes', () => {
     await runBootstrapSeed(createMockLog());
     app = await readyApp();
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
-    const created = await createProjectRequest(
-      app,
-      accessToken,
-      { name: 'Upload No Key', sourceType: 'upload' },
-      'idem-upload-proj-nokey',
-    );
+    const created = await createProjectRequest(app, accessToken, { name: 'Upload No Key', sourceType: 'upload' }, 'idem-upload-proj-nokey');
     const projectId = created.json().id;
     const zipBuffer = await readFile(path.join(fixturesDir, 'valid-small.zip'));
 
@@ -429,12 +372,7 @@ describe('source upload routes', () => {
     app = await readyApp();
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const org = await findOrganizationBySlug('default');
-    const created = await createProjectRequest(
-      app,
-      accessToken,
-      { name: 'Upload Twice', sourceType: 'upload' },
-      'idem-upload-proj-twice',
-    );
+    const created = await createProjectRequest(app, accessToken, { name: 'Upload Twice', sourceType: 'upload' }, 'idem-upload-proj-twice');
     const projectId = created.json().id;
     const zipBuffer = await readFile(path.join(fixturesDir, 'valid-small.zip'));
 
@@ -464,12 +402,7 @@ describe('source upload routes', () => {
     await runBootstrapSeed(createMockLog());
     app = await readyApp();
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
-    const created = await createProjectRequest(
-      app,
-      accessToken,
-      { name: 'Upload Bad Field', sourceType: 'upload' },
-      'idem-upload-proj-badfield',
-    );
+    const created = await createProjectRequest(app, accessToken, { name: 'Upload Bad Field', sourceType: 'upload' }, 'idem-upload-proj-badfield');
     const projectId = created.json().id;
     const boundary = `----CodexSageUpload${Date.now()}`;
     const payload = Buffer.from(

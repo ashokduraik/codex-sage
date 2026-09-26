@@ -40,12 +40,7 @@ const organizationSchema = createBaseSchema(
   { tenantScoped: false },
 );
 
-organizationSchema.index(
-  { slug: 1 },
-  { unique: true, partialFilterExpression: { status: ROW_STATUS_ACTIVE } },
-);
+organizationSchema.index({ slug: 1 }, { unique: true, partialFilterExpression: { status: ROW_STATUS_ACTIVE } });
 organizationSchema.index({ status: 1, _id: -1 });
 
-export const Organization =
-  mongoose.models.Organization ??
-  mongoose.model('Organization', organizationSchema, 'organizations');
+export const Organization = mongoose.models.Organization ?? mongoose.model('Organization', organizationSchema, 'organizations');

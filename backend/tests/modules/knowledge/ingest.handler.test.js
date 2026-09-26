@@ -36,15 +36,7 @@ import { loadSourceVersionForIngest } from '../../../src/modules/knowledge/inges
 let workspaceRoot;
 
 const harness = createMongoHarness({
-  models: [
-    Job,
-    SourceVersion,
-    SourceFile,
-    SourceChangeSummary,
-    DocumentSection,
-    Project,
-    KnowledgeVersion,
-  ],
+  models: [Job, SourceVersion, SourceFile, SourceChangeSummary, DocumentSection, Project, KnowledgeVersion],
   uri: TEST_APP_CONFIG.mongo.uri,
 });
 
@@ -62,8 +54,7 @@ const harness = createMongoHarness({
  */
 async function putGridFsFile(input) {
   const bucket = getSourceFilesBucket();
-  const sha256 =
-    input.sha256 ?? createHash('sha256').update(input.content).digest('hex');
+  const sha256 = input.sha256 ?? createHash('sha256').update(input.content).digest('hex');
   const filename = `${input.orgId}/${input.projectId}/${input.sourceVersionId}/${input.path}`;
   const upload = bucket.openUploadStream(filename, {
     metadata: {
@@ -75,10 +66,7 @@ async function putGridFsFile(input) {
     },
   });
   await new Promise((resolve, reject) => {
-    Readable.from(input.content)
-      .pipe(upload)
-      .on('finish', resolve)
-      .on('error', reject);
+    Readable.from(input.content).pipe(upload).on('finish', resolve).on('error', reject);
   });
   return upload.id;
 }
@@ -117,16 +105,11 @@ async function seedIngestFixture(options = {}) {
         sourceVersionId: String(sourceVersionId),
         path: spec.path,
         content,
-        sha256: spec.corruptHash
-          ? createHash('sha256').update('wrong').digest('hex')
-          : contentSha256,
+        sha256: spec.corruptHash ? createHash('sha256').update('wrong').digest('hex') : contentSha256,
       });
     }
     const lower = spec.path.toLowerCase();
-    const kind =
-      lower.endsWith('.md') || lower.endsWith('.mdx') || lower.endsWith('.txt')
-        ? 'doc'
-        : 'code';
+    const kind = lower.endsWith('.md') || lower.endsWith('.mdx') || lower.endsWith('.txt') ? 'doc' : 'code';
     storedFiles.push({
       path: spec.path,
       sha256: contentSha256,
@@ -232,9 +215,7 @@ function createWorkerContext(job, overrides = {}) {
         workerId: job.workerId,
         checkpoint: {
           lastCompletedStage: checkpoint.lastCompletedStage,
-          ...(Object.prototype.hasOwnProperty.call(checkpoint, 'cursor')
-            ? { cursor: checkpoint.cursor }
-            : {}),
+          ...(Object.prototype.hasOwnProperty.call(checkpoint, 'cursor') ? { cursor: checkpoint.cursor } : {}),
         },
         currentStage: checkpoint.currentStage ?? checkpoint.lastCompletedStage,
       });
@@ -316,14 +297,7 @@ describe('ingest S0–S3 integration', () => {
 
     // Run only through materialize by temporarily swapping remaining stages after claim path:
     const { resolveStagesAfter, INGEST_STAGES } = await import('../../../src/modules/knowledge/ingest.js');
-    const throughS3 = INGEST_STAGES.filter((s) =>
-      [
-        'validate_upload',
-        'store_files',
-        'exclude_apply',
-        'materialize_docs',
-      ].includes(s.name),
-    );
+    const throughS3 = INGEST_STAGES.filter((s) => ['validate_upload', 'store_files', 'exclude_apply', 'materialize_docs'].includes(s.name));
 
     const { buildIngestStageContext } = await import('../../../src/modules/knowledge/ingest.js');
     const version = await loadSourceVersionForIngest({
@@ -372,13 +346,7 @@ describe('ingest S0–S3 integration', () => {
     expect(messages.some((m) => m.startsWith('Project files materialized'))).toBe(true);
     expect(messages.some((m) => m.startsWith('Documentation identified'))).toBe(true);
 
-    const diskGuide = path.join(
-      workspaceRoot,
-      String(seeded.orgId),
-      String(seeded.projectId),
-      'docs',
-      'guide.md',
-    );
+    const diskGuide = path.join(workspaceRoot, String(seeded.orgId), String(seeded.projectId), 'docs', 'guide.md');
     expect(await fs.readFile(diskGuide, 'utf8')).toContain('# Guide');
     const sections = await listSectionsForPath({
       orgId: seeded.orgId,
@@ -390,9 +358,7 @@ describe('ingest S0–S3 integration', () => {
     expect(sections[0].heading).toBe('Guide');
 
     // silence unused import warning in some linters
-    expect(resolveStagesAfter('materialize_docs').map((s) => s.name)[0]).toBe(
-      'codegraph_update',
-    );
+    expect(resolveStagesAfter('materialize_docs').map((s) => s.name)[0]).toBe('codegraph_update');
   });
 
   it('materializes code without DocumentSection rows and completes with zero docs', async () => {
@@ -428,9 +394,7 @@ describe('ingest S0–S3 integration', () => {
         sourceVersionId: seeded.sourceVersionId,
       }),
     ).toBe(0);
-    expect(ctx.carry.workspacePath).toBe(
-      path.join(workspaceRoot, String(seeded.orgId), String(seeded.projectId)),
-    );
+    expect(ctx.carry.workspacePath).toBe(path.join(workspaceRoot, String(seeded.orgId), String(seeded.projectId)));
   });
 
   it('resumes S3 from a path cursor without duplicating sections', async () => {
@@ -660,10 +624,7 @@ describe('ingest S0–S3 integration', () => {
     const seeded = await seedIngestFixture({
       files: [{ path: 'src/a.js', content: Buffer.from('ok') }],
     });
-    await SourceFile.updateOne(
-      { orgId: seeded.orgId, path: 'src/a.js' },
-      { $set: { path: '../escape.js' } },
-    );
+    await SourceFile.updateOne({ orgId: seeded.orgId, path: 'src/a.js' }, { $set: { path: '../escape.js' } });
     seeded.job.jobStatus = 'running';
     seeded.job.workerId = 'w-unsafe';
     await seeded.job.save();

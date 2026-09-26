@@ -33,9 +33,7 @@ export function rewriteMongoUriForTests(uri) {
   parsed.pathname = `/${TEST_DATABASE_NAME}`;
   const database = parsed.pathname.replace(/^\//, '');
   if (database !== TEST_DATABASE_NAME) {
-    throw new Error(
-      `Integration harness refuses database "${database}"; expected "${TEST_DATABASE_NAME}"`,
-    );
+    throw new Error(`Integration harness refuses database "${database}"; expected "${TEST_DATABASE_NAME}"`);
   }
   return parsed.toString();
 }

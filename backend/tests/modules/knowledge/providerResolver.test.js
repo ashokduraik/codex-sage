@@ -18,9 +18,7 @@ describe('resolveRepositoryUrl', () => {
   });
 
   it('maps gitlab.com and nested groups', () => {
-    const resolved = resolveRepositoryUrl(
-      'https://gitlab.com/group/subgroup/payments',
-    );
+    const resolved = resolveRepositoryUrl('https://gitlab.com/group/subgroup/payments');
     expect(resolved).toMatchObject({
       provider: 'gitlab',
       hostKind: 'gitlab_saas',
@@ -30,9 +28,7 @@ describe('resolveRepositoryUrl', () => {
   });
 
   it('treats an unknown host as self-hosted GitLab and returns baseUrl', () => {
-    const resolved = resolveRepositoryUrl(
-      'https://gitlab.example.com/group/subgroup/payments',
-    );
+    const resolved = resolveRepositoryUrl('https://gitlab.example.com/group/subgroup/payments');
     expect(resolved).toMatchObject({
       provider: 'gitlab',
       hostKind: 'gitlab_self_hosted',
@@ -48,15 +44,9 @@ describe('resolveRepositoryUrl', () => {
   });
 
   it('rejects non-HTTP schemes and embedded credentials', () => {
-    expect(() => resolveRepositoryUrl('ftp://github.com/acme/payments')).toThrow(
-      /supported repository URL/,
-    );
-    expect(() =>
-      resolveRepositoryUrl('https://user:token@github.com/acme/payments'),
-    ).toThrow(/must not include credentials/);
-    expect(() => resolveRepositoryUrl('https://github.com/only-owner')).toThrow(
-      /owner and repository/,
-    );
+    expect(() => resolveRepositoryUrl('ftp://github.com/acme/payments')).toThrow(/supported repository URL/);
+    expect(() => resolveRepositoryUrl('https://user:token@github.com/acme/payments')).toThrow(/must not include credentials/);
+    expect(() => resolveRepositoryUrl('https://github.com/only-owner')).toThrow(/owner and repository/);
     expect(() => resolveRepositoryUrl('')).toThrow(/required/);
   });
 });

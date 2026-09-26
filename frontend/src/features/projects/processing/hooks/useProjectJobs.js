@@ -2,12 +2,7 @@
  * Infinite keyset list of jobs for one project.
  */
 import { useInfiniteQuery } from '@tanstack/react-query';
-import {
-  JOB_DETAIL_POLL_INTERVAL_MS,
-  JOB_LIST_PAGE_SIZE,
-  listProjectJobs,
-  projectJobsQueryKey,
-} from '../api/jobsApi.js';
+import { JOB_DETAIL_POLL_INTERVAL_MS, JOB_LIST_PAGE_SIZE, listProjectJobs, projectJobsQueryKey } from '../api/jobsApi.js';
 import { isActiveJobStatus } from '../jobProgressMap.js';
 
 /**
@@ -51,9 +46,7 @@ export function useProjectJobs(projectId, options = {}) {
       if (!Array.isArray(pages)) {
         return false;
       }
-      const hasActive = pages.some((page) =>
-        (page?.items ?? []).some((job) => isActiveJobStatus(job.jobStatus)),
-      );
+      const hasActive = pages.some((page) => (page?.items ?? []).some((job) => isActiveJobStatus(job.jobStatus)));
       return hasActive ? JOB_DETAIL_POLL_INTERVAL_MS : false;
     },
   });

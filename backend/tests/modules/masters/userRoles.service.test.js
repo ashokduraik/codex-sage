@@ -23,9 +23,7 @@ vi.mock('../../../src/modules/access/index.js', () => ({
 }));
 
 vi.mock('../../../src/modules/masters/roles.js', () => ({
-  findRolesByIds: vi.fn(async (_orgId, ids) =>
-    ids.map((id) => ({ _id: id, name: 'R', isBuiltIn: false })),
-  ),
+  findRolesByIds: vi.fn(async (_orgId, ids) => ids.map((id) => ({ _id: id, name: 'R', isBuiltIn: false }))),
   isDuplicateKeyError: vi.fn(() => false),
 }));
 

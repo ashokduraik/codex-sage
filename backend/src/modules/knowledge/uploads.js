@@ -61,25 +61,10 @@ export const uploadArchiveLimits = {
 };
 
 /** Directory prefixes skipped before GridFS (solution §4.2). */
-export const IGNORED_PATH_PREFIXES = Object.freeze([
-  'node_modules/',
-  '.git/',
-  'dist/',
-  'build/',
-  'coverage/',
-]);
+export const IGNORED_PATH_PREFIXES = Object.freeze(['node_modules/', '.git/', 'dist/', 'build/', 'coverage/']);
 
 /** Image extensions skipped entirely (not stored). */
-export const IGNORED_IMAGE_EXTENSIONS = Object.freeze([
-  '.png',
-  '.jpg',
-  '.jpeg',
-  '.gif',
-  '.webp',
-  '.ico',
-  '.bmp',
-  '.svg',
-]);
+export const IGNORED_IMAGE_EXTENSIONS = Object.freeze(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.ico', '.bmp', '.svg']);
 
 /** Exact basenames always skipped. */
 export const IGNORED_BASENAMES = Object.freeze(['.DS_Store']);
@@ -88,14 +73,7 @@ export const IGNORED_BASENAMES = Object.freeze(['.DS_Store']);
 export const IGNORED_FILE_SUFFIXES = Object.freeze(['.min.js', '.min.css']);
 
 /** Code extensions accepted for storage and (when under size) graph indexing. */
-export const ACCEPTED_CODE_EXTENSIONS = Object.freeze([
-  '.js',
-  '.jsx',
-  '.ts',
-  '.tsx',
-  '.mjs',
-  '.cjs',
-]);
+export const ACCEPTED_CODE_EXTENSIONS = Object.freeze(['.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs']);
 
 /** Documentation extensions accepted for storage / FTS. */
 export const ACCEPTED_DOC_EXTENSIONS = Object.freeze(['.md', '.mdx', '.txt']);
@@ -115,13 +93,7 @@ export const ACCEPTED_CONFIG_EXTENSIONS = Object.freeze([
 ]);
 
 /** Exact config basenames (may carry compound extensions). */
-export const ACCEPTED_CONFIG_BASENAMES = Object.freeze([
-  '.prettierrc',
-  '.eslintrc',
-  '.eslintrc.js',
-  '.eslintrc.cjs',
-  '.eslintrc.json',
-]);
+export const ACCEPTED_CONFIG_BASENAMES = Object.freeze(['.prettierrc', '.eslintrc', '.eslintrc.js', '.eslintrc.cjs', '.eslintrc.json']);
 
 // --- from sources/exclusions/pathSafety.js ---
 /**
@@ -219,9 +191,7 @@ function basenameOf(normalizedPath) {
  * @returns {boolean}
  */
 function matchesIgnoredDirectory(normalizedPath) {
-  const withSlash = normalizedPath.endsWith('/')
-    ? normalizedPath
-    : `${normalizedPath}/`;
+  const withSlash = normalizedPath.endsWith('/') ? normalizedPath : `${normalizedPath}/`;
   for (const prefix of IGNORED_PATH_PREFIXES) {
     if (withSlash.startsWith(prefix) || withSlash.includes(`/${prefix}`)) {
       return true;
@@ -283,10 +253,7 @@ export function evaluateUploadEntry(entry) {
     return { decision: 'skip', reasonCode: 'ignored_directory' };
   }
 
-  if (
-    IGNORED_BASENAMES.includes(basename) ||
-    IGNORED_FILE_SUFFIXES.some((suffix) => basenameLower.endsWith(suffix))
-  ) {
+  if (IGNORED_BASENAMES.includes(basename) || IGNORED_FILE_SUFFIXES.some((suffix) => basenameLower.endsWith(suffix))) {
     return { decision: 'skip', reasonCode: 'ignored_file' };
   }
 
@@ -298,10 +265,7 @@ export function evaluateUploadEntry(entry) {
     return { decision: 'skip', reasonCode: 'unsupported_extension' };
   }
 
-  const size =
-    typeof entry.uncompressedSize === 'number' && Number.isFinite(entry.uncompressedSize)
-      ? entry.uncompressedSize
-      : 0;
+  const size = typeof entry.uncompressedSize === 'number' && Number.isFinite(entry.uncompressedSize) ? entry.uncompressedSize : 0;
 
   if (size > GRAPH_FILE_MAX_BYTES) {
     return {
@@ -462,8 +426,7 @@ export async function inspectZip(input) {
         throw ApiError.fromCode('SOURCE_ARCHIVE_TOO_LARGE');
       }
 
-      const rawName =
-        typeof entry.fileName === 'string' ? entry.fileName : String(entry.fileName ?? '');
+      const rawName = typeof entry.fileName === 'string' ? entry.fileName : String(entry.fileName ?? '');
 
       // Directory markers are optional metadata; skip them for decisioning.
       if (rawName.endsWith('/')) {
@@ -666,15 +629,13 @@ export async function storeAcceptedZipEntries(input) {
 
   try {
     for await (const entry of zipfile.eachEntry()) {
-      const rawName =
-        typeof entry.fileName === 'string' ? entry.fileName : String(entry.fileName ?? '');
+      const rawName = typeof entry.fileName === 'string' ? entry.fileName : String(entry.fileName ?? '');
       if (rawName.endsWith('/')) {
         continue;
       }
 
       const normalized = normalizeArchivePath(rawName);
-      const path =
-        typeof input.rewritePath === 'function' ? input.rewritePath(normalized) : normalized;
+      const path = typeof input.rewritePath === 'function' ? input.rewritePath(normalized) : normalized;
       const accepted = acceptedByPath.get(path);
       if (!accepted) {
         continue;
@@ -711,9 +672,7 @@ export async function storeAcceptedZipEntries(input) {
       const sha256 = hash.digest('hex');
       const db = mongoose.connection.db;
       if (db) {
-        await db
-          .collection(`${GRIDFS_SOURCE_BUCKET}.files`)
-          .updateOne({ _id: uploadStream.id }, { $set: { 'metadata.sha256': sha256 } });
+        await db.collection(`${GRIDFS_SOURCE_BUCKET}.files`).updateOne({ _id: uploadStream.id }, { $set: { 'metadata.sha256': sha256 } });
       }
 
       files.push({

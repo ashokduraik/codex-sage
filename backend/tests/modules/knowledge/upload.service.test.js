@@ -11,10 +11,7 @@ import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
 import { GRAPH_FILE_MAX_BYTES } from '../../../src/modules/knowledge/uploads.js';
 import { summarizeInspection } from '../../../src/modules/knowledge/uploads.js';
-import {
-  getSourceFilesBucket,
-  GRIDFS_SOURCE_BUCKET,
-} from '../../../src/modules/knowledge/sources.js';
+import { getSourceFilesBucket, GRIDFS_SOURCE_BUCKET } from '../../../src/modules/knowledge/sources.js';
 import { clearSourceFilesBucket } from '../../clearSourceFilesBucket.js';
 import { kindForSourcePath, storeAcceptedZipEntries } from '../../../src/modules/knowledge/uploads.js';
 import { SourceFile, SourceVersion } from '../../../src/modules/knowledge/sources.js';
@@ -82,9 +79,7 @@ describe('storeAcceptedZipEntries', () => {
     const bucket = getSourceFilesBucket();
     const files = await bucket.find({}).toArray();
     expect(files).toHaveLength(1);
-    expect(files[0].filename).toBe(
-      `${orgId}/${projectId}/${sourceVersionId}/src/a.js`,
-    );
+    expect(files[0].filename).toBe(`${orgId}/${projectId}/${sourceVersionId}/src/a.js`);
     expect(files[0].metadata.path).toBe('src/a.js');
 
     openSpy.mockRestore();
@@ -147,15 +142,13 @@ describe('storeAcceptedZipEntries', () => {
 
     const bucketProto = mongoose.mongo.GridFSBucket.prototype;
     const originalOpen = bucketProto.openUploadStream;
-    const openSpy = vi
-      .spyOn(bucketProto, 'openUploadStream')
-      .mockImplementation(function mockOpen(...args) {
-        const stream = originalOpen.apply(this, args);
-        // GridFS may emit after pipeline already rejected; keep it from escaping the test.
-        stream.on('error', () => {});
-        queueMicrotask(() => stream.destroy(new Error('forced upload failure')));
-        return stream;
-      });
+    const openSpy = vi.spyOn(bucketProto, 'openUploadStream').mockImplementation(function mockOpen(...args) {
+      const stream = originalOpen.apply(this, args);
+      // GridFS may emit after pipeline already rejected; keep it from escaping the test.
+      stream.on('error', () => {});
+      queueMicrotask(() => stream.destroy(new Error('forced upload failure')));
+      return stream;
+    });
 
     await expect(
       storeAcceptedZipEntries({

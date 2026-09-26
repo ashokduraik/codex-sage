@@ -2,8 +2,7 @@
 import os from 'node:os';
 import path from 'node:path';
 
-export const TEST_JWT_ACCESS_TOKEN_SECRET =
-  'test-jwt-access-token-secret-at-least-32-chars';
+export const TEST_JWT_ACCESS_TOKEN_SECRET = 'test-jwt-access-token-secret-at-least-32-chars';
 
 /** Absolute workspace root for tests (override per suite with a unique temp dir when needed). */
 export const TEST_WORKSPACE_ROOT = path.join(os.tmpdir(), 'codex-sage-workspace-test');

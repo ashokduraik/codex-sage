@@ -13,7 +13,7 @@ import {
   DEFAULT_ADMIN_EMAIL,
   DEFAULT_ADMIN_PASSWORD,
   IDENTITY_MODELS,
-  createUser, createUserInRepo,
+  createUserInRepo,
   findBuiltInRole,
   findOrganizationBySlug,
   runBootstrapSeed,
@@ -27,15 +27,7 @@ import { SOURCE_MODELS } from '../../../src/modules/knowledge/sources.js';
 import { insertSourceVersion } from '../../../src/modules/knowledge/sources.js';
 
 const harness = createMongoHarness({
-  models: [
-    ...IDENTITY_MODELS,
-    ...AUTH_MODELS,
-    ...AUDIT_MODELS,
-    ...IDEMPOTENCY_MODELS,
-    ...PROJECT_MODELS,
-    ...JOB_MODELS,
-    ...SOURCE_MODELS,
-  ],
+  models: [...IDENTITY_MODELS, ...AUTH_MODELS, ...AUDIT_MODELS, ...IDEMPOTENCY_MODELS, ...PROJECT_MODELS, ...JOB_MODELS, ...SOURCE_MODELS],
   uri: TEST_APP_CONFIG.mongo.uri,
 });
 
@@ -111,12 +103,7 @@ describe('source reingest routes', () => {
     app = await readyApp();
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const org = await findOrganizationBySlug('default');
-    const created = await createProjectRequest(
-      app,
-      accessToken,
-      { name: 'Reingest Happy', sourceType: 'upload' },
-      'idem-reingest-proj-happy',
-    );
+    const created = await createProjectRequest(app, accessToken, { name: 'Reingest Happy', sourceType: 'upload' }, 'idem-reingest-proj-happy');
     expect(created.statusCode).toBe(201);
     const projectId = created.json().id;
     const sourceVersionId = new mongoose.Types.ObjectId();
@@ -163,12 +150,7 @@ describe('source reingest routes', () => {
     app = await readyApp();
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const org = await findOrganizationBySlug('default');
-    const created = await createProjectRequest(
-      app,
-      accessToken,
-      { name: 'Reingest 404', sourceType: 'upload' },
-      'idem-reingest-proj-404',
-    );
+    const created = await createProjectRequest(app, accessToken, { name: 'Reingest 404', sourceType: 'upload' }, 'idem-reingest-proj-404');
     const projectId = created.json().id;
     const otherVersionId = new mongoose.Types.ObjectId();
     await insertSourceVersion({
@@ -197,18 +179,9 @@ describe('source reingest routes', () => {
   it('returns 403 when the caller lacks knowledge.trigger', async () => {
     await runBootstrapSeed(createMockLog());
     app = await readyApp();
-    const { accessToken: adminToken } = await login(
-      app,
-      DEFAULT_ADMIN_EMAIL,
-      DEFAULT_ADMIN_PASSWORD,
-    );
+    const { accessToken: adminToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const org = await findOrganizationBySlug('default');
-    const created = await createProjectRequest(
-      app,
-      adminToken,
-      { name: 'Reingest Forbidden', sourceType: 'upload' },
-      'idem-reingest-proj-forbidden',
-    );
+    const created = await createProjectRequest(app, adminToken, { name: 'Reingest Forbidden', sourceType: 'upload' }, 'idem-reingest-proj-forbidden');
     const projectId = created.json().id;
     const sourceVersionId = new mongoose.Types.ObjectId();
     await insertSourceVersion({
@@ -228,8 +201,8 @@ describe('source reingest routes', () => {
       passwordHash,
       userStatus: 'active',
       createdBy: null,
-          roleIds: [viewerRole._id]
-        });
+      roleIds: [viewerRole._id],
+    });
     await addProjectMember({
       orgId: String(org._id),
       projectId,
@@ -240,11 +213,7 @@ describe('source reingest routes', () => {
       log: createMockLog(),
     });
 
-    const { accessToken: viewerToken } = await login(
-      app,
-      'viewer-reingest@example.com',
-      'ViewerPass1!',
-    );
+    const { accessToken: viewerToken } = await login(app, 'viewer-reingest@example.com', 'ViewerPass1!');
     const res = await app.inject({
       method: 'POST',
       url: `${API_BASE_PATH}/projects/${projectId}/sources/${sourceVersionId}/reingest`,
@@ -263,12 +232,7 @@ describe('source reingest routes', () => {
     app = await readyApp();
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const org = await findOrganizationBySlug('default');
-    const created = await createProjectRequest(
-      app,
-      accessToken,
-      { name: 'Source Versions List', sourceType: 'upload' },
-      'idem-source-versions-list',
-    );
+    const created = await createProjectRequest(app, accessToken, { name: 'Source Versions List', sourceType: 'upload' }, 'idem-source-versions-list');
     const projectId = created.json().id;
     const firstId = new mongoose.Types.ObjectId();
     const secondId = new mongoose.Types.ObjectId();

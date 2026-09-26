@@ -4,12 +4,7 @@
 import { LoginSession } from '../../models/loginSession.model.js';
 import { assertOrgId, ROW_STATUS_ACTIVE } from '../../platform/data/index.js';
 import { ApiError } from '../../platform/errors.js';
-import {
-  findUserById,
-  findActiveUsersByEmailWithPassword,
-  touchLastLoginAt,
-  updateUserPasswordHash,
-} from '../masters/index.js';
+import { findUserById, findActiveUsersByEmailWithPassword, touchLastLoginAt, updateUserPasswordHash } from '../masters/index.js';
 import { resolveEffectivePermissions } from './permissions.js';
 import argon2 from 'argon2';
 import { createSigner, createVerifier, TokenError } from 'fast-jwt';
@@ -256,9 +251,7 @@ function findTokenEntryByHash(loginSession, refreshTokenHash) {
 export async function createLoginSession(input, options = {}) {
   assertOrgId(input.orgId);
   const now = new Date();
-  const expiresAt =
-    input.expiresAt ??
-    new Date(now.getTime() + JWT_REFRESH_TOKEN_TTL_SECONDS * 1000);
+  const expiresAt = input.expiresAt ?? new Date(now.getTime() + JWT_REFRESH_TOKEN_TTL_SECONDS * 1000);
   const [doc] = await LoginSession.create(
     [
       {
@@ -313,10 +306,7 @@ export function isLoginSessionActiveForAccess(loginSession) {
   if (loginSession.revokedAt) {
     return false;
   }
-  if (
-    !(loginSession.expiresAt instanceof Date) ||
-    loginSession.expiresAt.getTime() <= Date.now()
-  ) {
+  if (!(loginSession.expiresAt instanceof Date) || loginSession.expiresAt.getTime() <= Date.now()) {
     return false;
   }
   return true;
@@ -344,11 +334,7 @@ export function isLoginSessionActiveForRefresh(loginSession, refreshTokenHash) {
  * @returns {Promise<import('mongoose').Document | null>} Updated login, or null when the
  *   presented hash was already rotated (caller treats as reuse).
  */
-export async function rotateLoginSession(
-  loginSession,
-  currentRefreshTokenHash,
-  nextRefreshTokenHash,
-) {
+export async function rotateLoginSession(loginSession, currentRefreshTokenHash, nextRefreshTokenHash) {
   const now = new Date();
   const nextTokenId = new mongoose.Types.ObjectId();
   return LoginSession.findOneAndUpdate(
@@ -414,10 +400,7 @@ export async function revokeLoginSession(loginSessionId, reason) {
     revokedAt: null,
     loggedOutAt: null,
   };
-  const $set =
-    reason === 'logout'
-      ? { loggedOutAt: now, updatedAt: now }
-      : { revokedAt: now, revokedReason: reason, updatedAt: now };
+  const $set = reason === 'logout' ? { loggedOutAt: now, updatedAt: now } : { revokedAt: now, revokedReason: reason, updatedAt: now };
   return LoginSession.updateOne(filter, { $set });
 }
 
@@ -515,15 +498,11 @@ export function createAuthenticatePreHandler(tokenService) {
     if (!isLoginSessionActiveForAccess(loginSession)) {
       throw ApiError.fromCode('SESSION_EXPIRED');
     }
-    if (
-      String(loginSession.userId) !== String(user._id) ||
-      String(loginSession.orgId) !== String(user.orgId)
-    ) {
+    if (String(loginSession.userId) !== String(user._id) || String(loginSession.orgId) !== String(user.orgId)) {
       throw ApiError.fromCode('UNAUTHENTICATED');
     }
 
-    const allowWhenMustChange =
-      request.routeOptions?.config?.allowWhenMustChangePassword === true;
+    const allowWhenMustChange = request.routeOptions?.config?.allowWhenMustChangePassword === true;
     if (user.mustChangePassword === true && !allowWhenMustChange) {
       throw ApiError.fromCode('PASSWORD_CHANGE_REQUIRED');
     }
@@ -650,9 +629,7 @@ export function createAuthService(jwtSecret) {
    * @returns {Promise<AuthSuccessPayload | { outcome: AuthOutcomeCode, emailHash: string }>}
    */
   async function login(input, ctx = {}) {
-    const emailHash = createHash('sha256')
-      .update(String(input.email).toLowerCase().trim(), 'utf8')
-      .digest('hex');
+    const emailHash = createHash('sha256').update(String(input.email).toLowerCase().trim(), 'utf8').digest('hex');
     const users = await findActiveUsersByEmailWithPassword(input.email);
     const dummyHash = await getDummyPasswordHash();
 
@@ -729,10 +706,7 @@ export function createAuthService(jwtSecret) {
     const presented = findTokenEntryByHash(current, tokenHash);
     if (presented?.rotatedAt || current.revokedAt || current.loggedOutAt) {
       await revokeLoginSession(current._id, 'reuse_detected');
-      ctx.log?.info?.(
-        { outcome: 'reuse_detected', loginSessionId: String(current._id) },
-        'auth refresh reuse detected',
-      );
+      ctx.log?.info?.({ outcome: 'reuse_detected', loginSessionId: String(current._id) }, 'auth refresh reuse detected');
       return { outcome: 'reuse_detected' };
     }
 
@@ -751,10 +725,7 @@ export function createAuthService(jwtSecret) {
     const rotated = await rotateLoginSession(current, tokenHash, nextHash);
     if (!rotated) {
       await revokeLoginSession(current._id, 'reuse_detected');
-      ctx.log?.info?.(
-        { outcome: 'reuse_detected', loginSessionId: String(current._id) },
-        'auth refresh reuse detected',
-      );
+      ctx.log?.info?.({ outcome: 'reuse_detected', loginSessionId: String(current._id) }, 'auth refresh reuse detected');
       return { outcome: 'reuse_detected' };
     }
     const nextEntry = findTokenEntryByHash(rotated, nextHash);
@@ -959,8 +930,7 @@ export async function authRoutes(app) {
       setAuthCookies(reply, result.refreshToken, isProduction);
       return {
         accessToken: result.accessToken,
-        accessTokenExpiresInSeconds:
-          result.accessTokenExpiresInSeconds ?? JWT_ACCESS_TOKEN_TTL_SECONDS,
+        accessTokenExpiresInSeconds: result.accessTokenExpiresInSeconds ?? JWT_ACCESS_TOKEN_TTL_SECONDS,
         user: result.user,
       };
     },
@@ -983,8 +953,7 @@ export async function authRoutes(app) {
       setAuthCookies(reply, result.refreshToken, isProduction);
       return {
         accessToken: result.accessToken,
-        accessTokenExpiresInSeconds:
-          result.accessTokenExpiresInSeconds ?? JWT_ACCESS_TOKEN_TTL_SECONDS,
+        accessTokenExpiresInSeconds: result.accessTokenExpiresInSeconds ?? JWT_ACCESS_TOKEN_TTL_SECONDS,
         user: result.user,
       };
     },

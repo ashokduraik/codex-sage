@@ -18,7 +18,7 @@ import {
   DEFAULT_ADMIN_EMAIL,
   DEFAULT_ADMIN_PASSWORD,
   IDENTITY_MODELS,
-  createUser, createUserInRepo,
+  createUserInRepo,
   findBuiltInRole,
   findOrganizationBySlug,
   findUserByEmail,
@@ -26,22 +26,10 @@ import {
 } from '../../../src/modules/masters/index.js';
 import { PROJECT_MODELS, Project } from '../../../src/modules/masters/projects.js';
 import { addProjectMember } from '../../../src/modules/masters/projectMembers.js';
-import {
-  JOB_MODELS,
-  Job,
-  appendJobEvent,
-  createPendingJob,
-} from '../../../src/modules/masters/jobs.js';
+import { JOB_MODELS, Job, appendJobEvent, createPendingJob } from '../../../src/modules/masters/jobs.js';
 
 const harness = createMongoHarness({
-  models: [
-    ...IDENTITY_MODELS,
-    ...AUTH_MODELS,
-    ...AUDIT_MODELS,
-    ...IDEMPOTENCY_MODELS,
-    ...PROJECT_MODELS,
-    ...JOB_MODELS,
-  ],
+  models: [...IDENTITY_MODELS, ...AUTH_MODELS, ...AUDIT_MODELS, ...IDEMPOTENCY_MODELS, ...PROJECT_MODELS, ...JOB_MODELS],
   uri: TEST_APP_CONFIG.mongo.uri,
 });
 
@@ -117,12 +105,7 @@ describe('jobControl.routes', () => {
     app = await readyApp();
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const org = await findOrganizationBySlug('default');
-    const created = await createProjectRequest(
-      app,
-      accessToken,
-      { name: 'Retry Project', sourceType: 'upload' },
-      'idem-ctrl-proj-1',
-    );
+    const created = await createProjectRequest(app, accessToken, { name: 'Retry Project', sourceType: 'upload' }, 'idem-ctrl-proj-1');
     const projectId = created.json().id;
     const { jobId } = await createPendingJob({
       orgId: String(org._id),
@@ -200,12 +183,7 @@ describe('jobControl.routes', () => {
     app = await readyApp();
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const org = await findOrganizationBySlug('default');
-    const created = await createProjectRequest(
-      app,
-      accessToken,
-      { name: 'Active Retry', sourceType: 'upload' },
-      'idem-ctrl-proj-2',
-    );
+    const created = await createProjectRequest(app, accessToken, { name: 'Active Retry', sourceType: 'upload' }, 'idem-ctrl-proj-2');
     const projectId = created.json().id;
     const { jobId } = await createPendingJob({
       orgId: String(org._id),
@@ -252,12 +230,7 @@ describe('jobControl.routes', () => {
     app = await readyApp();
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const org = await findOrganizationBySlug('default');
-    const created = await createProjectRequest(
-      app,
-      accessToken,
-      { name: 'Reject Retry', sourceType: 'upload' },
-      'idem-ctrl-proj-3',
-    );
+    const created = await createProjectRequest(app, accessToken, { name: 'Reject Retry', sourceType: 'upload' }, 'idem-ctrl-proj-3');
     const projectId = created.json().id;
 
     const { jobId: badUploadId } = await createPendingJob({
@@ -309,12 +282,7 @@ describe('jobControl.routes', () => {
     app = await readyApp();
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const org = await findOrganizationBySlug('default');
-    const created = await createProjectRequest(
-      app,
-      accessToken,
-      { name: 'Cancel Project', sourceType: 'upload' },
-      'idem-ctrl-proj-4',
-    );
+    const created = await createProjectRequest(app, accessToken, { name: 'Cancel Project', sourceType: 'upload' }, 'idem-ctrl-proj-4');
     const projectId = created.json().id;
 
     const { jobId: pendingId } = await createPendingJob({
@@ -335,10 +303,7 @@ describe('jobControl.routes', () => {
       projectId,
       jobType: 'ingest',
     });
-    await Job.updateOne(
-      { _id: runningId },
-      { $set: { jobStatus: 'running', workerId: 'w1', startedAt: new Date() } },
-    );
+    await Job.updateOne({ _id: runningId }, { $set: { jobStatus: 'running', workerId: 'w1', startedAt: new Date() } });
     const runningCancel = await app.inject({
       method: 'POST',
       url: `${API_BASE_PATH}/jobs/${runningId}/cancel`,
@@ -372,12 +337,7 @@ describe('jobControl.routes', () => {
     app = await readyApp();
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const org = await findOrganizationBySlug('default');
-    const created = await createProjectRequest(
-      app,
-      accessToken,
-      { name: 'Authz Project', sourceType: 'upload' },
-      'idem-ctrl-proj-5',
-    );
+    const created = await createProjectRequest(app, accessToken, { name: 'Authz Project', sourceType: 'upload' }, 'idem-ctrl-proj-5');
     const projectId = created.json().id;
     const { jobId } = await createPendingJob({
       orgId: String(org._id),
@@ -422,11 +382,7 @@ describe('jobControl.routes', () => {
       correlationId: 'c-viewer-member',
       log: createMockLog(),
     });
-    const { accessToken: viewerToken } = await login(
-      app,
-      'viewer-ctrl@example.com',
-      'ViewerPass1!',
-    );
+    const { accessToken: viewerToken } = await login(app, 'viewer-ctrl@example.com', 'ViewerPass1!');
     const forbidden = await app.inject({
       method: 'POST',
       url: `${API_BASE_PATH}/jobs/${jobId}/retry`,

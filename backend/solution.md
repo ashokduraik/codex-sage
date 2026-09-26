@@ -11,7 +11,7 @@ Platform shell: Fastify 5 + Pino + JavaScript
 knowledge plus on-demand Markdown/text access → grounded Q&A, plus org/RBAC admin, audit,
 conversation lifecycle, search/knowledge browse, notifications, usage, retention, rate limits,
 and idempotency.
-**No** live SQL/DB-query path against the *customer* app database (see §14). **No** image ingest in this slice.
+**No** live SQL/DB-query path against the _customer_ app database (see §14). **No** image ingest in this slice.
 
 **Target app scale (design baseline):** ~**2M lines of code**. CodeGraph currently excludes
 individual files larger than **1 MiB**; accepted projects containing those files are explicitly
@@ -23,24 +23,24 @@ Ingest and Q&A are the heart of the product. Both flows below are normative.
 
 ## 1. Decisions and evaluation status
 
-| Topic | Decision |
-|-------|----------|
-| Evaluation chat model | **`qwen3.8:latest`** on Ollama; currently a 27.3B Q4_K_M artifact (~18 GB) |
-| Model lock | Not production-pinned; re-evaluate and pin only when implementation begins |
-| Effective context | Benchmark 32K / 64K / 128K; configure the largest passing budget |
-| Code intelligence | **`@colbymchenry/codegraph` Node library**, current graph only |
-| Code retrieval | CodeGraph only; no code embeddings, vector search, or external reranker |
-| Documents | Markdown/MDX/text in Mongo; scoped FTS + bounded reads; no embeddings |
-| Graph updates | Worker-controlled in-place sync; project Q&A queues while graph is unavailable |
-| CodeGraph telemetry | Disabled in every environment |
-| LLM client | **Vercel AI SDK (`ai`)** → Ollama OpenAI-compatible API |
-| ODM | **Mongoose** for CRUD and domain models |
-| Raw bytes | **GridFS** (not LocalStack S3) |
-| Jobs | **MongoDB job collection** + worker poller (**no Redis / BullMQ**) |
-| Atlas | **Not required.** Local MongoDB **8+** |
-| SQL / DB Q&A | **Out of MVP** |
-| Images | **Ignored** |
-| `node_modules` | **Skip at upload/extract**; else reject and ask re-upload |
+| Topic                 | Decision                                                                       |
+| --------------------- | ------------------------------------------------------------------------------ |
+| Evaluation chat model | **`qwen3.8:latest`** on Ollama; currently a 27.3B Q4_K_M artifact (~18 GB)     |
+| Model lock            | Not production-pinned; re-evaluate and pin only when implementation begins     |
+| Effective context     | Benchmark 32K / 64K / 128K; configure the largest passing budget               |
+| Code intelligence     | **`@colbymchenry/codegraph` Node library**, current graph only                 |
+| Code retrieval        | CodeGraph only; no code embeddings, vector search, or external reranker        |
+| Documents             | Markdown/MDX/text in Mongo; scoped FTS + bounded reads; no embeddings          |
+| Graph updates         | Worker-controlled in-place sync; project Q&A queues while graph is unavailable |
+| CodeGraph telemetry   | Disabled in every environment                                                  |
+| LLM client            | **Vercel AI SDK (`ai`)** → Ollama OpenAI-compatible API                        |
+| ODM                   | **Mongoose** for CRUD and domain models                                        |
+| Raw bytes             | **GridFS** (not LocalStack S3)                                                 |
+| Jobs                  | **MongoDB job collection** + worker poller (**no Redis / BullMQ**)             |
+| Atlas                 | **Not required.** Local MongoDB **8+**                                         |
+| SQL / DB Q&A          | **Out of MVP**                                                                 |
+| Images                | **Ignored**                                                                    |
+| `node_modules`        | **Skip at upload/extract**; else reject and ask re-upload                      |
 
 These are evaluation decisions, not proof of scale, accuracy, latency, or reliability. Before an
 implementation ADR locks them, representative tests must establish CodeGraph coverage and recovery,
@@ -106,28 +106,29 @@ Persist and expose the validated input limit, measured input tokens, reserved ou
 used, compaction actions, and provider-reported usage. Enforce configurable cumulative token,
 tool-result byte, total-call, and wall-time budgets selected by evaluation. There is no fixed
 tool-round cap, but exhausting any budget terminates the run.
+
 ---
 
 ## 2. Technologies & software
 
-| Layer | Choice |
-|-------|--------|
-| Runtime | Node.js 26+, JavaScript |
-| HTTP | Fastify 5, `/api/v1` |
-| Data access | **Mongoose** (schemas, validation, CRUD, middleware) |
-| DB | Local MongoDB **8+** (current stable; use latest 8.x) |
-| Blobs | GridFS |
-| Queue | MongoDB `jobs` collection |
-| Orchestration | `@langchain/langgraph` + tool nodes |
-| LLM I/O (chat) | **`ai` (Vercel AI SDK)** → Ollama OpenAI-compat (`/v1`) for understand / draft / verify streaming |
-| Chat | Evaluation: **`qwen3.8:latest`**; pin the passing artifact before implementation |
-| Code graph | **`@colbymchenry/codegraph`** Node library on a tenant/project-isolated workspace |
-| Code graph store | Current per-project CodeGraph SQLite index on an encrypted server volume |
-| Document retrieval | MongoDB text index + bounded GridFS/source reads for Markdown/MDX/text |
-| Embeddings / reranker | **None** |
-| Docs parse | `unified` / `remark` for bounded Markdown/MDX sections; plain-text line slices |
-| Auth | JWT + argon2 |
-| Soft delete | `status: 'A' \| 'D'`; lifecycle in separate fields |
+| Layer                 | Choice                                                                                            |
+| --------------------- | ------------------------------------------------------------------------------------------------- |
+| Runtime               | Node.js 26+, JavaScript                                                                           |
+| HTTP                  | Fastify 5, `/api/v1`                                                                              |
+| Data access           | **Mongoose** (schemas, validation, CRUD, middleware)                                              |
+| DB                    | Local MongoDB **8+** (current stable; use latest 8.x)                                             |
+| Blobs                 | GridFS                                                                                            |
+| Queue                 | MongoDB `jobs` collection                                                                         |
+| Orchestration         | `@langchain/langgraph` + tool nodes                                                               |
+| LLM I/O (chat)        | **`ai` (Vercel AI SDK)** → Ollama OpenAI-compat (`/v1`) for understand / draft / verify streaming |
+| Chat                  | Evaluation: **`qwen3.8:latest`**; pin the passing artifact before implementation                  |
+| Code graph            | **`@colbymchenry/codegraph`** Node library on a tenant/project-isolated workspace                 |
+| Code graph store      | Current per-project CodeGraph SQLite index on an encrypted server volume                          |
+| Document retrieval    | MongoDB text index + bounded GridFS/source reads for Markdown/MDX/text                            |
+| Embeddings / reranker | **None**                                                                                          |
+| Docs parse            | `unified` / `remark` for bounded Markdown/MDX sections; plain-text line slices                    |
+| Auth                  | JWT + argon2                                                                                      |
+| Soft delete           | `status: 'A' \| 'D'`; lifecycle in separate fields                                                |
 
 **Software:** Node 24+, MongoDB **8+**, Ollama with the evaluation Qwen artifact, encrypted local
 storage for materialized source/CodeGraph indexes, Git optional.
@@ -153,13 +154,13 @@ CodeGraph/document tools, context budgeting, and evidence verification.
 
 It **does** improve the product path around the model:
 
-| Benefit | Why it matters here |
-|---------|---------------------|
-| Reliable token streaming | `streamText` → easier SSE `delta` events to the UI |
-| Abort / cancel | Client disconnect maps cleanly to stop generation |
-| Usage when reported | Input/output token fields for message metrics (§68-style) |
+| Benefit                    | Why it matters here                                                                          |
+| -------------------------- | -------------------------------------------------------------------------------------------- |
+| Reliable token streaming   | `streamText` → easier SSE `delta` events to the UI                                           |
+| Abort / cancel             | Client disconnect maps cleanly to stop generation                                            |
+| Usage when reported        | Input/output token fields for message metrics (§68-style)                                    |
 | OpenAI-compatible provider | Point `@ai-sdk/openai` (or Ollama adapter) at the configured Ollama `/v1` endpoint and model |
-| Structured output helpers | Useful for UNDERSTAND / VERIFY JSON decisions |
+| Structured output helpers  | Useful for UNDERSTAND / VERIFY JSON decisions                                                |
 
 **How it fits the Q&A sequence (nothing replaced):**
 
@@ -203,13 +204,13 @@ without storing junk (`node_modules`, images, etc.).
 
 ### 4.1 What we accept
 
-| Kind | Formats | Notes |
-|------|---------|--------|
-| Code | `.js` `.ts` `.mjs` `.cjs` and supported CodeGraph languages | Files over 1 MiB are accepted but excluded from graph indexing |
-| Config | allowlisted `.json` and text configs | Available through bounded file reads; not assumed to be graph nodes |
-| Docs | `.md`, `.mdx`, `.txt` | Mongo FTS + bounded on-demand reads; not embedded |
-| Images | **Skip entirely** | Listed in exclusions; not stored for RAG |
-| Archives | `.zip` | Path-filter entries before GridFS write |
+| Kind     | Formats                                                     | Notes                                                               |
+| -------- | ----------------------------------------------------------- | ------------------------------------------------------------------- |
+| Code     | `.js` `.ts` `.mjs` `.cjs` and supported CodeGraph languages | Files over 1 MiB are accepted but excluded from graph indexing      |
+| Config   | allowlisted `.json` and text configs                        | Available through bounded file reads; not assumed to be graph nodes |
+| Docs     | `.md`, `.mdx`, `.txt`                                       | Mongo FTS + bounded on-demand reads; not embedded                   |
+| Images   | **Skip entirely**                                           | Listed in exclusions; not stored for RAG                            |
+| Archives | `.zip`                                                      | Path-filter entries before GridFS write                             |
 
 ### 4.2 `node_modules` during upload
 
@@ -290,15 +291,15 @@ Prefer also filtering on the client before upload; **server must still enforce**
 
 ### 4.5 What is stored where
 
-| Store | Content |
-|-------|---------|
-| GridFS | Kept source/doc bytes only (no `node_modules`, no images) |
-| Encrypted project workspace | Materialized current source tree + current `.codegraph` SQLite index |
-| Mongoose `SourceFile` | path, hash, kind, graph exclusion reason, gridFsId |
-| Mongoose `SourceVersion` | one ingest event + result |
-| Mongoose `DocumentSection` | org/project/version scope, path, heading/lines, searchable text, `status` |
-| Mongoose `KnowledgeVersion` | source linkage, graph identity/hash, exclusions, health; only current graph queryable |
-| Mongoose `Job` with embedded `events[]` | stages humans can read |
+| Store                                   | Content                                                                               |
+| --------------------------------------- | ------------------------------------------------------------------------------------- |
+| GridFS                                  | Kept source/doc bytes only (no `node_modules`, no images)                             |
+| Encrypted project workspace             | Materialized current source tree + current `.codegraph` SQLite index                  |
+| Mongoose `SourceFile`                   | path, hash, kind, graph exclusion reason, gridFsId                                    |
+| Mongoose `SourceVersion`                | one ingest event + result                                                             |
+| Mongoose `DocumentSection`              | org/project/version scope, path, heading/lines, searchable text, `status`             |
+| Mongoose `KnowledgeVersion`             | source linkage, graph identity/hash, exclusions, health; only current graph queryable |
+| Mongoose `Job` with embedded `events[]` | stages humans can read                                                                |
 
 ### 4.6 Ingest stages, failures, and what survives
 
@@ -318,22 +319,22 @@ S6 finalize             (job + project lifecycle)
 
 **Failure rules**
 
-| Where it fails | Job / project result | What is kept | Default recovery |
-|----------------|----------------------|--------------|------------------|
-| S0 validate (bad zip, path slip, empty after excludes) | `failed` immediately; often **no** `sourceVersion` committed, or version marked failed | Nothing usable for RAG | Fix upload → new upload (not “retry junk”) |
-| S1 store_files (disk/GridFS error mid-write) | `failed` | Partial GridFS objects marked orphaned / rolled back where possible | **Retry S1** from checkpoint, or discard version + re-upload |
-| S2 exclusion | Files over CodeGraph's 1 MiB limit are recorded; processing continues | Excluded bytes remain in GridFS | Publish only as `partially_available` |
-| S3 document indexing | Continue unaffected documents; job may warn or fail by policy | Good document sections remain staged | Retry failed documents |
-| S4 CodeGraph update | Q&A remains disabled; job retries bounded temporary failures | Current workspace/index may be partially changed | Rebuild from last successfully accepted source tree, validate, then resume |
-| S4 recovery exhausted | Knowledge `failed`; graph remains unavailable | Source and failed-job diagnostics remain | Explicit retry/re-ingest; fail queued messages with retryable error |
-| S5 publish | `failed`; Q&A remains unavailable | Validated index may exist but is not ready | Retry publish only |
-| Worker crash mid-stage | Job stuck `running` → sweeper marks `failed` or requeues `pending` after lease timeout | Checkpointed stage + per-file progress | Automatic reclaim + **resume from last completed stage** |
+| Where it fails                                         | Job / project result                                                                   | What is kept                                                        | Default recovery                                                           |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| S0 validate (bad zip, path slip, empty after excludes) | `failed` immediately; often **no** `sourceVersion` committed, or version marked failed | Nothing usable for RAG                                              | Fix upload → new upload (not “retry junk”)                                 |
+| S1 store_files (disk/GridFS error mid-write)           | `failed`                                                                               | Partial GridFS objects marked orphaned / rolled back where possible | **Retry S1** from checkpoint, or discard version + re-upload               |
+| S2 exclusion                                           | Files over CodeGraph's 1 MiB limit are recorded; processing continues                  | Excluded bytes remain in GridFS                                     | Publish only as `partially_available`                                      |
+| S3 document indexing                                   | Continue unaffected documents; job may warn or fail by policy                          | Good document sections remain staged                                | Retry failed documents                                                     |
+| S4 CodeGraph update                                    | Q&A remains disabled; job retries bounded temporary failures                           | Current workspace/index may be partially changed                    | Rebuild from last successfully accepted source tree, validate, then resume |
+| S4 recovery exhausted                                  | Knowledge `failed`; graph remains unavailable                                          | Source and failed-job diagnostics remain                            | Explicit retry/re-ingest; fail queued messages with retryable error        |
+| S5 publish                                             | `failed`; Q&A remains unavailable                                                      | Validated index may exist but is not ready                          | Retry publish only                                                         |
+| Worker crash mid-stage                                 | Job stuck `running` → sweeper marks `failed` or requeues `pending` after lease timeout | Checkpointed stage + per-file progress                              | Automatic reclaim + **resume from last completed stage**                   |
 
 **Hard rules**
 
-1. A failed job **never disappears** — UI can open job events + error codes later.  
-2. Do **not** mark project `knowledge_ready` unless S5 succeeded for the intended version.  
-3. Distinguish errors: `temporary` (Ollama/network) → auto-retry with backoff; `permanent` (corrupt file) → no endless retry; `user_action_required` (bad archive) → clear message.  
+1. A failed job **never disappears** — UI can open job events + error codes later.
+2. Do **not** mark project `knowledge_ready` unless S5 succeeded for the intended version.
+3. Distinguish errors: `temporary` (Ollama/network) → auto-retry with backoff; `permanent` (corrupt file) → no endless retry; `user_action_required` (bad archive) → clear message.
 4. Idempotent retries: the same key/version/stage must not create duplicate document sections or
    parallel graph writers.
 5. CodeGraph filesystem watching is disabled; only the source-version worker may update the graph.
@@ -352,11 +353,11 @@ Example: in-place CodeGraph sync fails
 
 Two different operations:
 
-| Action | API intent | When to use | Behavior |
-|--------|------------|-------------|----------|
-| **Retry failed** | `POST .../jobs/:jobId/retry` | Last job failed / partial; bytes already stored | Resume from checkpoint when safe, or full re-run from `validate_upload` against stored GridFS bytes; same Job, no new `sourceVersion` |
-| **Re-ingest version** | `POST .../sources/:sourceVersionId/reingest` | Index rules changed; rebuild from GridFS | New job on the same source bytes; regenerate document sections and current graph |
-| **Replace source (re-upload)** | new upload | User sends a new ZIP/files | **New** `sourceVersion`; diff by path+sha256 vs previous ready version (§4.8) |
+| Action                         | API intent                                   | When to use                                     | Behavior                                                                                                                              |
+| ------------------------------ | -------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| **Retry failed**               | `POST .../jobs/:jobId/retry`                 | Last job failed / partial; bytes already stored | Resume from checkpoint when safe, or full re-run from `validate_upload` against stored GridFS bytes; same Job, no new `sourceVersion` |
+| **Re-ingest version**          | `POST .../sources/:sourceVersionId/reingest` | Index rules changed; rebuild from GridFS        | New job on the same source bytes; regenerate document sections and current graph                                                      |
+| **Replace source (re-upload)** | new upload                                   | User sends a new ZIP/files                      | **New** `sourceVersion`; diff by path+sha256 vs previous ready version (§4.8)                                                         |
 
 Retry UI must show: stage failed, error code, “Retry failed steps” vs “Upload new source”.
 
@@ -405,12 +406,12 @@ Project has repo connection + selected branch + credentials (encrypted)
         5. Record nextDueAt = now + 30 minutes
 ```
 
-| Setting | MVP default |
-|---------|-------------|
-| Sync interval | **30 minutes** (configurable per project later) |
-| Overlap | If previous `repo_sync` still `running`, **skip** tick (no parallel syncs on same project) |
-| Manual sync | `POST .../repositories/sync` enqueues same job immediately (idempotent) |
-| Branch change | User selects new branch → full tree as new sourceVersion (diff still applies vs previous) |
+| Setting       | MVP default                                                                                |
+| ------------- | ------------------------------------------------------------------------------------------ |
+| Sync interval | **30 minutes** (configurable per project later)                                            |
+| Overlap       | If previous `repo_sync` still `running`, **skip** tick (no parallel syncs on same project) |
+| Manual sync   | `POST .../repositories/sync` enqueues same job immediately (idempotent)                    |
+| Branch change | User selects new branch → full tree as new sourceVersion (diff still applies vs previous)  |
 
 **Concurrency with chat:** one graph writer runs per project. Once graph mutation starts, Q&A for
 that project is disabled. A message submitted during this period is persisted as `queued`; the API
@@ -444,14 +445,14 @@ Timeline example
 
 **Actors (who does what)**
 
-| Actor | Role |
-|-------|------|
-| **UI (React)** | Sends message; shows SSE stages; if clarification set arrives, asks one question at a time, then POSTs all answers once |
-| **Fastify / Node.js API** | Auth, load/save Mongo data, open SSE, start/resume LangGraph, stream events to UI |
-| **Mongoose / MongoDB** | Conversations, queued messages, summaries, document FTS, knowledge metadata, evidence |
-| **CodeGraph library** | Queries the current project graph for symbols, routes, relationships, source, and flows |
-| **LangGraph (in Node)** | State machine: decide next step, call scoped tools, budget context, call LLM |
-| **Ollama** | Runs the human-controlled Qwen3.8 artifact behind a bounded inference queue |
+| Actor                     | Role                                                                                                                    |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| **UI (React)**            | Sends message; shows SSE stages; if clarification set arrives, asks one question at a time, then POSTs all answers once |
+| **Fastify / Node.js API** | Auth, load/save Mongo data, open SSE, start/resume LangGraph, stream events to UI                                       |
+| **Mongoose / MongoDB**    | Conversations, queued messages, summaries, document FTS, knowledge metadata, evidence                                   |
+| **CodeGraph library**     | Queries the current project graph for symbols, routes, relationships, source, and flows                                 |
+| **LangGraph (in Node)**   | State machine: decide next step, call scoped tools, budget context, call LLM                                            |
+| **Ollama**                | Runs the human-controlled Qwen3.8 artifact behind a bounded inference queue                                             |
 
 There are no embedding or reranker model calls.
 
@@ -469,10 +470,10 @@ Accept: text/event-stream
 
 #### Step 1 — Node API receives the HTTP request
 
-**Who:** Fastify handler  
+**Who:** Fastify handler
 
-1. Authenticate JWT; resolve `organizationId`, `userId`.  
-2. Load conversation via Mongoose; check project ACL + “ask questions” permission.  
+1. Authenticate JWT; resolve `organizationId`, `userId`.
+2. Load conversation via Mongoose; check project ACL + “ask questions” permission.
 3. If graph update/recovery is active, persist the message as `queued` and return `202` with message
    and job identifiers. Do not open a long-lived waiting SSE stream.
 4. If the graph is failed/unavailable, persist a structured retryable failure.
@@ -493,18 +494,18 @@ runContext = {
 
 #### Step 2 — Node loads conversation context from MongoDB
 
-**Who:** Node service + Mongoose  
+**Who:** Node service + Mongoose
 
 Loads and attaches to `runContext`:
 
-| Data | From Mongo | Why |
-|------|------------|-----|
-| Recent messages | newest turns that fit the measured budget | Follow-ups (“the second step”) |
-| Context summary | required persisted summary for older history | Older context without silent loss |
-| Pinned facts | clarifications / user corrections if any | Stable entities |
-| Knowledge health | `KnowledgeVersion` + project health | Stale/partial warnings |
+| Data                        | From Mongo                                      | Why                                   |
+| --------------------------- | ----------------------------------------------- | ------------------------------------- |
+| Recent messages             | newest turns that fit the measured budget       | Follow-ups (“the second step”)        |
+| Context summary             | required persisted summary for older history    | Older context without silent loss     |
+| Pinned facts                | clarifications / user corrections if any        | Stable entities                       |
+| Knowledge health            | `KnowledgeVersion` + project health             | Stale/partial warnings                |
 | Previous evidence snapshots | prior answer source refs/excerpts within budget | Trace old answers after graph changes |
-| (Not loaded yet) | CodeGraph output / document text / whole repo | Tools fetch bounded evidence later |
+| (Not loaded yet)            | CodeGraph output / document text / whole repo   | Tools fetch bounded evidence later    |
 
 Node does not dump the project into the LLM. It measures the exact assembled prompt before every
 call and applies §1.2.
@@ -565,8 +566,8 @@ artifact through `ai.generateText` with thinking disabled → validates the stru
 
 **Input to LLM (built by Node):**
 
-- System: “Rewrite the user question using conversation context; decide if clarification is needed; do not answer the project question yet.”  
-- Recent messages + summary + raw user question  
+- System: “Rewrite the user question using conversation context; decide if clarification is needed; do not answer the project question yet.”
+- Recent messages + summary + raw user question
 
 **LLM returns structured decision (example):**
 
@@ -581,28 +582,28 @@ artifact through `ai.generateText` with thinking disabled → validates the stru
 
 **Node then:**
 
-- Writes `rewrittenQuestion` into graph state  
-- SSE: `status: understanding_question`  
+- Writes `rewrittenQuestion` into graph state
+- SSE: `status: understanding_question`
 - Records measured context consumption and compaction metadata
 
 **Branch:**
 
-| Decision | Next |
-|----------|------|
-| `needsClarification: true` | Node B — CLARIFY_SET |
-| `route: retrieve` | Node C — AGENT_TOOLS |
+| Decision                          | Next                    |
+| --------------------------------- | ----------------------- |
+| `needsClarification: true`        | Node B — CLARIFY_SET    |
+| `route: retrieve`                 | Node C — AGENT_TOOLS    |
 | Clearly impossible / no knowledge | Early abstain → PERSIST |
 
 #### Node B — CLARIFY_SET (optional)
 
 **Who:** LangGraph + Node + UI (not Ollama again unless understand already produced the set)
 
-1. **LLM (during UNDERSTAND)** already produced **all** clarification questions in one JSON array (single_select / multi_select / free_text).  
-2. **Node** saves clarification set on the message / `Clarification` collection; SSE `clarification` event with the **full list**.  
-3. Graph **interrupts / waits** (checkpoint in Mongo).  
-4. **UI** shows Q1, then Q2, … locally.  
-5. **UI** one POST: `{ clarificationId, answers: { q1: "...", q2: "..." } }`.  
-6. **Node** loads checkpoint, merges answers into state, resumes LangGraph at UNDERSTAND (or AGENT_TOOLS) with answers bound.  
+1. **LLM (during UNDERSTAND)** already produced **all** clarification questions in one JSON array (single_select / multi_select / free_text).
+2. **Node** saves clarification set on the message / `Clarification` collection; SSE `clarification` event with the **full list**.
+3. Graph **interrupts / waits** (checkpoint in Mongo).
+4. **UI** shows Q1, then Q2, … locally.
+5. **UI** one POST: `{ clarificationId, answers: { q1: "...", q2: "..." } }`.
+6. **Node** loads checkpoint, merges answers into state, resumes LangGraph at UNDERSTAND (or AGENT_TOOLS) with answers bound.
 
 No per-question server round-trip after the set is issued. Max **1** extra clarification set if answers still insufficient.
 
@@ -632,14 +633,14 @@ When the model requests structural code exploration:
 
 Document/configuration tools:
 
-| Tool | Node does |
-|------|-----------|
-| `search_documents` | Tenant/project/current-version Mongo FTS over Markdown/MDX/text sections |
-| `list_documents` | List authorized active document paths with bounded pagination |
-| `read_document_slice` | Read a bounded heading/line range and return source metadata |
-| `read_file_slice` | Read bounded code/config lines for a known authorized path |
-| `explore_code` | Call the CodeGraph Node library for structural context and source locations |
-| `abstain` | Skip draft; finalize insufficient-info message |
+| Tool                  | Node does                                                                   |
+| --------------------- | --------------------------------------------------------------------------- |
+| `search_documents`    | Tenant/project/current-version Mongo FTS over Markdown/MDX/text sections    |
+| `list_documents`      | List authorized active document paths with bounded pagination               |
+| `read_document_slice` | Read a bounded heading/line range and return source metadata                |
+| `read_file_slice`     | Read bounded code/config lines for a known authorized path                  |
+| `explore_code`        | Call the CodeGraph Node library for structural context and source locations |
+| `abstain`             | Skip draft; finalize insufficient-info message                              |
 
 #### Node D — DRAFT_ANSWER
 
@@ -648,17 +649,17 @@ Qwen3.8 artifact and bounded thinking. Node maps text deltas to SSE.
 
 **Prompt contents (assembled by Node):**
 
-- Rewritten question  
-- Short conversation context  
-- **Only** `toolResults` evidence blocks (with ids)  
-- Rules: answer from evidence only; cite evidence ids; if missing → say so; Markdown; **no** private chain-of-thought in the user-visible answer  
+- Rewritten question
+- Short conversation context
+- **Only** `toolResults` evidence blocks (with ids)
+- Rules: answer from evidence only; cite evidence ids; if missing → say so; Markdown; **no** private chain-of-thought in the user-visible answer
 
 **Node:**
 
-- SSE `status: generating_answer`  
-- SSE `delta` for each token from `streamText`  
+- SSE `status: generating_answer`
+- SSE `delta` for each token from `streamText`
 - Record measured preflight context and provider usage when present
-- Stores full draft on graph state  
+- Stores full draft on graph state
 
 #### Node E — VERIFY_ANSWER
 
@@ -667,24 +668,24 @@ artifact through budgeted `ai.generateText` with bounded thinking.
 
 **Checks (programmatic + LLM structured):**
 
-1. Every non-trivial claim maps to an evidence id in `toolResults`.  
-2. Cited path/lines exist; optional Node re-`read_file_slice` to confirm quote.  
-3. Same `knowledgeVersionId` / project scope.  
+1. Every non-trivial claim maps to an evidence id in `toolResults`.
+2. Cited path/lines exist; optional Node re-`read_file_slice` to confirm quote.
+3. Same `knowledgeVersionId` / project scope.
 4. If evidence empty → must abstain, not invent.
 
-| Result | Next |
-|--------|------|
-| PASS | Node F |
-| FAIL while run budgets remain | Retrieve/revise again |
-| FAIL and budget exhausted | Persist abstain / partial grounded answer with warning |
+| Result                        | Next                                                   |
+| ----------------------------- | ------------------------------------------------------ |
+| PASS                          | Node F                                                 |
+| FAIL while run budgets remain | Retrieve/revise again                                  |
+| FAIL and budget exhausted     | Persist abstain / partial grounded answer with warning |
 
 SSE: `status: verifying_answer` (no internal reasoning text).
 
 #### Node F — PERSIST + DONE
 
-**Who:** Node + Mongoose  
+**Who:** Node + Mongoose
 
-1. Insert assistant `Message`: markdown, `evidence[]`, support level, tokens, duration, `knowledgeVersionId`, `messageStatus: 'completed'`.  
+1. Insert assistant `Message`: markdown, `evidence[]`, support level, tokens, duration, `knowledgeVersionId`, `messageStatus: 'completed'`.
 2. Persist context-limit metrics, compaction actions, and the model identifier supplied by the
    human-controlled configuration.
 3. Persist/update the conversation summary before older turns would exceed the validated budget.
@@ -696,11 +697,11 @@ SSE: `status: verifying_answer` (no internal reasoning text).
 
 **Rule of thumb**
 
-| Call type | Library | Why |
-|-----------|---------|-----|
-| Qwen3.8 UNDERSTAND / tool choice / draft / conditional verify | `ai` SDK → configured Ollama OpenAI endpoint | Structured output, streaming, abort, reliable provider usage |
-| Structural code retrieval | `@colbymchenry/codegraph` Node API | Current graph relationships and located source |
-| Document discovery/read | Mongoose/Mongo FTS + GridFS/materialized slices | On-demand bounded evidence without vectors |
+| Call type                                                     | Library                                         | Why                                                          |
+| ------------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------ |
+| Qwen3.8 UNDERSTAND / tool choice / draft / conditional verify | `ai` SDK → configured Ollama OpenAI endpoint    | Structured output, streaming, abort, reliable provider usage |
+| Structural code retrieval                                     | `@colbymchenry/codegraph` Node API              | Current graph relationships and located source               |
+| Document discovery/read                                       | Mongoose/Mongo FTS + GridFS/materialized slices | On-demand bounded evidence without vectors                   |
 
 Every Qwen call goes through the exact tokenizer/context budgeter before the `ai` SDK. CodeGraph and
 document outputs also pass through the result-byte and prompt-token budgets.
@@ -766,12 +767,12 @@ artifact metadata/digest when the runtime exposes it.
 
 ### 5.4 Clarification contract (summary)
 
-| Who | Does |
-|-----|------|
-| **LLM (in UNDERSTAND)** | Emits **all** questions in one set |
-| **UI** | Displays **one at a time** |
-| **UI → API** | One payload with **all** answers |
-| **Node** | Resumes LangGraph once with the full answer map |
+| Who                     | Does                                            |
+| ----------------------- | ----------------------------------------------- |
+| **LLM (in UNDERSTAND)** | Emits **all** questions in one set              |
+| **UI**                  | Displays **one at a time**                      |
+| **UI → API**            | One payload with **all** answers                |
+| **Node**                | Resumes LangGraph once with the full answer map |
 
 ---
 
@@ -780,40 +781,40 @@ artifact metadata/digest when the runtime exposes it.
 All tools run in Node and enforce `organizationId + projectId + currentKnowledgeVersionId +
 status:'A'` before resolving a workspace path or Mongo query.
 
-| Tool | Runs on | Uses Ollama? |
-|------|---------|--------------|
-| `explore_code` | CodeGraph Node API | No |
-| `search_documents` | Mongo text index | No |
-| `list_documents` | Mongo source metadata | No |
-| `read_document_slice` | GridFS/materialized file | No |
-| `read_file_slice` | GridFS/materialized file | No |
-| `abstain` | Node | No |
+| Tool                  | Runs on                  | Uses Ollama? |
+| --------------------- | ------------------------ | ------------ |
+| `explore_code`        | CodeGraph Node API       | No           |
+| `search_documents`    | Mongo text index         | No           |
+| `list_documents`      | Mongo source metadata    | No           |
+| `read_document_slice` | GridFS/materialized file | No           |
+| `read_file_slice`     | GridFS/materialized file | No           |
+| `abstain`             | Node                     | No           |
 
-**Not in MVP:** live Mongo query execution against the *target* app DB, shell, web, cross-project, images.
+**Not in MVP:** live Mongo query execution against the _target_ app DB, shell, web, cross-project, images.
 
 ---
 
 ### 5.6 Run bounds
 
-| Bound | Policy |
-|-------|--------|
-| Clarification sets | One, plus at most one follow-up set |
-| Tool rounds | No fixed count |
-| Total model/tool calls | Configurable value selected by evaluation |
-| Cumulative tokens | Configurable measured input/output budget |
-| Tool-result bytes | Configurable cumulative budget |
-| Wall time | Configurable deadline |
-| Queue wait | Configurable expiry; then retryable failure |
-| Safety abort | Structured terminal event/error + `correlationId` |
+| Bound                  | Policy                                            |
+| ---------------------- | ------------------------------------------------- |
+| Clarification sets     | One, plus at most one follow-up set               |
+| Tool rounds            | No fixed count                                    |
+| Total model/tool calls | Configurable value selected by evaluation         |
+| Cumulative tokens      | Configurable measured input/output budget         |
+| Tool-result bytes      | Configurable cumulative budget                    |
+| Wall time              | Configurable deadline                             |
+| Queue wait             | Configurable expiry; then retryable failure       |
+| Safety abort           | Structured terminal event/error + `correlationId` |
 
 ---
 
 ### 5.7 Follow-ups
 
-User: “What about the second step?”  
+User: “What about the second step?”
 
-1. Node loads prior assistant message + its `evidence[]` from Mongo into context.  
-2. UNDERSTAND rewrites to a full question using that context.  
+1. Node loads prior assistant message + its `evidence[]` from Mongo into context.
+2. UNDERSTAND rewrites to a full question using that context.
 3. If knowledge changed, the conversation moves to the current graph and the UI receives a
    version-change warning; the old evidence snapshot remains attached to the old answer.
 4. Same tool → draft → verify path. User does not need to repeat the original question.
@@ -822,26 +823,26 @@ User: “What about the second step?”
 
 ### 5.8 Failures during Q&A
 
-| Failure | Behavior |
-|---------|----------|
-| Qwen/Ollama timeout or OOM | Temporary error; message failed; retryable SSE error + correlation id |
-| Tokenizer missing/mismatched | Fail closed before LLM call with `CONTEXT_ACCOUNTING_UNAVAILABLE` |
-| Prompt cannot fit after ordered compaction | Ask user to narrow the question or abstain |
-| CodeGraph update/recovery active | Persist queued message; return `202`; process after validated publish |
-| CodeGraph query/index unavailable | Abstain or retryable `KNOWLEDGE_UNAVAILABLE`; no model-only code answer |
-| Document search has no support | Continue with code evidence if sufficient; otherwise abstain |
-| Any cumulative run budget exhausted | Grounded partial answer, clarification, abstention, or structured failure |
-| Client disconnect mid-SSE | Graph/run continues; message ends `completed` or `failed`; UI reloads message by id |
-| Clarification abandoned | Message stays `awaiting_clarification`; resumable |
+| Failure                                    | Behavior                                                                            |
+| ------------------------------------------ | ----------------------------------------------------------------------------------- |
+| Qwen/Ollama timeout or OOM                 | Temporary error; message failed; retryable SSE error + correlation id               |
+| Tokenizer missing/mismatched               | Fail closed before LLM call with `CONTEXT_ACCOUNTING_UNAVAILABLE`                   |
+| Prompt cannot fit after ordered compaction | Ask user to narrow the question or abstain                                          |
+| CodeGraph update/recovery active           | Persist queued message; return `202`; process after validated publish               |
+| CodeGraph query/index unavailable          | Abstain or retryable `KNOWLEDGE_UNAVAILABLE`; no model-only code answer             |
+| Document search has no support             | Continue with code evidence if sufficient; otherwise abstain                        |
+| Any cumulative run budget exhausted        | Grounded partial answer, clarification, abstention, or structured failure           |
+| Client disconnect mid-SSE                  | Graph/run continues; message ends `completed` or `failed`; UI reloads message by id |
+| Clarification abandoned                    | Message stays `awaiting_clarification`; resumable                                   |
 
 ---
 
 ### 5.9 Guarantees
 
-1. Node always scopes Mongo/tool access to this org/project/knowledge version.  
-2. Prefer abstain over invention.  
-3. Final project claims include inspectable `evidence[]` or an explicit insufficient-info message.  
-4. Conversation context is private; it does not write into project knowledge.  
+1. Node always scopes Mongo/tool access to this org/project/knowledge version.
+2. Prefer abstain over invention.
+3. Final project claims include inspectable `evidence[]` or an explicit insufficient-info message.
+4. Conversation context is private; it does not write into project knowledge.
 5. Never send a full source tree or unbudgeted CodeGraph/document output to the LLM.
 6. Files over 1 MiB are visible exclusions and force partial knowledge.
 7. Every LLM call passes exact preflight token accounting or fails closed.
@@ -889,12 +890,12 @@ Retry: only temporary failures auto-backoff; permanent / user_action_required wa
 
 ### 8.1 Domain model (Mongoose)
 
-| Model | Key fields | Notes |
-|-------|------------|-------|
-| `Organization` | name, slug, config, `status` | Tenant root |
-| `User` | orgId, email, passwordHash, `userStatus` (`active`\|`invited`\|`disabled`), `roleIds[]`, `projectAccessMode`, `status` | Soft-delete via `status:'D'`; org roles live on the user (ADR 0028) |
-| `Role` | orgId, name, permissions[] | Built-in + custom |
-| `Project` | name, lifecycle, sourceConfig, `members[]` (`userId`, `roleId`, `permissions[]`, `addedByUserId`, subdoc `status`) | Project ACL overlay lives on the project document |
+| Model          | Key fields                                                                                                             | Notes                                                               |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `Organization` | name, slug, config, `status`                                                                                           | Tenant root                                                         |
+| `User`         | orgId, email, passwordHash, `userStatus` (`active`\|`invited`\|`disabled`), `roleIds[]`, `projectAccessMode`, `status` | Soft-delete via `status:'D'`; org roles live on the user (ADR 0028) |
+| `Role`         | orgId, name, permissions[]                                                                                             | Built-in + custom                                                   |
+| `Project`      | name, lifecycle, sourceConfig, `members[]` (`userId`, `roleId`, `permissions[]`, `addedByUserId`, subdoc `status`)     | Project ACL overlay lives on the project document                   |
 
 **Row visibility:** all list/detail queries default `status:'A'`. Domain lifecycle uses separate fields (`userStatus`, `lifecycleStatus`, etc.).
 
@@ -921,14 +922,14 @@ See [ADR 0007](../docs/adr/0007-argon2id-jwt.md) (passwords + access JWT),
 [ADR 0008](../docs/adr/0008-httponly-refresh-cookie.md) (httpOnly refresh cookie + CSRF),
 and [ADR 0012](../docs/adr/0012-refresh-token-rotation.md) (rotation + strict reuse detection).
 
-| Concern | MVP |
-|---------|-----|
-| Password | argon2id hash (OWASP minimum costs as named constants); never log plaintext |
-| Session | JWT access token (15 min TTL, in memory) + refresh token (httpOnly cookie, 1 day absolute TTL; D14) |
-| Refresh | Rotate on every use; reuse revokes the whole session family (no grace window) |
-| Login / logout / refresh / me | `/api/v1/auth/*` |
-| Password reset | Admin-mediated only (D15 / ADR 0013): administrator sets `newPassword` on `POST /users/:id/reset-password`; secret never returned; user receives it out of band. Signed-in self-service `POST /auth/password/change` stays. No public forgot/reset-token flow |
-| Bootstrap | Startup seed sets default admin password from a named constant (ADR 0011) — no open signup |
+| Concern                       | MVP                                                                                                                                                                                                                                                           |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Password                      | argon2id hash (OWASP minimum costs as named constants); never log plaintext                                                                                                                                                                                   |
+| Session                       | JWT access token (15 min TTL, in memory) + refresh token (httpOnly cookie, 1 day absolute TTL; D14)                                                                                                                                                           |
+| Refresh                       | Rotate on every use; reuse revokes the whole session family (no grace window)                                                                                                                                                                                 |
+| Login / logout / refresh / me | `/api/v1/auth/*`                                                                                                                                                                                                                                              |
+| Password reset                | Admin-mediated only (D15 / ADR 0013): administrator sets `newPassword` on `POST /users/:id/reset-password`; secret never returned; user receives it out of band. Signed-in self-service `POST /auth/password/change` stays. No public forgot/reset-token flow |
+| Bootstrap                     | Startup seed sets default admin password from a named constant (ADR 0011) — no open signup                                                                                                                                                                    |
 
 ### 8.4 Admin API surface (`/api/v1`)
 
@@ -962,14 +963,14 @@ context: { …non-secret metadata }, createdAt, status:'A'
 
 ### 9.2 What must be audited
 
-| Category | Examples |
-|----------|----------|
-| Identity | user create/activate/deactivate, password reset, role/permission changes |
-| Projects | create, soft-delete, settings change |
-| Source | upload accepted, repo connect, credential replace/revoke, sync trigger |
-| Knowledge | ingest job completed/failed, reingest, publish |
-| Chat (policy) | conversation archive/delete; optional “source preview viewed” |
-| Admin | retention/config changes |
+| Category      | Examples                                                                 |
+| ------------- | ------------------------------------------------------------------------ |
+| Identity      | user create/activate/deactivate, password reset, role/permission changes |
+| Projects      | create, soft-delete, settings change                                     |
+| Source        | upload accepted, repo connect, credential replace/revoke, sync trigger   |
+| Knowledge     | ingest job completed/failed, reingest, publish                           |
+| Chat (policy) | conversation archive/delete; optional “source preview viewed”            |
+| Admin         | retention/config changes                                                 |
 
 ### 9.3 API
 
@@ -999,20 +1000,20 @@ User edits U1
   → UI shows that later messages were discarded
 ```
 
-| Rule | Behavior |
-|------|----------|
-| Who can edit | Author of the user message + `chat.ask` |
+| Rule           | Behavior                                                                     |
+| -------------- | ---------------------------------------------------------------------------- |
+| Who can edit   | Author of the user message + `chat.ask`                                      |
 | What is stored | Edited user message is the current content; downstream messages `status:'D'` |
-| Resubmit | Same FLOW B from edited content |
-| Visibility | Single thread after refresh; no branch list |
+| Resubmit       | Same FLOW B from edited content                                              |
+| Visibility     | Single thread after refresh; no branch list                                  |
 
 ### 10.2 Archive / restore / delete
 
-| Action | API | Persistence |
-|--------|-----|-------------|
+| Action  | API                                  | Persistence                                  |
+| ------- | ------------------------------------ | -------------------------------------------- |
 | Archive | `POST .../conversations/:id/archive` | `lifecycleStatus: archived` (history intact) |
-| Restore | `POST .../conversations/:id/restore` | back to `active` |
-| Delete | `DELETE .../conversations/:id` | soft-delete `status:'D'` — not hard purge |
+| Restore | `POST .../conversations/:id/restore` | back to `active`                             |
+| Delete  | `DELETE .../conversations/:id`       | soft-delete `status:'D'` — not hard purge    |
 
 List endpoints default: `status:'A'` and `lifecycleStatus != archived` unless `?archived=1`.
 
@@ -1059,9 +1060,9 @@ knowledge-updating/unavailable state. Requires `knowledge.browse` / `knowledge.v
 GET /api/v1/projects/:projectId/search?q=&types=code,doc,symbol,workflow&cursor=
 ```
 
-| Step | Behavior |
-|------|----------|
-| Auth | JWT + `search.run` + project ACL |
+| Step     | Behavior                                                                    |
+| -------- | --------------------------------------------------------------------------- |
+| Auth     | JWT + `search.run` + project ACL                                            |
 | Retrieve | Code/symbol/workflow via bounded CodeGraph query; docs via scoped Mongo FTS |
 | Response | Located, typed results with current knowledge version and source references |
 
@@ -1089,12 +1090,12 @@ GET /api/v1/projects/:projectId/files/slice?path=&startLine=&endLine=
 
 **Channel:** Mongo `Notification` collection + list/SSE poll. **No email/SMS in MVP.**
 
-| Event → notification | When |
-|----------------------|------|
-| `knowledge.completed` / `knowledge.failed` | Ingest/publish finishes |
-| `repo.sync.completed` / `repo.sync.failed` | Git sync job ends |
-| `processing.attention` | `user_action_required` / partial below threshold |
-| (DB approval) | Out of MVP with live DB path |
+| Event → notification                       | When                                             |
+| ------------------------------------------ | ------------------------------------------------ |
+| `knowledge.completed` / `knowledge.failed` | Ingest/publish finishes                          |
+| `repo.sync.completed` / `repo.sync.failed` | Git sync job ends                                |
+| `processing.attention`                     | `user_action_required` / partial below threshold |
+| (DB approval)                              | Out of MVP with live DB path                     |
 
 ```text
 GET  /api/v1/notifications?unread=1
@@ -1109,11 +1110,11 @@ Fields: orgId, userId (recipient), type, title, body, resourceRef, readAt?, crea
 
 Record **actual** backend activity only (no estimates):
 
-| Level | Counters / facts |
-|-------|------------------|
+| Level        | Counters / facts                                                                             |
+| ------------ | -------------------------------------------------------------------------------------------- |
 | Organization | questions, ingest jobs, source bytes accepted, token in/out (when SDK reports), search calls |
-| Project | same, scoped |
-| User | questions, jobs triggered, tokens, searches |
+| Project      | same, scoped                                                                                 |
+| User         | questions, jobs triggered, tokens, searches                                                  |
 
 Model: `UsageEvent` (append) and/or daily `UsageRollup` documents. Expose:
 
@@ -1129,15 +1130,15 @@ Requires `usage.view` (self always sees `/me`).
 
 Configurable **per organization** (defaults below). Enforced by scheduled Mongo job (same worker poller).
 
-| Data | MVP default | Action after expiry |
-|------|-------------|---------------------|
-| Source bytes (old versions) | keep last **3** ready versions; older GridFS soft-orphan then purge job | Policy-driven |
-| Knowledge versions | tied to retained source versions | soft-delete then purge |
-| Conversations | **365 days** inactive archived → soft-delete | `status:'D'` |
-| Job / processing history | **180 days** | soft-delete |
-| Audit events | **730 days** | soft-delete only via retention (still no client delete) |
-| Notifications | **90 days** or 30 days after read | soft-delete |
-| Usage rollups | **730 days** | delete rollup rows (aggregates only) |
+| Data                        | MVP default                                                             | Action after expiry                                     |
+| --------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------- |
+| Source bytes (old versions) | keep last **3** ready versions; older GridFS soft-orphan then purge job | Policy-driven                                           |
+| Knowledge versions          | tied to retained source versions                                        | soft-delete then purge                                  |
+| Conversations               | **365 days** inactive archived → soft-delete                            | `status:'D'`                                            |
+| Job / processing history    | **180 days**                                                            | soft-delete                                             |
+| Audit events                | **730 days**                                                            | soft-delete only via retention (still no client delete) |
+| Notifications               | **90 days** or 30 days after read                                       | soft-delete                                             |
+| Usage rollups               | **730 days**                                                            | delete rollup rows (aggregates only)                    |
 
 Hard purge of GridFS objects is a separate admin path; document in ADR when enabled. Deleting a project → soft-delete project + schedule cascade soft-delete of sources/knowledge/conversations per org policy; audit rows remain until retention.
 
@@ -1160,12 +1161,12 @@ emit it from an in-app limiter.
 Clients send `Idempotency-Key` header on mutating/async starts that opt in
 (`config.requireIdempotencyKey: true`). Missing header → `400 IDEMPOTENCY_KEY_REQUIRED`.
 
-| Operation | Behavior |
-|-----------|----------|
-| Upload / create sourceVersion | Same key + user + route → return existing `202` body; no second writer |
-| Job retry / reingest / repo sync | Same key → existing active job |
-| Chat message create | Same key → existing message + reconnect SSE / load status (no duplicate user rows) |
-| Admin creates (user, project) | Same key → existing resource |
+| Operation                        | Behavior                                                                           |
+| -------------------------------- | ---------------------------------------------------------------------------------- |
+| Upload / create sourceVersion    | Same key + user + route → return existing `202` body; no second writer             |
+| Job retry / reingest / repo sync | Same key → existing active job                                                     |
+| Chat message create              | Same key → existing message + reconnect SSE / load status (no duplicate user rows) |
+| Admin creates (user, project)    | Same key → existing resource                                                       |
 
 Store `IdempotencyRecord { key, orgId, userId, route, requestHash, recordState, responseStatus, responseBody, resourceId, expiresAt }` in **MongoDB** (TTL ~24h) so keys are shared across PM2 workers and API hosts. Concurrent duplicates: first wins; second waits or gets the stored response. Same key with a different body → `409 IDEMPOTENCY_KEY_REUSE`.
 
@@ -1192,28 +1193,28 @@ That is **not** the platform MongoDB used for tenants, documents, jobs, and conv
 
 ## 15. Success checks
 
-| Check | Pass when |
-|-------|-----------|
-| Scale | Ingest designed for ~2M LOC Node+Mongo apps; files over 1 MiB excluded from the graph and force `partially_available` |
-| Upload | `node_modules` + images skipped before GridFS when paths visible |
-| Retrieval | CodeGraph for code; Mongo FTS + bounded reads for docs; **no** embeddings, vector search, or reranker |
-| Ollama | Bounded inference queue for the configured chat artifact only |
-| Ingest | Upload → job events → document sections + current graph + knowledge ready/partial/failed |
-| Stage failure | Failed job retained; retry resumes from checkpoint or rebuilds the graph from last accepted source |
-| Re-upload / git | New sourceVersion; hash diff; unchanged paths skip document re-index; sync every 30 min |
-| Sync failure | Q&A stays disabled; worker rebuilds from last successfully accepted source tree; queued messages resume or fail retryable |
-| Clarify | Backend sends full question set; UI one-at-a-time; one answers payload |
-| Tools | Agent only uses listed project-scoped tools |
-| Verify | Citations/paths/scope checked; revise while run budgets remain; else abstain or grounded partial |
-| QA | Question → tools → verified Markdown + evidence (or abstain) |
-| CRUD | Domain persistence via Mongoose |
-| RBAC | Admin APIs enforce org + project permissions; JWT + argon2 |
-| Audit | Sensitive admin/source/knowledge actions append AuditEvent; listable with audit.view |
-| Conversations | Edit replaces downstream messages on one thread; archive/restore/soft-delete; search by title/messages |
-| Search / knowledge | Browse + search APIs; Ask-about-this attaches results into chat |
-| Source preview | Authorized slice API with configured byte/token cap |
-| Notifications | In-app events for knowledge/sync/attention; read APIs |
-| Usage | Actual counters at org/project/user; no fabricated metrics |
-| Retention | Scheduled policy soft-deletes per defaults |
-| Rate limit | 429 with structured error on abuse budgets |
-| Idempotency | Replay of upload/retry/sync/chat key returns same resource |
+| Check              | Pass when                                                                                                                 |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| Scale              | Ingest designed for ~2M LOC Node+Mongo apps; files over 1 MiB excluded from the graph and force `partially_available`     |
+| Upload             | `node_modules` + images skipped before GridFS when paths visible                                                          |
+| Retrieval          | CodeGraph for code; Mongo FTS + bounded reads for docs; **no** embeddings, vector search, or reranker                     |
+| Ollama             | Bounded inference queue for the configured chat artifact only                                                             |
+| Ingest             | Upload → job events → document sections + current graph + knowledge ready/partial/failed                                  |
+| Stage failure      | Failed job retained; retry resumes from checkpoint or rebuilds the graph from last accepted source                        |
+| Re-upload / git    | New sourceVersion; hash diff; unchanged paths skip document re-index; sync every 30 min                                   |
+| Sync failure       | Q&A stays disabled; worker rebuilds from last successfully accepted source tree; queued messages resume or fail retryable |
+| Clarify            | Backend sends full question set; UI one-at-a-time; one answers payload                                                    |
+| Tools              | Agent only uses listed project-scoped tools                                                                               |
+| Verify             | Citations/paths/scope checked; revise while run budgets remain; else abstain or grounded partial                          |
+| QA                 | Question → tools → verified Markdown + evidence (or abstain)                                                              |
+| CRUD               | Domain persistence via Mongoose                                                                                           |
+| RBAC               | Admin APIs enforce org + project permissions; JWT + argon2                                                                |
+| Audit              | Sensitive admin/source/knowledge actions append AuditEvent; listable with audit.view                                      |
+| Conversations      | Edit replaces downstream messages on one thread; archive/restore/soft-delete; search by title/messages                    |
+| Search / knowledge | Browse + search APIs; Ask-about-this attaches results into chat                                                           |
+| Source preview     | Authorized slice API with configured byte/token cap                                                                       |
+| Notifications      | In-app events for knowledge/sync/attention; read APIs                                                                     |
+| Usage              | Actual counters at org/project/user; no fabricated metrics                                                                |
+| Retention          | Scheduled policy soft-deletes per defaults                                                                                |
+| Rate limit         | 429 with structured error on abuse budgets                                                                                |
+| Idempotency        | Replay of upload/retry/sync/chat key returns same resource                                                                |

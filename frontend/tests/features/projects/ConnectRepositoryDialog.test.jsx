@@ -2,24 +2,16 @@ import { QueryClient } from '@tanstack/react-query';
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/shared/api/index';
-import {
-  clearAuthSession,
-  renderWithProviders,
-  seedAuthSession,
-} from '@tests/renderWithProviders';
+import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
 
 vi.mock('@/features/projects/api/repositoriesApi.js', () => ({
   probeProjectRepository: vi.fn(),
   attachProjectRepository: vi.fn(),
   getProjectRepositoryConnection: vi.fn(),
-  repositoryConnectionQueryKey: (projectId) =>
-    Object.freeze(['projects', String(projectId), 'repositories', 'connection']),
+  repositoryConnectionQueryKey: (projectId) => Object.freeze(['projects', String(projectId), 'repositories', 'connection']),
 }));
 
-import {
-  attachProjectRepository,
-  probeProjectRepository,
-} from '@/features/projects/api/repositoriesApi.js';
+import { attachProjectRepository, probeProjectRepository } from '@/features/projects/api/repositoriesApi.js';
 import { ConnectRepositoryDialog } from '@/features/projects/ConnectRepositoryDialog';
 
 afterEach(() => {
@@ -83,12 +75,7 @@ describe('ConnectRepositoryDialog', () => {
     const onConnected = vi.fn();
     const onOpenChange = vi.fn();
     const { queryClient } = renderDialog(
-      <ConnectRepositoryDialog
-        open
-        onOpenChange={onOpenChange}
-        projectId="prj_atlas"
-        onConnected={onConnected}
-      />,
+      <ConnectRepositoryDialog open onOpenChange={onOpenChange} projectId="prj_atlas" onConnected={onConnected} />,
     );
     expect(screen.getByRole('heading', { name: 'Connect repository' })).toBeTruthy();
     expect(screen.queryByLabelText(/provider/i)).toBeNull();
@@ -130,9 +117,7 @@ describe('ConnectRepositoryDialog', () => {
       probeStatus: 'not_found',
       reason: { code: 'repository_not_found' },
     });
-    renderDialog(
-      <ConnectRepositoryDialog open onOpenChange={() => undefined} projectId="prj_atlas" />,
-    );
+    renderDialog(<ConnectRepositoryDialog open onOpenChange={() => undefined} projectId="prj_atlas" />);
     fireEvent.change(screen.getByLabelText('Repository URL'), {
       target: { value: 'https://github.com/acme/missing' },
     });
@@ -146,9 +131,7 @@ describe('ConnectRepositoryDialog', () => {
       probeStatus: 'unreachable',
       reason: { code: 'network_unreachable' },
     });
-    renderDialog(
-      <ConnectRepositoryDialog open onOpenChange={() => undefined} projectId="prj_atlas" />,
-    );
+    renderDialog(<ConnectRepositoryDialog open onOpenChange={() => undefined} projectId="prj_atlas" />);
     fireEvent.change(screen.getByLabelText('Repository URL'), {
       target: { value: 'https://github.com/acme/down' },
     });
@@ -170,9 +153,7 @@ describe('ConnectRepositoryDialog', () => {
           /* pending verifying */
         }),
       );
-    renderDialog(
-      <ConnectRepositoryDialog open onOpenChange={() => undefined} projectId="prj_atlas" />,
-    );
+    renderDialog(<ConnectRepositoryDialog open onOpenChange={() => undefined} projectId="prj_atlas" />);
     fireEvent.change(screen.getByLabelText('Repository URL'), {
       target: { value: 'https://github.com/acme/private-payments' },
     });
@@ -203,9 +184,7 @@ describe('ConnectRepositoryDialog', () => {
         probeStatus: 'access_denied',
         reason: { code: 'insufficient_scope' },
       });
-    renderDialog(
-      <ConnectRepositoryDialog open onOpenChange={() => undefined} projectId="prj_atlas" />,
-    );
+    renderDialog(<ConnectRepositoryDialog open onOpenChange={() => undefined} projectId="prj_atlas" />);
     fireEvent.change(screen.getByLabelText('Repository URL'), {
       target: { value: 'https://github.com/acme/private-api' },
     });
@@ -227,18 +206,14 @@ describe('ConnectRepositoryDialog', () => {
       repository: { fullName: 'team/private-service' },
       reason: { code: 'token_missing' },
     });
-    renderDialog(
-      <ConnectRepositoryDialog open onOpenChange={() => undefined} projectId="prj_atlas" />,
-    );
+    renderDialog(<ConnectRepositoryDialog open onOpenChange={() => undefined} projectId="prj_atlas" />);
     fireEvent.change(screen.getByLabelText('Repository URL'), {
       target: { value: 'https://gitlab.acme.io/team/private-service' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Connect repository' }));
     await screen.findByText(/Get a GitLab \(self-hosted\) access token/i);
     const link = screen.getByRole('link', { name: /Open token page/i });
-    expect(link.getAttribute('href')).toBe(
-      'https://gitlab.acme.io/-/user_settings/personal_access_tokens',
-    );
+    expect(link.getAttribute('href')).toBe('https://gitlab.acme.io/-/user_settings/personal_access_tokens');
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
     expect(screen.getByLabelText('Repository URL')).toBeTruthy();
     expect(screen.queryByLabelText('Access Token')).toBeNull();
@@ -259,9 +234,7 @@ describe('ConnectRepositoryDialog', () => {
         correlationId: 'corr-attach',
       }),
     );
-    renderDialog(
-      <ConnectRepositoryDialog open onOpenChange={() => undefined} projectId="prj_atlas" />,
-    );
+    renderDialog(<ConnectRepositoryDialog open onOpenChange={() => undefined} projectId="prj_atlas" />);
     fireEvent.change(screen.getByLabelText('Repository URL'), {
       target: { value: 'https://github.com/acme/atlas-commerce' },
     });
@@ -277,12 +250,8 @@ describe('ConnectRepositoryDialog', () => {
   });
 
   it('surfaces HTTP 403, 400, and 429 messages without invented copy', async () => {
-    probeProjectRepository.mockRejectedValue(
-      new ApiError({ status: 403, code: 'FORBIDDEN', message: 'Missing repos.connect' }),
-    );
-    renderDialog(
-      <ConnectRepositoryDialog open onOpenChange={() => undefined} projectId="prj_atlas" />,
-    );
+    probeProjectRepository.mockRejectedValue(new ApiError({ status: 403, code: 'FORBIDDEN', message: 'Missing repos.connect' }));
+    renderDialog(<ConnectRepositoryDialog open onOpenChange={() => undefined} projectId="prj_atlas" />);
     fireEvent.change(screen.getByLabelText('Repository URL'), {
       target: { value: 'https://github.com/acme/atlas' },
     });
@@ -291,12 +260,8 @@ describe('ConnectRepositoryDialog', () => {
 
     cleanup();
     seedAuthSession();
-    probeProjectRepository.mockRejectedValue(
-      new ApiError({ status: 400, code: 'VALIDATION_ERROR', message: 'repositoryUrl is invalid.' }),
-    );
-    renderDialog(
-      <ConnectRepositoryDialog open onOpenChange={() => undefined} projectId="prj_atlas" />,
-    );
+    probeProjectRepository.mockRejectedValue(new ApiError({ status: 400, code: 'VALIDATION_ERROR', message: 'repositoryUrl is invalid.' }));
+    renderDialog(<ConnectRepositoryDialog open onOpenChange={() => undefined} projectId="prj_atlas" />);
     fireEvent.change(screen.getByLabelText('Repository URL'), {
       target: { value: 'not-a-url' },
     });
@@ -306,12 +271,8 @@ describe('ConnectRepositoryDialog', () => {
 
     cleanup();
     seedAuthSession();
-    probeProjectRepository.mockRejectedValue(
-      new ApiError({ status: 429, code: 'RATE_LIMITED', message: 'Slow down' }),
-    );
-    renderDialog(
-      <ConnectRepositoryDialog open onOpenChange={() => undefined} projectId="prj_atlas" />,
-    );
+    probeProjectRepository.mockRejectedValue(new ApiError({ status: 429, code: 'RATE_LIMITED', message: 'Slow down' }));
+    renderDialog(<ConnectRepositoryDialog open onOpenChange={() => undefined} projectId="prj_atlas" />);
     fireEvent.change(screen.getByLabelText('Repository URL'), {
       target: { value: 'https://github.com/acme/atlas' },
     });
@@ -323,9 +284,7 @@ describe('ConnectRepositoryDialog', () => {
   it('maps unknown probeStatus to the fallback and probes via Enter', async () => {
     probeProjectRepository.mockResolvedValue({ probeStatus: 'mystery' });
     const onOpenChange = vi.fn();
-    renderDialog(
-      <ConnectRepositoryDialog open onOpenChange={onOpenChange} projectId="prj_atlas" />,
-    );
+    renderDialog(<ConnectRepositoryDialog open onOpenChange={onOpenChange} projectId="prj_atlas" />);
     const urlInput = screen.getByLabelText('Repository URL');
     fireEvent.change(urlInput, {
       target: { value: 'https://gitlab.com/acme/public-service' },
@@ -355,13 +314,7 @@ describe('ConnectRepositoryDialog', () => {
     attachProjectRepository.mockResolvedValue({
       connection: { id: 'c1', selectedBranch: 'main' },
     });
-    const { queryClient } = renderDialog(
-      <ConnectRepositoryDialog
-        open
-        onOpenChange={() => undefined}
-        projectId="prj_atlas"
-      />,
-    );
+    const { queryClient } = renderDialog(<ConnectRepositoryDialog open onOpenChange={() => undefined} projectId="prj_atlas" />);
     fireEvent.change(screen.getByLabelText('Repository URL'), {
       target: { value: 'https://github.com/acme/private' },
     });
@@ -408,9 +361,7 @@ describe('ConnectRepositoryDialog', () => {
       )
       .mockResolvedValueOnce({ connection: { id: 'c1', selectedBranch: 'main' } });
     const onOpenChange = vi.fn();
-    renderDialog(
-      <ConnectRepositoryDialog open onOpenChange={onOpenChange} projectId="prj_atlas" />,
-    );
+    renderDialog(<ConnectRepositoryDialog open onOpenChange={onOpenChange} projectId="prj_atlas" />);
     fireEvent.change(screen.getByLabelText('Repository URL'), {
       target: { value: 'https://gitlab.com/acme/public-service' },
     });
@@ -424,9 +375,7 @@ describe('ConnectRepositoryDialog', () => {
     const afterInFlight = screen.getAllByRole('button', { name: 'Connect repository' });
     fireEvent.click(afterInFlight[afterInFlight.length - 1]);
     await waitFor(() => expect(attachProjectRepository).toHaveBeenCalledTimes(2));
-    expect(attachProjectRepository.mock.calls[0][0].idempotencyKey).toBe(
-      attachProjectRepository.mock.calls[1][0].idempotencyKey,
-    );
+    expect(attachProjectRepository.mock.calls[0][0].idempotencyKey).toBe(attachProjectRepository.mock.calls[1][0].idempotencyKey);
   });
 
   it('shows gitlab.com token help and handles a non-Error probe failure', async () => {
@@ -439,9 +388,7 @@ describe('ConnectRepositoryDialog', () => {
         reason: { code: 'token_missing' },
       })
       .mockRejectedValueOnce('probe-down');
-    renderDialog(
-      <ConnectRepositoryDialog open onOpenChange={() => undefined} projectId="prj_atlas" />,
-    );
+    renderDialog(<ConnectRepositoryDialog open onOpenChange={() => undefined} projectId="prj_atlas" />);
     fireEvent.change(screen.getByLabelText('Repository URL'), {
       target: { value: 'https://gitlab.com/acme/private' },
     });
@@ -449,9 +396,7 @@ describe('ConnectRepositoryDialog', () => {
     expect(await screen.findByText('Get a GitLab access token')).toBeTruthy();
     expect(screen.queryByText('Get a GitLab (self-hosted) access token')).toBeNull();
     const link = screen.getByRole('link', { name: /Open token page/i });
-    expect(link.getAttribute('href')).toBe(
-      'https://gitlab.com/-/user_settings/personal_access_tokens',
-    );
+    expect(link.getAttribute('href')).toBe('https://gitlab.com/-/user_settings/personal_access_tokens');
     fireEvent.change(screen.getByLabelText('Access Token'), {
       target: { value: 'glpat-x' },
     });
@@ -462,9 +407,7 @@ describe('ConnectRepositoryDialog', () => {
   it('cancels from the confirm step', async () => {
     probeProjectRepository.mockResolvedValue(connectedProbe());
     const onOpenChange = vi.fn();
-    renderDialog(
-      <ConnectRepositoryDialog open onOpenChange={onOpenChange} projectId="prj_atlas" />,
-    );
+    renderDialog(<ConnectRepositoryDialog open onOpenChange={onOpenChange} projectId="prj_atlas" />);
     fireEvent.change(screen.getByLabelText('Repository URL'), {
       target: { value: 'https://github.com/acme/atlas-commerce' },
     });
@@ -476,9 +419,7 @@ describe('ConnectRepositoryDialog', () => {
 
   it('cancels from the URL step and constrains width on 375px', () => {
     const onOpenChange = vi.fn();
-    renderDialog(
-      <ConnectRepositoryDialog open onOpenChange={onOpenChange} projectId="prj_atlas" />,
-    );
+    renderDialog(<ConnectRepositoryDialog open onOpenChange={onOpenChange} projectId="prj_atlas" />);
     const dialog = document.querySelector('[role="dialog"]');
     expect(dialog?.className).toContain('w-[calc(100vw-1.5rem)]');
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));

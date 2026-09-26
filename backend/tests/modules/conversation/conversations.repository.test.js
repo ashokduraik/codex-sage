@@ -78,12 +78,8 @@ describe('conversations.repository', () => {
     });
     expect(created.title).toBe(CONVERSATION_DEFAULT_TITLE);
     expect(created.titleSource).toBe('default');
-    expect(
-      await findOwnConversation(orgId, String(projectId), String(created._id), other),
-    ).toBeNull();
-    expect(
-      await findOwnConversation(orgId, String(projectId), String(created._id), owner),
-    ).not.toBeNull();
+    expect(await findOwnConversation(orgId, String(projectId), String(created._id), other)).toBeNull();
+    expect(await findOwnConversation(orgId, String(projectId), String(created._id), owner)).not.toBeNull();
     expect(await findConversationInProject(orgId, String(projectId), String(created._id))).not.toBeNull();
     expect(await findOwnConversation(orgId, 'bad', String(created._id), owner)).toBeNull();
     expect(await findConversationInProject(orgId, String(projectId), 'bad')).toBeNull();
@@ -117,9 +113,7 @@ describe('conversations.repository', () => {
     expect(page2.items).toHaveLength(1);
     expect(String(page2.items[0]._id)).not.toBe(String(page1.items[0]._id));
 
-    await expect(
-      listOwnConversations(orgId, String(projectId), owner, { cursor: 'not-a-cursor' }),
-    ).rejects.toMatchObject({ code: 'INVALID_CURSOR' });
+    await expect(listOwnConversations(orgId, String(projectId), owner, { cursor: 'not-a-cursor' })).rejects.toMatchObject({ code: 'INVALID_CURSOR' });
 
     const archivedPage = await listOwnConversations(orgId, String(projectId), owner, {
       archived: true,
@@ -135,11 +129,7 @@ describe('conversations.repository', () => {
     const orgId = new mongoose.Types.ObjectId();
     const projectId = new mongoose.Types.ObjectId();
     const conversationId = new mongoose.Types.ObjectId();
-    const stamps = [
-      new Date('2026-09-12T10:00:00.000Z'),
-      new Date('2026-09-12T10:01:00.000Z'),
-      new Date('2026-09-12T10:02:00.000Z'),
-    ];
+    const stamps = [new Date('2026-09-12T10:00:00.000Z'), new Date('2026-09-12T10:01:00.000Z'), new Date('2026-09-12T10:02:00.000Z')];
     for (let index = 0; index < stamps.length; index += 1) {
       const row = new Message({
         orgId,
@@ -154,33 +144,16 @@ describe('conversations.repository', () => {
       await Message.updateOne({ _id: row._id }, { $set: { createdAt: stamps[index] } });
     }
 
-    const page1 = await listMessagesForConversation(
-      orgId,
-      String(projectId),
-      String(conversationId),
-      { limit: 2 },
-    );
+    const page1 = await listMessagesForConversation(orgId, String(projectId), String(conversationId), { limit: 2 });
     expect(page1.items.map((row) => row.content)).toEqual(['m0', 'm1']);
     expect(page1.nextCursor).toBeTruthy();
-    const page2 = await listMessagesForConversation(
-      orgId,
-      String(projectId),
-      String(conversationId),
-      { limit: 2, cursor: page1.nextCursor },
-    );
+    const page2 = await listMessagesForConversation(orgId, String(projectId), String(conversationId), { limit: 2, cursor: page1.nextCursor });
     expect(page2.items.map((row) => row.content)).toEqual(['m2']);
 
-    const recent = await listRecentMessages(
-      orgId,
-      String(projectId),
-      String(conversationId),
-      2,
-    );
+    const recent = await listRecentMessages(orgId, String(projectId), String(conversationId), 2);
     expect(recent.map((row) => row.content)).toEqual(['m1', 'm2']);
     expect(await listRecentMessages(orgId, 'bad', String(conversationId), 2)).toEqual([]);
-    expect(
-      await listMessagesForConversation(orgId, 'bad', String(conversationId), {}),
-    ).toEqual({ items: [], nextCursor: null });
+    expect(await listMessagesForConversation(orgId, 'bad', String(conversationId), {})).toEqual({ items: [], nextCursor: null });
 
     await expect(
       listMessagesForConversation(orgId, String(projectId), String(conversationId), {

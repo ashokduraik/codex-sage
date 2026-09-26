@@ -13,15 +13,15 @@ let signalHandlersAttached = false;
  * @param run - Async cleanup function.
  */
 export function registerShutdownHook(name, run) {
-    hooks.push({ name, run });
+  hooks.push({ name, run });
 }
 /**
  * Clears registered hooks and in-progress flag. For unit tests only.
  */
 export function resetShutdownForTests() {
-    hooks.length = 0;
-    shuttingDown = false;
-    signalHandlersAttached = false;
+  hooks.length = 0;
+  shuttingDown = false;
+  signalHandlersAttached = false;
 }
 /**
  * Runs a single hook with a timeout budget.
@@ -29,22 +29,21 @@ export function resetShutdownForTests() {
  * @param timeoutMs - Budget in milliseconds.
  */
 async function runHookWithTimeout(hook, timeoutMs) {
-    let timer;
-    try {
-        await Promise.race([
-            hook.run(),
-            new Promise((_, reject) => {
-                timer = setTimeout(() => {
-                    reject(new Error(`shutdown hook timed out: ${hook.name}`));
-                }, timeoutMs);
-            }),
-        ]);
+  let timer;
+  try {
+    await Promise.race([
+      hook.run(),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => {
+          reject(new Error(`shutdown hook timed out: ${hook.name}`));
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) {
+      clearTimeout(timer);
     }
-    finally {
-        if (timer !== undefined) {
-            clearTimeout(timer);
-        }
-    }
+  }
 }
 /**
  * Runs hooks in reverse registration order, then exits.
@@ -53,44 +52,43 @@ async function runHookWithTimeout(hook, timeoutMs) {
  * @param deps - Logger and injectable exit/process.
  */
 export async function runShutdown(signal, deps) {
-    const exitFn = deps.exit ?? ((code) => process.exit(code));
-    const timeoutMs = deps.timeoutMs ?? SHUTDOWN_TIMEOUT_MS;
-    if (shuttingDown) {
-        deps.log.warn({ signal }, 'second shutdown signal — forcing exit');
-        exitFn(1);
-        return;
+  const exitFn = deps.exit ?? ((code) => process.exit(code));
+  const timeoutMs = deps.timeoutMs ?? SHUTDOWN_TIMEOUT_MS;
+  if (shuttingDown) {
+    deps.log.warn({ signal }, 'second shutdown signal — forcing exit');
+    exitFn(1);
+    return;
+  }
+  shuttingDown = true;
+  deps.log.info({ signal }, 'shutdown started');
+  let failed = false;
+  for (const hook of [...hooks].reverse()) {
+    try {
+      await runHookWithTimeout(hook, timeoutMs);
+      deps.log.info({ hook: hook.name }, 'shutdown hook completed');
+    } catch (err) {
+      failed = true;
+      const errMessage = err instanceof Error ? err.message : String(err);
+      deps.log.error({ hook: hook.name, errMessage }, 'shutdown hook failed');
     }
-    shuttingDown = true;
-    deps.log.info({ signal }, 'shutdown started');
-    let failed = false;
-    for (const hook of [...hooks].reverse()) {
-        try {
-            await runHookWithTimeout(hook, timeoutMs);
-            deps.log.info({ hook: hook.name }, 'shutdown hook completed');
-        }
-        catch (err) {
-            failed = true;
-            const errMessage = err instanceof Error ? err.message : String(err);
-            deps.log.error({ hook: hook.name, errMessage }, 'shutdown hook failed');
-        }
-    }
-    exitFn(failed ? 1 : 0);
+  }
+  exitFn(failed ? 1 : 0);
 }
 /**
  * Attaches SIGTERM/SIGINT handlers that invoke {@link runShutdown}.
  * @param deps - Logger and injectable exit/process.
  */
 export function attachShutdownSignals(deps) {
-    if (signalHandlersAttached) {
-        return;
-    }
-    signalHandlersAttached = true;
-    const proc = deps.proc ?? process;
-    const onSignal = (signal) => {
-        void runShutdown(signal, deps);
-    };
-    proc.on('SIGTERM', onSignal);
-    proc.on('SIGINT', onSignal);
+  if (signalHandlersAttached) {
+    return;
+  }
+  signalHandlersAttached = true;
+  const proc = deps.proc ?? process;
+  const onSignal = (signal) => {
+    void runShutdown(signal, deps);
+  };
+  proc.on('SIGTERM', onSignal);
+  proc.on('SIGINT', onSignal);
 }
 
 let processHandlersRegistered = false;
@@ -104,29 +102,27 @@ let processHandlersRegistered = false;
  * @param deps - Logger and optional process/exit overrides for tests.
  */
 export function registerProcessHandlers(deps) {
-    if (processHandlersRegistered) {
-        return;
-    }
-    processHandlersRegistered = true;
-    const proc = deps.proc ?? process;
-    const exitFn = deps.exit ?? ((code) => process.exit(code));
-    proc.on('unhandledRejection', (reason) => {
-        const err = reason instanceof Error
-            ? { message: reason.message, name: reason.name, stack: reason.stack }
-            : { reason: String(reason) };
-        deps.logError('unhandledRejection — process kept alive', { err });
+  if (processHandlersRegistered) {
+    return;
+  }
+  processHandlersRegistered = true;
+  const proc = deps.proc ?? process;
+  const exitFn = deps.exit ?? ((code) => process.exit(code));
+  proc.on('unhandledRejection', (reason) => {
+    const err = reason instanceof Error ? { message: reason.message, name: reason.name, stack: reason.stack } : { reason: String(reason) };
+    deps.logError('unhandledRejection — process kept alive', { err });
+  });
+  proc.on('uncaughtException', (error) => {
+    deps.logError('uncaughtException — exiting', {
+      err: { message: error.message, name: error.name, stack: error.stack },
     });
-    proc.on('uncaughtException', (error) => {
-        deps.logError('uncaughtException — exiting', {
-            err: { message: error.message, name: error.name, stack: error.stack },
-        });
-        exitFn(1);
-    });
+    exitFn(1);
+  });
 }
 
 /**
  * Resets the one-shot registration guard. For unit tests only.
  */
 export function resetProcessHandlersForTests() {
-    processHandlersRegistered = false;
+  processHandlersRegistered = false;
 }

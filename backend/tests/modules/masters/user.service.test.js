@@ -22,9 +22,7 @@ vi.mock('../../../src/modules/access/index.js', () => ({
 }));
 
 vi.mock('../../../src/modules/masters/users.helper.js', () => ({
-  assertRolesExistInOrg: vi.fn(async (_orgId, roleIds) =>
-    roleIds.map((id) => ({ _id: id, name: 'Role', isBuiltIn: false })),
-  ),
+  assertRolesExistInOrg: vi.fn(async (_orgId, roleIds) => roleIds.map((id) => ({ _id: id, name: 'Role', isBuiltIn: false }))),
   wouldRemoveLastAdmin: vi.fn(async () => false),
   isRoleReferencedByActiveUser: vi.fn(async () => false),
   countActiveUsersManageHolders: vi.fn(async () => 0),
@@ -32,12 +30,8 @@ vi.mock('../../../src/modules/masters/users.helper.js', () => ({
 }));
 
 vi.mock('../../../src/modules/masters/roles.js', () => ({
-  findRolesByIds: vi.fn(async (_orgId, ids) =>
-    ids.map((id) => ({ _id: id, name: 'Role', isBuiltIn: false })),
-  ),
-  isDuplicateKeyError: vi.fn(
-    (err) => typeof err === 'object' && err !== null && err.code === 11000,
-  ),
+  findRolesByIds: vi.fn(async (_orgId, ids) => ids.map((id) => ({ _id: id, name: 'Role', isBuiltIn: false }))),
+  isDuplicateKeyError: vi.fn((err) => typeof err === 'object' && err !== null && err.code === 11000),
 }));
 
 vi.mock('../../../src/modules/masters/projectMembers.js', () => ({
@@ -60,13 +54,7 @@ vi.mock('mongoose', async (importOriginal) => {
 
 import { recordAuditEvent, revokeAllLoginSessionsForUser } from '../../../src/modules/access/index.js';
 import { wouldRemoveLastAdmin } from '../../../src/modules/masters/users.helper.js';
-import {
-  createUser,
-  deactivateUser,
-  mapUserToDto,
-  removeUser,
-  updateUserDetails,
-} from '../../../src/modules/masters/users.js';
+import { createUser, deactivateUser, mapUserToDto, removeUser, updateUserDetails } from '../../../src/modules/masters/users.js';
 import { containsForbiddenSecretKey } from '../../containsForbiddenSecretKey.js';
 
 /**
@@ -173,16 +161,8 @@ describe('user.service', () => {
       correlationId: 'c1',
     });
 
-    expect(revokeAllLoginSessionsForUser).toHaveBeenCalledWith(
-      '665f1c9d4b2a8e0012a4f010',
-      'target',
-      'email_changed',
-      { session: expect.anything() },
-    );
-    expect(recordAuditEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ action: 'user.email_changed' }),
-      expect.anything(),
-    );
+    expect(revokeAllLoginSessionsForUser).toHaveBeenCalledWith('665f1c9d4b2a8e0012a4f010', 'target', 'email_changed', { session: expect.anything() });
+    expect(recordAuditEvent).toHaveBeenCalledWith(expect.objectContaining({ action: 'user.email_changed' }), expect.anything());
     expect(dto.email).toBe('new@example.com');
   });
 });

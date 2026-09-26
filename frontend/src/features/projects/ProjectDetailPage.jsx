@@ -14,18 +14,8 @@ import {
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Link,
-  Outlet,
-  useLocation,
-  useNavigate,
-  useParams,
-} from 'react-router-dom';
-import {
-  ProjectLifecycleBadge,
-  isProjectArchived,
-  isProjectAskable,
-} from '@/shared/components/StatusBadge.jsx';
+import { Link, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { ProjectLifecycleBadge, isProjectArchived, isProjectAskable } from '@/shared/components/StatusBadge.jsx';
 import { useAppData } from '@/shared/mock-data';
 import { cn } from '@/shared/lib/utils';
 import {
@@ -42,18 +32,9 @@ import { Button } from '@/shared/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/shared/ui/popover';
 import { ProjectDeleteDialog } from './ProjectDeleteDialog.jsx';
 import { useProject } from './hooks/useProject.js';
-import {
-  useArchiveProject,
-  useRestoreProject,
-} from './hooks/useProjectMutations.js';
+import { useArchiveProject, useRestoreProject } from './hooks/useProjectMutations.js';
 import { useRecordProjectAccess } from './hooks/useRecordProjectAccess.js';
-import {
-  correlationFromUnknown,
-  isForbiddenApiError,
-  isNotFoundApiError,
-  messageFromUnknown,
-  retryAfterFromUnknown,
-} from '@/shared/api';
+import { correlationFromUnknown, isForbiddenApiError, isNotFoundApiError, messageFromUnknown, retryAfterFromUnknown } from '@/shared/api';
 
 const PROJECT_TABS = [
   { to: '', labelKey: 'projects.overview', icon: LayoutDashboard },
@@ -134,10 +115,7 @@ export function buildMockProjectBridge(apiProject, mockFallback) {
     fileCount: apiProject.counts?.files ?? 0,
     excludedCount: apiProject.counts?.excludedFiles ?? 0,
     partial: (apiProject.counts?.excludedFiles ?? 0) > 0,
-    source:
-      sourceType === 'repository'
-        ? { type: 'repo', fullName: '', url: '', branch: '' }
-        : { type: 'upload', origin: 'Upload' },
+    source: sourceType === 'repository' ? { type: 'repo', fullName: '', url: '', branch: '' } : { type: 'upload', origin: 'Upload' },
     createdAt: apiProject.createdAt,
     createdBy: apiProject.createdBy ?? '',
   };
@@ -168,10 +146,7 @@ export default function ProjectDetailPage() {
 
   const apiProject = detailQuery.data;
   const mockFallback = id ? getProject(id) : undefined;
-  const mockProject = useMemo(
-    () => (apiProject ? buildMockProjectBridge(apiProject, mockFallback) : null),
-    [apiProject, mockFallback],
-  );
+  const mockProject = useMemo(() => (apiProject ? buildMockProjectBridge(apiProject, mockFallback) : null), [apiProject, mockFallback]);
   const archived = isProjectArchived(apiProject);
   const askable = isProjectAskable(apiProject);
 
@@ -202,11 +177,7 @@ export default function ProjectDetailPage() {
       <div className="flex h-full items-center justify-center">
         <div className="text-center">
           <p className="text-muted-foreground">{t('projects.notFound')}</p>
-          <Button
-            variant="outline"
-            className="mt-3"
-            onClick={() => navigate('/projects')}
-          >
+          <Button variant="outline" className="mt-3" onClick={() => navigate('/projects')}>
             {t('projects.backToProjects')}
           </Button>
         </div>
@@ -222,15 +193,9 @@ export default function ProjectDetailPage() {
         <div role="alert" className="max-w-md text-center">
           <p className="text-muted-foreground">{message}</p>
           {correlationId ? (
-            <p className="mt-1 text-xs text-muted-foreground">
-              {t('projects.correlationReference', { reference: correlationId })}
-            </p>
+            <p className="mt-1 text-xs text-muted-foreground">{t('projects.correlationReference', { reference: correlationId })}</p>
           ) : null}
-          <Button
-            variant="outline"
-            className="mt-3"
-            onClick={() => void detailQuery.refetch()}
-          >
+          <Button variant="outline" className="mt-3" onClick={() => void detailQuery.refetch()}>
             {t('projects.retry')}
           </Button>
         </div>
@@ -248,11 +213,7 @@ export default function ProjectDetailPage() {
     archiveMutation.mutate(id, {
       onSuccess: () => setArchiveOpen(false),
       onError: (error) => {
-        setActionError(
-          isForbiddenApiError(error)
-            ? t('projects.forbidden')
-            : messageFromUnknown(error, t('projects.detailFailed')),
-        );
+        setActionError(isForbiddenApiError(error) ? t('projects.forbidden') : messageFromUnknown(error, t('projects.detailFailed')));
       },
     });
   };
@@ -264,11 +225,7 @@ export default function ProjectDetailPage() {
     setActionError('');
     restoreMutation.mutate(id, {
       onError: (error) => {
-        setActionError(
-          isForbiddenApiError(error)
-            ? t('projects.forbidden')
-            : messageFromUnknown(error, t('projects.detailFailed')),
-        );
+        setActionError(isForbiddenApiError(error) ? t('projects.forbidden') : messageFromUnknown(error, t('projects.detailFailed')));
       },
     });
   };
@@ -286,16 +243,10 @@ export default function ProjectDetailPage() {
               <span className="truncate text-foreground/70">{apiProject.name}</span>
             </div>
             <div className="mt-0.5 flex flex-wrap items-center gap-2">
-              <h1 className="font-display text-xl font-medium text-foreground">
-                {apiProject.name}
-              </h1>
+              <h1 className="font-display text-xl font-medium text-foreground">{apiProject.name}</h1>
               <ProjectLifecycleBadge code={apiProject.lifecycleStatus} />
             </div>
-            {apiProject.description ? (
-              <p className="mt-0.5 line-clamp-1 text-sm text-muted-foreground">
-                {apiProject.description}
-              </p>
-            ) : null}
+            {apiProject.description ? <p className="mt-0.5 line-clamp-1 text-sm text-muted-foreground">{apiProject.description}</p> : null}
           </div>
           <div className="flex items-center gap-2">
             <Popover>
@@ -318,13 +269,7 @@ export default function ProjectDetailPage() {
                     {t('projects.restore')}
                   </Button>
                 ) : (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="w-full justify-start"
-                    onClick={() => setArchiveOpen(true)}
-                  >
+                  <Button type="button" variant="ghost" size="sm" className="w-full justify-start" onClick={() => setArchiveOpen(true)}>
                     <Archive className="mr-2 h-4 w-4" aria-hidden="true" />
                     {t('projects.archive')}
                   </Button>
@@ -347,10 +292,7 @@ export default function ProjectDetailPage() {
         <nav className="mt-3 flex gap-1 overflow-x-auto scrollbar-thin">
           {PROJECT_TABS.map((tab) => {
             const to = base + tab.to;
-            const active =
-              tab.to === ''
-                ? location.pathname === base
-                : location.pathname.startsWith(to);
+            const active = tab.to === '' ? location.pathname === base : location.pathname.startsWith(to);
             const isChat = tab.to === '/chat';
             const disabled = isChat && !askable;
             if (disabled) {
@@ -372,9 +314,7 @@ export default function ProjectDetailPage() {
                 to={to}
                 className={cn(
                   'inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
-                  active
-                    ? 'bg-brand-muted text-brand'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                  active ? 'bg-brand-muted text-brand' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                 )}
               >
                 <tab.icon className="h-4 w-4" />
@@ -388,13 +328,7 @@ export default function ProjectDetailPage() {
       {archived ? (
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800 sm:px-6">
           <span>{t('projects.archivedBanner')}</span>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleRestore}
-            disabled={restoreMutation.isPending}
-            aria-busy={restoreMutation.isPending}
-          >
+          <Button size="sm" variant="outline" onClick={handleRestore} disabled={restoreMutation.isPending} aria-busy={restoreMutation.isPending}>
             {restoreMutation.isPending ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
             ) : (
@@ -408,13 +342,10 @@ export default function ProjectDetailPage() {
       {actionError ? (
         <div role="alert" className="border-b border-destructive/30 bg-destructive/5 px-4 py-2 text-sm sm:px-6">
           {actionError}
-          {typeof retryAfterFromUnknown(archiveMutation.error || restoreMutation.error) ===
-          'number' ? (
+          {typeof retryAfterFromUnknown(archiveMutation.error || restoreMutation.error) === 'number' ? (
             <span className="ml-2 text-muted-foreground">
               {t('projects.retryAfter', {
-                seconds: retryAfterFromUnknown(
-                  archiveMutation.error || restoreMutation.error,
-                ),
+                seconds: retryAfterFromUnknown(archiveMutation.error || restoreMutation.error),
               })}
             </span>
           ) : null}
@@ -428,26 +359,18 @@ export default function ProjectDetailPage() {
       <AlertDialog open={archiveOpen} onOpenChange={setArchiveOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              {t('projects.archiveConfirm', { name: apiProject.name })}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {t('projects.archiveConfirmBody')}
-            </AlertDialogDescription>
+            <AlertDialogTitle>{t('projects.archiveConfirm', { name: apiProject.name })}</AlertDialogTitle>
+            <AlertDialogDescription>{t('projects.archiveConfirmBody')}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={archiveMutation.isPending}>
-              {t('common.cancel')}
-            </AlertDialogCancel>
+            <AlertDialogCancel disabled={archiveMutation.isPending}>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleArchive}
               disabled={archiveMutation.isPending}
               aria-busy={archiveMutation.isPending}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {archiveMutation.isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
-              ) : null}
+              {archiveMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : null}
               {t('projects.archive')}
             </AlertDialogAction>
           </AlertDialogFooter>

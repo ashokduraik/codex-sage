@@ -105,9 +105,7 @@ export function isProjectAskable(project) {
   if (project.lifecycleStatus === 'archived') {
     return false;
   }
-  return (
-    project.knowledgeHealth === 'ready' || project.knowledgeHealth === 'partially_available'
-  );
+  return project.knowledgeHealth === 'ready' || project.knowledgeHealth === 'partially_available';
 }
 
 /**
@@ -197,10 +195,7 @@ export function KnowledgeStatusBadge({ status }) {
         KNOWLEDGE_STYLES[status] || 'bg-muted text-muted-foreground',
       )}
     >
-      <span
-        className={cn('h-1.5 w-1.5 rounded-full', KNOWLEDGE_DOT[status] || 'bg-muted-foreground')}
-        aria-hidden="true"
-      />
+      <span className={cn('h-1.5 w-1.5 rounded-full', KNOWLEDGE_DOT[status] || 'bg-muted-foreground')} aria-hidden="true" />
       {t(`status.${status}`, { defaultValue: status })}
     </span>
   );
@@ -215,12 +210,7 @@ export function ProjectLifecycleBadge({ code }) {
   const { t } = useTranslation();
   const meta = mapLifecycleStatus(code);
   return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium',
-        TONE_STYLES[meta.tone],
-      )}
-    >
+    <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium', TONE_STYLES[meta.tone])}>
       {t(meta.i18nKey)}
     </span>
   );
@@ -235,16 +225,8 @@ export function KnowledgeHealthBadge({ code }) {
   const { t } = useTranslation();
   const meta = mapKnowledgeHealth(code);
   return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium',
-        TONE_STYLES[meta.tone],
-      )}
-    >
-      <span
-        className={cn('h-1.5 w-1.5 rounded-full', TONE_DOTS[meta.tone])}
-        aria-hidden="true"
-      />
+    <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium', TONE_STYLES[meta.tone])}>
+      <span className={cn('h-1.5 w-1.5 rounded-full', TONE_DOTS[meta.tone])} aria-hidden="true" />
       {t(meta.i18nKey)}
     </span>
   );

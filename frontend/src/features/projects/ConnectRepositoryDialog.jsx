@@ -1,43 +1,17 @@
 import { useState } from 'react';
-import {
-  GitBranch,
-  Loader2,
-  AlertCircle,
-  Check,
-  ExternalLink,
-  ArrowLeft,
-} from 'lucide-react';
+import { GitBranch, Loader2, AlertCircle, Check, ExternalLink, ArrowLeft } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ApiError } from '@/shared/api';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/shared/ui/select';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@/shared/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/shared/ui/dialog';
 import { useRepositoryProbe } from './hooks/useRepositoryProbe.js';
 import { useRepositoryAttach } from './hooks/useRepositoryAttach.js';
 
 /** Known probe statuses from Phase 30. */
-export const KNOWN_PROBE_STATUSES = Object.freeze([
-  'connected',
-  'authentication_required',
-  'access_denied',
-  'not_found',
-  'unreachable',
-]);
+export const KNOWN_PROBE_STATUSES = Object.freeze(['connected', 'authentication_required', 'access_denied', 'not_found', 'unreachable']);
 
 const PROBE_STATUS_MESSAGE_KEYS = Object.freeze({
   connected: 'sources.verified',
@@ -75,18 +49,9 @@ const REASON_MESSAGE_KEYS = Object.freeze({
 export function mapProbeResult(probe) {
   const rawStatus = probe && typeof probe.probeStatus === 'string' ? probe.probeStatus : '';
   const status = KNOWN_PROBE_STATUSES.includes(rawStatus) ? rawStatus : 'unknown';
-  const step =
-    status === 'connected'
-      ? 'confirm'
-      : status === 'authentication_required'
-        ? 'token'
-        : 'error';
-  const reasonCode =
-    probe?.reason && typeof probe.reason.code === 'string' ? probe.reason.code : null;
-  const fullName =
-    probe?.repository && typeof probe.repository.fullName === 'string'
-      ? probe.repository.fullName
-      : null;
+  const step = status === 'connected' ? 'confirm' : status === 'authentication_required' ? 'token' : 'error';
+  const reasonCode = probe?.reason && typeof probe.reason.code === 'string' ? probe.reason.code : null;
+  const fullName = probe?.repository && typeof probe.repository.fullName === 'string' ? probe.repository.fullName : null;
   let messageKey = REASON_MESSAGE_KEYS[reasonCode] ?? PROBE_STATUS_MESSAGE_KEYS[status];
   if (!messageKey) {
     messageKey = 'sources.probeUnknown';
@@ -110,10 +75,7 @@ export function tokenPageUrl(identity) {
   if (identity.provider === 'github') {
     return 'https://github.com/settings/tokens/new';
   }
-  const base =
-    identity.hostKind === 'gitlab_self_hosted' && typeof identity.baseUrl === 'string'
-      ? identity.baseUrl.replace(/\/+$/, '')
-      : '';
+  const base = identity.hostKind === 'gitlab_self_hosted' && typeof identity.baseUrl === 'string' ? identity.baseUrl.replace(/\/+$/, '') : '';
   if (base) {
     return `${base}/-/user_settings/personal_access_tokens`;
   }
@@ -144,25 +106,13 @@ function TokenHelp({ provider, hostKind, baseUrl }) {
             : t('sources.githubTokenHelpTitle')}
       </div>
       <ol className="mt-1.5 list-decimal space-y-1 pl-5 text-muted-foreground">
-        <li>
-          {isSelfHosted
-            ? t('sources.gitlabSelfHostedTokenHelp1')
-            : isGitLab
-              ? t('sources.gitlabTokenHelp1')
-              : t('sources.githubTokenHelp1')}
-        </li>
+        <li>{isSelfHosted ? t('sources.gitlabSelfHostedTokenHelp1') : isGitLab ? t('sources.gitlabTokenHelp1') : t('sources.githubTokenHelp1')}</li>
         <li>{isGitLab ? t('sources.gitlabTokenHelp2') : t('sources.githubTokenHelp2')}</li>
         <li>{isGitLab ? t('sources.gitlabTokenHelp3') : t('sources.githubTokenHelp3')}</li>
         {!isGitLab ? <li>{t('sources.githubTokenHelp4')}</li> : null}
       </ol>
-      <a
-        href={href}
-        target="_blank"
-        rel="noreferrer"
-        className="mt-2 inline-flex flex-wrap items-center gap-1 text-brand hover:underline"
-      >
-        {t('sources.openTokenPage')}{' '}
-        <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+      <a href={href} target="_blank" rel="noreferrer" className="mt-2 inline-flex flex-wrap items-center gap-1 text-brand hover:underline">
+        {t('sources.openTokenPage')} <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
       </a>
     </div>
   );
@@ -175,16 +125,11 @@ function TokenHelp({ provider, hostKind, baseUrl }) {
  */
 function StepAlert({ text, reference }) {
   return (
-    <div
-      role="alert"
-      className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-2.5 text-sm text-destructive"
-    >
+    <div role="alert" className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-2.5 text-sm text-destructive">
       <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
       <div>
         <p>{text}</p>
-        {reference ? (
-          <p className="mt-1 text-xs text-muted-foreground">{reference}</p>
-        ) : null}
+        {reference ? <p className="mt-1 text-xs text-muted-foreground">{reference}</p> : null}
       </div>
     </div>
   );
@@ -220,12 +165,7 @@ function resolveAlert(t, mapped, submitError) {
  * }} props Dialog props.
  * @returns {import('react').ReactElement}
  */
-export function ConnectRepositoryDialog({
-  open,
-  onOpenChange,
-  projectId,
-  onConnected,
-}) {
+export function ConnectRepositoryDialog({ open, onOpenChange, projectId, onConnected }) {
   const { t } = useTranslation();
   const probeMutation = useRepositoryProbe();
   const attachMutation = useRepositoryAttach();
@@ -376,9 +316,7 @@ export function ConnectRepositoryDialog({
         {step === 'token' && (
           <div className="space-y-4">
             <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
-              {fullName
-                ? t('sources.authRequiredNamed', { fullName })
-                : t('sources.authRequired')}
+              {fullName ? t('sources.authRequiredNamed', { fullName }) : t('sources.authRequired')}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="token">{t('sources.accessToken')}</Label>
@@ -393,11 +331,7 @@ export function ConnectRepositoryDialog({
               />
               <p className="text-xs text-muted-foreground">{t('sources.tokenWriteOnly')}</p>
             </div>
-            <TokenHelp
-              provider={probe?.provider}
-              hostKind={probe?.hostKind}
-              baseUrl={probe?.baseUrl}
-            />
+            <TokenHelp provider={probe?.provider} hostKind={probe?.hostKind} baseUrl={probe?.baseUrl} />
             {alert ? <StepAlert text={alert.text} reference={alert.reference} /> : null}
           </div>
         )}
@@ -406,8 +340,7 @@ export function ConnectRepositoryDialog({
           <div className="space-y-4">
             <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
               <Check className="h-4 w-4 shrink-0" aria-hidden="true" />
-              <span className="font-medium break-all">{fullName}</span>{' '}
-              {t('sources.verifiedShort')}
+              <span className="font-medium break-all">{fullName}</span> {t('sources.verifiedShort')}
             </div>
             <div className="space-y-1.5">
               <Label>{t('sources.selectBranch')}</Label>
@@ -419,16 +352,12 @@ export function ConnectRepositoryDialog({
                   {branches.map((branchName) => (
                     <SelectItem key={branchName} value={branchName}>
                       {branchName}
-                      {branchName === probe.defaultBranch
-                        ? ` (${t('sources.defaultBranch')})`
-                        : ''}
+                      {branchName === probe.defaultBranch ? ` (${t('sources.defaultBranch')})` : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {probe.branchesTruncated ? (
-                <p className="text-xs text-muted-foreground">{t('sources.branchesTruncated')}</p>
-              ) : null}
+              {probe.branchesTruncated ? <p className="text-xs text-muted-foreground">{t('sources.branchesTruncated')}</p> : null}
             </div>
             <p className="text-xs text-muted-foreground">{t('sources.connectionSaved')}</p>
             {alert ? <StepAlert text={alert.text} reference={alert.reference} /> : null}
@@ -447,11 +376,7 @@ export function ConnectRepositoryDialog({
               >
                 {t('common.cancel')}
               </Button>
-              <Button
-                onClick={() => void handleProbe()}
-                disabled={!repoUrl.trim() || probing}
-                aria-busy={probing}
-              >
+              <Button onClick={() => void handleProbe()} disabled={!repoUrl.trim() || probing} aria-busy={probing}>
                 {probing ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
@@ -477,11 +402,7 @@ export function ConnectRepositoryDialog({
                 <ArrowLeft className="mr-2 h-4 w-4" aria-hidden="true" />
                 {t('common.back')}
               </Button>
-              <Button
-                onClick={() => void handleContinueWithToken()}
-                disabled={probing}
-                aria-busy={probing}
-              >
+              <Button onClick={() => void handleContinueWithToken()} disabled={probing} aria-busy={probing}>
                 {probing ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
@@ -504,11 +425,7 @@ export function ConnectRepositoryDialog({
               >
                 {t('common.cancel')}
               </Button>
-              <Button
-                onClick={() => void handleConnect()}
-                disabled={attaching || !branch}
-                aria-busy={attaching}
-              >
+              <Button onClick={() => void handleConnect()} disabled={attaching || !branch} aria-busy={attaching}>
                 {attaching ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />

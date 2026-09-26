@@ -3,10 +3,7 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { ApiError } from '@/shared/api';
-import {
-  getProjectRepositoryConnection,
-  repositoryConnectionQueryKey,
-} from '@/features/projects/api/repositoriesApi.js';
+import { getProjectRepositoryConnection, repositoryConnectionQueryKey } from '@/features/projects/api/repositoriesApi.js';
 
 /**
  * Loads the connection, treating 404 as "none".

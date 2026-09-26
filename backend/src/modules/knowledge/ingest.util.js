@@ -50,9 +50,7 @@ function applySummaryToCarry(ctx, summary) {
     removed: summary.paths?.removed ?? [],
     changed: summary.paths?.changed ?? [],
     unchanged: summary.paths?.unchanged ?? [],
-    baseSourceVersionId: summary.previousSourceVersionId
-      ? String(summary.previousSourceVersionId)
-      : null,
+    baseSourceVersionId: summary.previousSourceVersionId ? String(summary.previousSourceVersionId) : null,
   });
   ctx.carry.skipPaths = carry.skipPaths;
   ctx.carry.changedPaths = carry.changedPaths;
@@ -102,25 +100,17 @@ export async function applySourceDiffAfterValidate(ctx, job) {
   }
 
   const project = await findProjectById(ctx.scope.orgId, ctx.scope.projectId);
-  const knowledgeVersionId = project?.currentKnowledgeVersionId
-    ? String(project.currentKnowledgeVersionId)
+  const knowledgeVersionId = project?.currentKnowledgeVersionId ? String(project.currentKnowledgeVersionId) : null;
+  const published = knowledgeVersionId
+    ? await findKnowledgeVersionById({
+        orgId: ctx.scope.orgId,
+        projectId: ctx.scope.projectId,
+        knowledgeVersionId,
+      })
     : null;
-  const published =
-    knowledgeVersionId
-      ? await findKnowledgeVersionById({
-          orgId: ctx.scope.orgId,
-          projectId: ctx.scope.projectId,
-          knowledgeVersionId,
-        })
-      : null;
-  const publishedSourceVersionId = published?.sourceVersionId
-    ? String(published.sourceVersionId)
-    : null;
+  const publishedSourceVersionId = published?.sourceVersionId ? String(published.sourceVersionId) : null;
 
-  if (
-    publishedSourceVersionId &&
-    publishedSourceVersionId === String(ctx.scope.sourceVersionId)
-  ) {
+  if (publishedSourceVersionId && publishedSourceVersionId === String(ctx.scope.sourceVersionId)) {
     return;
   }
 
@@ -164,10 +154,7 @@ export const WORKSPACE_MATERIALIZE_BATCH_SIZE = 50;
  * @returns {string} Absolute workspace root.
  */
 function resolveWorkspaceRoot(ctx) {
-  if (
-    typeof ctx.carry?.workspaceRoot === 'string' &&
-    path.isAbsolute(ctx.carry.workspaceRoot)
-  ) {
+  if (typeof ctx.carry?.workspaceRoot === 'string' && path.isAbsolute(ctx.carry.workspaceRoot)) {
     return path.resolve(ctx.carry.workspaceRoot);
   }
   return loadConfig().workspace.root;
@@ -179,10 +166,7 @@ function resolveWorkspaceRoot(ctx) {
  * @returns {Error & { failureClass: string, code: string } | null}
  */
 function temporaryIoFailureOrNull(err) {
-  const code =
-    err && typeof err === 'object' && 'code' in err
-      ? String(/** @type {{ code?: unknown }} */ (err).code)
-      : '';
+  const code = err && typeof err === 'object' && 'code' in err ? String(/** @type {{ code?: unknown }} */ (err).code) : '';
   if (code === 'ENOSPC' || code === 'EACCES' || code === 'EROFS' || code === 'EPERM') {
     return createJobFailureError({
       failureClass: 'temporary',
@@ -224,16 +208,9 @@ export async function runMaterializeDocsStage(ctx) {
 
   let workspacePath;
   try {
-    workspacePath = resolveProjectWorkspacePath(
-      workspaceRoot,
-      ctx.scope.orgId,
-      ctx.scope.projectId,
-    );
+    workspacePath = resolveProjectWorkspacePath(workspaceRoot, ctx.scope.orgId, ctx.scope.projectId);
   } catch (err) {
-    const code =
-      err && typeof err === 'object' && 'code' in err
-        ? String(/** @type {{ code?: unknown }} */ (err).code)
-        : 'WORKSPACE_PATH_UNSAFE';
+    const code = err && typeof err === 'object' && 'code' in err ? String(/** @type {{ code?: unknown }} */ (err).code) : 'WORKSPACE_PATH_UNSAFE';
     throw createJobFailureError({
       failureClass: 'permanent',
       code,
@@ -242,8 +219,7 @@ export async function runMaterializeDocsStage(ctx) {
   }
   ctx.carry.workspacePath = workspacePath;
 
-  const resumePath =
-    typeof ctx.checkpoint?.cursor?.path === 'string' ? ctx.checkpoint.cursor.path : null;
+  const resumePath = typeof ctx.checkpoint?.cursor?.path === 'string' ? ctx.checkpoint.cursor.path : null;
 
   const skipPaths = ctx.carry?.skipPaths instanceof Set ? ctx.carry.skipPaths : null;
   const incremental = Boolean(skipPaths && skipPaths.size > 0);
@@ -315,9 +291,7 @@ export async function runMaterializeDocsStage(ctx) {
     afterPath: resumePath,
   });
 
-  const files = allFiles.filter(
-    (file) => !file.fileState || file.fileState === SOURCE_FILE_STATE_STORED,
-  );
+  const files = allFiles.filter((file) => !file.fileState || file.fileState === SOURCE_FILE_STATE_STORED);
 
   /** @type {object[]} */
   const warnings = [];
@@ -524,16 +498,9 @@ export async function runCodegraphUpdateStage(ctx, deps = {}) {
 
   let workspacePath;
   try {
-    workspacePath = resolveProjectWorkspacePath(
-      workspaceRoot,
-      ctx.scope.orgId,
-      ctx.scope.projectId,
-    );
+    workspacePath = resolveProjectWorkspacePath(workspaceRoot, ctx.scope.orgId, ctx.scope.projectId);
   } catch (err) {
-    const code =
-      err && typeof err === 'object' && 'code' in err
-        ? String(/** @type {{ code?: unknown }} */ (err).code)
-        : 'WORKSPACE_PATH_UNSAFE';
+    const code = err && typeof err === 'object' && 'code' in err ? String(/** @type {{ code?: unknown }} */ (err).code) : 'WORKSPACE_PATH_UNSAFE';
     throw createJobFailureError({
       failureClass: 'permanent',
       code,
@@ -548,12 +515,8 @@ export async function runCodegraphUpdateStage(ctx, deps = {}) {
     sourceVersionId: ctx.scope.sourceVersionId,
   });
 
-  const storedFiles = allFiles.filter(
-    (file) => !file.fileState || file.fileState === SOURCE_FILE_STATE_STORED,
-  );
-  const excludedPaths = storedFiles
-    .filter((file) => file.excludedFromGraph === true)
-    .map((file) => file.path);
+  const storedFiles = allFiles.filter((file) => !file.fileState || file.fileState === SOURCE_FILE_STATE_STORED);
+  const excludedPaths = storedFiles.filter((file) => file.excludedFromGraph === true).map((file) => file.path);
   const filesForGraph = storedFiles.filter((file) => file.excludedFromGraph !== true);
   const includePaths = filesForGraph.map((file) => file.path);
 
@@ -579,12 +542,11 @@ export async function runCodegraphUpdateStage(ctx, deps = {}) {
     }
 
     const indexExists = await codegraphIndexExists(workspacePath);
-    const changedPaths =
-      Array.isArray(ctx.carry?.changedPaths)
-        ? ctx.carry.changedPaths
-        : ctx.carry?.changedPaths instanceof Set
-          ? [...ctx.carry.changedPaths]
-          : undefined;
+    const changedPaths = Array.isArray(ctx.carry?.changedPaths)
+      ? ctx.carry.changedPaths
+      : ctx.carry?.changedPaths instanceof Set
+        ? [...ctx.carry.changedPaths]
+        : undefined;
     const removedPaths = Array.isArray(ctx.carry?.removedPaths)
       ? ctx.carry.removedPaths
       : ctx.carry?.removedPaths instanceof Set
@@ -609,9 +571,7 @@ export async function runCodegraphUpdateStage(ctx, deps = {}) {
     } catch (err) {
       if (err && typeof err === 'object' && 'failureClass' in err && 'code' in err) {
         throw createJobFailureError({
-          failureClass: /** @type {'temporary' | 'permanent' | 'user_action_required'} */ (
-            err.failureClass
-          ),
+          failureClass: /** @type {'temporary' | 'permanent' | 'user_action_required'} */ (err.failureClass),
           code: String(err.code),
           message: err instanceof Error ? err.message : 'Code index update failed.',
         });

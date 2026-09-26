@@ -67,9 +67,7 @@ const roleSchema = createBaseSchema({
 roleSchema.pre('validate', function validateBuiltInRoleShape() {
   if (this.isBuiltIn) {
     if (!isBuiltInRoleKey(this.builtInKey)) {
-      throw new Error(
-        'builtInKey must be one of the four built-in keys when isBuiltIn is true',
-      );
+      throw new Error('builtInKey must be one of the four built-in keys when isBuiltIn is true');
     }
     return;
   }
@@ -78,10 +76,7 @@ roleSchema.pre('validate', function validateBuiltInRoleShape() {
   }
 });
 
-roleSchema.index(
-  { orgId: 1, name: 1 },
-  { unique: true, partialFilterExpression: { status: ROW_STATUS_ACTIVE } },
-);
+roleSchema.index({ orgId: 1, name: 1 }, { unique: true, partialFilterExpression: { status: ROW_STATUS_ACTIVE } });
 roleSchema.index(
   { orgId: 1, builtInKey: 1 },
   {
@@ -91,5 +86,4 @@ roleSchema.index(
 );
 roleSchema.index({ orgId: 1, status: 1, createdAt: -1, _id: -1 });
 
-export const Role =
-  mongoose.models.Role ?? mongoose.model('Role', roleSchema, 'roles');
+export const Role = mongoose.models.Role ?? mongoose.model('Role', roleSchema, 'roles');

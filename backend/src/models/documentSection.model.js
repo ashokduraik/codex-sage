@@ -35,10 +35,7 @@ documentSectionSchema.index(
   },
 );
 
-documentSectionSchema.index(
-  { orgId: 1, projectId: 1, sourceVersionId: 1, status: 1 },
-  { partialFilterExpression: { status: ROW_STATUS_ACTIVE } },
-);
+documentSectionSchema.index({ orgId: 1, projectId: 1, sourceVersionId: 1, status: 1 }, { partialFilterExpression: { status: ROW_STATUS_ACTIVE } });
 
 // Full-text search on heading + body; org/project filters are applied in the query.
 documentSectionSchema.index(
@@ -49,6 +46,4 @@ documentSectionSchema.index(
   },
 );
 
-export const DocumentSection =
-  mongoose.models.DocumentSection ??
-  mongoose.model('DocumentSection', documentSectionSchema, 'documentSections');
+export const DocumentSection = mongoose.models.DocumentSection ?? mongoose.model('DocumentSection', documentSectionSchema, 'documentSections');

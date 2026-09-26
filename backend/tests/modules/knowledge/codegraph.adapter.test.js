@@ -25,9 +25,7 @@ describe('codegraph.adapter', () => {
   afterEach(async () => {
     resetWriterLocksForTests();
     resetCodegraphTelemetryConfiguredFlag();
-    await Promise.all(
-      tempDirs.splice(0).map((dir) => fs.rm(dir, { recursive: true, force: true })),
-    );
+    await Promise.all(tempDirs.splice(0).map((dir) => fs.rm(dir, { recursive: true, force: true })));
   });
 
   beforeEach(() => {
@@ -96,11 +94,7 @@ describe('codegraph.adapter', () => {
         return this.watching;
       }),
       indexAll: vi.fn(async () => {
-        await fs.writeFile(
-          path.join(root, '.codegraph', 'codegraph.db'),
-          'mock-db',
-          'utf8',
-        );
+        await fs.writeFile(path.join(root, '.codegraph', 'codegraph.db'), 'mock-db', 'utf8');
         return {
           success: true,
           filesIndexed: 2,
@@ -145,9 +139,7 @@ describe('codegraph.adapter', () => {
     });
     const workspace = await makeTempWorkspace();
     const result = await adapter.indexAll(workspace, { excludedPaths: ['big.js'] });
-    const config = JSON.parse(
-      await fs.readFile(path.join(workspace, 'codegraph.json'), 'utf8'),
-    );
+    const config = JSON.parse(await fs.readFile(path.join(workspace, 'codegraph.json'), 'utf8'));
     expect(config.exclude).toEqual(['big.js']);
     expect(result.graph.isWatching()).toBe(false);
     expect(result.mode).toBe('indexAll');
@@ -166,15 +158,11 @@ describe('codegraph.adapter', () => {
       changedPaths: ['hello.js'],
     });
     expect(result.mode).toBe('sync');
-    expect(mockLib.instances[0].sync).toHaveBeenCalledWith(
-      expect.objectContaining({ paths: ['hello.js'] }),
-    );
+    expect(mockLib.instances[0].sync).toHaveBeenCalledWith(expect.objectContaining({ paths: ['hello.js'] }));
   });
 
   it('maps SQLITE busy errors to temporary CODEGRAPH_SQLITE_BUSY', () => {
-    expect(
-      mapCodegraphLibraryError(Object.assign(new Error('database is locked'), { code: 'SQLITE_BUSY' })),
-    ).toMatchObject({
+    expect(mapCodegraphLibraryError(Object.assign(new Error('database is locked'), { code: 'SQLITE_BUSY' }))).toMatchObject({
       failureClass: 'temporary',
       code: 'CODEGRAPH_SQLITE_BUSY',
     });
@@ -253,9 +241,7 @@ describe('codegraph.adapter', () => {
   });
 
   it('maps ENOENT library errors to CODEGRAPH_IO_ERROR', () => {
-    expect(
-      mapCodegraphLibraryError(Object.assign(new Error('missing'), { code: 'ENOENT' })),
-    ).toMatchObject({
+    expect(mapCodegraphLibraryError(Object.assign(new Error('missing'), { code: 'ENOENT' }))).toMatchObject({
       failureClass: 'temporary',
       code: 'CODEGRAPH_IO_ERROR',
     });
@@ -339,9 +325,7 @@ describe('codegraph.adapter', () => {
     mockLib.CodeGraph.isInitialized.mockReturnValue(true);
     mockLib.CodeGraph.open.mockImplementation(async (root, options) => {
       const graph = createMockGraph(root);
-      graph.getNodesByNamePrefix = vi.fn(() => [
-        { id: 'n1', name: 'foo', filePath: 'a.js', kind: 'function', startLine: 1, endLine: 2 },
-      ]);
+      graph.getNodesByNamePrefix = vi.fn(() => [{ id: 'n1', name: 'foo', filePath: 'a.js', kind: 'function', startLine: 1, endLine: 2 }]);
       graph.getRoutingManifest = vi.fn(() => ({
         entries: [{ url: '/pay', handler: 'pay', handlerFile: 'r.js', handlerLine: 3 }],
       }));
@@ -364,22 +348,14 @@ describe('codegraph.adapter', () => {
     expect(leased.ok).toBe(true);
     expect(leased.lease.expired).toBe(false);
     expect(adapter.querySymbols(leased.lease.graph, 'fo', 10)).toHaveLength(1);
-    expect(adapter.queryApis(leased.lease.graph, 10)).toEqual([
-      { url: '/pay', handler: 'pay', handlerFile: 'r.js', handlerLine: 3 },
-    ]);
+    expect(adapter.queryApis(leased.lease.graph, 10)).toEqual([{ url: '/pay', handler: 'pay', handlerFile: 'r.js', handlerLine: 3 }]);
     expect(adapter.queryWorkflows(leased.lease.graph, 10)).toEqual([]);
     expect(adapter.queryStats(leased.lease.graph)).toEqual({ nodeCount: 4, fileCount: 1 });
-    expect(
-      adapter.querySymbols(
-        { searchNodes: (q, options) => [{ node: { name: q }, limit: options.limit }] },
-        'pay',
-        3,
-      ),
-    ).toEqual([{ node: { name: 'pay' }, limit: 3 }]);
-    expect(adapter.querySymbols({}, 'x', 1)).toEqual([]);
-    expect(adapter.queryApis({ getNodesByKind: () => [{ name: 'r', filePath: 'a.js' }] }, 1)).toEqual([
-      { name: 'r', filePath: 'a.js' },
+    expect(adapter.querySymbols({ searchNodes: (q, options) => [{ node: { name: q }, limit: options.limit }] }, 'pay', 3)).toEqual([
+      { node: { name: 'pay' }, limit: 3 },
     ]);
+    expect(adapter.querySymbols({}, 'x', 1)).toEqual([]);
+    expect(adapter.queryApis({ getNodesByKind: () => [{ name: 'r', filePath: 'a.js' }] }, 1)).toEqual([{ name: 'r', filePath: 'a.js' }]);
     expect(adapter.queryStats({})).toBeNull();
     leased.lease.release();
     leased.lease.release();

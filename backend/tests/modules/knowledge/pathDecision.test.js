@@ -13,9 +13,10 @@ describe('evaluateUploadEntry', () => {
   });
 
   it('skips ignored directories including nested prefixes', () => {
-    expect(
-      evaluateUploadEntry({ path: 'node_modules/pkg/index.js', uncompressedSize: 10 }),
-    ).toEqual({ decision: 'skip', reasonCode: 'ignored_directory' });
+    expect(evaluateUploadEntry({ path: 'node_modules/pkg/index.js', uncompressedSize: 10 })).toEqual({
+      decision: 'skip',
+      reasonCode: 'ignored_directory',
+    });
     expect(evaluateUploadEntry({ path: '.git/HEAD', uncompressedSize: 10 })).toEqual({
       decision: 'skip',
       reasonCode: 'ignored_directory',

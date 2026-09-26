@@ -5,12 +5,7 @@ import { loadConfig } from '../../platform/config.js';
 import { ApiError } from '../../platform/errors.js';
 import { hasActiveProjectWriterLock } from '../../worker/projectJobLock.js';
 import { recordAuditEvent } from '../access/index.js';
-import {
-  insertPendingJob,
-  findActiveJobForProjectByTypes,
-  createPendingJob,
-  deferRunningJob,
-} from '../masters/index.js';
+import { insertPendingJob, findActiveJobForProjectByTypes, createPendingJob, deferRunningJob } from '../masters/index.js';
 import {
   assertHostAllowed,
   outboundGet,
@@ -21,25 +16,9 @@ import {
   mapAnonymousLookupStatus,
   mapOutboundThrown,
 } from './repositories.helper.js';
-import {
-  listDueConnections,
-  updateConnection,
-  findActiveConnection,
-  decryptConnectionToken,
-} from './repositories.js';
-import {
-  insertSourceFiles,
-  insertSourceVersion,
-  markGridFsFilesOrphaned,
-  setSourceVersionJobId,
-  SOURCE_ORIGIN_REPOSITORY,
-} from './sources.js';
-import {
-  inspectZip,
-  storeAcceptedZipEntries,
-  summarizeInspection,
-  UPLOAD_MAX_ARCHIVE_BYTES,
-} from './uploads.js';
+import { listDueConnections, updateConnection, findActiveConnection, decryptConnectionToken } from './repositories.js';
+import { insertSourceFiles, insertSourceVersion, markGridFsFilesOrphaned, setSourceVersionJobId, SOURCE_ORIGIN_REPOSITORY } from './sources.js';
+import { inspectZip, storeAcceptedZipEntries, summarizeInspection, UPLOAD_MAX_ARCHIVE_BYTES } from './uploads.js';
 import mongoose from 'mongoose';
 
 // --- from repositories/sync/repoSync.constants.js ---
@@ -96,8 +75,7 @@ const MAX_REDIRECTS = 5;
 export async function outboundDownload(input) {
   const timeoutMs = input.timeoutMs ?? REPO_SYNC_FETCH_TIMEOUT_MS;
   const maxBytes = input.maxBytes ?? UPLOAD_MAX_ARCHIVE_BYTES;
-  const allowPrivateHosts =
-    input.allowPrivateHosts ?? loadConfig().repositories.allowPrivateHosts;
+  const allowPrivateHosts = input.allowPrivateHosts ?? loadConfig().repositories.allowPrivateHosts;
   const fetchImpl = input.fetchImpl ?? globalThis.fetch;
   const startHost = new URL(input.url).host;
   let currentUrl = input.url;
@@ -131,13 +109,7 @@ export async function outboundDownload(input) {
       clearTimeout(timer);
     }
 
-    if (
-      response.status === 301 ||
-      response.status === 302 ||
-      response.status === 303 ||
-      response.status === 307 ||
-      response.status === 308
-    ) {
+    if (response.status === 301 || response.status === 302 || response.status === 303 || response.status === 307 || response.status === 308) {
       const location = response.headers.get('location');
       if (!location || redirects >= MAX_REDIRECTS) {
         throw Object.assign(new Error('Repository archive exceeded redirect limit.'), {
@@ -281,22 +253,14 @@ async function resolveGithubHead(input) {
   const { owner, repo } = splitGithubFullName(input.fullName);
   const get = input.outboundGet ?? outboundGet;
   const response = await get({
-    url:
-      `https://api.github.com/repos/${encodeURIComponent(owner)}/` +
-      `${encodeURIComponent(repo)}/commits/${encodeURIComponent(input.branch)}`,
+    url: `https://api.github.com/repos/${encodeURIComponent(owner)}/` + `${encodeURIComponent(repo)}/commits/${encodeURIComponent(input.branch)}`,
     headers: githubHeaders(input.token),
     timeoutMs: REPO_SYNC_FETCH_TIMEOUT_MS,
   });
   if (response.status !== 200 || !response.json || typeof response.json.sha !== 'string') {
-    throwMapped(
-      input.token
-        ? mapAuthenticatedLookupStatus(response.status)
-        : mapAnonymousLookupStatus(response.status),
-      input.token,
-    );
+    throwMapped(input.token ? mapAuthenticatedLookupStatus(response.status) : mapAnonymousLookupStatus(response.status), input.token);
   }
-  const message =
-    typeof response.json.commit?.message === 'string' ? response.json.commit.message : null;
+  const message = typeof response.json.commit?.message === 'string' ? response.json.commit.message : null;
   return { commitSha: response.json.sha, commitMessage: message };
 }
 
@@ -308,19 +272,12 @@ async function resolveGitlabHead(input) {
   const get = input.outboundGet ?? outboundGet;
   const encoded = encodeURIComponent(input.fullName);
   const response = await get({
-    url:
-      `${gitlabApiBase(input.baseUrl)}/projects/${encoded}/repository/commits/` +
-      `${encodeURIComponent(input.branch)}`,
+    url: `${gitlabApiBase(input.baseUrl)}/projects/${encoded}/repository/commits/` + `${encodeURIComponent(input.branch)}`,
     headers: gitlabHeaders(input.token),
     timeoutMs: REPO_SYNC_FETCH_TIMEOUT_MS,
   });
   if (response.status !== 200 || !response.json || typeof response.json.id !== 'string') {
-    throwMapped(
-      input.token
-        ? mapAuthenticatedLookupStatus(response.status)
-        : mapAnonymousLookupStatus(response.status),
-      input.token,
-    );
+    throwMapped(input.token ? mapAuthenticatedLookupStatus(response.status) : mapAnonymousLookupStatus(response.status), input.token);
   }
   const message = typeof response.json.message === 'string' ? response.json.message : null;
   return { commitSha: response.json.id, commitMessage: message };
@@ -334,19 +291,12 @@ async function downloadGithubArchive(input) {
   const { owner, repo } = splitGithubFullName(input.fullName);
   const download = input.outboundDownload ?? outboundDownload;
   const response = await download({
-    url:
-      `https://api.github.com/repos/${encodeURIComponent(owner)}/` +
-      `${encodeURIComponent(repo)}/zipball/${encodeURIComponent(input.commitSha)}`,
+    url: `https://api.github.com/repos/${encodeURIComponent(owner)}/` + `${encodeURIComponent(repo)}/zipball/${encodeURIComponent(input.commitSha)}`,
     headers: githubHeaders(input.token),
     timeoutMs: REPO_SYNC_FETCH_TIMEOUT_MS,
   });
   if (response.status !== 200 || !response.buffer.length) {
-    throwMapped(
-      input.token
-        ? mapAuthenticatedLookupStatus(response.status)
-        : mapAnonymousLookupStatus(response.status),
-      input.token,
-    );
+    throwMapped(input.token ? mapAuthenticatedLookupStatus(response.status) : mapAnonymousLookupStatus(response.status), input.token);
   }
   return { archiveBuffer: response.buffer };
 }
@@ -359,19 +309,12 @@ async function downloadGitlabArchive(input) {
   const download = input.outboundDownload ?? outboundDownload;
   const encoded = encodeURIComponent(input.fullName);
   const response = await download({
-    url:
-      `${gitlabApiBase(input.baseUrl)}/projects/${encoded}/repository/archive.zip` +
-      `?sha=${encodeURIComponent(input.commitSha)}`,
+    url: `${gitlabApiBase(input.baseUrl)}/projects/${encoded}/repository/archive.zip` + `?sha=${encodeURIComponent(input.commitSha)}`,
     headers: gitlabHeaders(input.token),
     timeoutMs: REPO_SYNC_FETCH_TIMEOUT_MS,
   });
   if (response.status !== 200 || !response.buffer.length) {
-    throwMapped(
-      input.token
-        ? mapAuthenticatedLookupStatus(response.status)
-        : mapAnonymousLookupStatus(response.status),
-      input.token,
-    );
+    throwMapped(input.token ? mapAuthenticatedLookupStatus(response.status) : mapAnonymousLookupStatus(response.status), input.token);
   }
   return { archiveBuffer: response.buffer };
 }
@@ -396,13 +339,7 @@ export function splitGithubFullName(fullName) {
  * @returns {boolean}
  */
 function isMappedSyncError(err) {
-  return Boolean(
-    err &&
-      typeof err === 'object' &&
-      'failureClass' in err &&
-      'probeStatus' in err &&
-      'code' in err,
-  );
+  return Boolean(err && typeof err === 'object' && 'failureClass' in err && 'probeStatus' in err && 'code' in err);
 }
 
 /**
@@ -412,14 +349,8 @@ function isMappedSyncError(err) {
  * @returns {never}
  */
 function throwMapped(mapped, token) {
-  const temporaryCodes = new Set([
-    'network_unreachable',
-    'provider_unavailable',
-    'provider_rate_limited',
-  ]);
-  const failureClass = temporaryCodes.has(mapped.reason.code)
-    ? 'temporary'
-    : 'user_action_required';
+  const temporaryCodes = new Set(['network_unreachable', 'provider_unavailable', 'provider_rate_limited']);
+  const failureClass = temporaryCodes.has(mapped.reason.code) ? 'temporary' : 'user_action_required';
   void token;
   throw Object.assign(new Error(mapped.reason.message), {
     failureClass,
@@ -546,12 +477,7 @@ export async function isProjectSyncBlocked(input) {
   if (locked) {
     return true;
   }
-  const other = await findActiveJob(
-    input.orgId,
-    input.projectId,
-    [...REPO_SYNC_OVERLAP_JOB_TYPES],
-    { excludeJobId: input.excludeJobId ?? null },
-  );
+  const other = await findActiveJob(input.orgId, input.projectId, [...REPO_SYNC_OVERLAP_JOB_TYPES], { excludeJobId: input.excludeJobId ?? null });
   return Boolean(other);
 }
 
@@ -572,11 +498,7 @@ export async function enqueueManualRepositorySync(input) {
     throw ApiError.fromCode('NOT_FOUND');
   }
 
-  const existing = await findActiveJobForProjectByTypes(
-    input.orgId,
-    input.projectId,
-    ['repo_sync'],
-  );
+  const existing = await findActiveJobForProjectByTypes(input.orgId, input.projectId, ['repo_sync']);
   if (existing) {
     return { job: mapSyncJob(existing) };
   }
@@ -585,9 +507,7 @@ export async function enqueueManualRepositorySync(input) {
     orgId: input.orgId,
     projectId: input.projectId,
   });
-  const scheduledAt = blocked
-    ? new Date(Date.now() + REPO_SYNC_OVERLAP_RETRY_MS)
-    : new Date();
+  const scheduledAt = blocked ? new Date(Date.now() + REPO_SYNC_OVERLAP_RETRY_MS) : new Date();
 
   const mongoSession = await mongoose.startSession();
   /** @type {import('mongoose').Document | undefined} */
@@ -833,10 +753,7 @@ export async function deferRepoSyncJob(input) {
  * @returns {{ id: string, jobType: string, jobStatus: string, scheduledAt: string }}
  */
 function mapSyncJob(job) {
-  const scheduledAt =
-    job.scheduledAt instanceof Date
-      ? job.scheduledAt.toISOString()
-      : String(job.scheduledAt ?? '');
+  const scheduledAt = job.scheduledAt instanceof Date ? job.scheduledAt.toISOString() : String(job.scheduledAt ?? '');
   return {
     id: String(job._id),
     jobType: job.jobType,
@@ -976,14 +893,9 @@ export async function runRepoSyncJob(workerContext) {
       },
     };
   } catch (err) {
-    const code =
-      err && typeof err === 'object' && 'code' in err
-        ? String(/** @type {{ code?: unknown }} */ (err).code)
-        : 'provider_unavailable';
+    const code = err && typeof err === 'object' && 'code' in err ? String(/** @type {{ code?: unknown }} */ (err).code) : 'provider_unavailable';
     const probeStatus =
-      err && typeof err === 'object' && 'probeStatus' in err
-        ? /** @type {{ probeStatus?: string | null }} */ (err).probeStatus
-        : null;
+      err && typeof err === 'object' && 'probeStatus' in err ? /** @type {{ probeStatus?: string | null }} */ (err).probeStatus : null;
     await markConnectionSyncFailed({
       orgId,
       connectionId,
@@ -992,8 +904,6 @@ export async function runRepoSyncJob(workerContext) {
       jobId,
     });
     throw err;
-  } finally {
-    token = null;
   }
 }
 

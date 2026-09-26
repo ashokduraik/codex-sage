@@ -1,15 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import {
-  Ban,
-  CheckCircle2,
-  KeyRound,
-  Loader2,
-  MoreHorizontal,
-  Plus,
-  Search,
-  Trash2,
-  UserCog,
-} from 'lucide-react';
+import { Ban, CheckCircle2, KeyRound, Loader2, MoreHorizontal, Plus, Search, Trash2, UserCog } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -17,37 +7,18 @@ import { useAuth } from '@/features/auth/AuthContext';
 import { correlationFromUnknown, messageFromUnknown } from '@/shared/api';
 import { useRoles } from '@/features/admin/api/useRoles.js';
 import { useUsers } from '@/features/admin/api/useUsers.js';
-import {
-  useCreateUser,
-  useRemoveUser,
-  useResetUserPassword,
-  useSetUserStatus,
-  useUpdateUserRoles,
-} from '@/features/admin/api/useUserMutations.js';
+import { useCreateUser, useRemoveUser, useResetUserPassword, useSetUserStatus, useUpdateUserRoles } from '@/features/admin/api/useUserMutations.js';
 import { InlineErrorAlert } from '@/features/admin/InlineErrorAlert.jsx';
 import { RoleMultiSelect } from '@/features/admin/RoleMultiSelect.jsx';
 import { formatRelative } from '@/shared/lib/format';
 import { cn } from '@/shared/lib/utils';
 import { Badge } from '@/shared/ui/badge';
 import { Button } from '@/shared/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/shared/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/ui/dialog';
 import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/shared/ui/popover';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/shared/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/ui/select';
 
 /** Debounce delay before search text reaches the query key. */
 const USER_SEARCH_DEBOUNCE_MS = 300;
@@ -124,12 +95,8 @@ export default function AdminUsers() {
   const nextCursor = usersQuery.data?.pageInfo?.nextCursor ?? null;
   const hasMore = Boolean(usersQuery.data?.pageInfo?.hasMore && nextCursor);
 
-  const listErrorMessage = usersQuery.isError
-    ? messageFromUnknown(usersQuery.error, t('errors.unexpected'))
-    : '';
-  const listCorrelationId = usersQuery.isError
-    ? correlationFromUnknown(usersQuery.error)
-    : '';
+  const listErrorMessage = usersQuery.isError ? messageFromUnknown(usersQuery.error, t('errors.unexpected')) : '';
+  const listCorrelationId = usersQuery.isError ? correlationFromUnknown(usersQuery.error) : '';
 
   /**
    * Updates a filter query param and clears the cursor.
@@ -189,33 +156,17 @@ export default function AdminUsers() {
   const removeBusy = removeMutation.isPending;
   const rolesEditBusy = updateRolesMutation.isPending;
 
-  const createError = createMutation.isError
-    ? messageFromUnknown(createMutation.error, t('errors.unexpected'))
-    : '';
-  const createCorrelation = createMutation.isError
-    ? correlationFromUnknown(createMutation.error)
-    : '';
+  const createError = createMutation.isError ? messageFromUnknown(createMutation.error, t('errors.unexpected')) : '';
+  const createCorrelation = createMutation.isError ? correlationFromUnknown(createMutation.error) : '';
 
-  const resetError = resetMutation.isError
-    ? messageFromUnknown(resetMutation.error, t('errors.unexpected'))
-    : '';
-  const resetCorrelation = resetMutation.isError
-    ? correlationFromUnknown(resetMutation.error)
-    : '';
+  const resetError = resetMutation.isError ? messageFromUnknown(resetMutation.error, t('errors.unexpected')) : '';
+  const resetCorrelation = resetMutation.isError ? correlationFromUnknown(resetMutation.error) : '';
 
-  const removeError = removeMutation.isError
-    ? messageFromUnknown(removeMutation.error, t('errors.unexpected'))
-    : '';
-  const removeCorrelation = removeMutation.isError
-    ? correlationFromUnknown(removeMutation.error)
-    : '';
+  const removeError = removeMutation.isError ? messageFromUnknown(removeMutation.error, t('errors.unexpected')) : '';
+  const removeCorrelation = removeMutation.isError ? correlationFromUnknown(removeMutation.error) : '';
 
-  const rolesEditError = updateRolesMutation.isError
-    ? messageFromUnknown(updateRolesMutation.error, t('errors.unexpected'))
-    : '';
-  const rolesEditCorrelation = updateRolesMutation.isError
-    ? correlationFromUnknown(updateRolesMutation.error)
-    : '';
+  const rolesEditError = updateRolesMutation.isError ? messageFromUnknown(updateRolesMutation.error, t('errors.unexpected')) : '';
+  const rolesEditCorrelation = updateRolesMutation.isError ? correlationFromUnknown(updateRolesMutation.error) : '';
 
   const rowActionError = useMemo(() => {
     if (statusMutation.isError) {
@@ -306,9 +257,7 @@ export default function AdminUsers() {
     const action = targetUser.userStatus === 'active' ? 'deactivate' : 'activate';
     try {
       await statusMutation.mutateAsync({ userId: targetUser.id, action });
-      toast.success(
-        action === 'deactivate' ? t('admin.userDeactivated') : t('admin.userActivated'),
-      );
+      toast.success(action === 'deactivate' ? t('admin.userDeactivated') : t('admin.userActivated'));
     } catch {
       // Row alert.
     }
@@ -385,11 +334,7 @@ export default function AdminUsers() {
             <h1 className="font-display text-xl font-medium">{t('admin.usersTitle')}</h1>
             <p className="text-sm text-muted-foreground">{t('admin.usersSubtitle')}</p>
           </div>
-          <Button
-            onClick={openCreateDialog}
-            className="bg-brand text-brand-foreground hover:bg-brand/90"
-            disabled={!canManageUsers}
-          >
+          <Button onClick={openCreateDialog} className="bg-brand text-brand-foreground hover:bg-brand/90" disabled={!canManageUsers}>
             <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
             {t('admin.inviteUser')}
           </Button>
@@ -397,10 +342,7 @@ export default function AdminUsers() {
 
         <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
           <div className="relative w-full max-w-sm">
-            <Search
-              className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-              aria-hidden="true"
-            />
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
             <Input
               value={searchDraft}
               onChange={(event) => setSearchDraft(event.target.value)}
@@ -409,10 +351,7 @@ export default function AdminUsers() {
               aria-label={t('admin.searchUsers')}
             />
           </div>
-          <Select
-            value={userStatus || 'all'}
-            onValueChange={(value) => setFilterParam('userStatus', value === 'all' ? '' : value)}
-          >
+          <Select value={userStatus || 'all'} onValueChange={(value) => setFilterParam('userStatus', value === 'all' ? '' : value)}>
             <SelectTrigger className="w-full sm:w-40" aria-label={t('admin.filterStatus')}>
               <SelectValue placeholder={t('admin.filterStatus')} />
             </SelectTrigger>
@@ -423,10 +362,7 @@ export default function AdminUsers() {
               <SelectItem value="disabled">{t('admin.userStatus.disabled')}</SelectItem>
             </SelectContent>
           </Select>
-          <Select
-            value={roleId || 'all'}
-            onValueChange={(value) => setFilterParam('roleId', value === 'all' ? '' : value)}
-          >
+          <Select value={roleId || 'all'} onValueChange={(value) => setFilterParam('roleId', value === 'all' ? '' : value)}>
             <SelectTrigger className="w-full sm:w-48" aria-label={t('admin.filterRole')}>
               <SelectValue placeholder={t('admin.filterRole')} />
             </SelectTrigger>
@@ -442,23 +378,10 @@ export default function AdminUsers() {
         </div>
 
         {listErrorMessage ? (
-          <div
-            role="alert"
-            className="mt-4 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"
-          >
+          <div role="alert" className="mt-4 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
             <p>{listErrorMessage}</p>
-            {listCorrelationId ? (
-              <p className="mt-1 text-xs opacity-80">
-                {t('errors.correlationId', { id: listCorrelationId })}
-              </p>
-            ) : null}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="mt-2"
-              onClick={() => void usersQuery.refetch()}
-            >
+            {listCorrelationId ? <p className="mt-1 text-xs opacity-80">{t('errors.correlationId', { id: listCorrelationId })}</p> : null}
+            <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => void usersQuery.refetch()}>
               {t('common.retry')}
             </Button>
           </div>
@@ -466,10 +389,7 @@ export default function AdminUsers() {
 
         {rowActionError ? (
           <div className="mt-3">
-            <InlineErrorAlert
-              message={rowActionError.message}
-              correlationId={rowActionError.correlationId}
-            />
+            <InlineErrorAlert message={rowActionError.message} correlationId={rowActionError.correlationId} />
           </div>
         ) : null}
 
@@ -508,9 +428,7 @@ export default function AdminUsers() {
                   <div className="truncate text-xs text-muted-foreground">{rowUser.email}</div>
                 </div>
                 <div className="min-w-0">
-                  <span className="md:hidden text-xs font-semibold uppercase text-muted-foreground">
-                    {t('admin.rolesColumn')}
-                  </span>
+                  <span className="md:hidden text-xs font-semibold uppercase text-muted-foreground">{t('admin.rolesColumn')}</span>
                   <div className="flex flex-wrap gap-1">
                     {(rowUser.roles ?? []).length === 0 ? (
                       <span className="text-xs text-muted-foreground">—</span>
@@ -528,9 +446,7 @@ export default function AdminUsers() {
                   <span
                     className={cn(
                       'inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-xs',
-                      rowUser.userStatus === 'active'
-                        ? 'bg-emerald-100 text-emerald-700'
-                        : 'bg-muted text-muted-foreground',
+                      rowUser.userStatus === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-muted text-muted-foreground',
                     )}
                   >
                     {rowUser.userStatus === 'active' ? (
@@ -546,9 +462,7 @@ export default function AdminUsers() {
                     ) : null}
                   </span>
                 </div>
-                <span className="text-xs text-muted-foreground">
-                  {formatRelative(rowUser.lastLoginAt)}
-                </span>
+                <span className="text-xs text-muted-foreground">{formatRelative(rowUser.lastLoginAt)}</span>
                 <Popover>
                   <PopoverTrigger asChild>
                     <button
@@ -586,9 +500,7 @@ export default function AdminUsers() {
                       onClick={() => void toggleUserStatus(rowUser)}
                     >
                       <UserCog className="mr-2 h-4 w-4" aria-hidden="true" />
-                      {rowUser.userStatus === 'active'
-                        ? t('admin.deactivate')
-                        : t('admin.activate')}
+                      {rowUser.userStatus === 'active' ? t('admin.deactivate') : t('admin.activate')}
                     </Button>
                     <Button
                       type="button"
@@ -623,13 +535,7 @@ export default function AdminUsers() {
         </div>
 
         <div className="mt-3 flex items-center justify-between gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={!cursor || usersQuery.isFetching}
-            onClick={goFirstPage}
-          >
+          <Button type="button" variant="outline" size="sm" disabled={!cursor || usersQuery.isFetching} onClick={goFirstPage}>
             {t('admin.paginationFirst')}
           </Button>
           <Button
@@ -640,9 +546,7 @@ export default function AdminUsers() {
             onClick={goNextPage}
             aria-busy={usersQuery.isFetching && Boolean(cursor)}
           >
-            {usersQuery.isFetching && cursor ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
-            ) : null}
+            {usersQuery.isFetching && cursor ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : null}
             {t('admin.paginationNext')}
           </Button>
         </div>
@@ -703,26 +607,15 @@ export default function AdminUsers() {
             <InlineErrorAlert message={createError} correlationId={createCorrelation} />
           </div>
           <DialogFooter>
-            <Button
-              variant="outline"
-              disabled={createBusy}
-              onClick={() => setCreateOpen(false)}
-            >
+            <Button variant="outline" disabled={createBusy} onClick={() => setCreateOpen(false)}>
               {t('common.cancel')}
             </Button>
             <Button
               onClick={() => void submitCreate()}
-              disabled={
-                createBusy ||
-                !createForm.displayName.trim() ||
-                !createForm.email.trim() ||
-                createForm.roleIds.length < 1
-              }
+              disabled={createBusy || !createForm.displayName.trim() || !createForm.email.trim() || createForm.roleIds.length < 1}
               aria-busy={createBusy}
             >
-              {createBusy ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
-              ) : null}
+              {createBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : null}
               {t('admin.inviteUser')}
             </Button>
           </DialogFooter>
@@ -739,9 +632,7 @@ export default function AdminUsers() {
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>
-              {t('admin.editRolesFor', { name: rolesEditTarget?.displayName })}
-            </DialogTitle>
+            <DialogTitle>{t('admin.editRolesFor', { name: rolesEditTarget?.displayName })}</DialogTitle>
             <DialogDescription>{t('admin.editRolesDescription')}</DialogDescription>
           </DialogHeader>
           <RoleMultiSelect
@@ -756,21 +647,11 @@ export default function AdminUsers() {
           />
           <InlineErrorAlert message={rolesEditError} correlationId={rolesEditCorrelation} />
           <DialogFooter>
-            <Button
-              variant="outline"
-              disabled={rolesEditBusy}
-              onClick={() => setRolesEditTarget(null)}
-            >
+            <Button variant="outline" disabled={rolesEditBusy} onClick={() => setRolesEditTarget(null)}>
               {t('common.cancel')}
             </Button>
-            <Button
-              onClick={() => void submitRolesEdit()}
-              disabled={rolesEditBusy || editRoleIds.length < 1}
-              aria-busy={rolesEditBusy}
-            >
-              {rolesEditBusy ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
-              ) : null}
+            <Button onClick={() => void submitRolesEdit()} disabled={rolesEditBusy || editRoleIds.length < 1} aria-busy={rolesEditBusy}>
+              {rolesEditBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : null}
               {t('common.save')}
             </Button>
           </DialogFooter>
@@ -787,29 +668,16 @@ export default function AdminUsers() {
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>
-              {t('admin.removeUserTitle', { name: removeTarget?.displayName })}
-            </DialogTitle>
+            <DialogTitle>{t('admin.removeUserTitle', { name: removeTarget?.displayName })}</DialogTitle>
             <DialogDescription>{t('admin.removeUserConsequences')}</DialogDescription>
           </DialogHeader>
           <InlineErrorAlert message={removeError} correlationId={removeCorrelation} />
           <DialogFooter>
-            <Button
-              variant="outline"
-              disabled={removeBusy}
-              onClick={() => setRemoveTarget(null)}
-            >
+            <Button variant="outline" disabled={removeBusy} onClick={() => setRemoveTarget(null)}>
               {t('common.cancel')}
             </Button>
-            <Button
-              variant="destructive"
-              onClick={() => void confirmRemove()}
-              disabled={removeBusy}
-              aria-busy={removeBusy}
-            >
-              {removeBusy ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
-              ) : null}
+            <Button variant="destructive" onClick={() => void confirmRemove()} disabled={removeBusy} aria-busy={removeBusy}>
+              {removeBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : null}
               {t('admin.confirmRemove')}
             </Button>
           </DialogFooter>
@@ -829,9 +697,7 @@ export default function AdminUsers() {
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>
-              {t('admin.resetPasswordFor', { name: resetTarget?.displayName })}
-            </DialogTitle>
+            <DialogTitle>{t('admin.resetPasswordFor', { name: resetTarget?.displayName })}</DialogTitle>
             <DialogDescription>{t('admin.resetPasswordOutOfBand')}</DialogDescription>
           </DialogHeader>
           {passwordCompleted ? (
@@ -890,17 +756,10 @@ export default function AdminUsers() {
             {!passwordCompleted ? (
               <Button
                 onClick={() => void submitPasswordReset()}
-                disabled={
-                  resetBusy ||
-                  !newPassword ||
-                  !confirmPassword ||
-                  newPassword !== confirmPassword
-                }
+                disabled={resetBusy || !newPassword || !confirmPassword || newPassword !== confirmPassword}
                 aria-busy={resetBusy}
               >
-                {resetBusy ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
-                ) : null}
+                {resetBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : null}
                 {t('admin.setPassword')}
               </Button>
             ) : null}

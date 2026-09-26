@@ -4,13 +4,7 @@
 import { BUILT_IN_ROLES, Role } from '../../models/role.model.js';
 import { assertOrgId, decodeCursor, encodeCursor, softDelete } from '../../platform/data/index.js';
 import { ApiError } from '../../platform/errors.js';
-import {
-  getBuiltInRolePermissions,
-  isKnownPermissionKey,
-  invalidateRole,
-  recordAuditEvent,
-  buildAuditContextFromRequest,
-} from '../access/index.js';
+import { getBuiltInRolePermissions, isKnownPermissionKey, invalidateRole, recordAuditEvent, buildAuditContextFromRequest } from '../access/index.js';
 import { bumpProjectAclVersion } from './projectMembers.js';
 import { isRoleReferencedByActiveUser } from './users.js';
 import { z } from 'zod';
@@ -59,10 +53,7 @@ function keysetAfterFilter(cursor) {
   }
   const id = new mongoose.Types.ObjectId(cursor.i);
   return {
-    $or: [
-      { createdAt: { $lt: createdAt } },
-      { createdAt, _id: { $lt: id } },
-    ],
+    $or: [{ createdAt: { $lt: createdAt } }, { createdAt, _id: { $lt: id } }],
   };
 }
 
@@ -132,9 +123,7 @@ export async function findRolesByIds(orgId, roleIds, options = {}) {
  */
 export async function listRolesPage(orgId, filters = {}) {
   assertOrgId(orgId);
-  const limit = clampIdentityListLimit(
-    filters.limit === undefined ? IDENTITY_LIST_PAGE_SIZE_DEFAULT : filters.limit,
-  );
+  const limit = clampIdentityListLimit(filters.limit === undefined ? IDENTITY_LIST_PAGE_SIZE_DEFAULT : filters.limit);
   /** @type {Record<string, unknown>} */
   const query = { orgId };
 
@@ -297,11 +286,7 @@ export async function softDeleteRoleInRepo(orgId, roleId, options = {}) {
   if (role.isBuiltIn) {
     throw ApiError.fromCode('BUILT_IN_ROLE_IMMUTABLE');
   }
-  return softDelete(
-    Role,
-    { _id: roleId, orgId },
-    { updatedBy: options.updatedBy ?? null, session: options.session },
-  );
+  return softDelete(Role, { _id: roleId, orgId }, { updatedBy: options.updatedBy ?? null, session: options.session });
 }
 
 /**
@@ -326,8 +311,7 @@ export async function updateRoleInRepo(orgId, roleId, patch, options = {}) {
     throw ApiError.fromCode('NOT_FOUND', { message: 'Role not found.' });
   }
   if (role.isBuiltIn) {
-    const touchesImmutable =
-      patch.name !== undefined || patch.permissions !== undefined;
+    const touchesImmutable = patch.name !== undefined || patch.permissions !== undefined;
     if (touchesImmutable) {
       throw ApiError.fromCode('BUILT_IN_ROLE_IMMUTABLE');
     }
@@ -365,11 +349,7 @@ export async function updateRoleInRepo(orgId, roleId, patch, options = {}) {
  * @returns {boolean}
  */
 export function isDuplicateKeyError(err) {
-  return (
-    typeof err === 'object' &&
-    err !== null &&
-    /** @type {{ code?: number }} */ (err).code === 11000
-  );
+  return typeof err === 'object' && err !== null && /** @type {{ code?: number }} */ (err).code === 11000;
 }
 
 // --- from identity/role.service.js ---
@@ -402,10 +382,7 @@ export function mapRoleToDto(role) {
     description: role.description ?? null,
     permissions,
     isBuiltIn: Boolean(role.isBuiltIn),
-    createdAt:
-      role.createdAt instanceof Date
-        ? role.createdAt.toISOString()
-        : String(role.createdAt ?? ''),
+    createdAt: role.createdAt instanceof Date ? role.createdAt.toISOString() : String(role.createdAt ?? ''),
   };
 }
 
@@ -608,11 +585,7 @@ export async function softDeleteRole(input) {
   );
 }
 
-
-
-const objectIdStringSchema = z
-  .string()
-  .regex(/^[a-fA-F0-9]{24}$/, 'must be a 24-char hex ObjectId');
+const objectIdStringSchema = z.string().regex(/^[a-fA-F0-9]{24}$/, 'must be a 24-char hex ObjectId');
 
 const createRoleBodySchema = z
   .object({
@@ -629,13 +602,9 @@ const patchRoleBodySchema = z
     permissions: z.array(z.string().min(1)).min(1).optional(),
   })
   .strict()
-  .refine(
-    (body) =>
-      body.name !== undefined ||
-      body.description !== undefined ||
-      body.permissions !== undefined,
-    { message: 'at least one of name, description, permissions is required' },
-  );
+  .refine((body) => body.name !== undefined || body.description !== undefined || body.permissions !== undefined, {
+    message: 'at least one of name, description, permissions is required',
+  });
 
 const listRolesQuerySchema = z
   .object({
@@ -679,76 +648,60 @@ function serviceContext(request) {
  * @param {import('fastify').FastifyInstance} app Fastify app.
  */
 export async function roleRoutes(app) {
-  app.get(
-    '/roles',
-    { config: { requiredPermissions: ['roles.manage'] } },
-    async (request) => {
-      const parsed = listRolesQuerySchema.safeParse(request.query ?? {});
-      if (!parsed.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
-      }
-      if (parsed.data.limit === 0) {
-        throw ApiError.fromCode('VALIDATION_ERROR', {
-          details: [{ path: 'limit', message: 'limit must be a positive integer' }],
-        });
-      }
-      return listRolesForOrg(request.principal.orgId, parsed.data);
-    },
-  );
-
-  app.post(
-    '/roles',
-    { config: { requiredPermissions: ['roles.manage'] } },
-    async (request, reply) => {
-      const parsed = createRoleBodySchema.safeParse(request.body ?? {});
-      if (!parsed.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
-      }
-      const ctx = serviceContext(request);
-      const role = await createRole({
-        ...ctx,
-        name: parsed.data.name,
-        description: parsed.data.description,
-        permissions: parsed.data.permissions,
+  app.get('/roles', { config: { requiredPermissions: ['roles.manage'] } }, async (request) => {
+    const parsed = listRolesQuerySchema.safeParse(request.query ?? {});
+    if (!parsed.success) {
+      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
+    }
+    if (parsed.data.limit === 0) {
+      throw ApiError.fromCode('VALIDATION_ERROR', {
+        details: [{ path: 'limit', message: 'limit must be a positive integer' }],
       });
-      return reply.code(201).send(role);
-    },
-  );
+    }
+    return listRolesForOrg(request.principal.orgId, parsed.data);
+  });
 
-  app.patch(
-    '/roles/:roleId',
-    { config: { requiredPermissions: ['roles.manage'] } },
-    async (request) => {
-      const params = roleIdParamsSchema.safeParse(request.params ?? {});
-      if (!params.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
-      }
-      const parsed = patchRoleBodySchema.safeParse(request.body ?? {});
-      if (!parsed.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
-      }
-      const ctx = serviceContext(request);
-      return updateRole({
-        ...ctx,
-        roleId: params.data.roleId,
-        name: parsed.data.name,
-        description: parsed.data.description,
-        permissions: parsed.data.permissions,
-      });
-    },
-  );
+  app.post('/roles', { config: { requiredPermissions: ['roles.manage'] } }, async (request, reply) => {
+    const parsed = createRoleBodySchema.safeParse(request.body ?? {});
+    if (!parsed.success) {
+      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
+    }
+    const ctx = serviceContext(request);
+    const role = await createRole({
+      ...ctx,
+      name: parsed.data.name,
+      description: parsed.data.description,
+      permissions: parsed.data.permissions,
+    });
+    return reply.code(201).send(role);
+  });
 
-  app.delete(
-    '/roles/:roleId',
-    { config: { requiredPermissions: ['roles.manage'] } },
-    async (request, reply) => {
-      const params = roleIdParamsSchema.safeParse(request.params ?? {});
-      if (!params.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
-      }
-      const ctx = serviceContext(request);
-      await softDeleteRole({ ...ctx, roleId: params.data.roleId });
-      return reply.code(204).send();
-    },
-  );
+  app.patch('/roles/:roleId', { config: { requiredPermissions: ['roles.manage'] } }, async (request) => {
+    const params = roleIdParamsSchema.safeParse(request.params ?? {});
+    if (!params.success) {
+      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+    }
+    const parsed = patchRoleBodySchema.safeParse(request.body ?? {});
+    if (!parsed.success) {
+      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
+    }
+    const ctx = serviceContext(request);
+    return updateRole({
+      ...ctx,
+      roleId: params.data.roleId,
+      name: parsed.data.name,
+      description: parsed.data.description,
+      permissions: parsed.data.permissions,
+    });
+  });
+
+  app.delete('/roles/:roleId', { config: { requiredPermissions: ['roles.manage'] } }, async (request, reply) => {
+    const params = roleIdParamsSchema.safeParse(request.params ?? {});
+    if (!params.success) {
+      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+    }
+    const ctx = serviceContext(request);
+    await softDeleteRole({ ...ctx, roleId: params.data.roleId });
+    return reply.code(204).send();
+  });
 }

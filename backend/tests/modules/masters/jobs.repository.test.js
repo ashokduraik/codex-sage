@@ -5,11 +5,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import mongoose from 'mongoose';
 import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
-import {
-  encodeCursor,
-  softDelete,
-  ROW_STATUS_DELETED,
-} from '../../../src/platform/data/index.js';
+import { encodeCursor, softDelete, ROW_STATUS_DELETED } from '../../../src/platform/data/index.js';
 import { ApiError } from '../../../src/platform/errors.js';
 import { Job } from '../../../src/models/job.model.js';
 import {
@@ -165,12 +161,8 @@ describe('jobs.repository', () => {
   });
 
   it('rejects event messages over the max length without truncating', () => {
-    expect(() => assertJobEventMessageLength('x'.repeat(JOB_EVENT_MESSAGE_MAX_LENGTH + 1))).toThrow(
-      ApiError,
-    );
-    expect(() =>
-      assertJobEventMessageLength('x'.repeat(JOB_EVENT_MESSAGE_MAX_LENGTH)),
-    ).not.toThrow();
+    expect(() => assertJobEventMessageLength('x'.repeat(JOB_EVENT_MESSAGE_MAX_LENGTH + 1))).toThrow(ApiError);
+    expect(() => assertJobEventMessageLength('x'.repeat(JOB_EVENT_MESSAGE_MAX_LENGTH))).not.toThrow();
   });
 
   it('appendJobEvent rejects a missing job and a bad job id', async () => {
@@ -253,9 +245,7 @@ describe('jobs.repository', () => {
     });
 
     const listed = await listJobsByProject(orgA, String(projectA));
-    expect(listed.items.map((row) => String(row._id)).sort()).toEqual(
-      [String(jobA._id), String(failed._id)].sort(),
-    );
+    expect(listed.items.map((row) => String(row._id)).sort()).toEqual([String(jobA._id), String(failed._id)].sort());
     expect(listed.items.some((row) => row.jobStatus === 'failed')).toBe(true);
 
     expect(await findJobById(orgA, String(soft._id))).toBeNull();
@@ -333,13 +323,9 @@ describe('jobs.repository', () => {
   it('rejects unknown jobStatus filter and invalid cursors', async () => {
     const orgId = new mongoose.Types.ObjectId();
     const projectId = new mongoose.Types.ObjectId();
-    await expect(
-      listJobsByProject(orgId, String(projectId), { jobStatus: 'not-a-status' }),
-    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    await expect(listJobsByProject(orgId, String(projectId), { jobStatus: 'not-a-status' })).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
 
-    await expect(
-      listJobsByProject(orgId, String(projectId), { cursor: '%%%' }),
-    ).rejects.toMatchObject({ code: 'INVALID_CURSOR' });
+    await expect(listJobsByProject(orgId, String(projectId), { cursor: '%%%' })).rejects.toMatchObject({ code: 'INVALID_CURSOR' });
 
     await expect(
       listJobsByProject(orgId, String(projectId), {
@@ -363,9 +349,7 @@ describe('jobs.repository', () => {
 
     expect(await findActiveJobForProject(orgId, projectId)).toBeTruthy();
     expect(await findActiveJobForSourceVersion(orgId, projectId, sourceVersionId)).toBeTruthy();
-    expect(
-      await findActiveJobForSourceVersion(orgId, projectId, new mongoose.Types.ObjectId()),
-    ).toBeNull();
+    expect(await findActiveJobForSourceVersion(orgId, projectId, new mongoose.Types.ObjectId())).toBeNull();
 
     const cancelled = await cancelQueuedJob({
       orgId,
@@ -380,10 +364,7 @@ describe('jobs.repository', () => {
       projectId,
       jobType: 'ingest',
     });
-    await Job.updateOne(
-      { _id: runningJob._id },
-      { $set: { jobStatus: 'running', workerId: 'w1' } },
-    );
+    await Job.updateOne({ _id: runningJob._id }, { $set: { jobStatus: 'running', workerId: 'w1' } });
     const requested = await requestRunningJobCancel({
       orgId,
       jobId: String(runningJob._id),

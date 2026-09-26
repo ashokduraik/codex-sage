@@ -10,10 +10,7 @@ import { insertPendingJob } from '../../src/modules/masters/index.js';
 import { listJobEvents } from '../listJobEvents.js';
 import { clearJobHandlersForTests, registerJobHandler } from '../../src/worker/handlerRegistry.js';
 import { claimNextJob } from '../../src/worker/jobClaim.js';
-import {
-  acquireProjectJobLock,
-  releaseProjectJobLock,
-} from '../../src/worker/projectJobLock.js';
+import { acquireProjectJobLock, releaseProjectJobLock } from '../../src/worker/projectJobLock.js';
 import { ProjectJobLock } from '../../src/models/projectJobLock.model.js';
 import { sweepExpiredLeases } from '../../src/worker/leaseSweeper.js';
 import { workerSmokeHandlerRegistration } from '../../src/worker/handlers/workerSmokeHandler.js';
@@ -105,9 +102,7 @@ describe('worker process integration', () => {
     await vi.waitFor(
       async () => {
         const jobs = await Job.find({ orgId }).lean().exec();
-        const events = jobs
-          .flatMap((row) => row.events ?? [])
-          .filter((entry) => entry.eventCode === WORKER_EVENT_PROJECT_BUSY_REQUEUED);
+        const events = jobs.flatMap((row) => row.events ?? []).filter((entry) => entry.eventCode === WORKER_EVENT_PROJECT_BUSY_REQUEUED);
         expect(events.length).toBeGreaterThanOrEqual(1);
       },
       { timeout: 10_000 },
@@ -209,9 +204,7 @@ describe('worker process integration', () => {
     expect(fresh.stageCheckpoint.lastCompletedStage).toBe('exclude_apply');
 
     const events = await listJobEvents(orgId, String(job._id));
-    expect(events.some((event) => event.eventCode === WORKER_EVENT_INTERRUPTED_REQUEUED)).toBe(
-      true,
-    );
+    expect(events.some((event) => event.eventCode === WORKER_EVENT_INTERRUPTED_REQUEUED)).toBe(true);
   });
 
   it('sweeper fails when attempts are exhausted and the failed job stays readable', async () => {
@@ -327,9 +320,7 @@ describe('worker process integration', () => {
     expect(a.requeued + b.requeued).toBe(1);
 
     const fresh = await Job.findById(job._id).lean().exec();
-    const events = (fresh?.events ?? []).filter(
-      (entry) => entry.eventCode === WORKER_EVENT_INTERRUPTED_REQUEUED,
-    );
+    const events = (fresh?.events ?? []).filter((entry) => entry.eventCode === WORKER_EVENT_INTERRUPTED_REQUEUED);
     expect(events).toHaveLength(1);
   });
 

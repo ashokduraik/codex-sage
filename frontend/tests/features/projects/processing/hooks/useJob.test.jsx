@@ -40,16 +40,10 @@ describe('useJob', () => {
     expect(result.current.data.jobStatus).toBe('completed');
     const interval = result.current.options
       ? undefined
-      : queryClient.getQueryCache().find({ queryKey: ['jobs', 'detail', 'j1'] })
-          ?.options.refetchInterval;
-    const resolved =
-      typeof interval === 'function'
-        ? interval({ state: { data: { jobStatus: 'completed' } } })
-        : interval;
+      : queryClient.getQueryCache().find({ queryKey: ['jobs', 'detail', 'j1'] })?.options.refetchInterval;
+    const resolved = typeof interval === 'function' ? interval({ state: { data: { jobStatus: 'completed' } } }) : interval;
     expect(resolved).toBe(false);
-    const runningInterval = typeof interval === 'function'
-      ? interval({ state: { data: { jobStatus: 'running' } } })
-      : interval;
+    const runningInterval = typeof interval === 'function' ? interval({ state: { data: { jobStatus: 'running' } } }) : interval;
     expect(runningInterval).toBe(JOB_DETAIL_POLL_INTERVAL_MS);
   });
 });

@@ -1,13 +1,6 @@
 import { useMemo } from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
-import {
-  Users,
-  ShieldCheck,
-  FolderKanban,
-  Clock,
-  BarChart3,
-  ScrollText,
-} from 'lucide-react';
+import { Users, ShieldCheck, FolderKanban, Clock, BarChart3, ScrollText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/features/auth/AuthContext';
 import { cn } from '@/shared/lib/utils';
@@ -42,9 +35,7 @@ export default function AdminLayout() {
         if (!item.requiredPermission) {
           return true;
         }
-        return (
-          Array.isArray(permissions) && permissions.includes(item.requiredPermission)
-        );
+        return Array.isArray(permissions) && permissions.includes(item.requiredPermission);
       }),
     [permissions],
   );
@@ -52,9 +43,7 @@ export default function AdminLayout() {
   return (
     <div className="flex h-full">
       <aside className="hidden w-56 shrink-0 border-r border-border bg-sidebar p-3 md:block">
-        <div className="px-2 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          {t('admin.title')}
-        </div>
+        <div className="px-2 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('admin.title')}</div>
         <nav className="mt-1 space-y-0.5">
           {visibleItems.map((item) => (
             <NavLink
@@ -63,9 +52,7 @@ export default function AdminLayout() {
               className={({ isActive }) =>
                 cn(
                   'flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium',
-                  isActive
-                    ? 'bg-brand-muted text-brand'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                  isActive ? 'bg-brand-muted text-brand' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                 )
               }
             >
@@ -83,10 +70,7 @@ export default function AdminLayout() {
                 key={item.to}
                 to={item.to}
                 className={({ isActive }) =>
-                  cn(
-                    'whitespace-nowrap rounded-md px-2.5 py-1 text-xs font-medium',
-                    isActive ? 'bg-brand-muted text-brand' : 'text-muted-foreground',
-                  )
+                  cn('whitespace-nowrap rounded-md px-2.5 py-1 text-xs font-medium', isActive ? 'bg-brand-muted text-brand' : 'text-muted-foreground')
                 }
               >
                 {t(item.labelKey)}

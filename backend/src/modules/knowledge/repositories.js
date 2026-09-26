@@ -8,12 +8,7 @@ import { assertOrgId, ROW_STATUS_ACTIVE, ROW_STATUS_DELETED } from '../../platfo
 import { ApiError } from '../../platform/errors.js';
 import { decryptSecret, encryptSecret } from '../../platform/secretCrypto.js';
 import { recordAuditEvent } from '../access/index.js';
-import {
-  findProjectById,
-  mapProjectToDto,
-  transitionLifecycle,
-  updateProjectSourceConfig,
-} from '../masters/index.js';
+import { findProjectById, mapProjectToDto, transitionLifecycle, updateProjectSourceConfig } from '../masters/index.js';
 import { enqueueManualRepositorySync } from './repoSync.js';
 import { probeRepository, REPO_BRANCH_LIST_LIMIT } from './repositories.helper.js';
 import { countSourceVersions } from './sources.js';
@@ -252,16 +247,10 @@ export function mapConnectionToDto(connection) {
     defaultBranch: connection.defaultBranchAtAttach,
     connectionStatus: connection.connectionStatus,
     connectionStatusReasonCode: connection.connectionStatusReasonCode ?? null,
-    lastSuccessfulProbeAt: connection.lastSuccessfulProbeAt
-      ? new Date(connection.lastSuccessfulProbeAt).toISOString()
-      : null,
-    attachedAt: connection.attachedAt
-      ? new Date(connection.attachedAt).toISOString()
-      : null,
+    lastSuccessfulProbeAt: connection.lastSuccessfulProbeAt ? new Date(connection.lastSuccessfulProbeAt).toISOString() : null,
+    attachedAt: connection.attachedAt ? new Date(connection.attachedAt).toISOString() : null,
     lastSyncedCommitSha: connection.lastSyncedCommitSha ?? null,
-    lastSyncedAt: connection.lastSyncedAt
-      ? new Date(connection.lastSyncedAt).toISOString()
-      : null,
+    lastSyncedAt: connection.lastSyncedAt ? new Date(connection.lastSyncedAt).toISOString() : null,
     nextDueAt: connection.nextDueAt ? new Date(connection.nextDueAt).toISOString() : null,
   };
 }
@@ -288,10 +277,7 @@ export async function attachRepository(input) {
   if (!project) {
     throw ApiError.fromCode('PROJECT_NOT_FOUND');
   }
-  const existing = await (input.findActiveConnection ?? findActiveConnection)(
-    input.orgId,
-    input.projectId,
-  );
+  const existing = await (input.findActiveConnection ?? findActiveConnection)(input.orgId, input.projectId);
   if (existing) {
     throw ApiError.fromCode('CONFLICT');
   }
@@ -441,9 +427,7 @@ export async function getRepositoryConnection(orgId, projectId) {
  */
 export async function patchRepositoryBranch(input) {
   const connection = await requireActiveConnection(input.orgId, input.projectId);
-  const token = connection.credential
-    ? await decryptConnectionToken(connection.credential)
-    : null;
+  const token = connection.credential ? await decryptConnectionToken(connection.credential) : null;
   const probe = await (input.probeRepository ?? probeRepository)({
     repositoryUrl: connection.repositoryWebUrl,
     accessToken: token,
@@ -637,9 +621,7 @@ export async function revokeRepositoryCredential(input) {
  */
 export async function retestRepositoryConnection(input) {
   const connection = await requireActiveConnection(input.orgId, input.projectId);
-  const token = connection.credential
-    ? await decryptConnectionToken(connection.credential)
-    : null;
+  const token = connection.credential ? await decryptConnectionToken(connection.credential) : null;
   const probe = await (input.probeRepository ?? probeRepository)({
     repositoryUrl: connection.repositoryWebUrl,
     accessToken: token,
@@ -650,8 +632,7 @@ export async function retestRepositoryConnection(input) {
     set: {
       connectionStatus: probe.probeStatus,
       connectionStatusReasonCode: probe.reason?.code ?? null,
-      lastSuccessfulProbeAt:
-        probe.probeStatus === 'connected' ? new Date() : connection.lastSuccessfulProbeAt,
+      lastSuccessfulProbeAt: probe.probeStatus === 'connected' ? new Date() : connection.lastSuccessfulProbeAt,
       updatedBy: input.actorUserId,
     },
   });
@@ -834,10 +815,7 @@ export async function repositoryRoutes(app) {
       }),
     },
     async (request) => {
-      return getRepositoryConnection(
-        request.projectScope.orgId,
-        request.projectScope.projectId,
-      );
+      return getRepositoryConnection(request.projectScope.orgId, request.projectScope.projectId);
     },
   );
 

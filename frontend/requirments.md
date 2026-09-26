@@ -10,11 +10,11 @@ The primary user experience is:
 
 The product must support:
 
-* Engineering teams
-* Product and business teams
-* Support teams
-* Operations teams
-* Enterprise administrators
+- Engineering teams
+- Product and business teams
+- Support teams
+- Operations teams
+- Enterprise administrators
 
 The UI/UX must be designed for both technical and non-technical users.
 
@@ -26,18 +26,18 @@ This specification defines the UI/UX only.
 
 Do not make assumptions about or prescribe:
 
-* Programming languages
-* Frontend frameworks
-* Backend technologies
-* Databases
-* AI/LLM providers
-* AI models
-* Cloud providers
-* Infrastructure
-* Deployment architecture
-* Search technologies
-* Knowledge implementation
-* Agent implementation
+- Programming languages
+- Frontend frameworks
+- Backend technologies
+- Databases
+- AI/LLM providers
+- AI models
+- Cloud providers
+- Infrastructure
+- Deployment architecture
+- Search technologies
+- Knowledge implementation
+- Agent implementation
 
 The design must remain technology-independent.
 
@@ -46,14 +46,14 @@ The design must remain technology-independent.
 Do not present these as available capabilities. They are later-slice requirements
 only. Per §98, the UI must not show states or actions the product cannot perform.
 
-* Live query generation, approval, execution, or results against a **customer
+- Live query generation, approval, execution, or results against a **customer
   application database** (§§75–78)
-* Customer-database environment switcher
-* Database-query permissions, usage metrics, and approval notifications as live
+- Customer-database environment switcher
+- Database-query permissions, usage metrics, and approval notifications as live
   product features
-* “Database-driven answers” as a current-slice promise (§104)
-* Image upload / image-as-source processing (align with backend current slice)
-* Cross-project questions unless the backend explicitly enables and authorizes them
+- “Database-driven answers” as a current-slice promise (§104)
+- Image upload / image-as-source processing (align with backend current slice)
+- Cross-project questions unless the backend explicitly enables and authorizes them
 
 Questions about live application data in Chat must follow whatever the backend
 returns (for example not enough information). Do not open a query-approval flow.
@@ -64,24 +64,24 @@ returns (for example not enough information). Do not open a query-approval flow.
 
 The product must follow these principles:
 
-* Premium
-* Enterprise-grade
-* Extremely user-friendly
-* Minimal clicks
-* Minimal configuration
-* Intelligent defaults
-* Progressive disclosure
-* Clear visual hierarchy
-* Context-aware interactions
-* Fast perceived performance
-* Strong loading states
-* Strong error states
-* Strong empty states
-* Strong success states
-* Accessible
-* Responsive
-* Mobile-friendly
-* Technically credible
+- Premium
+- Enterprise-grade
+- Extremely user-friendly
+- Minimal clicks
+- Minimal configuration
+- Intelligent defaults
+- Progressive disclosure
+- Clear visual hierarchy
+- Context-aware interactions
+- Fast perceived performance
+- Strong loading states
+- Strong error states
+- Strong empty states
+- Strong success states
+- Accessible
+- Responsive
+- Mobile-friendly
+- Technically credible
 
 The UI must absorb complexity rather than transferring complexity to the user.
 
@@ -93,26 +93,26 @@ If the system can determine something automatically, do not ask the user to conf
 
 The visual design should feel:
 
-* Premium
-* Modern
-* Sophisticated
-* Clean
-* Intelligent
-* Calm
-* Trustworthy
-* Professional
+- Premium
+- Modern
+- Sophisticated
+- Clean
+- Intelligent
+- Calm
+- Trustworthy
+- Professional
 
 Avoid:
 
-* Generic chatbot styling
-* Basic CRUD-dashboard appearance
-* Excessive cards
-* Excessive borders
-* Excessive gradients
-* Excessive animations
-* Unnecessary configuration controls
-* Visual clutter
-* Artificial futuristic AI styling
+- Generic chatbot styling
+- Basic CRUD-dashboard appearance
+- Excessive cards
+- Excessive borders
+- Excessive gradients
+- Excessive animations
+- Unnecessary configuration controls
+- Visual clutter
+- Artificial futuristic AI styling
 
 The product should look appropriate for a large enterprise while still feeling modern.
 
@@ -126,48 +126,48 @@ The product should work naturally for:
 
 Users need to understand:
 
-* Source code
-* Functions
-* Classes/components
-* APIs
-* Dependencies
-* Data flow
-* Implementation
-* Architecture
-* Technical behavior
+- Source code
+- Functions
+- Classes/components
+- APIs
+- Dependencies
+- Data flow
+- Implementation
+- Architecture
+- Technical behavior
 
 ### Product / Business
 
 Users need to understand:
 
-* Product functionality
-* Business rules
-* Capabilities
-* Workflows
-* Customer behavior
+- Product functionality
+- Business rules
+- Capabilities
+- Workflows
+- Customer behavior
 
 ### Support / Operations
 
 Users need to understand:
 
-* Application behavior
-* Troubleshooting
-* Operational workflows
-* Relevant technical context
-* Data-related information
+- Application behavior
+- Troubleshooting
+- Operational workflows
+- Relevant technical context
+- Data-related information
 
 ### Administrators
 
 Users need to manage:
 
-* Users
-* Roles
-* Permissions
-* Projects
-* Access
-* Usage
-* Audit information
-* Organization settings
+- Users
+- Roles
+- Permissions
+- Projects
+- Access
+- Usage
+- Audit information
+- Organization settings
 
 ---
 
@@ -177,13 +177,13 @@ Provide a consistent application shell.
 
 Desktop navigation should provide access to:
 
-* Home
-* Projects
-* Chat
-* Knowledge
-* Search
-* Conversations
-* Administration
+- Home
+- Projects
+- Chat
+- Knowledge
+- Search
+- Conversations
+- Administration
 
 Where the user is not signed in, only the authentication experience is available.
 
@@ -191,8 +191,8 @@ The current organization and project should always be clear when signed in.
 
 Support:
 
-* Expanded navigation
-* Collapsed navigation
+- Expanded navigation
+- Collapsed navigation
 
 Do not overload navigation with unnecessary options.
 
@@ -202,12 +202,12 @@ Do not overload navigation with unnecessary options.
 
 The header should provide:
 
-* Organization
-* Current project
-* Global search
-* Notifications
-* User profile
-* Relevant contextual actions
+- Organization
+- Current project
+- Global search
+- Notifications
+- User profile
+- Relevant contextual actions
 
 Keep the header lightweight.
 
@@ -219,18 +219,18 @@ Provide a clear sign-in experience for organization users.
 
 Support:
 
-* Sign in
-* Sign out
-* Session expiry / re-authentication when the backend requires it
-* Password change for the signed-in user where permitted
-* Password reset initiation for the signed-in user where permitted
+- Sign in
+- Sign out
+- Session expiry / re-authentication when the backend requires it
+- Password change for the signed-in user where permitted
+- Password reset initiation for the signed-in user where permitted
   (distinct from administrator-initiated reset in §84)
 
 When the session is invalid or expired:
 
-* Stop treating the user as signed in
-* Return them to sign-in without exposing protected project content
-* Preserve enough context to resume after successful re-authentication where safe
+- Stop treating the user as signed in
+- Return them to sign-in without exposing protected project content
+- Preserve enough context to resume after successful re-authentication where safe
 
 Do not invent authentication providers or flows the backend does not support.
 
@@ -262,20 +262,20 @@ Conversations that can be continued.
 
 Examples:
 
-* Ready
-* Updating
-* Needs attention
-* Outdated
+- Ready
+- Updating
+- Needs attention
+- Outdated
 
 ### Suggested Starting Questions
 
 Examples:
 
-* Explain this project
-* How does authentication work?
-* Explain the checkout flow
-* Where is payment implemented?
-* What changed recently?
+- Explain this project
+- How does authentication work?
+- Explain the checkout flow
+- Where is payment implemented?
+- What changed recently?
 
 The primary visual focus should be on understanding the project, not generic analytics.
 
@@ -306,16 +306,16 @@ Use progressive disclosure for advanced settings.
 The UI must clearly represent the project’s current state using the backend’s
 authoritative states. Do not invent states. Expected states include:
 
-* Creating
-* Awaiting source
-* Connecting repository
-* Source received
-* Processing
-* Knowledge ready
-* Updating
-* Failed
-* Partially available
-* Archived
+- Creating
+- Awaiting source
+- Connecting repository
+- Source received
+- Processing
+- Knowledge ready
+- Updating
+- Failed
+- Partially available
+- Archived
 
 Home, Project Overview, and related badges must distinguish **Ready** from
 **Partially available**, and must never show **Knowledge ready** while import or
@@ -330,9 +330,9 @@ a path during project creation).
 
 Support:
 
-* GitHub
-* GitLab.com
-* Self-hosted GitLab instances
+- GitHub
+- GitLab.com
+- Self-hosted GitLab instances
 
 The user provides a **repository URL**. The UI must **not** ask the user to
 pick the provider — the backend probe must infer `github` or `gitlab` from the
@@ -355,12 +355,12 @@ Do not open a long configuration wizard.
 
 Show clear connection / probe states:
 
-* Connecting / Verifying
-* Connected
-* Authentication required
-* Repository not found
-* Access denied
-* Connection failed / unreachable
+- Connecting / Verifying
+- Connected
+- Authentication required
+- Repository not found
+- Access denied
+- Connection failed / unreachable
 
 Example probe errors (user-facing):
 
@@ -374,11 +374,11 @@ Example probe errors (user-facing):
 
 After a successful probe (public, or authenticated):
 
-* Retrieve available branches from the backend probe result
-* Display them for selection (for example as a list or control)
-* Default to the probe’s default branch when provided
-* Show the selected branch clearly
-* Allow changing it before final attach / processing
+- Retrieve available branches from the backend probe result
+- Display them for selection (for example as a list or control)
+- Default to the probe’s default branch when provided
+- Show the selected branch clearly
+- Allow changing it before final attach / processing
 
 Example:
 
@@ -534,9 +534,9 @@ credentials from project Sources / settings without recreating the project.
 
 Provide:
 
-* Replace credentials (reuse the same inline token help as §12 for the provider)
-* Revoke / disconnect repository access where permitted
-* Re-test / re-probe connection after replacement
+- Replace credentials (reuse the same inline token help as §12 for the provider)
+- Revoke / disconnect repository access where permitted
+- Re-test / re-probe connection after replacement
 
 Explain why re-authentication is required when access fails later.
 
@@ -548,12 +548,12 @@ Never redisplay the previous secret value.
 
 Support:
 
-* Multiple file uploads
-* Multiple uploads over time
-* Folder upload
-* ZIP upload
-* Drag and drop
-* File selection
+- Multiple file uploads
+- Multiple uploads over time
+- Folder upload
+- ZIP upload
+- Drag and drop
+- File selection
 
 The same project must be able to receive additional source code and documentation later.
 
@@ -607,11 +607,11 @@ Do not make users understand browser limitations.
 
 Before processing, show:
 
-* File count
-* Folder count
-* Excluded items
-* Size
-* Important exclusions
+- File count
+- Folder count
+- Excluded items
+- Size
+- Important exclusions
 
 Example:
 
@@ -632,11 +632,11 @@ Avoid unnecessary configuration.
 
 Before or during upload, surface backend validation failures clearly:
 
-* Unsupported or corrupt format
-* Size constraint exceeded
-* Archive integrity failure
-* Unsafe paths
-* Other user-correctable source errors
+- Unsupported or corrupt format
+- Size constraint exceeded
+- Archive integrity failure
+- Unsafe paths
+- Other user-correctable source errors
 
 If the upload format **cannot** be path-filtered (opaque formats where
 `node_modules` and similar cannot be excluded automatically), reject the upload
@@ -655,11 +655,11 @@ Do not proceed into knowledge processing as if the upload succeeded.
 
 During upload show:
 
-* Overall progress
-* Current state
-* Files processed
-* Size
-* Remaining work where available
+- Overall progress
+- Current state
+- Files processed
+- Size
+- Remaining work where available
 
 Example:
 
@@ -671,10 +671,10 @@ Example:
 
 Clearly distinguish:
 
-* In progress
-* Completed
-* Failed
-* Partially completed
+- In progress
+- Completed
+- Failed
+- Partially completed
 
 ---
 
@@ -741,17 +741,17 @@ The user should be able to open the processing details from anywhere within the 
 
 The processing center should show:
 
-* Current operation
-* Progress
-* Completed stages
-* Current stage
-* Pending stages
-* Warnings
-* Errors
-* Completion status
-* Start time
-* Completion time
-* Retry availability
+- Current operation
+- Progress
+- Completed stages
+- Current stage
+- Pending stages
+- Warnings
+- Errors
+- Completion status
+- Start time
+- Completion time
+- Retry availability
 
 ---
 
@@ -765,10 +765,10 @@ Example:
 
 Make the status accessible from:
 
-* Global navigation
-* Project overview
-* Knowledge screen
-* Processing center
+- Global navigation
+- Project overview
+- Knowledge screen
+- Processing center
 
 ---
 
@@ -811,13 +811,13 @@ support. Do not invent reference IDs.
 
 Show:
 
-* What failed
-* Why it failed, when known
-* Affected items
-* What succeeded
-* Whether asking questions is paused, queued, or available (use the backend state;
+- What failed
+- Why it failed, when known
+- Affected items
+- What succeeded
+- Whether asking questions is paused, queued, or available (use the backend state;
   do not assume the previous map is still askable)
-* Recommended action
+- Recommended action
 
 While a code-map update or recovery is in progress, or after it failed mid-update,
 do **not** tell the user that existing knowledge remains usable for new questions.
@@ -923,12 +923,12 @@ Chat must be an **embedded workspace inside the project application**.
 
 Chat must NOT be:
 
-* A popup
-* A modal
-* A floating window
-* A bottom popup
-* A bottom drawer
-* An overlay
+- A popup
+- A modal
+- A floating window
+- A bottom popup
+- A bottom drawer
+- An overlay
 
 When the user selects Chat from Project Overview, Chat should occupy the main project content area.
 
@@ -984,16 +984,16 @@ Show:
 
 ### Recent
 
-* Checkout flow
-* Authentication implementation
-* Payment investigation
-* Customer cancellation
+- Checkout flow
+- Authentication implementation
+- Payment investigation
+- Customer cancellation
 
 ### Archived
 
-* Legacy checkout
-* Old authentication
-* Previous investigations
+- Legacy checkout
+- Old authentication
+- Previous investigations
 
 The history panel should remain easily accessible without opening another screen.
 
@@ -1029,10 +1029,10 @@ The system should continue using the previous conversation context.
 
 While the project’s code map is updating or being rebuilt:
 
-* Show that knowledge is updating
-* If the user sends a question, show it as **queued** (waiting), not as a live answer
-* Do not imply the previous map is still available to ask
-* When the backend marks knowledge ready or partial again, continue queued questions or
+- Show that knowledge is updating
+- If the user sends a question, show it as **queued** (waiting), not as a live answer
+- Do not imply the previous map is still available to ask
+- When the backend marks knowledge ready or partial again, continue queued questions or
   show a retryable “knowledge unavailable” error if the wait expired
 
 If a repository check fails **before** any map rewrite, existing knowledge may still
@@ -1056,11 +1056,11 @@ Do not impose an arbitrary UI-level message limit.
 
 The system should preserve:
 
-* Previous user questions
-* Previous assistant responses
-* Clarifications
-* Answers
-* Relevant conversational context
+- Previous user questions
+- Previous assistant responses
+- Clarifications
+- Answers
+- Relevant conversational context
 
 ---
 
@@ -1110,7 +1110,7 @@ Selecting a result should immediately open that conversation.
 
 Provide:
 
-> * New Chat
+> - New Chat
 
 Creating a new conversation must not remove existing conversations.
 
@@ -1136,10 +1136,10 @@ Archived conversations should remain accessible.
 
 Users can:
 
-* View
-* Continue
-* Restore
-* Delete where permitted
+- View
+- Continue
+- Restore
+- Delete where permitted
 
 ---
 
@@ -1147,12 +1147,12 @@ Users can:
 
 Users should be able to:
 
-* Continue
-* Rename
-* Search
-* Archive
-* Restore
-* Delete where permitted
+- Continue
+- Rename
+- Search
+- Archive
+- Restore
+- Delete where permitted
 
 Keep these actions unobtrusive.
 
@@ -1162,14 +1162,14 @@ Keep these actions unobtrusive.
 
 The active conversation should include:
 
-* Conversation title
-* Project identity
-* User messages
-* Assistant responses
-* Clarifications
-* Activity status
-* Evidence
-* Composer
+- Conversation title
+- Project identity
+- User messages
+- Assistant responses
+- Clarifications
+- Activity status
+- Evidence
+- Composer
 
 The conversation should support very long discussions without becoming difficult to navigate.
 
@@ -1185,10 +1185,10 @@ Placeholder:
 
 Support:
 
-* Multi-line input
-* Keyboard interaction
-* Long questions
-* Mobile touch interaction
+- Multi-line input
+- Keyboard interaction
+- Long questions
+- Mobile touch interaction
 
 The composer should expand naturally.
 
@@ -1200,17 +1200,17 @@ The user should not need to select a question category.
 
 They can ask anything related to the project:
 
-* Code
-* Function
-* Architecture
-* Business functionality
-* Documentation
-* Workflow
-* API
-* Data
-* Database
-* Operations
-* Troubleshooting
+- Code
+- Function
+- Architecture
+- Business functionality
+- Documentation
+- Workflow
+- API
+- Data
+- Database
+- Operations
+- Troubleshooting
 
 The system should determine how to handle the question.
 
@@ -1255,10 +1255,10 @@ The system should ask the minimum number of clarification questions necessary.
 
 Clarification questions must appear:
 
-* Inside the active Chat
-* Near the bottom
-* Immediately after the latest assistant message
-* Immediately above the composer
+- Inside the active Chat
+- Near the bottom
+- Immediately after the latest assistant message
+- Immediately above the composer
 
 Do not open a modal or separate screen.
 
@@ -1332,10 +1332,10 @@ Do not force every clarification into predefined options.
 
 Preserve:
 
-* Original question
-* Previous clarification questions
-* User answers
-* Current clarification
+- Original question
+- Previous clarification questions
+- User answers
+- Current clarification
 
 If the user navigates away and returns, preserve the state.
 
@@ -1379,18 +1379,18 @@ The UI must render Markdown properly.
 
 Support:
 
-* Headings
-* Paragraphs
-* Bold
-* Italic
-* Lists
-* Nested lists
-* Tables
-* Links
-* Blockquotes
-* Inline code
-* Fenced code blocks
-* Horizontal separators
+- Headings
+- Paragraphs
+- Bold
+- Italic
+- Lists
+- Nested lists
+- Tables
+- Links
+- Blockquotes
+- Inline code
+- Fenced code blocks
+- Horizontal separators
 
 Never display raw Markdown syntax as the primary presentation.
 
@@ -1400,11 +1400,11 @@ Never display raw Markdown syntax as the primary presentation.
 
 Support:
 
-* Syntax highlighting where available
-* Language indicator where available
-* Copy action
-* Horizontal scrolling
-* Mobile usability
+- Syntax highlighting where available
+- Language indicator where available
+- Copy action
+- Horizontal scrolling
+- Mobile usability
 
 Long code blocks must not break the layout.
 
@@ -1426,14 +1426,14 @@ If the underlying system supports streaming, the Chat UI must support incrementa
 
 It should correctly handle:
 
-* Partial text
-* Partial Markdown
-* Code blocks
-* Tables
-* Completion
-* Errors
-* Cancellation if supported
-* Interruption / disconnect
+- Partial text
+- Partial Markdown
+- Code blocks
+- Tables
+- Completion
+- Errors
+- Cancellation if supported
+- Interruption / disconnect
 
 Do not assume the response arrives as a single block.
 
@@ -1441,11 +1441,11 @@ Do not assume the response arrives as a single block.
 
 Distinguish:
 
-* Generating
-* Completed
-* Failed
-* Cancelled
-* Interrupted
+- Generating
+- Completed
+- Failed
+- Cancelled
+- Interrupted
 
 When the client reconnects after a disconnect, restore the conversation message
 state from the backend. An interrupted partial response must not look like a
@@ -1486,14 +1486,14 @@ These states must correspond to real underlying operations.
 
 Do not fabricate:
 
-* Chain-of-thought
-* Internal reasoning
-* Fake thinking messages
-* Fake tool calls
-* Fake progress
-* Fake token counts
-* Fake context usage
-* Fake completion states
+- Chain-of-thought
+- Internal reasoning
+- Fake thinking messages
+- Fake tool calls
+- Fake progress
+- Fake token counts
+- Fake context usage
+- Fake completion states
 
 The UI should display observable execution status only.
 
@@ -1511,9 +1511,9 @@ Example:
 
 Possible metrics:
 
-* Response time
-* Tokens used
-* Context consumed
+- Response time
+- Tokens used
+- Context consumed
 
 If a metric is unavailable, omit it.
 
@@ -1553,14 +1553,14 @@ Preserve the original question.
 
 Clearly distinguish between:
 
-* Knowledge unavailable
-* Source unavailable
-* Question queued because knowledge is updating
-* Response generation failure
-* Insufficient information / abstain (not an error, but not a confident answer)
-* Rate limited / temporarily throttled
-* Query generation failure (later slice; not current)
-* Query execution failure (later slice; not current)
+- Knowledge unavailable
+- Source unavailable
+- Question queued because knowledge is updating
+- Response generation failure
+- Insufficient information / abstain (not an error, but not a confident answer)
+- Rate limited / temporarily throttled
+- Query generation failure (later slice; not current)
+- Query execution failure (later slice; not current)
 
 Provide understandable messages and appropriate next actions.
 
@@ -1597,12 +1597,12 @@ Do not visually present abstain responses as successful grounded answers.
 
 Preserve context across:
 
-* Follow-up questions
-* Clarifications
-* Edited messages
-* Source exploration
-* Knowledge exploration
-* Database-query interactions (later slice; not current)
+- Follow-up questions
+- Clarifications
+- Edited messages
+- Source exploration
+- Knowledge exploration
+- Database-query interactions (later slice; not current)
 
 The user should not have to manually reconstruct context.
 
@@ -1618,11 +1618,11 @@ Example:
 
 Users should be able to inspect:
 
-* Source files
-* Relevant code
-* Documentation
-* Project entities
-* Supporting information
+- Source files
+- Relevant code
+- Documentation
+- Project entities
+- Supporting information
 
 Evidence should not interrupt the conversation.
 
@@ -1632,11 +1632,11 @@ Evidence should not interrupt the conversation.
 
 When a source is opened, show:
 
-* File/document name
-* Relevant location
-* Relevant content
-* Context
-* Relationship to the answer
+- File/document name
+- Relevant location
+- Relevant content
+- Context
+- Relationship to the answer
 
 The user should be able to return to the exact conversation.
 
@@ -1650,15 +1650,15 @@ Provide contextual:
 
 actions for:
 
-* Files
-* Functions
-* APIs
-* Workflows
-* Services
-* Documentation
-* Data entities
-* Search results
-* Knowledge items
+- Files
+- Functions
+- APIs
+- Workflows
+- Services
+- Documentation
+- Data entities
+- Search results
+- Knowledge items
 
 It should activate the current Chat workspace and preserve the project context.
 
@@ -1668,10 +1668,10 @@ It should activate the current Chat workspace and preserve the project context.
 
 If the user selects a source or project entity from an answer:
 
-* Open the relevant project information
-* Preserve the current conversation
-* Allow return to the same conversation
-* Do not create an unrelated chat
+- Open the relevant project information
+- Preserve the current conversation
+- Allow return to the same conversation
+- Do not create an unrelated chat
 
 ---
 
@@ -1741,19 +1741,19 @@ Provide project-wide search.
 
 Results should distinguish:
 
-* Code
-* Documentation
-* Functionality
-* Workflows
-* APIs
-* Data
-* Other project knowledge
+- Code
+- Documentation
+- Functionality
+- Workflows
+- APIs
+- Data
+- Other project knowledge
 
 Actions:
 
-* Open
-* View details
-* Ask about this
+- Open
+- View details
+- Ask about this
 
 ---
 
@@ -1868,10 +1868,10 @@ Actions:
 
 Clearly communicate:
 
-* What will happen
-* Why approval is required
-* Who needs to approve
-* Current approval state
+- What will happen
+- Why approval is required
+- Who needs to approve
+- Current approval state
 
 ---
 
@@ -1881,10 +1881,10 @@ Present results in an understandable form.
 
 Support:
 
-* Summary
-* Tables
-* Key metrics
-* Interpretation
+- Summary
+- Tables
+- Key metrics
+- Interpretation
 
 Example:
 
@@ -1914,10 +1914,10 @@ Automatically generate meaningful conversation titles where possible.
 
 Examples:
 
-* Checkout flow
-* Authentication implementation
-* Payment failure investigation
-* Customer cancellation analysis
+- Checkout flow
+- Authentication implementation
+- Payment failure investigation
+- Customer cancellation analysis
 
 Avoid:
 
@@ -1947,19 +1947,19 @@ Do not unexpectedly create a new chat.
 
 Within a project provide access to:
 
-* Overview
-* Chat
-* Knowledge
-* Search
-* Changes
-* Sources
-* Health
+- Overview
+- Chat
+- Knowledge
+- Search
+- Changes
+- Sources
+- Health
 
 Always make clear:
 
-* Organization
-* Project
-* Current location
+- Organization
+- Project
+- Current location
 
 ---
 
@@ -1970,14 +1970,14 @@ using backend-provided information.
 
 Show where available:
 
-* Connected repository and selected branch
-* Upload / source versions or processing events
-* Origin (upload vs repository)
-* Initiating user
-* Timestamp
-* Processing status and result
-* Link to processing details, exclusions, and errors
-* Credential / connection management actions where permitted (§14A)
+- Connected repository and selected branch
+- Upload / source versions or processing events
+- Origin (upload vs repository)
+- Initiating user
+- Timestamp
+- Processing status and result
+- Link to processing details, exclusions, and errors
+- Credential / connection management actions where permitted (§14A)
 
 Additional uploads must feel like updating existing project knowledge, not
 creating a new project.
@@ -1991,11 +1991,11 @@ backend permissions and policy.
 
 Before confirming, clearly explain what happens to:
 
-* Source
-* Knowledge
-* Conversations
-* Processing history
-* Audit records (as the backend defines retention)
+- Source
+- Knowledge
+- Conversations
+- Processing history
+- Audit records (as the backend defines retention)
 
 Archived / soft-deleted projects must not appear in normal project lists and must
 not remain askable until restored (when restoration is supported).
@@ -2011,20 +2011,20 @@ Administration must provide user management.
 
 Show:
 
-* User
-* Role
-* Status
-* Project access
-* Last activity
+- User
+- Role
+- Status
+- Project access
+- Last activity
 
 Actions:
 
-* Edit role
-* Manage access
-* Activate
-* Deactivate
-* Remove user where permitted (soft-remove / removal distinct from deactivate)
-* Reset password
+- Edit role
+- Manage access
+- Activate
+- Deactivate
+- Remove user where permitted (soft-remove / removal distinct from deactivate)
+- Reset password
 
 When removing a user, confirm the access consequences before proceeding.
 
@@ -2038,10 +2038,10 @@ The flow should be simple and clear.
 
 Allow the administrator to:
 
-* Enter user information
-* Assign role
-* Assign project access
-* Create the user
+- Enter user information
+- Assign role
+- Assign project access
+- Create the user
 
 Avoid unnecessary steps.
 
@@ -2053,10 +2053,10 @@ Administrators should be able to reset passwords for other users where permitted
 
 The action should clearly communicate:
 
-* Which user is affected
-* What will happen
-* Whether the user will receive instructions
-* Current reset status
+- Which user is affected
+- What will happen
+- Whether the user will receive instructions
+- Current reset status
 
 ---
 
@@ -2111,14 +2111,14 @@ Provide organization usage information where appropriate.
 
 Show:
 
-* Questions
-* Token usage
-* Context usage
-* Knowledge processing
-* Source ingestion volume where available
-* Database queries (later slice; not current)
-* Usage by project
-* Usage by user
+- Questions
+- Token usage
+- Context usage
+- Knowledge processing
+- Source ingestion volume where available
+- Database queries (later slice; not current)
+- Usage by project
+- Usage by user
 
 Only show metrics that are actually available. Never fabricate usage values.
 
@@ -2129,12 +2129,12 @@ Only show metrics that are actually available. Never fabricate usage values.
 Where the backend exposes retention configuration to administrators, provide a
 simple Retention settings experience for:
 
-* Source
-* Knowledge
-* Conversations
-* Audit logs
-* Query history (later slice where applicable)
-* Processing history
+- Source
+- Knowledge
+- Conversations
+- Audit logs
+- Query history (later slice where applicable)
+- Processing history
 
 Explain retention effects in plain language.
 
@@ -2147,13 +2147,13 @@ controls for it.
 
 Support important notifications:
 
-* Knowledge update completed
-* Knowledge update failed
-* Repository update detected
-* Processing requires attention
-* Administrative events
-* Approval requested (later slice; not current)
-* Approval completed (later slice; not current)
+- Knowledge update completed
+- Knowledge update failed
+- Repository update detected
+- Processing requires attention
+- Administrative events
+- Approval requested (later slice; not current)
+- Approval completed (later slice; not current)
 
 Notifications should be actionable.
 
@@ -2165,20 +2165,20 @@ Administration must provide an Audit view for authorized users.
 
 Show auditable events such as:
 
-* User and role changes
-* Project create / archive / delete
-* Source upload and repository connection changes
-* Knowledge processing triggers and outcomes
-* Sensitive source access where the backend records it
-* Other administrative actions
+- User and role changes
+- Project create / archive / delete
+- Source upload and repository connection changes
+- Knowledge processing triggers and outcomes
+- Sensitive source access where the backend records it
+- Other administrative actions
 
 Each event detail should include, when provided by the backend:
 
-* Actor
-* Action
-* Target resource
-* Timestamp
-* Result / outcome
+- Actor
+- Action
+- Target resource
+- Timestamp
+- Result / outcome
 
 Support list, filter, and detail inspection.
 
@@ -2223,9 +2223,9 @@ Every major screen must have intentional loading states.
 
 Use:
 
-* Skeletons
-* Meaningful status
-* Progress indicators
+- Skeletons
+- Meaningful status
+- Progress indicators
 
 Avoid layout jumps.
 
@@ -2292,12 +2292,12 @@ The active conversation remains the primary screen.
 
 The user must be able to:
 
-* Switch conversations
-* Create new conversations
-* Archive conversations
-* Continue previous conversations
-* Edit messages
-* Answer clarification questions
+- Switch conversations
+- Create new conversations
+- Archive conversations
+- Continue previous conversations
+- Edit messages
+- Answer clarification questions
 
 without awkward interactions.
 
@@ -2315,14 +2315,14 @@ The user should always know which project they are asking about.
 
 Support:
 
-* Keyboard navigation
-* Focus management
-* Screen readers
-* Appropriate contrast
-* Accessible labels
-* Accessible error messages
-* Responsive text
-* Reduced-motion preferences
+- Keyboard navigation
+- Focus management
+- Screen readers
+- Appropriate contrast
+- Accessible labels
+- Accessible error messages
+- Responsive text
+- Reduced-motion preferences
 
 Accessibility must be designed from the beginning.
 
@@ -2332,15 +2332,15 @@ Accessibility must be designed from the beginning.
 
 Use subtle animation for:
 
-* Navigation
-* Progress
-* Success
-* Context changes
-* Evidence expansion
-* Source previews
-* Knowledge updates
-* Notifications
-* Chat state transitions
+- Navigation
+- Progress
+- Success
+- Context changes
+- Evidence expansion
+- Source previews
+- Knowledge updates
+- Notifications
+- Chat state transitions
 
 Do not use animation purely for decoration.
 
@@ -2354,12 +2354,12 @@ Do not expose everything simultaneously.
 
 Use:
 
-* Progressive disclosure
-* Expandable sections
-* Side panels
-* Contextual details
-* Drill-down views
-* Appropriate tabs
+- Progressive disclosure
+- Expandable sections
+- Side panels
+- Contextual details
+- Drill-down views
+- Appropriate tabs
 
 The default experience should remain simple.
 
@@ -2371,13 +2371,13 @@ Advanced information should be accessible when needed.
 
 Clearly distinguish:
 
-* Known information
-* Derived information
-* Assumptions
-* Missing information
-* Conflicting information
-* Warnings
-* Abstain / insufficient evidence
+- Known information
+- Derived information
+- Assumptions
+- Missing information
+- Conflicting information
+- Warnings
+- Abstain / insufficient evidence
 
 Do not visually create false certainty.
 
@@ -2394,17 +2394,17 @@ Every visible UI state must correspond to a capability that the underlying produ
 
 Only display:
 
-* Actual streaming
-* Actual processing states
-* Actual tool execution
-* Actual source retrieval
-* Actual response timing
-* Actual token usage
-* Actual context usage
-* Actual cancellation
-* Actual retry
-* Actual query generation (later slice; not current)
-* Actual query execution (later slice; not current)
+- Actual streaming
+- Actual processing states
+- Actual tool execution
+- Actual source retrieval
+- Actual response timing
+- Actual token usage
+- Actual context usage
+- Actual cancellation
+- Actual retry
+- Actual query generation (later slice; not current)
+- Actual query execution (later slice; not current)
 
 Do not fabricate technical behavior for visual effect.
 
@@ -2581,14 +2581,14 @@ The final product should feel like:
 
 It should combine:
 
-* Project understanding
-* Code understanding
-* Documentation understanding
-* Business functionality understanding
-* Knowledge exploration
-* Conversational investigation
-* Evidence
-* Persistent conversations
+- Project understanding
+- Code understanding
+- Documentation understanding
+- Business functionality understanding
+- Knowledge exploration
+- Conversational investigation
+- Evidence
+- Persistent conversations
 
 into one coherent experience.
 
@@ -2671,10 +2671,10 @@ A conversation must not silently become project knowledge.
 
 The UI must never render:
 
-* Repository credentials
-* Database credentials (later slice)
-* Authentication secrets
-* Other sensitive configuration secrets
+- Repository credentials
+- Database credentials (later slice)
+- Authentication secrets
+- Other sensitive configuration secrets
 
 from API responses, error payloads, audit records, notifications, or chat
 answers.

@@ -34,10 +34,7 @@ describe('projectsApi', () => {
       sort: 'lastAccessedAt',
       cursor: 'c1',
     });
-    expect(apiRequest).toHaveBeenCalledWith(
-      expect.stringMatching(/^\/projects\?/),
-      expect.objectContaining({ signal: undefined }),
-    );
+    expect(apiRequest).toHaveBeenCalledWith(expect.stringMatching(/^\/projects\?/), expect.objectContaining({ signal: undefined }));
     const path = apiRequest.mock.calls[0][0];
     expect(path).toContain('q=atlas');
     expect(path).toContain('includeArchived=true');

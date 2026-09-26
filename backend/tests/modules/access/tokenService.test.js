@@ -3,13 +3,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { TEST_JWT_ACCESS_TOKEN_SECRET } from '../../appConfig.js';
-import {
-  createTokenService,
-  hashRefreshToken,
-  JWT_AUDIENCE,
-  JWT_ISSUER,
-  mintRefreshToken,
-} from '../../../src/modules/access/auth.js';
+import { createTokenService, hashRefreshToken, JWT_AUDIENCE, JWT_ISSUER, mintRefreshToken } from '../../../src/modules/access/auth.js';
 
 describe('tokenService', () => {
   const tokens = createTokenService(TEST_JWT_ACCESS_TOKEN_SECRET);
@@ -44,9 +38,7 @@ describe('tokenService', () => {
       expiresIn: 60_000,
     });
     try {
-      tokens.verifyAccessToken(
-        signer({ sub: 'u1', org: 'o1', rls: [], sid: 's1', typ: 'access' }),
-      );
+      tokens.verifyAccessToken(signer({ sub: 'u1', org: 'o1', rls: [], sid: 's1', typ: 'access' }));
       expect.unreachable('expected missing tid to fail');
     } catch (err) {
       expect(err.code).toBe('UNAUTHENTICATED');
@@ -78,9 +70,7 @@ describe('tokenService', () => {
       expiresIn: 60_000,
     });
     try {
-      tokens.verifyAccessToken(
-        badIss({ sub: 'u1', org: 'o1', rls: [], sid: 's1', tid: 't1', typ: 'access' }),
-      );
+      tokens.verifyAccessToken(badIss({ sub: 'u1', org: 'o1', rls: [], sid: 's1', tid: 't1', typ: 'access' }));
       expect.unreachable('expected wrong issuer to fail');
     } catch (err) {
       expect(err.code).toBe('UNAUTHENTICATED');
@@ -94,9 +84,7 @@ describe('tokenService', () => {
       expiresIn: 60_000,
     });
     try {
-      tokens.verifyAccessToken(
-        badAud({ sub: 'u1', org: 'o1', rls: [], sid: 's1', tid: 't1', typ: 'access' }),
-      );
+      tokens.verifyAccessToken(badAud({ sub: 'u1', org: 'o1', rls: [], sid: 's1', tid: 't1', typ: 'access' }));
       expect.unreachable('expected wrong audience to fail');
     } catch (err) {
       expect(err.code).toBe('UNAUTHENTICATED');

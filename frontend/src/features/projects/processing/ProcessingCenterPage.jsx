@@ -66,15 +66,9 @@ export default function ProcessingCenterPage() {
           <div role="alert" className="mt-6 max-w-md text-sm">
             <p>{messageFromUnknown(jobsQuery.error, t('processing.listFailed'))}</p>
             {correlationFromUnknown(jobsQuery.error) ? (
-              <p className="mt-1 text-xs text-muted-foreground">
-                {t('errors.correlationId', { id: correlationFromUnknown(jobsQuery.error) })}
-              </p>
+              <p className="mt-1 text-xs text-muted-foreground">{t('errors.correlationId', { id: correlationFromUnknown(jobsQuery.error) })}</p>
             ) : null}
-            <Button
-              variant="outline"
-              className="mt-3"
-              onClick={() => void jobsQuery.refetch()}
-            >
+            <Button variant="outline" className="mt-3" onClick={() => void jobsQuery.refetch()}>
               {t('common.retry')}
             </Button>
           </div>
@@ -82,55 +76,30 @@ export default function ProcessingCenterPage() {
 
         {!jobsQuery.isLoading && !jobsQuery.isError && jobs.length === 0 ? (
           <div className="mt-6">
-            <EmptyState
-              icon={Activity}
-              title={t('processing.emptyTitle')}
-              description={t('processing.emptyDescription')}
-            />
+            <EmptyState icon={Activity} title={t('processing.emptyTitle')} description={t('processing.emptyDescription')} />
           </div>
         ) : null}
 
         {active.length > 0 ? (
           <div className="mt-5 space-y-4">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-blue-600">
-              {t('processing.inProgress')}
-            </h2>
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-blue-600">{t('processing.inProgress')}</h2>
             {active.map((job) => (
-              <ProcessingJobCard
-                key={job.id}
-                job={job}
-                project={project}
-                variant="active"
-              />
+              <ProcessingJobCard key={job.id} job={job} project={project} variant="active" />
             ))}
           </div>
         ) : null}
 
         {history.length > 0 ? (
           <div className="mt-6">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              {t('processing.history')}
-            </h2>
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('processing.history')}</h2>
             <div className="mt-2 space-y-3">
               {history.map((job) => (
-                <ProcessingJobCard
-                  key={job.id}
-                  job={job}
-                  project={project}
-                  variant="history"
-                />
+                <ProcessingJobCard key={job.id} job={job} project={project} variant="history" />
               ))}
             </div>
             {jobsQuery.hasNextPage ? (
-              <Button
-                variant="outline"
-                className="mt-3"
-                onClick={() => void jobsQuery.fetchNextPage()}
-                disabled={jobsQuery.isFetchingNextPage}
-              >
-                {jobsQuery.isFetchingNextPage ? (
-                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-                ) : null}
+              <Button variant="outline" className="mt-3" onClick={() => void jobsQuery.fetchNextPage()} disabled={jobsQuery.isFetchingNextPage}>
+                {jobsQuery.isFetchingNextPage ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : null}
                 {t('processing.loadMore')}
               </Button>
             ) : null}

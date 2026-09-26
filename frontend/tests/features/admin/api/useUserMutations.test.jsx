@@ -3,12 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setAccessToken } from '@/shared/api/index';
 import { resetApiSessionForTests } from '@/shared/api/apiSession.js';
-import {
-  useCreateUser,
-  useResetUserPassword,
-  useSetUserStatus,
-  useUpdateUserRoles,
-} from '@/features/admin/api/useUserMutations.js';
+import { useCreateUser, useResetUserPassword, useSetUserStatus, useUpdateUserRoles } from '@/features/admin/api/useUserMutations.js';
 import { adminUsersQueryKey } from '@/features/admin/api/adminIdentityApi.js';
 import { ApiError } from '@/shared/api/index';
 
@@ -25,9 +20,7 @@ function createWrapper(queryClient) {
    * @param {{ children: import('react').ReactNode }} props
    */
   return function Wrapper({ children }) {
-    return (
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    );
+    return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
   };
 }
 
@@ -59,9 +52,7 @@ describe('useUserMutations', () => {
   });
 
   it('createUser invalidates the users list on success', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      jsonFetch({ id: 'u9', email: 'n@b.co', displayName: 'N', roles: [] }, 201),
-    );
+    const fetchMock = vi.fn().mockResolvedValue(jsonFetch({ id: 'u9', email: 'n@b.co', displayName: 'N', roles: [] }, 201));
     vi.stubGlobal('fetch', fetchMock);
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -154,9 +145,7 @@ describe('useUserMutations', () => {
 
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () =>
-        jsonFetch({ id: 'u1', userStatus: 'disabled', roles: [] }),
-      ),
+      vi.fn(async () => jsonFetch({ id: 'u1', userStatus: 'disabled', roles: [] })),
     );
 
     const { result } = renderHook(() => useSetUserStatus(), {
@@ -184,9 +173,7 @@ describe('useUserMutations', () => {
 
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () =>
-        jsonFetch({ id: 'u1', userStatus: 'active', roles: [] }),
-      ),
+      vi.fn(async () => jsonFetch({ id: 'u1', userStatus: 'active', roles: [] })),
     );
 
     const { result } = renderHook(() => useSetUserStatus(), {
@@ -255,9 +242,12 @@ describe('useUserMutations', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async () =>
-        jsonFetch({
-          error: { code: 'FORBIDDEN', message: 'Nope.' },
-        }, 403),
+        jsonFetch(
+          {
+            error: { code: 'FORBIDDEN', message: 'Nope.' },
+          },
+          403,
+        ),
       ),
     );
 

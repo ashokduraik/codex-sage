@@ -3,11 +3,7 @@ import { Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ProtectedRoute from '@/features/auth/ProtectedRoute';
 import { resetRefreshClientForTests } from '@/shared/api/refreshClient.js';
-import {
-  clearAuthSession,
-  renderWithProviders,
-  seedAuthSession,
-} from '@tests/renderWithProviders';
+import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
 
 afterEach(() => {
   cleanup();
@@ -69,10 +65,7 @@ describe('ProtectedRoute', () => {
       <Routes>
         <Route
           element={
-            <ProtectedRoute
-              fallback={<div data-testid="fallback">loading</div>}
-              unauthenticatedElement={<div data-testid="signed-out">out</div>}
-            />
+            <ProtectedRoute fallback={<div data-testid="fallback">loading</div>} unauthenticatedElement={<div data-testid="signed-out">out</div>} />
           }
         >
           <Route path="/" element={<div data-testid="protected">in</div>} />
@@ -100,11 +93,7 @@ describe('ProtectedRoute', () => {
 
     renderWithProviders(
       <Routes>
-        <Route
-          element={
-            <ProtectedRoute unauthenticatedElement={<div data-testid="signed-out">out</div>} />
-          }
-        >
+        <Route element={<ProtectedRoute unauthenticatedElement={<div data-testid="signed-out">out</div>} />}>
           <Route path="/" element={<div data-testid="protected">in</div>} />
         </Route>
       </Routes>,

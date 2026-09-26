@@ -53,21 +53,12 @@ export default function ChangePasswordPage() {
     <AuthLayout
       icon={KeyRound}
       title={forced ? t('auth.mustChangePasswordTitle') : t('auth.changePasswordTitle')}
-      subtitle={
-        forced ? t('auth.mustChangePasswordSubtitle') : t('auth.changePasswordSubtitle')
-      }
+      subtitle={forced ? t('auth.mustChangePasswordSubtitle') : t('auth.changePasswordSubtitle')}
     >
       {error && (
-        <div
-          role="alert"
-          className="mb-4 rounded-lg bg-destructive/10 p-3 text-sm text-destructive"
-        >
+        <div role="alert" className="mb-4 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
           <p>{error}</p>
-          {correlationId ? (
-            <p className="mt-1 text-xs opacity-80">
-              {t('auth.correlationReference', { id: correlationId })}
-            </p>
-          ) : null}
+          {correlationId ? <p className="mt-1 text-xs opacity-80">{t('auth.correlationReference', { id: correlationId })}</p> : null}
         </div>
       )}
 
@@ -75,10 +66,7 @@ export default function ChangePasswordPage() {
         <div className="space-y-2">
           <Label htmlFor="currentPassword">{t('auth.currentPassword')}</Label>
           <div className="relative">
-            <Lock
-              className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-              aria-hidden="true"
-            />
+            <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
             <Input
               id="currentPassword"
               type="password"
@@ -118,12 +106,7 @@ export default function ChangePasswordPage() {
             disabled={loading}
           />
         </div>
-        <Button
-          type="submit"
-          className="h-12 w-full font-medium"
-          disabled={loading}
-          aria-busy={loading}
-        >
+        <Button type="submit" className="h-12 w-full font-medium" disabled={loading} aria-busy={loading}>
           {loading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />

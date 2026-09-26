@@ -1,14 +1,5 @@
 import { useOutletContext, Link } from 'react-router-dom';
-import {
-  Boxes,
-  Workflow,
-  Component,
-  Plug,
-  Database,
-  ArrowRight,
-  MessageSquare,
-  BookOpen,
-} from 'lucide-react';
+import { Boxes, Workflow, Component, Plug, Database, ArrowRight, MessageSquare, BookOpen } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { EmptyState, KnowledgeHealthBadge } from '@/shared/components';
 import { Button } from '@/shared/ui/button';
@@ -67,12 +58,8 @@ export default function ProjectOverview() {
       <div className="h-full overflow-y-auto scrollbar-thin">
         <div className="mx-auto max-w-4xl px-6 py-8">
           <section className="mb-8 animate-fade-in">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              {t('projects.summary')}
-            </h2>
-            <p className="mt-2 text-[15px] leading-relaxed text-foreground/90">
-              {project.description || t('projects.noDescription')}
-            </p>
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('projects.summary')}</h2>
+            <p className="mt-2 text-[15px] leading-relaxed text-foreground/90">{project.description || t('projects.noDescription')}</p>
             <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
               <KnowledgeHealthBadge code={project.knowledgeHealth} />
               <span>·</span>
@@ -80,9 +67,7 @@ export default function ProjectOverview() {
               {excludedCount > 0 ? (
                 <>
                   <span>·</span>
-                  <span className="text-amber-700">
-                    {t('projects.excluded', { count: excludedCount })}
-                  </span>
+                  <span className="text-amber-700">{t('projects.excluded', { count: excludedCount })}</span>
                 </>
               ) : null}
             </div>
@@ -108,12 +93,8 @@ export default function ProjectOverview() {
     <div className="h-full overflow-y-auto scrollbar-thin">
       <div className="mx-auto max-w-4xl px-6 py-8">
         <section className="animate-fade-in">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            {t('projects.summary')}
-          </h2>
-          <p className="mt-2 text-[15px] leading-relaxed text-foreground/90">
-            {project.description}
-          </p>
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('projects.summary')}</h2>
+          <p className="mt-2 text-[15px] leading-relaxed text-foreground/90">{project.description}</p>
           <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
             <KnowledgeHealthBadge code={project.knowledgeHealth} />
             <span>·</span>
@@ -121,9 +102,7 @@ export default function ProjectOverview() {
             {excludedCount > 0 ? (
               <>
                 <span>·</span>
-                <span className="text-amber-700">
-                  {t('projects.excluded', { count: excludedCount })}
-                </span>
+                <span className="text-amber-700">{t('projects.excluded', { count: excludedCount })}</span>
               </>
             ) : null}
           </div>
@@ -144,18 +123,14 @@ export default function ProjectOverview() {
                 className="group rounded-lg border border-border bg-card p-4 hover:border-brand/40"
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-medium text-foreground group-hover:text-brand">
-                    {capability.label}
-                  </span>
+                  <span className="font-medium text-foreground group-hover:text-brand">{capability.label}</span>
                   <span className="text-xs text-muted-foreground">
                     {t('projects.itemCount', {
                       count: (capability.children || []).length,
                     })}
                   </span>
                 </div>
-                <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
-                  {capability.summary}
-                </p>
+                <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{capability.summary}</p>
               </Link>
             ))}
           </div>
@@ -172,14 +147,9 @@ export default function ProjectOverview() {
               </h2>
               <ul className="mt-3 space-y-2">
                 {items.slice(0, 5).map((item) => (
-                  <li
-                    key={item.label}
-                    className="rounded-lg border border-border bg-card px-4 py-3 text-sm"
-                  >
+                  <li key={item.label} className="rounded-lg border border-border bg-card px-4 py-3 text-sm">
                     <div className="font-medium text-foreground">{item.label}</div>
-                    {item.summary ? (
-                      <p className="mt-0.5 text-muted-foreground">{item.summary}</p>
-                    ) : null}
+                    {item.summary ? <p className="mt-0.5 text-muted-foreground">{item.summary}</p> : null}
                   </li>
                 ))}
               </ul>

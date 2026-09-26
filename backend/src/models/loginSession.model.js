@@ -8,12 +8,7 @@ import { createBaseSchema, ROW_STATUS_ACTIVE } from '../platform/data/index.js';
 const ObjectId = mongoose.Schema.Types.ObjectId;
 
 /** Non-logout kills of the whole login. Logout uses loggedOutAt only. */
-export const LOGIN_SESSION_REVOKED_REASONS = Object.freeze([
-  'reuse_detected',
-  'password_changed',
-  'user_disabled',
-  'email_changed',
-]);
+export const LOGIN_SESSION_REVOKED_REASONS = Object.freeze(['reuse_detected', 'password_changed', 'user_disabled', 'email_changed']);
 
 const refreshTokenEntrySchema = new mongoose.Schema(
   {
@@ -50,11 +45,6 @@ const loginSessionSchema = createBaseSchema({
 loginSessionSchema.index({ 'tokens.refreshTokenHash': 1 }, { unique: true });
 loginSessionSchema.index({ orgId: 1, userId: 1, status: 1 });
 loginSessionSchema.index({ expiresAt: 1 });
-loginSessionSchema.index(
-  { _id: 1, status: 1 },
-  { partialFilterExpression: { status: ROW_STATUS_ACTIVE } },
-);
+loginSessionSchema.index({ _id: 1, status: 1 }, { partialFilterExpression: { status: ROW_STATUS_ACTIVE } });
 
-export const LoginSession =
-  mongoose.models.LoginSession ??
-  mongoose.model('LoginSession', loginSessionSchema, 'loginsessions');
+export const LoginSession = mongoose.models.LoginSession ?? mongoose.model('LoginSession', loginSessionSchema, 'loginsessions');

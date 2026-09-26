@@ -5,11 +5,7 @@ import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/shared/api/index';
-import {
-  clearAuthSession,
-  renderWithProviders,
-  seedAuthSession,
-} from '@tests/renderWithProviders';
+import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
 
 vi.mock('@/features/projects/processing/api/jobsApi.js', async (importOriginal) => {
   const actual = await importOriginal();
@@ -52,13 +48,7 @@ vi.mock('@/features/projects/api/projectsApi.js', async (importOriginal) => {
   };
 });
 
-import {
-  archiveProject,
-  getProject,
-  getProjectDeletionPreview,
-  recordProjectAccess,
-  restoreProject,
-} from '@/features/projects/api/projectsApi.js';
+import { archiveProject, getProject, getProjectDeletionPreview, recordProjectAccess, restoreProject } from '@/features/projects/api/projectsApi.js';
 import ProjectDetailPage from '@/features/projects/ProjectDetailPage';
 import ProjectOverview from '@/features/projects/ProjectOverview';
 
@@ -113,9 +103,7 @@ describe('ProjectDetailPage', () => {
   });
 
   it('shows not found on 404', async () => {
-    getProject.mockRejectedValue(
-      new ApiError({ status: 404, code: 'NOT_FOUND', message: 'missing' }),
-    );
+    getProject.mockRejectedValue(new ApiError({ status: 404, code: 'NOT_FOUND', message: 'missing' }));
     renderWithProviders(
       <Routes>
         <Route path="/projects/:id" element={<ProjectDetailPage />} />
@@ -202,9 +190,7 @@ describe('ProjectDetailPage', () => {
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-02T00:00:00.000Z',
     });
-    archiveProject.mockRejectedValue(
-      new ApiError({ status: 403, code: 'FORBIDDEN', message: 'nope' }),
-    );
+    archiveProject.mockRejectedValue(new ApiError({ status: 403, code: 'FORBIDDEN', message: 'nope' }));
     renderWithProviders(
       <Routes>
         <Route path="/projects/:id" element={<ProjectDetailPage />}>

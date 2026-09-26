@@ -3,12 +3,7 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SourceFile } from '../../../src/models/sourceFile.model.js';
-import {
-  SOURCE_DIFF_BATCH_SIZE,
-  carryFromSourceDiff,
-  classifySourceDiff,
-  loadPathHashesForVersion,
-} from '../../../src/modules/knowledge/sources.js';
+import { SOURCE_DIFF_BATCH_SIZE, carryFromSourceDiff, classifySourceDiff, loadPathHashesForVersion } from '../../../src/modules/knowledge/sources.js';
 
 describe('classifySourceDiff', () => {
   it('treats every incoming path as added when there is no prior version', () => {

@@ -1,12 +1,5 @@
 import { Link, useOutletContext } from 'react-router-dom';
-import {
-  AlertTriangle,
-  BookOpen,
-  CheckCircle2,
-  FileWarning,
-  HeartPulse,
-  MessageSquare,
-} from 'lucide-react';
+import { AlertTriangle, BookOpen, CheckCircle2, FileWarning, HeartPulse, MessageSquare } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { KnowledgeHealthBadge } from '@/shared/components';
 import { Button } from '@/shared/ui/button';
@@ -29,11 +22,7 @@ export default function HealthPanel() {
   const hasSource = sourceVersions > 0 || Boolean(connection);
   const health = project?.knowledgeHealth;
   const askable = isProjectAskable(project);
-  const sourceDetail = connection?.repository?.fullName
-    ? connection.repository.fullName
-    : hasSource
-      ? t('sources.upload')
-      : t('health.noSource');
+  const sourceDetail = connection?.repository?.fullName ? connection.repository.fullName : hasSource ? t('sources.upload') : t('health.noSource');
 
   const checks = [
     {
@@ -49,10 +38,7 @@ export default function HealthPanel() {
     {
       label: t('health.checkExcluded'),
       ok: excludedCount === 0,
-      detail:
-        excludedCount > 0
-          ? t('projects.excluded', { count: excludedCount })
-          : t('health.allIncluded'),
+      detail: excludedCount > 0 ? t('projects.excluded', { count: excludedCount }) : t('health.allIncluded'),
     },
     {
       label: t('health.checkFresh'),
@@ -88,9 +74,7 @@ export default function HealthPanel() {
             </div>
             <p className="text-sm text-muted-foreground">
               {health === 'ready' ? t('health.readyDetail') : null}
-              {health === 'partially_available'
-                ? t('health.partialDetail', { count: excludedCount })
-                : null}
+              {health === 'partially_available' ? t('health.partialDetail', { count: excludedCount }) : null}
               {health === 'updating' ? t('health.updatingDetail') : null}
               {health === 'failed' ? t('health.needsAttentionDetail') : null}
             </p>
@@ -118,9 +102,7 @@ export default function HealthPanel() {
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
             <div>
               <p className="font-medium">{t('health.incompleteWarningTitle')}</p>
-              <p className="text-xs">
-                {t('health.incompleteWarningBody', { count: excludedCount })}
-              </p>
+              <p className="text-xs">{t('health.incompleteWarningBody', { count: excludedCount })}</p>
             </div>
           </div>
         ) : null}

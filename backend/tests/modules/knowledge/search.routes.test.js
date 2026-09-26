@@ -14,7 +14,7 @@ import {
   DEFAULT_ADMIN_PASSWORD,
   IDENTITY_MODELS,
   createRoleInRepo,
-  createUser, createUserInRepo,
+  createUserInRepo,
   findOrganizationBySlug,
   runBootstrapSeed,
 } from '../../../src/modules/masters/index.js';
@@ -26,15 +26,7 @@ import { DOCUMENT_MODELS, insertDocumentSections } from '../../../src/modules/kn
 import { KNOWLEDGE_MODELS, insertKnowledgeVersion } from '../../../src/modules/knowledge/knowledge.js';
 
 const harness = createMongoHarness({
-  models: [
-    ...IDENTITY_MODELS,
-    ...AUTH_MODELS,
-    ...AUDIT_MODELS,
-    ...IDEMPOTENCY_MODELS,
-    ...PROJECT_MODELS,
-    ...KNOWLEDGE_MODELS,
-    ...DOCUMENT_MODELS,
-  ],
+  models: [...IDENTITY_MODELS, ...AUTH_MODELS, ...AUDIT_MODELS, ...IDEMPOTENCY_MODELS, ...PROJECT_MODELS, ...KNOWLEDGE_MODELS, ...DOCUMENT_MODELS],
   uri: TEST_APP_CONFIG.mongo.uri,
 });
 
@@ -243,11 +235,7 @@ describe('search routes', () => {
   it('returns 403 when the caller lacks search.run', async () => {
     await runBootstrapSeed(createMockLog());
     app = await readyApp();
-    const { accessToken: adminToken } = await login(
-      app,
-      DEFAULT_ADMIN_EMAIL,
-      DEFAULT_ADMIN_PASSWORD,
-    );
+    const { accessToken: adminToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const org = await findOrganizationBySlug('default');
     const project = await createProject(app, adminToken, 'Search Forbidden', 'idem-search-403');
     const role = await createRoleInRepo(org._id, {
@@ -262,8 +250,8 @@ describe('search routes', () => {
       passwordHash,
       userStatus: 'active',
       createdBy: null,
-          roleIds: [role._id]
-        });
+      roleIds: [role._id],
+    });
     await addProjectMember({
       orgId: String(org._id),
       projectId: project.id,

@@ -61,20 +61,14 @@ describe('knowledge.browse.mapper', () => {
   });
 
   it('maps routing entries and route nodes', () => {
-    expect(
-      mapApiItem({ url: '/pay', handler: 'pay', handlerFile: 'r.js', handlerLine: 3 }, 0),
-    ).toMatchObject({ title: '/pay', description: 'pay' });
-    expect(
-      mapApiItem({ id: 'r1', name: 'route', filePath: 'app.js', startLine: 2 }, 1),
-    ).toMatchObject({ title: 'route' });
+    expect(mapApiItem({ url: '/pay', handler: 'pay', handlerFile: 'r.js', handlerLine: 3 }, 0)).toMatchObject({ title: '/pay', description: 'pay' });
+    expect(mapApiItem({ id: 'r1', name: 'route', filePath: 'app.js', startLine: 2 }, 1)).toMatchObject({ title: 'route' });
     expect(mapApiItem({}, 0)).toBeNull();
   });
 
   it('caps extractive summaries and includes docs plus graph metadata', () => {
     expect(capSummaryText('abc')).toBe('abc');
-    expect(capSummaryText('x'.repeat(KNOWLEDGE_SUMMARY_MAX_CHARS + 10))).toHaveLength(
-      KNOWLEDGE_SUMMARY_MAX_CHARS,
-    );
+    expect(capSummaryText('x'.repeat(KNOWLEDGE_SUMMARY_MAX_CHARS + 10))).toHaveLength(KNOWLEDGE_SUMMARY_MAX_CHARS);
     const summary = buildExtractiveSummary({
       projectName: 'Atlas',
       stats: { fileCount: 2, nodeCount: 9 },

@@ -7,11 +7,7 @@ import {
   CONVERSATION_TITLE_SOURCE_VALUES,
   Conversation,
 } from '../../models/conversations.model.js';
-import {
-  MESSAGE_ROLE_VALUES,
-  MESSAGE_STATUS_VALUES,
-  Message,
-} from '../../models/messages.model.js';
+import { MESSAGE_ROLE_VALUES, MESSAGE_STATUS_VALUES, Message } from '../../models/messages.model.js';
 import { assertOrgId, decodeCursor, encodeCursor, softDelete, ROW_STATUS_ACTIVE } from '../../platform/data/index.js';
 import { ApiError } from '../../platform/errors.js';
 import mongoose from 'mongoose';
@@ -66,7 +62,6 @@ export const CONVERSATION_AUTO_TITLE_MAX_INPUT_CHARS = 500;
 
 /** Interim title from the first user message when titleSource is still default. */
 export const CONVERSATION_TRUNCATED_TITLE_MAX_CHARS = 60;
-
 
 // --- from conversations/conversations.repository.js ---
 /**
@@ -295,8 +290,7 @@ export async function listOwnConversations(orgId, projectId, userId, filters = {
 
   const hasMore = rows.length > limit;
   const items = hasMore ? rows.slice(0, limit) : rows;
-  const nextCursor =
-    hasMore && items.length > 0 ? encodeRowCursor(items[items.length - 1], 'updatedAt') : null;
+  const nextCursor = hasMore && items.length > 0 ? encodeRowCursor(items[items.length - 1], 'updatedAt') : null;
   return { items, nextCursor };
 }
 
@@ -465,8 +459,7 @@ export async function listMessagesForConversation(orgId, projectId, conversation
     .exec();
   const hasMore = rows.length > limit;
   const items = hasMore ? rows.slice(0, limit) : rows;
-  const nextCursor =
-    hasMore && items.length > 0 ? encodeRowCursor(items[items.length - 1], 'createdAt') : null;
+  const nextCursor = hasMore && items.length > 0 ? encodeRowCursor(items[items.length - 1], 'createdAt') : null;
   return { items, nextCursor };
 }
 
@@ -585,7 +578,6 @@ export async function searchOwnConversations(input) {
     .exec();
   const hasMore = rows.length > limit;
   const items = hasMore ? rows.slice(0, limit) : rows;
-  const nextCursor =
-    hasMore && items.length > 0 ? encodeRowCursor(items[items.length - 1], 'updatedAt') : null;
+  const nextCursor = hasMore && items.length > 0 ? encodeRowCursor(items[items.length - 1], 'updatedAt') : null;
   return { items, nextCursor };
 }

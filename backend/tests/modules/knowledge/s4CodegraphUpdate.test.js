@@ -140,27 +140,18 @@ describe('runCodegraphUpdateStage', () => {
     expect(adapter.sync).not.toHaveBeenCalled();
     expect(result.cursor.graphIdentity.sourceVersionId).toBe('v1');
     expect(ctx.carry.graphIdentity).toEqual(result.cursor.graphIdentity);
-    expect(ctx.emitEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ eventCode: 'structure.analyzed' }),
-    );
-    expect(ctx.emitEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ eventCode: 'relationships.analyzed' }),
-    );
+    expect(ctx.emitEvent).toHaveBeenCalledWith(expect.objectContaining({ eventCode: 'structure.analyzed' }));
+    expect(ctx.emitEvent).toHaveBeenCalledWith(expect.objectContaining({ eventCode: 'relationships.analyzed' }));
     expect(adapter.releaseWriter).toHaveBeenCalled();
   });
 
   it('syncs when an index already exists', async () => {
     codegraphIndexExists.mockResolvedValue(true);
-    listSourceFilesOrdered.mockResolvedValue([
-      { path: 'a.js', fileState: 'stored', excludedFromGraph: false },
-    ]);
+    listSourceFilesOrdered.mockResolvedValue([{ path: 'a.js', fileState: 'stored', excludedFromGraph: false }]);
     const ctx = buildCtx();
     ctx.carry.changedPaths = ['a.js'];
     await runCodegraphUpdateStage(ctx, { adapter });
-    expect(adapter.sync).toHaveBeenCalledWith(
-      '/ws/org/proj',
-      expect.objectContaining({ changedPaths: ['a.js'] }),
-    );
+    expect(adapter.sync).toHaveBeenCalledWith('/ws/org/proj', expect.objectContaining({ changedPaths: ['a.js'] }));
   });
 
   it('fails permanent when workspace path resolution is unsafe', async () => {
@@ -175,9 +166,7 @@ describe('runCodegraphUpdateStage', () => {
   });
 
   it('maps validation failure to CODEGRAPH_VALIDATION_FAILED', async () => {
-    listSourceFilesOrdered.mockResolvedValue([
-      { path: 'a.js', fileState: 'stored', excludedFromGraph: false },
-    ]);
+    listSourceFilesOrdered.mockResolvedValue([{ path: 'a.js', fileState: 'stored', excludedFromGraph: false }]);
     adapter.validate.mockResolvedValue({
       ok: false,
       hardFail: true,
@@ -192,9 +181,7 @@ describe('runCodegraphUpdateStage', () => {
   });
 
   it('maps library throw to CODEGRAPH_LIBRARY_ERROR when unclassified', async () => {
-    listSourceFilesOrdered.mockResolvedValue([
-      { path: 'a.js', fileState: 'stored', excludedFromGraph: false },
-    ]);
+    listSourceFilesOrdered.mockResolvedValue([{ path: 'a.js', fileState: 'stored', excludedFromGraph: false }]);
     adapter.indexAll.mockRejectedValue(new Error('boom'));
     await expect(runCodegraphUpdateStage(buildCtx(), { adapter })).rejects.toMatchObject({
       code: 'CODEGRAPH_LIBRARY_ERROR',
@@ -203,9 +190,7 @@ describe('runCodegraphUpdateStage', () => {
   });
 
   it('maps classified adapter failures through to the job error', async () => {
-    listSourceFilesOrdered.mockResolvedValue([
-      { path: 'a.js', fileState: 'stored', excludedFromGraph: false },
-    ]);
+    listSourceFilesOrdered.mockResolvedValue([{ path: 'a.js', fileState: 'stored', excludedFromGraph: false }]);
     adapter.indexAll.mockRejectedValue(
       Object.assign(new Error('locked'), {
         failureClass: 'temporary',
@@ -219,9 +204,7 @@ describe('runCodegraphUpdateStage', () => {
   });
 
   it('records warnings when the indexer reports file errors', async () => {
-    listSourceFilesOrdered.mockResolvedValue([
-      { path: 'a.js', fileState: 'stored', excludedFromGraph: false },
-    ]);
+    listSourceFilesOrdered.mockResolvedValue([{ path: 'a.js', fileState: 'stored', excludedFromGraph: false }]);
     adapter.indexAll.mockResolvedValue({
       mode: 'indexAll',
       success: true,
@@ -238,9 +221,7 @@ describe('runCodegraphUpdateStage', () => {
   });
 
   it('maps validate throw to CODEGRAPH_VALIDATION_FAILED', async () => {
-    listSourceFilesOrdered.mockResolvedValue([
-      { path: 'a.js', fileState: 'stored', excludedFromGraph: false },
-    ]);
+    listSourceFilesOrdered.mockResolvedValue([{ path: 'a.js', fileState: 'stored', excludedFromGraph: false }]);
     adapter.validate.mockRejectedValue(new Error('probe crash'));
     await expect(runCodegraphUpdateStage(buildCtx(), { adapter })).rejects.toMatchObject({
       code: 'CODEGRAPH_VALIDATION_FAILED',
@@ -249,37 +230,25 @@ describe('runCodegraphUpdateStage', () => {
 
   it('omits changedPaths from sync when removedPaths are present', async () => {
     codegraphIndexExists.mockResolvedValue(true);
-    listSourceFilesOrdered.mockResolvedValue([
-      { path: 'a.js', fileState: 'stored', excludedFromGraph: false },
-    ]);
+    listSourceFilesOrdered.mockResolvedValue([{ path: 'a.js', fileState: 'stored', excludedFromGraph: false }]);
     const ctx = buildCtx();
     ctx.carry.changedPaths = ['a.js'];
     ctx.carry.removedPaths = ['gone.js'];
     await runCodegraphUpdateStage(ctx, { adapter });
-    expect(adapter.sync).toHaveBeenCalledWith(
-      '/ws/org/proj',
-      expect.objectContaining({ changedPaths: undefined }),
-    );
+    expect(adapter.sync).toHaveBeenCalledWith('/ws/org/proj', expect.objectContaining({ changedPaths: undefined }));
   });
 
   it('accepts changedPaths as a Set on carry', async () => {
     codegraphIndexExists.mockResolvedValue(true);
-    listSourceFilesOrdered.mockResolvedValue([
-      { path: 'a.js', fileState: 'stored', excludedFromGraph: false },
-    ]);
+    listSourceFilesOrdered.mockResolvedValue([{ path: 'a.js', fileState: 'stored', excludedFromGraph: false }]);
     const ctx = buildCtx();
     ctx.carry.changedPaths = new Set(['a.js']);
     await runCodegraphUpdateStage(ctx, { adapter });
-    expect(adapter.sync).toHaveBeenCalledWith(
-      '/ws/org/proj',
-      expect.objectContaining({ changedPaths: ['a.js'] }),
-    );
+    expect(adapter.sync).toHaveBeenCalledWith('/ws/org/proj', expect.objectContaining({ changedPaths: ['a.js'] }));
   });
 
   it('aborts after acquiring the writer when cancel flips mid-stage', async () => {
-    listSourceFilesOrdered.mockResolvedValue([
-      { path: 'a.js', fileState: 'stored', excludedFromGraph: false },
-    ]);
+    listSourceFilesOrdered.mockResolvedValue([{ path: 'a.js', fileState: 'stored', excludedFromGraph: false }]);
     const ctx = buildCtx();
     let calls = 0;
     ctx.isCancelRequested = vi.fn(async () => {
@@ -293,9 +262,7 @@ describe('runCodegraphUpdateStage', () => {
   });
 
   it('uses carry.workspaceRoot when provided', async () => {
-    listSourceFilesOrdered.mockResolvedValue([
-      { path: 'a.js', fileState: 'stored', excludedFromGraph: false },
-    ]);
+    listSourceFilesOrdered.mockResolvedValue([{ path: 'a.js', fileState: 'stored', excludedFromGraph: false }]);
     const ctx = buildCtx();
     ctx.carry.workspaceRoot = '/custom-root';
     await runCodegraphUpdateStage(ctx, { adapter });

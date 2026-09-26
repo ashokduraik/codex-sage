@@ -13,12 +13,7 @@ export {
   createAuthenticatePreHandler,
   authRoutes,
 } from './auth.js';
-export {
-  PASSWORD_MIN_LENGTH,
-  adminSetPassword,
-  getPasswordResetStatus,
-  passwordRoutes,
-} from './password.js';
+export { PASSWORD_MIN_LENGTH, adminSetPassword, getPasswordResetStatus, passwordRoutes } from './password.js';
 export {
   isKnownPermissionKey,
   assertRolePermissionsInCatalog,
@@ -31,11 +26,7 @@ export {
   installRouteDeclarationCollector,
   permissionsRoutes,
 } from './permissions.js';
-export {
-  buildAuditContextFromRequest,
-  recordAuditEvent,
-  auditRoutes,
-} from './audit.js';
+export { buildAuditContextFromRequest, recordAuditEvent, auditRoutes } from './audit.js';
 
 import { AuditEvent } from '../../models/audit.model.js';
 import { LoginSession } from '../../models/loginSession.model.js';

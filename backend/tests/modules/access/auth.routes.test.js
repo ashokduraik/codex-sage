@@ -14,7 +14,7 @@ import {
   findOrganizationBySlug,
   findUserByEmail,
   findBuiltInRole,
-  createUser, createUserInRepo,
+  createUserInRepo,
   softDeleteUser,
   updateUserPasswordHash,
   runBootstrapSeed,
@@ -227,9 +227,13 @@ describe('auth.routes', () => {
       url: `${API_BASE_PATH}/auth/login`,
       payload: { email: DEFAULT_ADMIN_EMAIL, password: DEFAULT_ADMIN_PASSWORD },
     });
-    const jarUnknown = cookieJarFromResponse(login2, {}, {
-      [REFRESH_COOKIE_NAME]: 'unknown-refresh-token-value',
-    });
+    const jarUnknown = cookieJarFromResponse(
+      login2,
+      {},
+      {
+        [REFRESH_COOKIE_NAME]: 'unknown-refresh-token-value',
+      },
+    );
     const logoutUnknown = await app.inject({
       method: 'POST',
       url: `${API_BASE_PATH}/auth/logout`,
@@ -261,15 +265,8 @@ describe('auth.routes', () => {
       userStatus: 'active',
       roleIds: [memberRole._id],
     });
-    await updateUserPasswordHash(
-      orgId,
-      disabled._id,
-      await hashPassword('secret-password'),
-    );
-    await User.updateOne(
-      { _id: disabled._id },
-      { $set: { userStatus: 'disabled' } },
-    );
+    await updateUserPasswordHash(orgId, disabled._id, await hashPassword('secret-password'));
+    await User.updateOne({ _id: disabled._id }, { $set: { userStatus: 'disabled' } });
 
     const softDeleted = await createUserInRepo(orgId, {
       email: 'deleted@example.com',
@@ -277,11 +274,7 @@ describe('auth.routes', () => {
       userStatus: 'active',
       roleIds: [memberRole._id],
     });
-    await updateUserPasswordHash(
-      orgId,
-      softDeleted._id,
-      await hashPassword('secret-password'),
-    );
+    await updateUserPasswordHash(orgId, softDeleted._id, await hashPassword('secret-password'));
     await softDeleteUser(orgId, softDeleted._id);
 
     const cases = [
@@ -322,16 +315,9 @@ describe('auth.routes', () => {
     const accessToken = login.json().accessToken;
     const organization = await findOrganizationBySlug('default');
     const admin = await findUserByEmail(organization._id, DEFAULT_ADMIN_EMAIL);
-    await updateUserPasswordHash(
-      admin.orgId,
-      admin._id,
-      await hashPassword(DEFAULT_ADMIN_PASSWORD),
-    );
+    await updateUserPasswordHash(admin.orgId, admin._id, await hashPassword(DEFAULT_ADMIN_PASSWORD));
     // Ensure passwordUpdatedAt is strictly after the token iat (integer seconds).
-    await User.updateOne(
-      { _id: admin._id },
-      { $set: { passwordUpdatedAt: new Date(Date.now() + 2_000) } },
-    );
+    await User.updateOne({ _id: admin._id }, { $set: { passwordUpdatedAt: new Date(Date.now() + 2_000) } });
 
     const meAfterPassword = await app.inject({
       method: 'GET',
@@ -347,9 +333,7 @@ describe('auth.routes', () => {
       payload: { email: DEFAULT_ADMIN_EMAIL, password: DEFAULT_ADMIN_PASSWORD },
     });
     const token2 = login2.json().accessToken;
-    const claims2 = createTokenService(
-      TEST_APP_CONFIG.auth.jwtAccessTokenSecret,
-    ).verifyAccessToken(token2);
+    const claims2 = createTokenService(TEST_APP_CONFIG.auth.jwtAccessTokenSecret).verifyAccessToken(token2);
     await revokeLoginSession(claims2.sid, 'logout');
     const meAfterRevoke = await app.inject({
       method: 'GET',

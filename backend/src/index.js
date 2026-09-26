@@ -17,11 +17,7 @@ import { syncSchemaIndexes } from './platform/data/index.js';
 import { IDEMPOTENCY_MODELS } from './platform/idempotency/index.js';
 import { createAppLogger } from './platform/logger.js';
 import { connectMongo, disconnectMongo } from './platform/mongo.js';
-import {
-  attachShutdownSignals,
-  registerProcessHandlers,
-  registerShutdownHook,
-} from './platform/shutdown.js';
+import { attachShutdownSignals, registerProcessHandlers, registerShutdownHook } from './platform/shutdown.js';
 
 /**
  * Application entry point (API process).
@@ -81,10 +77,7 @@ async function start() {
         ProjectJobLock,
       ]);
     } catch (err) {
-      shutdownLog.error(
-        { errName: err instanceof Error ? err.name : 'Error' },
-        'schema index sync failed',
-      );
+      shutdownLog.error({ errName: err instanceof Error ? err.name : 'Error' }, 'schema index sync failed');
       process.exit(1);
     }
   }

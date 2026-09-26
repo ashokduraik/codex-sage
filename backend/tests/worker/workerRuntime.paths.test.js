@@ -164,9 +164,7 @@ describe('workerRuntime failure and cancel paths', () => {
       exclusiveScope: 'none',
       run: async () => ({ result: 'completed' }),
     });
-    claimNextJob
-      .mockResolvedValueOnce(makeJobDoc({ cancelRequestedAt: new Date() }))
-      .mockResolvedValue(null);
+    claimNextJob.mockResolvedValueOnce(makeJobDoc({ cancelRequestedAt: new Date() })).mockResolvedValue(null);
     const runtime = startWorkerRuntime({
       workerId: 'w-cancel',
       log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -189,9 +187,7 @@ describe('workerRuntime failure and cancel paths', () => {
       run: async () => ({ result: 'completed_with_warnings', summary: { w: 1 } }),
     });
     acquireProjectJobLock.mockResolvedValueOnce({ acquired: false });
-    claimNextJob
-      .mockResolvedValueOnce(makeJobDoc({ jobType: 'ingest' }))
-      .mockResolvedValue(null);
+    claimNextJob.mockResolvedValueOnce(makeJobDoc({ jobType: 'ingest' })).mockResolvedValue(null);
     const runtime = startWorkerRuntime({
       workerId: 'w-busy',
       log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -214,9 +210,7 @@ describe('workerRuntime failure and cancel paths', () => {
       run: async () => ({ result: 'completed_with_warnings', summary: { w: 1 } }),
     });
     acquireProjectJobLock.mockResolvedValue({ acquired: true });
-    claimNextJob
-      .mockResolvedValueOnce(makeJobDoc({ jobType: 'ingest' }))
-      .mockResolvedValue(null);
+    claimNextJob.mockResolvedValueOnce(makeJobDoc({ jobType: 'ingest' })).mockResolvedValue(null);
     const runtime2 = startWorkerRuntime({
       workerId: 'w-warn',
       log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -227,11 +221,7 @@ describe('workerRuntime failure and cancel paths', () => {
       setInterval: () => 1,
       clearInterval: vi.fn(),
     });
-    await vi.waitFor(() =>
-      expect(finishJobCompleted).toHaveBeenCalledWith(
-        expect.objectContaining({ result: 'completed_with_warnings' }),
-      ),
-    );
+    await vi.waitFor(() => expect(finishJobCompleted).toHaveBeenCalledWith(expect.objectContaining({ result: 'completed_with_warnings' })));
     await runtime2.stop();
   });
 
@@ -267,10 +257,7 @@ describe('workerRuntime failure and cancel paths', () => {
     await runtime.heartbeatOnceForTests();
     expect(log.error).toHaveBeenCalled();
     await runtime.stop();
-    expect(log.error).toHaveBeenCalledWith(
-      expect.objectContaining({ jobId: expect.any(String) }),
-      'failed to release job on shutdown',
-    );
+    expect(log.error).toHaveBeenCalledWith(expect.objectContaining({ jobId: expect.any(String) }), 'failed to release job on shutdown');
     releaseHandler();
   });
 
@@ -323,10 +310,7 @@ describe('workerRuntime failure and cancel paths', () => {
       clearInterval: vi.fn(),
     });
     await vi.waitFor(() => expect(requeueJobTemporaryFailure).toHaveBeenCalled());
-    expect(log.error).toHaveBeenCalledWith(
-      expect.objectContaining({ handler: 'worker_smoke' }),
-      'unclassified handler error treated as temporary',
-    );
+    expect(log.error).toHaveBeenCalledWith(expect.objectContaining({ handler: 'worker_smoke' }), 'unclassified handler error treated as temporary');
     await runtime2.stop();
   });
 
@@ -347,7 +331,7 @@ describe('workerRuntime failure and cancel paths', () => {
       heartbeatIntervalMs: 60_000,
       sweepIntervalMs: 60_000,
       drainTimeoutMs: 5,
-      setInterval: (fn) => {
+      setInterval: (_fn) => {
         const handle = { unref: vi.fn() };
         timers.push(handle);
         return handle;

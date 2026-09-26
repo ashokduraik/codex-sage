@@ -60,12 +60,9 @@ describe('preview helpers', () => {
 
 describe('loadSourceFileMetadata / loadSourceFileSlice', () => {
   it('throws PROJECT_NOT_FOUND or SOURCE_NOT_FOUND when scope is missing', async () => {
-    await expect(
-      loadSourceFileMetadata(
-        { orgId: 'o1', projectId: 'p1', path: 'src/a.js' },
-        { findProject: async () => null },
-      ),
-    ).rejects.toMatchObject({ code: 'PROJECT_NOT_FOUND' });
+    await expect(loadSourceFileMetadata({ orgId: 'o1', projectId: 'p1', path: 'src/a.js' }, { findProject: async () => null })).rejects.toMatchObject(
+      { code: 'PROJECT_NOT_FOUND' },
+    );
 
     await expect(
       loadSourceFileMetadata(
@@ -133,9 +130,9 @@ describe('loadSourceFileMetadata / loadSourceFileSlice', () => {
     const meta = await loadSourceFileMetadata({ orgId: 'o1', projectId: 'p1', path: 'logo.png' }, deps);
     expect(meta.previewAvailable).toBe(false);
     expect(meta.lineCount).toBeNull();
-    await expect(
-      loadSourceFileSlice({ orgId: 'o1', projectId: 'p1', path: 'logo.png', startLine: 1, endLine: 2 }, deps),
-    ).rejects.toMatchObject({ code: 'UNSUPPORTED_MEDIA_TYPE' });
+    await expect(loadSourceFileSlice({ orgId: 'o1', projectId: 'p1', path: 'logo.png', startLine: 1, endLine: 2 }, deps)).rejects.toMatchObject({
+      code: 'UNSUPPORTED_MEDIA_TYPE',
+    });
   });
 
   it('slices lines and truncates when the byte cap is exceeded', async () => {

@@ -2,11 +2,7 @@ import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import LoginPage, { safeReturnTo } from '@/features/auth/LoginPage';
 import { resetRefreshClientForTests } from '@/shared/api/refreshClient.js';
-import {
-  buildTestAuthUser,
-  clearAuthSession,
-  renderWithProviders,
-} from '@tests/renderWithProviders';
+import { buildTestAuthUser, clearAuthSession, renderWithProviders } from '@tests/renderWithProviders';
 
 afterEach(() => {
   cleanup();
@@ -28,9 +24,7 @@ function jsonResponse({ status = 200, body, headers = {} }) {
     status,
     headers: {
       get(name) {
-        const key = Object.keys(headerMap).find(
-          (candidate) => candidate.toLowerCase() === name.toLowerCase(),
-        );
+        const key = Object.keys(headerMap).find((candidate) => candidate.toLowerCase() === name.toLowerCase());
         return key ? headerMap[key] : null;
       },
     },
@@ -108,10 +102,7 @@ describe('LoginPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Log in' }));
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining('/auth/login'),
-        expect.anything(),
-      );
+      expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/auth/login'), expect.anything());
     });
   });
 
@@ -163,9 +154,7 @@ describe('LoginPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Log in' }));
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Logging in/i }).getAttribute('aria-busy')).toBe(
-        'true',
-      );
+      expect(screen.getByRole('button', { name: /Logging in/i }).getAttribute('aria-busy')).toBe('true');
       expect(screen.getByLabelText('Email').disabled).toBe(true);
     });
 
@@ -349,8 +338,7 @@ describe('safeReturnTo', () => {
   });
 
   it('strips sensitive bootstrap query params', () => {
-    window.location.search =
-      '?returnTo=' + encodeURIComponent('/admin?access_token=secret&keep=1');
+    window.location.search = '?returnTo=' + encodeURIComponent('/admin?access_token=secret&keep=1');
     expect(safeReturnTo()).toBe('/admin?keep=1');
   });
 });

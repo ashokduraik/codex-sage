@@ -12,11 +12,7 @@ import csrf from '@fastify/csrf-protection';
 import fjwt from '@fastify/jwt';
 import multipart from '@fastify/multipart';
 import { loadConfig } from '../platform/config.js';
-import {
-  buildLoggerOptions,
-  createRequestChildLogger,
-  registerRequestLogging,
-} from '../platform/logger.js';
+import { buildLoggerOptions, createRequestChildLogger, registerRequestLogging } from '../platform/logger.js';
 import { registerErrorHandler } from '../platform/errors.js';
 import {
   assertAllRoutesDeclareAccess,
@@ -32,18 +28,10 @@ import {
 } from '../modules/access/index.js';
 import { registerIdempotency } from '../platform/idempotency/index.js';
 import { configureProjectAclCache } from '../modules/masters/index.js';
-import {
-  MULTIPART_MAX_FILES,
-  UPLOAD_MAX_ARCHIVE_BYTES,
-  consumeSourceArchivePreHandler,
-} from '../modules/knowledge/index.js';
+import { MULTIPART_MAX_FILES, UPLOAD_MAX_ARCHIVE_BYTES, consumeSourceArchivePreHandler } from '../modules/knowledge/index.js';
 import { registerRoutes } from './routes.js';
 import { healthRoutes } from './health.routes.js';
-import {
-  registerStaticAssets,
-  resolveProductionDistRoot,
-  tryServeSpaIndex,
-} from './static-spa.js';
+import { registerStaticAssets, resolveProductionDistRoot, tryServeSpaIndex } from './static-spa.js';
 
 /** Versioned API route prefix — product contract, not an env var. */
 export const API_BASE_PATH = '/api/v1';
@@ -139,13 +127,7 @@ export function buildApp(config = loadConfig(), options = {}) {
       origin: true,
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-      allowedHeaders: [
-        'Authorization',
-        'Content-Type',
-        CORRELATION_ID_HEADER,
-        'X-CSRF-Token',
-        'Idempotency-Key',
-      ],
+      allowedHeaders: ['Authorization', 'Content-Type', CORRELATION_ID_HEADER, 'X-CSRF-Token', 'Idempotency-Key'],
       exposedHeaders: [CORRELATION_ID_HEADER],
     });
   }

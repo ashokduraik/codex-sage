@@ -10,26 +10,9 @@ import { createBaseSchema, ROW_STATUS_ACTIVE } from '../platform/data/index.js';
 const ObjectId = mongoose.Schema.Types.ObjectId;
 
 export const JOB_DEFAULT_MAX_ATTEMPTS = 5;
-export const JOB_STATUS_VALUES = Object.freeze([
-  'pending',
-  'running',
-  'completed',
-  'completed_with_warnings',
-  'failed',
-  'retrying',
-  'cancelled',
-]);
-export const JOB_TYPE_VALUES = Object.freeze([
-  'ingest',
-  'reingest',
-  'repo_sync',
-  'worker_smoke',
-]);
-export const FAILURE_CLASS_VALUES = Object.freeze([
-  'temporary',
-  'permanent',
-  'user_action_required',
-]);
+export const JOB_STATUS_VALUES = Object.freeze(['pending', 'running', 'completed', 'completed_with_warnings', 'failed', 'retrying', 'cancelled']);
+export const JOB_TYPE_VALUES = Object.freeze(['ingest', 'reingest', 'repo_sync', 'worker_smoke']);
+export const FAILURE_CLASS_VALUES = Object.freeze(['temporary', 'permanent', 'user_action_required']);
 
 /** info = progress, warning = problem but continued, error = failure. */
 export const JOB_EVENT_SEVERITY_VALUES = Object.freeze(['info', 'warning', 'error']);
@@ -46,22 +29,20 @@ const stageCheckpointSchema = new mongoose.Schema(
   { _id: false },
 );
 
-const jobEventSchema = new mongoose.Schema(
-  {
-    // Machine code, e.g. job.enqueued or source.validated
-    eventCode: { type: String, required: true, trim: true, maxlength: 120 },
-    // info = progress, warning = problem but continued, error = failure
-    severity: { type: String, enum: JOB_EVENT_SEVERITY_VALUES, required: true },
-    // Text shown in the timeline, e.g. "Source received"
-    message: { type: String, required: true, trim: true },
-    // Extra details (counts, stage name) — not secrets
-    data: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
-    // Same request id as the parent job and the original API call
-    correlationId: { type: String, default: null },
-    // When this line was appended
-    createdAt: { type: Date, required: true, default: () => new Date() },
-  },
-);
+const jobEventSchema = new mongoose.Schema({
+  // Machine code, e.g. job.enqueued or source.validated
+  eventCode: { type: String, required: true, trim: true, maxlength: 120 },
+  // info = progress, warning = problem but continued, error = failure
+  severity: { type: String, enum: JOB_EVENT_SEVERITY_VALUES, required: true },
+  // Text shown in the timeline, e.g. "Source received"
+  message: { type: String, required: true, trim: true },
+  // Extra details (counts, stage name) — not secrets
+  data: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
+  // Same request id as the parent job and the original API call
+  correlationId: { type: String, default: null },
+  // When this line was appended
+  createdAt: { type: Date, required: true, default: () => new Date() },
+});
 
 const progressCountersSchema = new mongoose.Schema(
   {
@@ -141,25 +122,10 @@ const jobSchema = createBaseSchema({
   events: { type: [jobEventSchema], required: true, default: () => [] },
 });
 
-jobSchema.index(
-  { orgId: 1, projectId: 1, createdAt: -1, _id: -1 },
-  { partialFilterExpression: { status: ROW_STATUS_ACTIVE } },
-);
-jobSchema.index(
-  { orgId: 1, projectId: 1, jobStatus: 1 },
-  { partialFilterExpression: { status: ROW_STATUS_ACTIVE } },
-);
-jobSchema.index(
-  { orgId: 1, projectId: 1, jobStatus: 1, currentStage: 1 },
-  { partialFilterExpression: { status: ROW_STATUS_ACTIVE } },
-);
-jobSchema.index(
-  { status: 1, jobStatus: 1, jobType: 1, scheduledAt: 1 },
-  { partialFilterExpression: { status: ROW_STATUS_ACTIVE } },
-);
-jobSchema.index(
-  { status: 1, jobStatus: 1, leaseExpiresAt: 1 },
-  { partialFilterExpression: { status: ROW_STATUS_ACTIVE } },
-);
+jobSchema.index({ orgId: 1, projectId: 1, createdAt: -1, _id: -1 }, { partialFilterExpression: { status: ROW_STATUS_ACTIVE } });
+jobSchema.index({ orgId: 1, projectId: 1, jobStatus: 1 }, { partialFilterExpression: { status: ROW_STATUS_ACTIVE } });
+jobSchema.index({ orgId: 1, projectId: 1, jobStatus: 1, currentStage: 1 }, { partialFilterExpression: { status: ROW_STATUS_ACTIVE } });
+jobSchema.index({ status: 1, jobStatus: 1, jobType: 1, scheduledAt: 1 }, { partialFilterExpression: { status: ROW_STATUS_ACTIVE } });
+jobSchema.index({ status: 1, jobStatus: 1, leaseExpiresAt: 1 }, { partialFilterExpression: { status: ROW_STATUS_ACTIVE } });
 
 export const Job = mongoose.models.Job ?? mongoose.model('Job', jobSchema, 'jobs');

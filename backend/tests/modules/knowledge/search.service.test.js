@@ -331,9 +331,7 @@ describe('runProjectSearch', () => {
 
   it('collects only matching graph types', () => {
     const adapter = {
-      querySymbols: () => [
-        { name: 'refundHandler', filePath: 'src/a.js', startLine: 1, kind: 'function' },
-      ],
+      querySymbols: () => [{ name: 'refundHandler', filePath: 'src/a.js', startLine: 1, kind: 'function' }],
       queryApis: () => [{ url: '/orders' }, { url: '/refunds', handlerFile: 'src/a.js' }],
       queryWorkflows: () => [{ title: 'Refund flow', path: 'src/flow.js' }],
     };

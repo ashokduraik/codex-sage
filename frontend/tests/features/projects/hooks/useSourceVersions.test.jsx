@@ -7,8 +7,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/features/projects/api/sourcesApi.js', () => ({
   SOURCE_VERSION_LIST_PAGE_SIZE: 20,
-  sourceVersionsQueryKey: (projectId) =>
-    Object.freeze(['projects', String(projectId), 'source-versions']),
+  sourceVersionsQueryKey: (projectId) => Object.freeze(['projects', String(projectId), 'source-versions']),
   listProjectSourceVersions: vi.fn(),
 }));
 
@@ -63,10 +62,7 @@ describe('useSourceVersions', () => {
     expect(flattenSourceVersionPages(result.current.data)).toEqual([{ id: 'sv1' }]);
     await result.current.fetchNextPage();
     await waitFor(() => {
-      expect(flattenSourceVersionPages(result.current.data)).toEqual([
-        { id: 'sv1' },
-        { id: 'sv2' },
-      ]);
+      expect(flattenSourceVersionPages(result.current.data)).toEqual([{ id: 'sv1' }, { id: 'sv2' }]);
     });
     expect(listProjectSourceVersions).toHaveBeenLastCalledWith({
       projectId: 'p1',

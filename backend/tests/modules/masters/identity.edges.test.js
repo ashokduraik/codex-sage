@@ -7,16 +7,8 @@ import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
 import { IDENTITY_MODELS } from '../../../src/modules/masters/index.js';
 import { createOrganization, findOrganizationById } from '../../../src/modules/masters/organizations.js';
-import {
-  createUser, createUserInRepo,
-  findUserById,
-  softDeleteUser,
-} from '../../../src/modules/masters/users.js';
-import {
-  ensureBuiltInRoles,
-  findBuiltInRole,
-  updateRoleInRepo,
-} from '../../../src/modules/masters/roles.js';
+import { createUserInRepo, findUserById, softDeleteUser } from '../../../src/modules/masters/users.js';
+import { ensureBuiltInRoles, findBuiltInRole, updateRoleInRepo } from '../../../src/modules/masters/roles.js';
 import { isBuiltInRoleKey, Role } from '../../../src/models/role.model.js';
 import { SLUG_PATTERN } from '../../../src/models/organization.model.js';
 
@@ -82,17 +74,13 @@ describe('identity edge coverage', () => {
 
   it('updateRole throws NOT_FOUND for a missing role', async () => {
     const org = await createOrganization({ name: 'R', slug: 'role-missing' });
-    await expect(
-      updateRoleInRepo(org._id, new mongoose.Types.ObjectId(), { name: 'X' }),
-    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    await expect(updateRoleInRepo(org._id, new mongoose.Types.ObjectId(), { name: 'X' })).rejects.toMatchObject({ code: 'NOT_FOUND' });
   });
 
   it('softDeleteRole throws NOT_FOUND for a missing role', async () => {
     const org = await createOrganization({ name: 'R', slug: 'role-del-missing' });
     const { softDeleteRoleInRepo } = await import('../../../src/modules/masters/roles.js');
-    await expect(
-      softDeleteRoleInRepo(org._id, new mongoose.Types.ObjectId()),
-    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    await expect(softDeleteRoleInRepo(org._id, new mongoose.Types.ObjectId())).rejects.toMatchObject({ code: 'NOT_FOUND' });
   });
 
   it('rejects a custom role that carries a builtInKey', async () => {
@@ -147,8 +135,6 @@ describe('identity edge coverage', () => {
   });
 
   it('rejects an invalid organization slug', async () => {
-    await expect(
-      createOrganization({ name: 'Bad', slug: 'Acme Corp!' }),
-    ).rejects.toThrow();
+    await expect(createOrganization({ name: 'Bad', slug: 'Acme Corp!' })).rejects.toThrow();
   });
 });

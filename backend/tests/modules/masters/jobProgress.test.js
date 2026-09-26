@@ -32,9 +32,7 @@ describe('jobProgress', () => {
     const currents = progress.stages.filter((stage) => stage.state === 'current');
     expect(currents).toHaveLength(1);
     expect(currents[0].stage).toBe('materialize_docs');
-    expect(progress.stages.find((stage) => stage.stage === 'codegraph_update')?.state).toBe(
-      'pending',
-    );
+    expect(progress.stages.find((stage) => stage.stage === 'codegraph_update')?.state).toBe('pending');
     expect(progress.stages[0].state).toBe('completed');
   });
 
@@ -49,9 +47,7 @@ describe('jobProgress', () => {
       'knowledge_publish',
       'finalize',
     ]);
-    expect(progress.stages.find((stage) => stage.stage === 'materialize_docs')?.state).toBe(
-      'failed',
-    );
+    expect(progress.stages.find((stage) => stage.stage === 'materialize_docs')?.state).toBe('failed');
     expect(progress.itemsProcessed).toBe(4812);
     expect(progress.itemsFailed).toBe(9);
     expect(progress.durationMs).toBe(312000);
@@ -84,9 +80,7 @@ describe('jobProgress', () => {
       cancelRequestedAt: null,
       retryCount: 0,
     });
-    expect(progress.stages.every((stage) => stage.state === 'current' || stage.state === 'pending')).toBe(
-      true,
-    );
+    expect(progress.stages.every((stage) => stage.state === 'current' || stage.state === 'pending')).toBe(true);
     expect(progress.stages.filter((stage) => stage.state === 'current')).toHaveLength(1);
     expect(progress.warnings).toEqual([]);
     expect(progress.errors).toEqual([]);
@@ -138,9 +132,7 @@ describe('jobProgress', () => {
       currentStage: 'materialize_docs',
       cancelRequestedAt: new Date('2026-09-11T10:44:01.000Z'),
     });
-    expect(cancelled.stages.find((stage) => stage.stage === 'materialize_docs')?.state).toBe(
-      'failed',
-    );
+    expect(cancelled.stages.find((stage) => stage.stage === 'materialize_docs')?.state).toBe('failed');
     expect(cancelled.cancellation.requested).toBe(true);
 
     const withPerStage = projectJobProgress({
@@ -151,8 +143,6 @@ describe('jobProgress', () => {
         materialize_docs: { itemsProcessed: 12, itemsFailed: 1, warningCount: 2 },
       },
     });
-    expect(
-      withPerStage.stages.find((stage) => stage.stage === 'materialize_docs')?.itemsProcessed,
-    ).toBe(12);
+    expect(withPerStage.stages.find((stage) => stage.stage === 'materialize_docs')?.itemsProcessed).toBe(12);
   });
 });

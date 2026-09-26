@@ -31,13 +31,7 @@ export const JOB_EVENT_MESSAGE_MAX_LENGTH = 500;
  * Default maxAttempts copied onto new jobs.
  * Phase 21 worker imports this rather than introducing an env var.
  */
-export {
-  FAILURE_CLASS_VALUES,
-  JOB_DEFAULT_MAX_ATTEMPTS,
-  JOB_EVENT_SEVERITY_VALUES,
-  JOB_STATUS_VALUES,
-  JOB_TYPE_VALUES,
-};
+export { FAILURE_CLASS_VALUES, JOB_DEFAULT_MAX_ATTEMPTS, JOB_EVENT_SEVERITY_VALUES, JOB_STATUS_VALUES, JOB_TYPE_VALUES };
 
 /** Event code written by createPendingJob. */
 export const JOB_EVENT_CODE_ENQUEUED = 'job.enqueued';
@@ -82,9 +76,7 @@ export const JOB_STAGE_CATALOG = Object.freeze({
     Object.freeze({ stage: 'persist_source', label: 'Saving source files' }),
     Object.freeze({ stage: 'enqueue_ingest', label: 'Queued for processing' }),
   ]),
-  worker_smoke: Object.freeze([
-    Object.freeze({ stage: 'smoke_run', label: 'Worker smoke check' }),
-  ]),
+  worker_smoke: Object.freeze([Object.freeze({ stage: 'smoke_run', label: 'Worker smoke check' })]),
 });
 
 /**
@@ -174,8 +166,7 @@ export function renderJobEventMessage(eventCode, context = {}) {
   }
   if (eventCode === 'files.identified' && typeof context.filesProcessed === 'number') {
     const processed = formatCount(context.filesProcessed);
-    const failed =
-      typeof context.filesFailed === 'number' ? Math.max(0, Math.floor(context.filesFailed)) : 0;
+    const failed = typeof context.filesFailed === 'number' ? Math.max(0, Math.floor(context.filesFailed)) : 0;
     if (failed > 0) {
       return `Project files identified (${processed} files, ${formatCount(failed)} failed)`;
     }
@@ -197,14 +188,8 @@ export function renderJobEventMessage(eventCode, context = {}) {
   }
   if (eventCode === 'docs.identified' && typeof context.documentationFiles === 'number') {
     const files = formatCount(context.documentationFiles);
-    const sections =
-      typeof context.documentationSections === 'number'
-        ? formatCount(context.documentationSections)
-        : '0';
-    const failed =
-      typeof context.failedDocuments === 'number'
-        ? Math.max(0, Math.floor(context.failedDocuments))
-        : 0;
+    const sections = typeof context.documentationSections === 'number' ? formatCount(context.documentationSections) : '0';
+    const failed = typeof context.failedDocuments === 'number' ? Math.max(0, Math.floor(context.failedDocuments)) : 0;
     if (failed > 0) {
       return `Documentation identified (${files} files, ${sections} sections, ${formatCount(failed)} failed)`;
     }
@@ -212,8 +197,7 @@ export function renderJobEventMessage(eventCode, context = {}) {
   }
   if (eventCode === 'structure.analyzed' && typeof context.indexedFiles === 'number') {
     const indexed = formatCount(context.indexedFiles);
-    const skipped =
-      typeof context.skippedFiles === 'number' ? Math.max(0, Math.floor(context.skippedFiles)) : 0;
+    const skipped = typeof context.skippedFiles === 'number' ? Math.max(0, Math.floor(context.skippedFiles)) : 0;
     if (skipped > 0) {
       return `Project structure analyzed (${indexed} files, ${formatCount(skipped)} skipped)`;
     }
@@ -259,16 +243,11 @@ export function resolveJobRetryMode(job) {
   const lastCompleted = job.stageCheckpoint?.lastCompletedStage ?? null;
   const failureClass = job.failureClass ?? null;
 
-  if (
-    failureClass === 'user_action_required' &&
-    failedStage &&
-    USER_ACTION_UPLOAD_STAGES.has(failedStage)
-  ) {
+  if (failureClass === 'user_action_required' && failedStage && USER_ACTION_UPLOAD_STAGES.has(failedStage)) {
     return {
       mode: 'not_retryable',
       fromStage: null,
-      reason:
-        'This upload cannot be retried. Remove excluded or invalid content and upload the project again.',
+      reason: 'This upload cannot be retried. Remove excluded or invalid content and upload the project again.',
     };
   }
 
@@ -276,8 +255,7 @@ export function resolveJobRetryMode(job) {
     return {
       mode: 'full',
       fromStage: 'validate_upload',
-      reason:
-        'The project structure update failed. Retry re-runs processing from the start against the stored source.',
+      reason: 'The project structure update failed. Retry re-runs processing from the start against the stored source.',
     };
   }
 
@@ -285,8 +263,7 @@ export function resolveJobRetryMode(job) {
     return {
       mode: 'full',
       fromStage: 'validate_upload',
-      reason:
-        'This failure cannot be partially redone. Retry re-runs the full processing pipeline.',
+      reason: 'This failure cannot be partially redone. Retry re-runs the full processing pipeline.',
     };
   }
 
@@ -375,9 +352,7 @@ export function deriveKnowledgeAvailability(jobStatus) {
  * @returns {{ currentIndex: number, lastCompletedIndex: number }}
  */
 function resolveStageIndexes(definitions, job) {
-  const lastCompletedIndex = definitions.findIndex(
-    (entry) => entry.stage === (job.stageCheckpoint?.lastCompletedStage ?? null),
-  );
+  const lastCompletedIndex = definitions.findIndex((entry) => entry.stage === (job.stageCheckpoint?.lastCompletedStage ?? null));
   let currentIndex = definitions.findIndex((entry) => entry.stage === (job.currentStage ?? null));
   if (currentIndex < 0 && lastCompletedIndex >= 0 && lastCompletedIndex + 1 < definitions.length) {
     currentIndex = lastCompletedIndex + 1;
@@ -396,12 +371,8 @@ function resolveStageIndexes(definitions, job) {
 function projectStages(job) {
   const definitions = listStagesForJobType(job.jobType);
   const { currentIndex, lastCompletedIndex } = resolveStageIndexes(definitions, job);
-  const isTerminalSuccess =
-    job.jobStatus === 'completed' || job.jobStatus === 'completed_with_warnings';
-  const isActive =
-    job.jobStatus === 'running' ||
-    job.jobStatus === 'pending' ||
-    job.jobStatus === 'retrying';
+  const isTerminalSuccess = job.jobStatus === 'completed' || job.jobStatus === 'completed_with_warnings';
+  const isActive = job.jobStatus === 'running' || job.jobStatus === 'pending' || job.jobStatus === 'retrying';
 
   return definitions.map((definition, index) => {
     /** @type {'completed' | 'current' | 'pending' | 'failed' | 'skipped'} */
@@ -414,11 +385,7 @@ function projectStages(job) {
       state = 'completed';
     } else if (job.jobStatus === 'cancelled' && index === currentIndex) {
       state = 'failed';
-    } else if (
-      job.jobStatus === 'cancelled' &&
-      lastCompletedIndex >= 0 &&
-      index <= lastCompletedIndex
-    ) {
+    } else if (job.jobStatus === 'cancelled' && lastCompletedIndex >= 0 && index <= lastCompletedIndex) {
       state = 'completed';
     } else if (isActive && index === currentIndex) {
       state = 'current';
@@ -427,27 +394,16 @@ function projectStages(job) {
     }
 
     const perStage = job.progressByStage?.[definition.stage];
-    const attachJobTotals =
-      !job.progressByStage && (state === 'failed' || state === 'current');
+    const attachJobTotals = !job.progressByStage && (state === 'failed' || state === 'current');
 
     return {
       stage: definition.stage,
       label: definition.label,
       state,
       startedAt: toIsoOrNull(state === 'pending' ? null : job.startedAt),
-      endedAt: toIsoOrNull(
-        state === 'completed' || state === 'failed' ? job.completedAt : null,
-      ),
-      itemsProcessed: perStage
-        ? (perStage.itemsProcessed ?? 0)
-        : attachJobTotals
-          ? (job.progressCounters?.itemsProcessed ?? 0)
-          : 0,
-      itemsFailed: perStage
-        ? (perStage.itemsFailed ?? 0)
-        : attachJobTotals && state === 'failed'
-          ? (job.progressCounters?.itemsFailed ?? 0)
-          : 0,
+      endedAt: toIsoOrNull(state === 'completed' || state === 'failed' ? job.completedAt : null),
+      itemsProcessed: perStage ? (perStage.itemsProcessed ?? 0) : attachJobTotals ? (job.progressCounters?.itemsProcessed ?? 0) : 0,
+      itemsFailed: perStage ? (perStage.itemsFailed ?? 0) : attachJobTotals && state === 'failed' ? (job.progressCounters?.itemsFailed ?? 0) : 0,
       warningCount: perStage ? (perStage.warningCount ?? 0) : 0,
     };
   });
@@ -467,8 +423,7 @@ function collectSeveritySummaries(events, severity) {
       continue;
     }
     const code = event.eventCode || event.data?.code || 'UNKNOWN';
-    const affectedCount =
-      typeof event.data?.affectedCount === 'number' ? event.data.affectedCount : 1;
+    const affectedCount = typeof event.data?.affectedCount === 'number' ? event.data.affectedCount : 1;
     const existing = byCode.get(code);
     if (existing) {
       existing.affectedCount += affectedCount;
@@ -493,13 +448,7 @@ function collectSeveritySummaries(events, severity) {
 function computePercent(job) {
   const processed = job.progressCounters?.itemsProcessed;
   const total = job.progressCounters?.itemsTotal;
-  if (
-    typeof processed !== 'number' ||
-    typeof total !== 'number' ||
-    !Number.isFinite(processed) ||
-    !Number.isFinite(total) ||
-    total <= 0
-  ) {
+  if (typeof processed !== 'number' || typeof total !== 'number' || !Number.isFinite(processed) || !Number.isFinite(total) || total <= 0) {
     return null;
   }
   return Math.min(100, Math.max(0, Math.round((processed / total) * 100)));
@@ -512,12 +461,9 @@ function computePercent(job) {
  * @returns {object[]}
  */
 function ensureSingleCurrent(stages, jobStatus) {
-  const isActive =
-    jobStatus === 'running' || jobStatus === 'pending' || jobStatus === 'retrying';
+  const isActive = jobStatus === 'running' || jobStatus === 'pending' || jobStatus === 'retrying';
   if (!isActive) {
-    return stages.map((stage) =>
-      stage.state === 'current' ? { ...stage, state: 'pending' } : stage,
-    );
+    return stages.map((stage) => (stage.state === 'current' ? { ...stage, state: 'pending' } : stage));
   }
   let seenCurrent = false;
   return stages.map((stage) => {
@@ -676,10 +622,7 @@ function buildJobEventSubdoc(input) {
 export async function insertPendingJob(input, options = {}) {
   assertOrgId(input.orgId);
   const now = input.scheduledAt instanceof Date ? input.scheduledAt : new Date();
-  const maxAttempts =
-    typeof input.maxAttempts === 'number' && input.maxAttempts >= 1
-      ? input.maxAttempts
-      : JOB_DEFAULT_MAX_ATTEMPTS;
+  const maxAttempts = typeof input.maxAttempts === 'number' && input.maxAttempts >= 1 ? input.maxAttempts : JOB_DEFAULT_MAX_ATTEMPTS;
 
   assertJobEventMessageLength(JOB_ENQUEUED_MESSAGE);
   const event = buildJobEventSubdoc({
@@ -944,10 +887,7 @@ export async function findActiveJobForProject(orgId, projectId) {
  */
 export async function findActiveJobForSourceVersion(orgId, projectId, sourceVersionId) {
   assertOrgId(orgId);
-  if (
-    !mongoose.isValidObjectId(String(projectId)) ||
-    !mongoose.isValidObjectId(String(sourceVersionId))
-  ) {
+  if (!mongoose.isValidObjectId(String(projectId)) || !mongoose.isValidObjectId(String(sourceVersionId))) {
     return null;
   }
   return Job.findOne({

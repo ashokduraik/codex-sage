@@ -31,11 +31,7 @@ export {
   applyPasswordUpdate,
   touchLastLoginAt,
 } from './users.js';
-export {
-  findBuiltInRole,
-  createRoleInRepo,
-  ensureBuiltInRoles,
-} from './roles.js';
+export { findBuiltInRole, createRoleInRepo, ensureBuiltInRoles } from './roles.js';
 export {
   adjustProjectConversationCount,
   findProjectById,
@@ -44,11 +40,7 @@ export {
   mapProjectToDto,
   projectRoutes,
 } from './projects.js';
-export {
-  configureProjectAclCache,
-  resolveProjectPermissions,
-  projectMemberRoutes,
-} from './projectMembers.js';
+export { configureProjectAclCache, resolveProjectPermissions, projectMemberRoutes } from './projectMembers.js';
 export {
   appendJobEvent,
   deferRunningJob,

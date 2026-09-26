@@ -2,11 +2,7 @@
  * Unit tests for project ACL cache helpers.
  */
 import { describe, expect, it } from 'vitest';
-import {
-  createProjectAclCache,
-  invalidateProjectAclCache,
-  projectAclCache,
-} from '../../../src/modules/masters/projectMembers.js';
+import { createProjectAclCache, invalidateProjectAclCache, projectAclCache } from '../../../src/modules/masters/projectMembers.js';
 
 describe('projectAclCache', () => {
   it('stores, returns, and expires entries; respects aclVersion', () => {

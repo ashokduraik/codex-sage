@@ -6,13 +6,7 @@ import mongoose from 'mongoose';
 import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
 import { AUDIT_MODELS, listAuditEvents } from '../../../src/modules/access/audit.js';
-import {
-  IDENTITY_MODELS,
-  createOrganization,
-  createUser, createUserInRepo,
-  findBuiltInRole,
-  ensureBuiltInRoles,
-} from '../../../src/modules/masters/index.js';
+import { IDENTITY_MODELS, createOrganization, createUserInRepo, findBuiltInRole, ensureBuiltInRoles } from '../../../src/modules/masters/index.js';
 import {
   archiveProject,
   createProject,
@@ -54,9 +48,9 @@ async function seedActorWithAllProjects() {
     email: `actor-${Date.now()}@example.com`,
     displayName: 'Actor',
     userStatus: 'active',
-        roleIds: [orgAdmin._id],
-        projectAccessMode: 'all'
-      });
+    roleIds: [orgAdmin._id],
+    projectAccessMode: 'all',
+  });
   return { orgId: org._id, actor: actor._id };
 }
 
@@ -199,9 +193,7 @@ describe('projects.service', () => {
 
     const accessed = await recordProjectAccess(String(orgId), created.id);
     expect(accessed.lastAccessedAt).toBeTruthy();
-    await expect(
-      recordProjectAccess(String(orgId), new mongoose.Types.ObjectId().toHexString()),
-    ).rejects.toMatchObject({
+    await expect(recordProjectAccess(String(orgId), new mongoose.Types.ObjectId().toHexString())).rejects.toMatchObject({
       code: 'NOT_FOUND',
     });
   });

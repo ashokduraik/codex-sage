@@ -4,11 +4,7 @@
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/shared/api/index';
-import {
-  clearAuthSession,
-  renderWithProviders,
-  seedAuthSession,
-} from '@tests/renderWithProviders';
+import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
 
 vi.mock('@/features/projects/api/projectsApi.js', async (importOriginal) => {
   const actual = await importOriginal();
@@ -73,9 +69,7 @@ describe('CreateProjectDialog', () => {
   });
 
   it('renders PROJECT_NAME_TAKEN as role=alert', async () => {
-    createProject.mockRejectedValue(
-      new ApiError({ status: 409, code: 'PROJECT_NAME_TAKEN', message: 'Name taken' }),
-    );
+    createProject.mockRejectedValue(new ApiError({ status: 409, code: 'PROJECT_NAME_TAKEN', message: 'Name taken' }));
     renderWithProviders(<CreateProjectDialog open={true} onOpenChange={() => undefined} />);
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Dup' } });
     fireEvent.click(screen.getByText('Upload source'));
@@ -97,9 +91,7 @@ describe('CreateProjectDialog', () => {
     fireEvent.click(screen.getByText('Connect repository'));
     fireEvent.click(screen.getByRole('button', { name: /Continue to connect/i }));
     expect(await screen.findByRole('heading', { name: 'Connect repository' })).toBeTruthy();
-    expect(createProject).toHaveBeenCalledWith(
-      expect.objectContaining({ sourceType: 'repository' }),
-    );
+    expect(createProject).toHaveBeenCalledWith(expect.objectContaining({ sourceType: 'repository' }));
   });
 
   it('keeps continue disabled until name and source type are set', () => {

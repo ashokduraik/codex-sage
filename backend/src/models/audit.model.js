@@ -8,12 +8,7 @@
  */
 import mongoose from 'mongoose';
 import { ApiError } from '../platform/errors.js';
-import {
-  INCLUDE_DELETED_OPTION,
-  ROW_STATUS_ACTIVE,
-  ROW_STATUS_DELETED,
-  ROW_STATUS_VALUES,
-} from '../platform/data/index.js';
+import { INCLUDE_DELETED_OPTION, ROW_STATUS_ACTIVE, ROW_STATUS_DELETED, ROW_STATUS_VALUES } from '../platform/data/index.js';
 
 const { Schema } = mongoose;
 const ObjectId = Schema.Types.ObjectId;
@@ -162,6 +157,4 @@ auditEventSchema.pre('findOneAndDelete', function guardFindOneAndDelete() {
   assertAppendOnly(this, 'delete');
 });
 
-export const AuditEvent =
-  mongoose.models.AuditEvent ??
-  mongoose.model('AuditEvent', auditEventSchema, 'auditevents');
+export const AuditEvent = mongoose.models.AuditEvent ?? mongoose.model('AuditEvent', auditEventSchema, 'auditevents');

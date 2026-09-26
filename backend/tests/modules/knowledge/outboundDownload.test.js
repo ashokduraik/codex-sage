@@ -18,16 +18,12 @@ function jsonResponse(status, init = {}) {
 
 describe('outboundDownload', () => {
   it('allows GitHub zipball redirects to codeload and drops auth on that hop', async () => {
-    expect(isAllowedArchiveRedirect('api.github.com', 'api.github.com', 'codeload.github.com')).toBe(
-      true,
-    );
+    expect(isAllowedArchiveRedirect('api.github.com', 'api.github.com', 'codeload.github.com')).toBe(true);
     expect(isAllowedArchiveRedirect('api.github.com', 'api.github.com', 'evil.example')).toBe(false);
 
     const fetchImpl = vi
       .fn()
-      .mockResolvedValueOnce(
-        jsonResponse(302, { headers: { location: 'https://codeload.github.com/acme/app/legacy.zip' } }),
-      )
+      .mockResolvedValueOnce(jsonResponse(302, { headers: { location: 'https://codeload.github.com/acme/app/legacy.zip' } }))
       .mockResolvedValueOnce(new Response(Buffer.from('PK'), { status: 200 }));
 
     const result = await outboundDownload({
@@ -92,8 +88,7 @@ describe('outboundDownload', () => {
     await expect(
       outboundDownload({
         url: 'https://api.github.com/repos/acme/app/zipball/abc',
-        fetchImpl: async () =>
-          jsonResponse(302, { headers: { location: 'https://evil.example/zip' } }),
+        fetchImpl: async () => jsonResponse(302, { headers: { location: 'https://evil.example/zip' } }),
         allowPrivateHosts: true,
       }),
     ).rejects.toMatchObject({ code: 'PROBE_REDIRECT' });

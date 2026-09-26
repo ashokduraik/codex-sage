@@ -32,9 +32,7 @@ export function registerJobHandler(registration) {
     throw new Error(`registerJobHandler(${registration.type}): run must be a function`);
   }
   if (registration.exclusiveScope !== 'project' && registration.exclusiveScope !== 'none') {
-    throw new Error(
-      `registerJobHandler(${registration.type}): exclusiveScope must be 'project' or 'none'`,
-    );
+    throw new Error(`registerJobHandler(${registration.type}): exclusiveScope must be 'project' or 'none'`);
   }
   if (handlersByType.has(registration.type)) {
     throw new Error(`Job handler already registered for type: ${registration.type}`);

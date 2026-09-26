@@ -1,13 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  activateUser,
-  createUser,
-  deactivateUser,
-  patchUser,
-  removeUser,
-  resetUserPassword,
-  ADMIN_USERS_QUERY_ROOT,
-} from './adminIdentityApi.js';
+import { activateUser, createUser, deactivateUser, patchUser, removeUser, resetUserPassword, ADMIN_USERS_QUERY_ROOT } from './adminIdentityApi.js';
 
 /**
  * Optimistically patches a user inside every cached users list page.
@@ -24,9 +16,7 @@ function patchCachedUsers(queryClient, userId, updater) {
     }
     return {
       ...page,
-      items: page.items.map((user) =>
-        String(user.id) === String(userId) ? updater(user) : user,
-      ),
+      items: page.items.map((user) => (String(user.id) === String(userId) ? updater(user) : user)),
     };
   });
   return previous;
@@ -112,8 +102,7 @@ export function useSetUserStatus() {
     /**
      * @param {{ userId: string, action: 'activate' | 'deactivate' }} input Status change.
      */
-    mutationFn: ({ userId, action }) =>
-      action === 'activate' ? activateUser(userId) : deactivateUser(userId),
+    mutationFn: ({ userId, action }) => (action === 'activate' ? activateUser(userId) : deactivateUser(userId)),
     onMutate: async ({ userId, action }) => {
       await queryClient.cancelQueries({ queryKey: ADMIN_USERS_QUERY_ROOT });
       const nextStatus = action === 'activate' ? 'active' : 'disabled';
@@ -154,7 +143,6 @@ export function useResetUserPassword() {
     /**
      * @param {{ userId: string, newPassword: string, idempotencyKey: string }} input
      */
-    mutationFn: ({ userId, newPassword, idempotencyKey }) =>
-      resetUserPassword(userId, { newPassword, idempotencyKey }),
+    mutationFn: ({ userId, newPassword, idempotencyKey }) => resetUserPassword(userId, { newPassword, idempotencyKey }),
   });
 }

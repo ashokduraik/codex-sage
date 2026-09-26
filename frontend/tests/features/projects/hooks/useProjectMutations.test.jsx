@@ -17,18 +17,8 @@ vi.mock('@/features/projects/api/projectsApi.js', async (importOriginal) => {
   };
 });
 
-import {
-  archiveProject,
-  createProject,
-  deleteProject,
-  restoreProject,
-} from '@/features/projects/api/projectsApi.js';
-import {
-  useArchiveProject,
-  useCreateProject,
-  useDeleteProject,
-  useRestoreProject,
-} from '@/features/projects/hooks/useProjectMutations.js';
+import { archiveProject, createProject, deleteProject, restoreProject } from '@/features/projects/api/projectsApi.js';
+import { useArchiveProject, useCreateProject, useDeleteProject, useRestoreProject } from '@/features/projects/hooks/useProjectMutations.js';
 import { projectDetailQueryKey, projectsListQueryKey } from '@/features/projects/api/projectsApi.js';
 
 /**
@@ -58,9 +48,7 @@ describe('useProjectMutations', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(invalidateSpy).toHaveBeenCalled();
 
-    createProject.mockRejectedValueOnce(
-      new ApiError({ code: 'PROJECT_NAME_TAKEN', message: 'taken', status: 409 }),
-    );
+    createProject.mockRejectedValueOnce(new ApiError({ code: 'PROJECT_NAME_TAKEN', message: 'taken', status: 409 }));
     const { result: fail } = renderHook(() => useCreateProject(), {
       wrapper: createWrapper(queryClient),
     });
@@ -87,18 +75,14 @@ describe('useProjectMutations', () => {
       lifecycleStatus: 'awaiting_source',
     });
 
-    archiveProject.mockRejectedValueOnce(
-      new ApiError({ code: 'FORBIDDEN', message: 'nope', status: 403 }),
-    );
+    archiveProject.mockRejectedValueOnce(new ApiError({ code: 'FORBIDDEN', message: 'nope', status: 403 }));
     const { result } = renderHook(() => useArchiveProject(), {
       wrapper: createWrapper(queryClient),
     });
     result.current.mutate('p1');
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(queryClient.getQueryData(listKey).pages[0].items).toHaveLength(1);
-    expect(queryClient.getQueryData(projectDetailQueryKey('p1')).lifecycleStatus).toBe(
-      'awaiting_source',
-    );
+    expect(queryClient.getQueryData(projectDetailQueryKey('p1')).lifecycleStatus).toBe('awaiting_source');
   });
 
   it('marks archived items in includeArchived lists on successful archive', async () => {
@@ -151,12 +135,8 @@ describe('useProjectMutations', () => {
     });
     result.current.mutate('p1');
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(
-      queryClient.getQueryData(archivedListKey).pages[0].items[0].lifecycleStatus,
-    ).toBe('archived');
-    expect(queryClient.getQueryData(activeListKey).pages[0].items.map((item) => item.id)).toEqual([
-      'p2',
-    ]);
+    expect(queryClient.getQueryData(archivedListKey).pages[0].items[0].lifecycleStatus).toBe('archived');
+    expect(queryClient.getQueryData(activeListKey).pages[0].items.map((item) => item.id)).toEqual(['p2']);
   });
 
   it('optimistically archives when detail cache is empty', async () => {
@@ -186,9 +166,7 @@ describe('useProjectMutations', () => {
       pages: [{ items: [{ id: 'p1', name: 'A', lifecycleStatus: 'awaiting_source' }], pageInfo: {} }],
       pageParams: [undefined],
     });
-    archiveProject.mockRejectedValueOnce(
-      new ApiError({ code: 'FORBIDDEN', message: 'nope', status: 403 }),
-    );
+    archiveProject.mockRejectedValueOnce(new ApiError({ code: 'FORBIDDEN', message: 'nope', status: 403 }));
     const { result } = renderHook(() => useArchiveProject(), {
       wrapper: createWrapper(queryClient),
     });

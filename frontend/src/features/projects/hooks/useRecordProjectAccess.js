@@ -3,11 +3,7 @@
  */
 import { useEffect, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  PROJECTS_LIST_QUERY_ROOT,
-  projectDetailQueryKey,
-  recordProjectAccess,
-} from '@/features/projects/api/projectsApi.js';
+import { PROJECTS_LIST_QUERY_ROOT, projectDetailQueryKey, recordProjectAccess } from '@/features/projects/api/projectsApi.js';
 
 /**
  * Fire-and-forget access stamp for a project detail visit.

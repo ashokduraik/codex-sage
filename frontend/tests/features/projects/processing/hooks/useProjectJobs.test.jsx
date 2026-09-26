@@ -40,12 +40,8 @@ describe('useProjectJobs', () => {
     await waitFor(() => {
       expect(result.current.isSuccess).toBe(true);
     });
-    expect(flattenJobPages(result.current.data)).toEqual([
-      { id: 'j1', jobStatus: 'completed' },
-    ]);
-    expect(listProjectJobs).toHaveBeenCalledWith(
-      expect.objectContaining({ projectId: 'p1' }),
-    );
+    expect(flattenJobPages(result.current.data)).toEqual([{ id: 'j1', jobStatus: 'completed' }]);
+    expect(listProjectJobs).toHaveBeenCalledWith(expect.objectContaining({ projectId: 'p1' }));
   });
 
   it('does not fetch when projectId is missing', () => {

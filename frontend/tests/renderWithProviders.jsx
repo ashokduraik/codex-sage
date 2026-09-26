@@ -64,14 +64,7 @@ export function clearAuthSession() {
  * @returns Testing Library render result
  */
 export function renderWithProviders(ui, options = {}) {
-  const {
-    route = '/',
-    routeState,
-    withAuth = true,
-    authUser,
-    queryClient: providedQueryClient,
-    ...renderOptions
-  } = options;
+  const { route = '/', routeState, withAuth = true, authUser, queryClient: providedQueryClient, ...renderOptions } = options;
   const queryClient =
     providedQueryClient ??
     new QueryClient({

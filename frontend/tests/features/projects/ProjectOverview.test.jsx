@@ -21,54 +21,60 @@ vi.mock('@/features/projects/processing/api/jobsApi.js', async (importOriginal) 
 });
 
 import { listProjectJobs } from '@/features/projects/processing/api/jobsApi.js';
-import { clearAuthSession, renderWithProviders, seedAuthSession, } from '@tests/renderWithProviders';
+import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
 import ProjectDetailPage from '@/features/projects/ProjectDetailPage';
 import ProjectOverview from '@/features/projects/ProjectOverview';
 afterEach(() => {
-    cleanup();
+  cleanup();
 });
 beforeEach(() => {
-    clearAuthSession();
-    localStorage.clear();
-    seedAuthSession();
-    listProjectJobs.mockReset();
-    listProjectJobs.mockResolvedValue({
-      items: [],
-      pageInfo: { nextCursor: null, hasMore: false },
-    });
+  clearAuthSession();
+  localStorage.clear();
+  seedAuthSession();
+  listProjectJobs.mockReset();
+  listProjectJobs.mockResolvedValue({
+    items: [],
+    pageInfo: { nextCursor: null, hasMore: false },
+  });
 });
 describe('ProjectOverview', () => {
-    it('renders summary and capabilities for Atlas', async () => {
-        renderWithProviders(<Routes>
+  it('renders summary and capabilities for Atlas', async () => {
+    renderWithProviders(
+      <Routes>
         <Route path="/projects/:id" element={<ProjectDetailPage />}>
-          <Route index element={<ProjectOverview />}/>
+          <Route index element={<ProjectOverview />} />
         </Route>
-      </Routes>, { route: '/projects/prj_atlas' });
-        expect(await screen.findByText('Summary')).toBeTruthy();
-        expect(screen.getAllByText(/Headless e-commerce platform/i).length).toBeGreaterThan(0);
-        expect(screen.getByText('Capabilities')).toBeTruthy();
-        expect(screen.getByText('Authentication & Authorization')).toBeTruthy();
-        expect(screen.getByText('Checkout & Payments')).toBeTruthy();
-    });
+      </Routes>,
+      { route: '/projects/prj_atlas' },
+    );
+    expect(await screen.findByText('Summary')).toBeTruthy();
+    expect(screen.getAllByText(/Headless e-commerce platform/i).length).toBeGreaterThan(0);
+    expect(screen.getByText('Capabilities')).toBeTruthy();
+    expect(screen.getByText('Authentication & Authorization')).toBeTruthy();
+    expect(screen.getByText('Checkout & Payments')).toBeTruthy();
+  });
 
-    it('shows a processing banner when a job is active', async () => {
-        listProjectJobs.mockResolvedValue({
-          items: [
-            {
-              id: 'job_run',
-              jobType: 'ingest',
-              jobStatus: 'running',
-              currentStage: 'codegraph_update',
-              createdAt: '2026-01-02T00:00:00.000Z',
-            },
-          ],
-          pageInfo: { nextCursor: null, hasMore: false },
-        });
-        renderWithProviders(<Routes>
-        <Route path="/projects/:id" element={<ProjectDetailPage />}>
-          <Route index element={<ProjectOverview />}/>
-        </Route>
-      </Routes>, { route: '/projects/prj_atlas' });
-        expect(await screen.findByText(/Processing in progress: Project structure analyzed/)).toBeTruthy();
+  it('shows a processing banner when a job is active', async () => {
+    listProjectJobs.mockResolvedValue({
+      items: [
+        {
+          id: 'job_run',
+          jobType: 'ingest',
+          jobStatus: 'running',
+          currentStage: 'codegraph_update',
+          createdAt: '2026-01-02T00:00:00.000Z',
+        },
+      ],
+      pageInfo: { nextCursor: null, hasMore: false },
     });
+    renderWithProviders(
+      <Routes>
+        <Route path="/projects/:id" element={<ProjectDetailPage />}>
+          <Route index element={<ProjectOverview />} />
+        </Route>
+      </Routes>,
+      { route: '/projects/prj_atlas' },
+    );
+    expect(await screen.findByText(/Processing in progress: Project structure analyzed/)).toBeTruthy();
+  });
 });

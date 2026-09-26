@@ -4,11 +4,7 @@
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/shared/api/index';
-import {
-  clearAuthSession,
-  renderWithProviders,
-  seedAuthSession,
-} from '@tests/renderWithProviders';
+import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
 
 const listProjects = vi.fn();
 
@@ -63,9 +59,7 @@ describe('HomePage', () => {
     renderWithProviders(<HomePage />);
     expect(await screen.findByText('Recently accessed')).toBeTruthy();
     await waitFor(() => expect(listProjects).toHaveBeenCalled());
-    expect(
-      listProjects.mock.calls.some((call) => call[0]?.sort === 'lastAccessedAt'),
-    ).toBe(true);
+    expect(listProjects.mock.calls.some((call) => call[0]?.sort === 'lastAccessedAt')).toBe(true);
     await waitFor(() => {
       expect(document.body.textContent).toContain('Atlas Commerce');
     });
@@ -130,9 +124,7 @@ describe('HomePage', () => {
     renderWithProviders(<HomePage />);
     await waitFor(() => expect(listProjects).toHaveBeenCalled());
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Explain this project/i }).disabled).toBe(
-        false,
-      );
+      expect(screen.getByRole('button', { name: /Explain this project/i }).disabled).toBe(false);
     });
     fireEvent.click(screen.getByRole('button', { name: /Explain this project/i }));
   });

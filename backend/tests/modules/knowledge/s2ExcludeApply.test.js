@@ -77,9 +77,7 @@ describe('runExcludeApplyStage', () => {
         exclusionReason: 'file_too_large',
       }),
     );
-    expect(ctx.emitEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ eventCode: 'source.exclusions_applied' }),
-    );
+    expect(ctx.emitEvent).toHaveBeenCalledWith(expect.objectContaining({ eventCode: 'source.exclusions_applied' }));
   });
 
   it('fails permanent when the recorded ruleset is unknown', async () => {

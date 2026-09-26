@@ -16,12 +16,7 @@ import {
   updateSourceFileExclusion,
 } from './ingest.js';
 import { publishKnowledgeVersion } from './knowledge.js';
-import {
-  assertKnownExclusionRulesetId,
-  isUnsafeArchivePath,
-  normalizeArchivePath,
-  evaluateUploadEntry,
-} from './uploads.js';
+import { assertKnownExclusionRulesetId, isUnsafeArchivePath, normalizeArchivePath, evaluateUploadEntry } from './uploads.js';
 
 // --- from ingest/ingest.counters.js ---
 /**
@@ -86,10 +81,7 @@ export function toJobProgressCounters(counters) {
  * @returns {boolean}
  */
 export function derivePartialSuccess(counters, otherwiseCompleted) {
-  return (
-    otherwiseCompleted === true &&
-    (counters.filesFailed > 0 || counters.filesExcluded > 0)
-  );
+  return otherwiseCompleted === true && (counters.filesFailed > 0 || counters.filesExcluded > 0);
 }
 
 /**
@@ -471,10 +463,7 @@ export const INGEST_MAX_FAILED_FILE_RATIO = 0.05;
  * }>}
  */
 export async function runStoreFilesStage(ctx) {
-  const resumePath =
-    typeof ctx.checkpoint?.cursor?.lastPath === 'string'
-      ? ctx.checkpoint.cursor.lastPath
-      : null;
+  const resumePath = typeof ctx.checkpoint?.cursor?.lastPath === 'string' ? ctx.checkpoint.cursor.lastPath : null;
 
   const allFiles = await listSourceFilesOrdered({
     orgId: ctx.scope.orgId,
@@ -483,9 +472,7 @@ export async function runStoreFilesStage(ctx) {
   });
   ctx.counters.filesTotal = allFiles.length;
 
-  const knownGridFsIds = new Set(
-    allFiles.filter((file) => file.gridFsId).map((file) => String(file.gridFsId)),
-  );
+  const knownGridFsIds = new Set(allFiles.filter((file) => file.gridFsId).map((file) => String(file.gridFsId)));
 
   // Restore counters for paths already reconciled on a prior attempt.
   if (resumePath) {
@@ -495,18 +482,13 @@ export async function runStoreFilesStage(ctx) {
       }
       ctx.counters.filesProcessed += 1;
       ctx.counters.bytesProcessed += file.byteLength ?? 0;
-      if (
-        file.fileState === SOURCE_FILE_STATE_MISSING ||
-        file.fileState === SOURCE_FILE_STATE_CORRUPT
-      ) {
+      if (file.fileState === SOURCE_FILE_STATE_MISSING || file.fileState === SOURCE_FILE_STATE_CORRUPT) {
         ctx.counters.filesFailed += 1;
       }
     }
   }
 
-  const files = resumePath
-    ? allFiles.filter((file) => file.path > resumePath)
-    : allFiles;
+  const files = resumePath ? allFiles.filter((file) => file.path > resumePath) : allFiles;
 
   /** @type {object[]} */
   const warnings = [];
@@ -537,8 +519,7 @@ export async function runStoreFilesStage(ctx) {
       warnings.push({ code: 'SOURCE_FILE_MISSING', path: file.path });
     } else {
       const lengthMismatch = gridFs.length !== file.byteLength;
-      const hashMismatch =
-        !gridFs.sha256 || gridFs.sha256.toLowerCase() !== String(file.sha256).toLowerCase();
+      const hashMismatch = !gridFs.sha256 || gridFs.sha256.toLowerCase() !== String(file.sha256).toLowerCase();
       if (lengthMismatch || hashMismatch) {
         await updateSourceFileState({
           orgId: ctx.scope.orgId,
@@ -676,10 +657,7 @@ export async function runExcludeApplyStage(ctx) {
     // Provisional unsupported_language hook — Phase 27 owns the authoritative list.
     // No-op today: evaluateUploadEntry does not emit unsupported_language.
 
-    if (
-      file.excludedFromGraph !== excludedFromGraph ||
-      (file.exclusionReason ?? null) !== exclusionReason
-    ) {
+    if (file.excludedFromGraph !== excludedFromGraph || (file.exclusionReason ?? null) !== exclusionReason) {
       await updateSourceFileExclusion({
         orgId: ctx.scope.orgId,
         sourceFileId: file._id,
@@ -692,8 +670,7 @@ export async function runExcludeApplyStage(ctx) {
       excludedPaths += 1;
       ctx.counters.filesExcluded += 1;
       if (exclusionReason) {
-        ctx.counters.excludedByReason[exclusionReason] =
-          (ctx.counters.excludedByReason[exclusionReason] ?? 0) + 1;
+        ctx.counters.excludedByReason[exclusionReason] = (ctx.counters.excludedByReason[exclusionReason] ?? 0) + 1;
       }
     }
 
@@ -727,8 +704,7 @@ export async function runExcludeApplyStage(ctx) {
  * }>}
  */
 export async function runKnowledgePublishStage(ctx) {
-  const graphIdentity =
-    ctx.checkpoint?.cursor?.graphIdentity ?? ctx.carry?.graphIdentity ?? null;
+  const graphIdentity = ctx.checkpoint?.cursor?.graphIdentity ?? ctx.carry?.graphIdentity ?? null;
 
   const published = await publishKnowledgeVersion({
     orgId: ctx.scope.orgId,
@@ -743,10 +719,7 @@ export async function runKnowledgePublishStage(ctx) {
   ctx.carry.publishedHealth = published.publishedHealth;
   ctx.carry.excludedFileCount = published.excludedFileCount;
   if (ctx.counters) {
-    ctx.counters.filesExcluded = Math.max(
-      ctx.counters.filesExcluded ?? 0,
-      published.excludedFileCount,
-    );
+    ctx.counters.filesExcluded = Math.max(ctx.counters.filesExcluded ?? 0, published.excludedFileCount);
   }
 
   await ctx.emitEvent(buildKnowledgeUpdatedEvent());
@@ -765,9 +738,7 @@ export async function runKnowledgePublishStage(ctx) {
   return {
     outcome: published.outcome,
     cursor: {
-      ...(ctx.checkpoint?.cursor && typeof ctx.checkpoint.cursor === 'object'
-        ? ctx.checkpoint.cursor
-        : {}),
+      ...(ctx.checkpoint?.cursor && typeof ctx.checkpoint.cursor === 'object' ? ctx.checkpoint.cursor : {}),
       knowledgeVersionId: published.knowledgeVersionId,
       publishedHealth: published.publishedHealth,
       excludedFileCount: published.excludedFileCount,
@@ -799,10 +770,8 @@ export function lifecycleStatusForPublishedHealth(publishedHealth) {
  * }>}
  */
 export async function runFinalizeStage(ctx) {
-  const knowledgeVersionId =
-    ctx.carry?.knowledgeVersionId ?? ctx.checkpoint?.cursor?.knowledgeVersionId ?? null;
-  const publishedHealth =
-    ctx.carry?.publishedHealth ?? ctx.checkpoint?.cursor?.publishedHealth ?? null;
+  const knowledgeVersionId = ctx.carry?.knowledgeVersionId ?? ctx.checkpoint?.cursor?.knowledgeVersionId ?? null;
+  const publishedHealth = ctx.carry?.publishedHealth ?? ctx.checkpoint?.cursor?.publishedHealth ?? null;
 
   if (!knowledgeVersionId || !publishedHealth) {
     throw createJobFailureError({
@@ -846,8 +815,7 @@ export async function runFinalizeStage(ctx) {
   await ctx.emitEvent(buildKnowledgeReadyEvent());
   await ctx.saveProgress(true);
 
-  const excluded =
-    Number(ctx.carry?.excludedFileCount ?? ctx.checkpoint?.cursor?.excludedFileCount ?? 0) > 0;
+  const excluded = Number(ctx.carry?.excludedFileCount ?? ctx.checkpoint?.cursor?.excludedFileCount ?? 0) > 0;
   const filesFailed = Number(ctx.counters?.filesFailed ?? 0) > 0;
 
   return {

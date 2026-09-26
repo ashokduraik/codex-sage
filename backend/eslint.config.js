@@ -1,4 +1,5 @@
 import eslint from '@eslint/js';
+import eslintConfigPrettier from 'eslint-config-prettier';
 import globals from 'globals';
 
 /** ESLint flat config for the standalone Node backend package. */
@@ -13,10 +14,7 @@ export default [
       globals: globals.node,
     },
     rules: {
-      'no-unused-vars': [
-        'error',
-        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
-      ],
+      'no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
       // Application config must be loaded only via platform/config.js.
       'no-restricted-properties': [
         'error',
@@ -34,4 +32,5 @@ export default [
       'no-restricted-properties': 'off',
     },
   },
+  eslintConfigPrettier,
 ];

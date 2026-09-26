@@ -6,11 +6,7 @@ import { AuthProvider, useAuth } from '@/features/auth/AuthContext';
 import { CURRENT_USER_QUERY_KEY } from '@/features/auth/api/authApi.js';
 import { clearSession, getAccessToken, setAccessToken } from '@/shared/api/index';
 import { resetRefreshClientForTests } from '@/shared/api/refreshClient.js';
-import {
-  buildTestAuthUser,
-  clearAuthSession,
-  seedAuthSession,
-} from '@tests/renderWithProviders';
+import { buildTestAuthUser, clearAuthSession, seedAuthSession } from '@tests/renderWithProviders';
 
 afterEach(() => {
   cleanup();
@@ -349,8 +345,6 @@ describe('AuthContext', () => {
   });
 
   it('throws when useAuth is called outside AuthProvider', () => {
-    expect(() => renderHook(() => useAuth())).toThrow(
-      /useAuth must be used within an AuthProvider/,
-    );
+    expect(() => renderHook(() => useAuth())).toThrow(/useAuth must be used within an AuthProvider/);
   });
 });

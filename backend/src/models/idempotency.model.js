@@ -37,15 +37,11 @@ const idempotencyRecordSchema = createBaseSchema({
   expiresAt: { type: Date, required: true },
 });
 
-idempotencyRecordSchema.index(
-  { orgId: 1, userId: 1, route: 1, key: 1 },
-  { unique: true, partialFilterExpression: { status: ROW_STATUS_ACTIVE } },
-);
+idempotencyRecordSchema.index({ orgId: 1, userId: 1, route: 1, key: 1 }, { unique: true, partialFilterExpression: { status: ROW_STATUS_ACTIVE } });
 idempotencyRecordSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 export const IdempotencyRecord =
-  mongoose.models.IdempotencyRecord ??
-  mongoose.model('IdempotencyRecord', idempotencyRecordSchema, 'idempotencyRecords');
+  mongoose.models.IdempotencyRecord ?? mongoose.model('IdempotencyRecord', idempotencyRecordSchema, 'idempotencyRecords');
 
 /** Models this file owns; used when syncing Mongo indexes. */
 export const IDEMPOTENCY_MODELS = Object.freeze([IdempotencyRecord]);

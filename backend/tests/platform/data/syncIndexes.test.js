@@ -14,9 +14,7 @@ describe('syncSchemaIndexes', () => {
   });
 
   it('rejects a non-array argument', async () => {
-    await expect(syncSchemaIndexes(/** @type {any} */ (null))).rejects.toBeInstanceOf(
-      TypeError,
-    );
+    await expect(syncSchemaIndexes(/** @type {any} */ (null))).rejects.toBeInstanceOf(TypeError);
   });
 
   it('rejects a non-model entry', async () => {

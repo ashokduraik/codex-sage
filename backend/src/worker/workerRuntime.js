@@ -238,9 +238,7 @@ export function startWorkerRuntime(options) {
               workerId,
               checkpoint: {
                 lastCompletedStage: checkpoint.lastCompletedStage,
-                ...(Object.prototype.hasOwnProperty.call(checkpoint, 'cursor')
-                  ? { cursor: checkpoint.cursor }
-                  : {}),
+                ...(Object.prototype.hasOwnProperty.call(checkpoint, 'cursor') ? { cursor: checkpoint.cursor } : {}),
               },
               currentStage: checkpoint.currentStage ?? checkpoint.lastCompletedStage,
             });
@@ -318,10 +316,7 @@ export function startWorkerRuntime(options) {
         await finishJobCompleted({
           jobId,
           workerId,
-          result:
-            outcome?.result === 'completed_with_warnings'
-              ? 'completed_with_warnings'
-              : 'completed',
+          result: outcome?.result === 'completed_with_warnings' ? 'completed_with_warnings' : 'completed',
           summary: outcome?.summary,
         });
         jobLog.info?.({ result: outcome?.result ?? 'completed' }, 'job completed');
@@ -331,10 +326,7 @@ export function startWorkerRuntime(options) {
         }
         const classified = classifyThrownFailure(error);
         if (classified.unclassified) {
-          jobLog.error?.(
-            { handler: handler.type, errMessage: classified.message },
-            'unclassified handler error treated as temporary',
-          );
+          jobLog.error?.({ handler: handler.type, errMessage: classified.message }, 'unclassified handler error treated as temporary');
         }
         const decision = decideFailureOutcome({
           failure: classified,
@@ -349,10 +341,7 @@ export function startWorkerRuntime(options) {
             failureCode: decision.code,
             message: decision.message,
           });
-          jobLog.info?.(
-            { delayMs: decision.delayMs, failureCode: decision.code },
-            'job requeued after temporary failure',
-          );
+          jobLog.info?.({ delayMs: decision.delayMs, failureCode: decision.code }, 'job requeued after temporary failure');
         } else {
           await finishJobFailed({
             jobId,
@@ -362,10 +351,7 @@ export function startWorkerRuntime(options) {
             message: decision.message,
             attemptsExhausted: classified.failureClass === 'temporary',
           });
-          jobLog.info?.(
-            { failureClass: decision.failureClass, failureCode: decision.code },
-            'job failed',
-          );
+          jobLog.info?.({ failureClass: decision.failureClass, failureCode: decision.code }, 'job failed');
         }
       } finally {
         if (holdsProjectLock) {

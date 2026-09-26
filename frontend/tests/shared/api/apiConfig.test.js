@@ -9,12 +9,8 @@ describe('resolveApiBaseUrl', () => {
   });
 
   it('accepts an absolute http(s) URL and trims trailing slashes', () => {
-    expect(resolveApiBaseUrl('https://api.example.com/v1')).toBe(
-      'https://api.example.com/v1',
-    );
-    expect(resolveApiBaseUrl('http://localhost:3000/api/v1/')).toBe(
-      'http://localhost:3000/api/v1',
-    );
+    expect(resolveApiBaseUrl('https://api.example.com/v1')).toBe('https://api.example.com/v1');
+    expect(resolveApiBaseUrl('http://localhost:3000/api/v1/')).toBe('http://localhost:3000/api/v1');
   });
 
   it('throws a message naming VITE_API_BASE_URL when missing', () => {

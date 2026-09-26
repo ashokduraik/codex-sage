@@ -66,37 +66,17 @@ describe('conversations.service', () => {
       messageStatus: 'completed',
     });
 
-    const loaded = await loadConversationForUser(
-      String(orgId),
-      String(project._id),
-      String(created._id),
-      String(actor),
-    );
+    const loaded = await loadConversationForUser(String(orgId), String(project._id), String(created._id), String(actor));
     expect(String(loaded._id)).toBe(String(created._id));
 
     await expect(
-      loadConversationForUser(
-        String(orgId),
-        String(project._id),
-        String(created._id),
-        String(new mongoose.Types.ObjectId()),
-      ),
+      loadConversationForUser(String(orgId), String(project._id), String(created._id), String(new mongoose.Types.ObjectId())),
     ).rejects.toMatchObject({ code: 'CONVERSATION_NOT_FOUND' });
 
-    const header = await getConversation(
-      String(orgId),
-      String(project._id),
-      String(created._id),
-      String(actor),
-    );
+    const header = await getConversation(String(orgId), String(project._id), String(created._id), String(actor));
     expect(header.title).toBe('Owned');
 
-    const recent = await listRecentMessages(
-      String(orgId),
-      String(project._id),
-      String(created._id),
-      10,
-    );
+    const recent = await listRecentMessages(String(orgId), String(project._id), String(created._id), 10);
     expect(recent.map((row) => row.content)).toEqual(['first', 'second']);
   });
 

@@ -220,10 +220,7 @@ export function sanitizeAuditContext(context) {
     out.contextTruncated = true;
     // Drop non-essential keys until under the byte cap (keep redaction markers).
     const keys = Object.keys(out).filter((key) => key !== 'contextTruncated');
-    while (
-      keys.length > 0 &&
-      Buffer.byteLength(JSON.stringify(out), 'utf8') > AUDIT_CONTEXT_MAX_BYTES
-    ) {
+    while (keys.length > 0 && Buffer.byteLength(JSON.stringify(out), 'utf8') > AUDIT_CONTEXT_MAX_BYTES) {
       const dropKey = keys.pop();
       if (dropKey) {
         delete out[dropKey];
@@ -318,10 +315,7 @@ function keysetAfterFilter(cursor) {
   }
   const id = new mongoose.Types.ObjectId(cursor.i);
   return {
-    $or: [
-      { createdAt: { $lt: createdAt } },
-      { createdAt, _id: { $lt: id } },
-    ],
+    $or: [{ createdAt: { $lt: createdAt } }, { createdAt, _id: { $lt: id } }],
   };
 }
 
@@ -350,17 +344,13 @@ export async function listAuditEvents(orgId, filters = {}) {
 
   if (filters.from instanceof Date && !Number.isNaN(filters.from.getTime())) {
     query.createdAt = {
-      ...(typeof query.createdAt === 'object' && query.createdAt !== null
-        ? /** @type {object} */ (query.createdAt)
-        : {}),
+      ...(typeof query.createdAt === 'object' && query.createdAt !== null ? /** @type {object} */ (query.createdAt) : {}),
       $gte: filters.from,
     };
   }
   if (filters.to instanceof Date && !Number.isNaN(filters.to.getTime())) {
     query.createdAt = {
-      ...(typeof query.createdAt === 'object' && query.createdAt !== null
-        ? /** @type {object} */ (query.createdAt)
-        : {}),
+      ...(typeof query.createdAt === 'object' && query.createdAt !== null ? /** @type {object} */ (query.createdAt) : {}),
       $lt: filters.to,
     };
   }
@@ -439,12 +429,7 @@ export async function findAuditEventById(orgId, auditEventId) {
  * Audit service — best-effort writer and org-scoped list/detail.
  */
 /** Permission keys whose 403 denials are audited (admin/security surface). */
-export const AUDITED_DENIAL_PERMISSION_KEYS = Object.freeze([
-  'users.manage',
-  'roles.manage',
-  'settings.manage',
-  'audit.view',
-]);
+export const AUDITED_DENIAL_PERMISSION_KEYS = Object.freeze(['users.manage', 'roles.manage', 'settings.manage', 'audit.view']);
 
 /**
  * Logs an audit insert failure without throwing.
@@ -455,10 +440,7 @@ export const AUDITED_DENIAL_PERMISSION_KEYS = Object.freeze([
 function logAuditWriteFailure(log, correlationId, err) {
   const payload = {
     correlationId,
-    err:
-      err instanceof Error
-        ? { name: err.name, message: err.message }
-        : { message: String(err) },
+    err: err instanceof Error ? { name: err.name, message: err.message } : { message: String(err) },
   };
   if (typeof log?.error === 'function') {
     log.error(payload, 'audit write failed');
@@ -480,9 +462,7 @@ function logAuditWriteFailure(log, correlationId, err) {
  * }}
  */
 export function buildAuditContextFromRequest(request) {
-  const principal = /** @type {{ orgId?: string, userId?: string } | null | undefined} */ (
-    request.principal
-  );
+  const principal = /** @type {{ orgId?: string, userId?: string } | null | undefined} */ (request.principal);
   const rawUa = request.headers?.['user-agent'];
   return {
     orgId: principal?.orgId,
@@ -540,9 +520,7 @@ export async function recordAuditEvent(input, options = {}) {
       throw new Error('resourceType is required');
     }
     if (expectedType && resourceType !== expectedType) {
-      throw new Error(
-        `resourceType ${resourceType} does not match action ${input.action}`,
-      );
+      throw new Error(`resourceType ${resourceType} does not match action ${input.action}`);
     }
     if (!['success', 'denied', 'failed'].includes(input.result)) {
       throw new Error('result must be success, denied, or failed');
@@ -598,7 +576,7 @@ async function loadActorsById(orgId, userIds) {
  */
 function toAuditEventDto(doc, actors) {
   const actorId = doc.actorUserId ? String(doc.actorUserId) : null;
-  const actor = actorId ? actors.get(actorId) ?? { id: actorId, email: null } : null;
+  const actor = actorId ? (actors.get(actorId) ?? { id: actorId, email: null }) : null;
   return {
     id: String(doc._id),
     action: doc.action,
@@ -610,8 +588,7 @@ function toAuditEventDto(doc, actors) {
     ip: doc.ip ?? null,
     userAgent: doc.userAgent ?? null,
     context: doc.context ?? null,
-    createdAt:
-      doc.createdAt instanceof Date ? doc.createdAt.toISOString() : doc.createdAt,
+    createdAt: doc.createdAt instanceof Date ? doc.createdAt.toISOString() : doc.createdAt,
   };
 }
 
@@ -623,9 +600,7 @@ function toAuditEventDto(doc, actors) {
  */
 export async function listAuditEventsForOrg(orgId, filters = {}) {
   const { items, pageInfo } = await listAuditEvents(orgId, filters);
-  const actorIds = items
-    .map((doc) => (doc.actorUserId ? String(doc.actorUserId) : null))
-    .filter(Boolean);
+  const actorIds = items.map((doc) => (doc.actorUserId ? String(doc.actorUserId) : null)).filter(Boolean);
   const actors = await loadActorsById(orgId, /** @type {string[]} */ (actorIds));
   return {
     items: items.map((doc) => toAuditEventDto(doc, actors)),

@@ -181,12 +181,7 @@ describe('createRequestChildLogger', () => {
   it('binds method and path-only url onto the child logger', () => {
     const child = vi.fn((bindings) => bindings);
     const logger = { child };
-    const result = createRequestChildLogger(
-      logger,
-      { reqId: 'REQ-1' },
-      { level: 'info' },
-      { method: 'POST', url: '/api/v1/auth/login?x=1' },
-    );
+    const result = createRequestChildLogger(logger, { reqId: 'REQ-1' }, { level: 'info' }, { method: 'POST', url: '/api/v1/auth/login?x=1' });
     expect(child).toHaveBeenCalledWith(
       {
         reqId: 'REQ-1',
@@ -205,10 +200,7 @@ describe('createRequestChildLogger', () => {
   it('omits url when raw request has no url string', () => {
     const child = vi.fn((bindings) => bindings);
     createRequestChildLogger({ child }, { reqId: 'REQ-2' }, {}, { method: 'GET' });
-    expect(child).toHaveBeenCalledWith(
-      { reqId: 'REQ-2', method: 'GET', url: undefined },
-      {},
-    );
+    expect(child).toHaveBeenCalledWith({ reqId: 'REQ-2', method: 'GET', url: undefined }, {});
   });
 });
 
@@ -227,16 +219,10 @@ describe('registerRequestLogging', () => {
     const onResponse = hookCalls[1][1];
     const done = vi.fn();
     onRequest({ log: { debug }, method: 'GET' }, {}, done);
-    expect(debug).toHaveBeenCalledWith(
-      expect.objectContaining({ req: expect.objectContaining({ method: 'GET' }) }),
-      'incoming request',
-    );
+    expect(debug).toHaveBeenCalledWith(expect.objectContaining({ req: expect.objectContaining({ method: 'GET' }) }), 'incoming request');
     debug.mockClear();
     onResponse({ log: { debug } }, { statusCode: 200, elapsedTime: 12.5 }, done);
-    expect(debug).toHaveBeenCalledWith(
-      { res: { statusCode: 200, elapsedTime: 12.5 }, responseTime: 12.5 },
-      'request completed',
-    );
+    expect(debug).toHaveBeenCalledWith({ res: { statusCode: 200, elapsedTime: 12.5 }, responseTime: 12.5 }, 'request completed');
     expect(done).toHaveBeenCalledTimes(2);
   });
 });
@@ -276,13 +262,9 @@ describe('serializeRequest', () => {
 
 describe('serializeError', () => {
   it('drops details unless the catalog allows them', () => {
-    const denied = serializeError(
-      ApiError.fromCode('NOT_FOUND', { details: { path: '/x' } }),
-    );
+    const denied = serializeError(ApiError.fromCode('NOT_FOUND', { details: { path: '/x' } }));
     expect(denied.details).toBeUndefined();
-    const allowed = serializeError(
-      ApiError.fromCode('VALIDATION_ERROR', { details: { field: 'email' } }),
-    );
+    const allowed = serializeError(ApiError.fromCode('VALIDATION_ERROR', { details: { field: 'email' } }));
     expect(allowed.details).toEqual({ field: 'email' });
   });
 
@@ -305,18 +287,8 @@ describe('shouldIncludeStack', () => {
         logging: { level: 'info' },
       }),
     ).toBe(true);
-    expect(
-      shouldIncludeStack(
-        { env: { isProduction: true }, logging: { level: 'info' } },
-        'info',
-      ),
-    ).toBe(false);
-    expect(
-      shouldIncludeStack(
-        { env: { isProduction: true }, logging: { level: 'info' } },
-        'error',
-      ),
-    ).toBe(true);
+    expect(shouldIncludeStack({ env: { isProduction: true }, logging: { level: 'info' } }, 'info')).toBe(false);
+    expect(shouldIncludeStack({ env: { isProduction: true }, logging: { level: 'info' } }, 'error')).toBe(true);
     expect(
       shouldIncludeStack({
         env: { isProduction: true },

@@ -14,7 +14,7 @@ import {
   DEFAULT_ADMIN_PASSWORD,
   IDENTITY_MODELS,
   createRoleInRepo,
-  createUser, createUserInRepo,
+  createUserInRepo,
   findOrganizationBySlug,
   runBootstrapSeed,
 } from '../../../src/modules/masters/index.js';
@@ -27,15 +27,7 @@ import { DOCUMENT_MODELS, insertDocumentSections } from '../../../src/modules/kn
 import { KNOWLEDGE_MODELS, insertKnowledgeVersion } from '../../../src/modules/knowledge/knowledge.js';
 
 const harness = createMongoHarness({
-  models: [
-    ...IDENTITY_MODELS,
-    ...AUTH_MODELS,
-    ...AUDIT_MODELS,
-    ...IDEMPOTENCY_MODELS,
-    ...PROJECT_MODELS,
-    ...KNOWLEDGE_MODELS,
-    ...DOCUMENT_MODELS,
-  ],
+  models: [...IDENTITY_MODELS, ...AUTH_MODELS, ...AUDIT_MODELS, ...IDEMPOTENCY_MODELS, ...PROJECT_MODELS, ...KNOWLEDGE_MODELS, ...DOCUMENT_MODELS],
   uri: TEST_APP_CONFIG.mongo.uri,
 });
 
@@ -134,8 +126,7 @@ describe('knowledge browse routes', () => {
       { _id: input.projectId },
       {
         $set: {
-          lifecycleStatus:
-            input.health === 'partially_available' ? 'partially_available' : 'knowledge_ready',
+          lifecycleStatus: input.health === 'partially_available' ? 'partially_available' : 'knowledge_ready',
           knowledgeHealth: input.health ?? 'ready',
           currentKnowledgeVersionId: inserted._id,
         },
@@ -246,10 +237,7 @@ describe('knowledge browse routes', () => {
     app = await readyApp();
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const project = await createProject(app, accessToken, 'Browse Failed', 'idem-browse-fail');
-    await Project.updateOne(
-      { _id: project.id },
-      { $set: { knowledgeHealth: 'failed', lifecycleStatus: 'failed' } },
-    );
+    await Project.updateOne({ _id: project.id }, { $set: { knowledgeHealth: 'failed', lifecycleStatus: 'failed' } });
 
     const res = await app.inject({
       method: 'GET',
@@ -347,11 +335,7 @@ describe('knowledge browse routes', () => {
   it('returns 403 when the caller lacks browse and view', async () => {
     await runBootstrapSeed(createMockLog());
     app = await readyApp();
-    const { accessToken: adminToken } = await login(
-      app,
-      DEFAULT_ADMIN_EMAIL,
-      DEFAULT_ADMIN_PASSWORD,
-    );
+    const { accessToken: adminToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const org = await findOrganizationBySlug('default');
     const project = await createProject(app, adminToken, 'Browse Forbidden', 'idem-browse-403');
     const role = await createRoleInRepo(org._id, {
@@ -366,8 +350,8 @@ describe('knowledge browse routes', () => {
       passwordHash,
       userStatus: 'active',
       createdBy: null,
-          roleIds: [role._id]
-        });
+      roleIds: [role._id],
+    });
     await addProjectMember({
       orgId: String(org._id),
       projectId: project.id,

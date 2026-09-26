@@ -59,11 +59,7 @@ describe('projectMembers.repository', () => {
     expect(await findActiveProjectMember(org._id, String(project._id), userId)).toBeNull();
     expect(await listAccessibleProjectIdsForUser(org._id, userId)).toEqual([]);
 
-    const deleted = await findProjectMemberIncludingDeleted(
-      org._id,
-      String(project._id),
-      userId,
-    );
+    const deleted = await findProjectMemberIncludingDeleted(org._id, String(project._id), userId);
     expect(deleted).toBeTruthy();
     const reactivated = await reactivateProjectMember(org._id, String(deleted._id), {
       permissions: ['projects.view', 'chat.ask'],
@@ -99,9 +95,7 @@ describe('projectMembers.repository', () => {
       addedByUserId: actorId,
     });
 
-    const reloaded = await mongoose.connection.db
-      .collection('projects')
-      .findOne({ _id: project._id });
+    const reloaded = await mongoose.connection.db.collection('projects').findOne({ _id: project._id });
     expect(reloaded.lifecycleStatus).toBe('processing');
     expect(reloaded.counts).toMatchObject({
       sourceVersions: 3,
@@ -141,9 +135,11 @@ describe('projectMembers.repository', () => {
       }),
     ).toBeNull();
     expect(await reactivateProjectMember(org._id, 'bad', { addedByUserId: actorId })).toBeNull();
-    expect(await reactivateProjectMember(org._id, new mongoose.Types.ObjectId().toHexString(), {
-      addedByUserId: actorId,
-    })).toBeNull();
+    expect(
+      await reactivateProjectMember(org._id, new mongoose.Types.ObjectId().toHexString(), {
+        addedByUserId: actorId,
+      }),
+    ).toBeNull();
     expect((await softDeleteProjectMember(org._id, 'bad', firstUser)).matchedCount).toBe(0);
 
     const first = await createProjectMember(org._id, {
@@ -160,9 +156,7 @@ describe('projectMembers.repository', () => {
         addedByUserId: actorId,
       }),
     ).toBeNull();
-    expect(String((await findProjectMemberIncludingDeleted(org._id, String(project._id), firstUser))._id)).toBe(
-      String(first._id),
-    );
+    expect(String((await findProjectMemberIncludingDeleted(org._id, String(project._id), firstUser))._id)).toBe(String(first._id));
 
     await createProjectMember(org._id, {
       projectId: String(project._id),
@@ -241,22 +235,13 @@ describe('projectMembers.repository', () => {
         { session },
       );
       expect(created).toBeTruthy();
-      expect(
-        await findActiveProjectMember(org._id, String(project._id), userId, { session }),
-      ).toBeTruthy();
-      expect(await listAccessibleProjectIdsForUser(org._id, userId, { session })).toEqual([
-        String(project._id),
-      ]);
+      expect(await findActiveProjectMember(org._id, String(project._id), userId, { session })).toBeTruthy();
+      expect(await listAccessibleProjectIdsForUser(org._id, userId, { session })).toEqual([String(project._id)]);
       await softDeleteProjectMember(org._id, String(project._id), userId, {
         updatedBy: userId,
         session,
       });
-      const deleted = await findProjectMemberIncludingDeleted(
-        org._id,
-        String(project._id),
-        userId,
-        { session },
-      );
+      const deleted = await findProjectMemberIncludingDeleted(org._id, String(project._id), userId, { session });
       expect(deleted.status).toBe('D');
       const reactivated = await reactivateProjectMember(
         org._id,

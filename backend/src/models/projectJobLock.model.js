@@ -33,6 +33,4 @@ projectJobLockSchema.index(
 );
 projectJobLockSchema.index({ expiresAt: 1 });
 
-export const ProjectJobLock =
-  mongoose.models.ProjectJobLock ??
-  mongoose.model('ProjectJobLock', projectJobLockSchema, 'project_job_locks');
+export const ProjectJobLock = mongoose.models.ProjectJobLock ?? mongoose.model('ProjectJobLock', projectJobLockSchema, 'project_job_locks');

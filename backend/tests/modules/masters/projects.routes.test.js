@@ -14,7 +14,7 @@ import {
   DEFAULT_ADMIN_EMAIL,
   DEFAULT_ADMIN_PASSWORD,
   IDENTITY_MODELS,
-  createUser, createUserInRepo,
+  createUserInRepo,
   findBuiltInRole,
   findOrganizationBySlug,
   runBootstrapSeed,
@@ -22,13 +22,7 @@ import {
 import { PROJECT_MODELS, Project } from '../../../src/modules/masters/projects.js';
 
 const harness = createMongoHarness({
-  models: [
-    ...IDENTITY_MODELS,
-    ...AUTH_MODELS,
-    ...AUDIT_MODELS,
-    ...IDEMPOTENCY_MODELS,
-    ...PROJECT_MODELS,
-  ],
+  models: [...IDENTITY_MODELS, ...AUTH_MODELS, ...AUDIT_MODELS, ...IDEMPOTENCY_MODELS, ...PROJECT_MODELS],
   uri: TEST_APP_CONFIG.mongo.uri,
 });
 
@@ -104,13 +98,13 @@ describe('projects.routes', () => {
     const org = await findOrganizationBySlug('default');
     const memberRole = await findBuiltInRole(org._id, 'member');
     const passwordHash = await hashPassword('memberpass1');
-    const member = await createUserInRepo(org._id, {
+    await createUserInRepo(org._id, {
       email: 'member-proj@example.com',
       displayName: 'Member',
       userStatus: 'active',
       passwordHash,
-          roleIds: [memberRole._id]
-        });
+      roleIds: [memberRole._id],
+    });
 
     app = await readyApp();
     const unauth = await app.inject({
@@ -120,12 +114,7 @@ describe('projects.routes', () => {
     expect(unauth.statusCode).toBe(401);
 
     const { accessToken } = await login(app, 'member-proj@example.com', 'memberpass1');
-    const forbidden = await createProjectRequest(
-      app,
-      accessToken,
-      { name: 'Nope', sourceType: 'upload' },
-      'idem-member-1',
-    );
+    const forbidden = await createProjectRequest(app, accessToken, { name: 'Nope', sourceType: 'upload' }, 'idem-member-1');
     expect(forbidden.statusCode).toBe(403);
   });
 
@@ -141,33 +130,18 @@ describe('projects.routes', () => {
       sourceType: 'upload',
       orgId: new mongoose.Types.ObjectId().toHexString(),
     };
-    const uploadRes = await createProjectRequest(
-      app,
-      accessToken,
-      uploadPayload,
-      'idem-upload-1',
-    );
+    const uploadRes = await createProjectRequest(app, accessToken, uploadPayload, 'idem-upload-1');
     expect(uploadRes.statusCode).toBe(201);
     const uploadBody = uploadRes.json();
     expect(uploadBody.lifecycleStatus).toBe('awaiting_source');
     expect(uploadBody.knowledgeHealth).toBe('none');
 
-    const replay = await createProjectRequest(
-      app,
-      accessToken,
-      uploadPayload,
-      'idem-upload-1',
-    );
+    const replay = await createProjectRequest(app, accessToken, uploadPayload, 'idem-upload-1');
     expect(replay.statusCode).toBe(201);
     expect(replay.json().id).toBe(uploadBody.id);
     expect(await Project.countDocuments({ orgId: org._id, name: 'Upload One' })).toBe(1);
 
-    const repoRes = await createProjectRequest(
-      app,
-      accessToken,
-      { name: 'Repo One', sourceType: 'repository' },
-      'idem-repo-1',
-    );
+    const repoRes = await createProjectRequest(app, accessToken, { name: 'Repo One', sourceType: 'repository' }, 'idem-repo-1');
     expect(repoRes.statusCode).toBe(201);
     expect(repoRes.json().lifecycleStatus).toBe('connecting_repository');
 
@@ -184,13 +158,7 @@ describe('projects.routes', () => {
 
     const ids = [];
     for (let i = 0; i < 5; i += 1) {
-      // eslint-disable-next-line no-await-in-loop
-      const res = await createProjectRequest(
-        app,
-        accessToken,
-        { name: `Page ${i}`, sourceType: 'upload' },
-        `idem-page-${i}`,
-      );
+      const res = await createProjectRequest(app, accessToken, { name: `Page ${i}`, sourceType: 'upload' }, `idem-page-${i}`);
       expect(res.statusCode).toBe(201);
       ids.push(res.json().id);
     }
@@ -226,18 +194,14 @@ describe('projects.routes', () => {
       url: `${API_BASE_PATH}/projects?limit=20`,
       headers,
     });
-    expect(activeList.json().items.every((row) => row.lifecycleStatus !== 'archived')).toBe(
-      true,
-    );
+    expect(activeList.json().items.every((row) => row.lifecycleStatus !== 'archived')).toBe(true);
 
     const archivedList = await app.inject({
       method: 'GET',
       url: `${API_BASE_PATH}/projects?includeArchived=true&limit=20`,
       headers,
     });
-    expect(
-      archivedList.json().items.some((row) => row.lifecycleStatus === 'archived'),
-    ).toBe(true);
+    expect(archivedList.json().items.some((row) => row.lifecycleStatus === 'archived')).toBe(true);
 
     const restoreRes = await app.inject({
       method: 'POST',
@@ -255,9 +219,7 @@ describe('projects.routes', () => {
     });
     expect(badPatch.statusCode).toBe(400);
     expect(badPatch.json().error.code).toBe('VALIDATION_ERROR');
-    expect(
-      badPatch.json().error.details.some((d) => String(d.path).includes('lifecycleStatus')),
-    ).toBe(true);
+    expect(badPatch.json().error.details.some((d) => String(d.path).includes('lifecycleStatus'))).toBe(true);
 
     const goodPatch = await app.inject({
       method: 'PATCH',

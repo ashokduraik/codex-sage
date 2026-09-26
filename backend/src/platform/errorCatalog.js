@@ -237,8 +237,7 @@ export const ERROR_CATALOG = Object.freeze({
     class: 'user',
     httpStatus: 409,
     retryability: 'user_action_required',
-    message:
-      'This upload cannot be retried. Fix the source and upload the project again.',
+    message: 'This upload cannot be retried. Fix the source and upload the project again.',
     allowDetails: true,
   }),
   JOB_RETRY_LIMIT_EXCEEDED: Object.freeze({
@@ -307,8 +306,7 @@ export const ERROR_CATALOG = Object.freeze({
     class: 'source',
     httpStatus: 400,
     retryability: 'user_action_required',
-    message:
-      'No usable files remained after exclusions. Remove ignored paths and re-upload.',
+    message: 'No usable files remained after exclusions. Remove ignored paths and re-upload.',
   }),
   SOURCE_UNKNOWN_EXCLUSION_RULESET: Object.freeze({
     class: 'source',

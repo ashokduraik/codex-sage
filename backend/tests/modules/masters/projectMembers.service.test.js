@@ -5,25 +5,12 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
 import { AUDIT_MODELS, listAuditEvents } from '../../../src/modules/access/audit.js';
-import {
-  IDENTITY_MODELS,
-  createOrganization,
-  createUser, createUserInRepo,
-  ensureBuiltInRoles,
-  findBuiltInRole,
-} from '../../../src/modules/masters/index.js';
+import { IDENTITY_MODELS, createOrganization, createUserInRepo, ensureBuiltInRoles, findBuiltInRole } from '../../../src/modules/masters/index.js';
 import { PROJECT_MODELS, createProjectInRepo } from '../../../src/modules/masters/projects.js';
-import {
-  addProjectMember,
-  removeProjectMember,
-} from '../../../src/modules/masters/projectMembers.js';
+import { addProjectMember, removeProjectMember } from '../../../src/modules/masters/projectMembers.js';
 
 const harness = createMongoHarness({
-  models: [
-    ...IDENTITY_MODELS,
-    ...PROJECT_MODELS,
-    ...AUDIT_MODELS,
-  ],
+  models: [...IDENTITY_MODELS, ...PROJECT_MODELS, ...AUDIT_MODELS],
   uri: TEST_APP_CONFIG.mongo.uri,
 });
 
@@ -48,9 +35,9 @@ describe('projectMembers.service', () => {
       email: `actor-${Date.now()}@example.com`,
       displayName: 'Actor',
       userStatus: 'active',
-          roleIds: [adminRole._id],
-          projectAccessMode: 'all'
-        });
+      roleIds: [adminRole._id],
+      projectAccessMode: 'all',
+    });
     const target = await createUserInRepo(org._id, {
       email: `target-${Date.now()}@example.com`,
       displayName: 'Target',

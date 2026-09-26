@@ -38,7 +38,7 @@ Additional docs and ADRs live under [`docs/`](./docs/).
 - **JavaScript** for all application code (frontend and backend); JSX for React.
 - **Tests** live under `backend/tests/` and `frontend/tests/`, mirroring `src/`;
   cross-app E2E via Playwright when that suite exists.
-- **Comments explain *why*, not *what*.** No narration comments.
+- **Comments explain _why_, not _what_.** No narration comments.
 
 ## Trust & safety (product-critical)
 

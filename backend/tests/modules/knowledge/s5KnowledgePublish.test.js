@@ -21,10 +21,7 @@ vi.mock('../../../src/modules/masters/index.js', async (importOriginal) => {
 });
 
 import { runKnowledgePublishStage } from '../../../src/modules/knowledge/ingest.helper.js';
-import {
-  lifecycleStatusForPublishedHealth,
-  runFinalizeStage,
-} from '../../../src/modules/knowledge/ingest.helper.js';
+import { lifecycleStatusForPublishedHealth, runFinalizeStage } from '../../../src/modules/knowledge/ingest.helper.js';
 import { createIngestCounters } from '../../../src/modules/knowledge/ingest.helper.js';
 
 describe('s5KnowledgePublish', () => {
@@ -84,9 +81,7 @@ describe('s6Finalize', () => {
 
   it('maps published health to lifecycle status', () => {
     expect(lifecycleStatusForPublishedHealth('ready')).toBe('knowledge_ready');
-    expect(lifecycleStatusForPublishedHealth('partially_available')).toBe(
-      'partially_available',
-    );
+    expect(lifecycleStatusForPublishedHealth('partially_available')).toBe('partially_available');
   });
 
   it('transitions processing to knowledge_ready with knowledgeHealth', async () => {

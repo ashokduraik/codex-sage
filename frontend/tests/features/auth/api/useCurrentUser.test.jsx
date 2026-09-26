@@ -18,9 +18,7 @@ function createWrapper(queryClient) {
    * @param {{ children: import('react').ReactNode }} props
    */
   return function Wrapper({ children }) {
-    return (
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    );
+    return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
   };
 }
 

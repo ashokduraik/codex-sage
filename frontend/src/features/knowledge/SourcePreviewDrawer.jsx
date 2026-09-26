@@ -2,13 +2,7 @@
  * Bounded source preview drawer.
  */
 import { useTranslation } from 'react-i18next';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '@/shared/ui/sheet';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/shared/ui/sheet';
 import { useSourcePreview } from './hooks/useSourcePreview.js';
 
 /**
@@ -30,13 +24,9 @@ export default function SourcePreviewDrawer({ projectId, target, onClose }) {
     <Sheet open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
       <SheetContent side="right" className="flex w-full flex-col overflow-hidden sm:max-w-xl">
         <SheetHeader>
-          <SheetTitle className="truncate font-mono text-base">
-            {target?.path || t('preview.title')}
-          </SheetTitle>
+          <SheetTitle className="truncate font-mono text-base">{target?.path || t('preview.title')}</SheetTitle>
           <SheetDescription>
-            {slice
-              ? t('preview.lineRange', { start: slice.startLine, end: slice.endLine })
-              : t('preview.subtitle')}
+            {slice ? t('preview.lineRange', { start: slice.startLine, end: slice.endLine }) : t('preview.subtitle')}
           </SheetDescription>
         </SheetHeader>
         {metadata?.excludedFromGraph ? (
@@ -59,9 +49,7 @@ export default function SourcePreviewDrawer({ projectId, target, onClose }) {
             {previewQuery.error?.message || t('preview.error')}
           </p>
         ) : null}
-        {metadata && metadata.previewAvailable === false ? (
-          <p className="mt-4 text-sm text-muted-foreground">{t('preview.binary')}</p>
-        ) : null}
+        {metadata && metadata.previewAvailable === false ? <p className="mt-4 text-sm text-muted-foreground">{t('preview.binary')}</p> : null}
         {slice?.content != null ? (
           <pre className="mt-4 min-h-0 flex-1 overflow-auto rounded-lg border border-border bg-muted/40 p-3 font-mono text-xs leading-5">
             {slice.content}

@@ -7,12 +7,8 @@ import { INGEST_STAGES, resolveStagesAfter } from '../../../src/modules/knowledg
 
 describe('resolveStagesAfter', () => {
   it('returns the full list when there is no checkpoint', () => {
-    expect(resolveStagesAfter(null).map((s) => s.name)).toEqual(
-      INGEST_STAGES.map((s) => s.name),
-    );
-    expect(resolveStagesAfter(undefined).map((s) => s.name)).toEqual(
-      INGEST_STAGES.map((s) => s.name),
-    );
+    expect(resolveStagesAfter(null).map((s) => s.name)).toEqual(INGEST_STAGES.map((s) => s.name));
+    expect(resolveStagesAfter(undefined).map((s) => s.name)).toEqual(INGEST_STAGES.map((s) => s.name));
   });
 
   it('resumes after lastCompletedStage', () => {
@@ -37,15 +33,7 @@ describe('resolveStagesAfter', () => {
   });
 
   it('wires S0–S6 stages to real runners including knowledge_publish and finalize', () => {
-    for (const name of [
-      'validate_upload',
-      'store_files',
-      'exclude_apply',
-      'materialize_docs',
-      'codegraph_update',
-      'knowledge_publish',
-      'finalize',
-    ]) {
+    for (const name of ['validate_upload', 'store_files', 'exclude_apply', 'materialize_docs', 'codegraph_update', 'knowledge_publish', 'finalize']) {
       const stage = INGEST_STAGES.find((s) => s.name === name);
       expect(stage).toBeDefined();
       expect(typeof stage.run).toBe('function');

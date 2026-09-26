@@ -3,13 +3,7 @@
  */
 import i18n from '@/shared/i18n';
 import { API_BASE_URL } from './apiConfig.js';
-import {
-  ApiError,
-  apiErrorFromNetworkFailure,
-  apiErrorFromResponse,
-  isRequestAbortedError,
-  RequestAbortedError,
-} from './ApiError.js';
+import { ApiError, apiErrorFromNetworkFailure, apiErrorFromResponse, isRequestAbortedError, RequestAbortedError } from './ApiError.js';
 import { clearSession, getAccessToken } from './apiSession.js';
 import { refreshAccessToken } from './refreshClient.js';
 
@@ -44,10 +38,7 @@ export async function apiUpload(path, options) {
 async function executeApiUpload(path, options, hasRetriedAfterRefresh) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open(
-      (options.method ?? 'POST').toUpperCase(),
-      path.startsWith('/') ? `${API_BASE_URL}${path}` : `${API_BASE_URL}/${path}`,
-    );
+    xhr.open((options.method ?? 'POST').toUpperCase(), path.startsWith('/') ? `${API_BASE_URL}${path}` : `${API_BASE_URL}/${path}`);
     xhr.withCredentials = true;
     xhr.responseType = 'text';
     xhr.setRequestHeader('Accept', 'application/json');

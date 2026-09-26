@@ -98,12 +98,7 @@ describe('conversations.service edges', () => {
       correlationId: 'corr',
     });
     expect(created.id).toBe('c1');
-    expect(loadMocks.adjustProjectConversationCount).toHaveBeenCalledWith(
-      'o1',
-      'p1',
-      1,
-      { session: expect.anything() },
-    );
+    expect(loadMocks.adjustProjectConversationCount).toHaveBeenCalledWith('o1', 'p1', 1, { session: expect.anything() });
 
     loadMocks.listOwnConversations.mockResolvedValue({ items: [row], nextCursor: null });
     const listed = await listConversations('o1', 'p1', 'u1', {});

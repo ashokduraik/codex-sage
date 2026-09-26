@@ -144,16 +144,8 @@ describe('sources gridfs + repository', () => {
       limit: 10,
     });
     expect(page).toEqual([{ path: 'src/a.js', sha256: 'a'.repeat(64) }]);
-    expect(
-      await findActiveSourceVersionForProject(orgId, projectId, sourceVersionId),
-    ).toBeTruthy();
-    expect(
-      await findActiveSourceVersionForProject(
-        orgId,
-        projectId,
-        new mongoose.Types.ObjectId().toString(),
-      ),
-    ).toBeNull();
+    expect(await findActiveSourceVersionForProject(orgId, projectId, sourceVersionId)).toBeTruthy();
+    expect(await findActiveSourceVersionForProject(orgId, projectId, new mongoose.Types.ObjectId().toString())).toBeNull();
 
     await insertSourceFiles({
       orgId,

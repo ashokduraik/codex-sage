@@ -9,21 +9,11 @@ import { createBaseSchema, ROW_STATUS_ACTIVE } from '../platform/data/index.js';
 
 const ObjectId = mongoose.Schema.Types.ObjectId;
 
-export const CONNECTION_STATUS_VALUES = Object.freeze([
-  'connected',
-  'authentication_required',
-  'access_denied',
-  'not_found',
-  'unreachable',
-]);
+export const CONNECTION_STATUS_VALUES = Object.freeze(['connected', 'authentication_required', 'access_denied', 'not_found', 'unreachable']);
 
 export const REPOSITORY_PROVIDER_VALUES = Object.freeze(['github', 'gitlab']);
 
-export const REPOSITORY_HOST_KIND_VALUES = Object.freeze([
-  'github',
-  'gitlab_saas',
-  'gitlab_self_hosted',
-]);
+export const REPOSITORY_HOST_KIND_VALUES = Object.freeze(['github', 'gitlab_saas', 'gitlab_self_hosted']);
 
 export const CREDENTIAL_KIND_VALUES = Object.freeze(['pat']);
 
@@ -105,20 +95,9 @@ repositoryConnectionSchema.index(
   },
 );
 
-repositoryConnectionSchema.index(
-  { orgId: 1, projectId: 1, status: 1 },
-  { partialFilterExpression: { status: ROW_STATUS_ACTIVE } },
-);
+repositoryConnectionSchema.index({ orgId: 1, projectId: 1, status: 1 }, { partialFilterExpression: { status: ROW_STATUS_ACTIVE } });
 
-repositoryConnectionSchema.index(
-  { nextDueAt: 1 },
-  { partialFilterExpression: { status: ROW_STATUS_ACTIVE } },
-);
+repositoryConnectionSchema.index({ nextDueAt: 1 }, { partialFilterExpression: { status: ROW_STATUS_ACTIVE } });
 
 export const RepositoryConnection =
-  mongoose.models.RepositoryConnection ??
-  mongoose.model(
-    'RepositoryConnection',
-    repositoryConnectionSchema,
-    'repositoryConnections',
-  );
+  mongoose.models.RepositoryConnection ?? mongoose.model('RepositoryConnection', repositoryConnectionSchema, 'repositoryConnections');

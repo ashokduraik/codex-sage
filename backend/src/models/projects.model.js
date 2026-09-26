@@ -27,14 +27,7 @@ export const LIFECYCLE_STATUS_VALUES = Object.freeze([
 ]);
 
 /** Whether chat has usable knowledge (independent of lifecycleStatus). */
-export const KNOWLEDGE_HEALTH_VALUES = Object.freeze([
-  'none',
-  'updating',
-  'ready',
-  'partially_available',
-  'stale',
-  'failed',
-]);
+export const KNOWLEDGE_HEALTH_VALUES = Object.freeze(['none', 'updating', 'ready', 'partially_available', 'stale', 'failed']);
 
 /** How files arrive: Alice uploads a zip, or a Git repo is connected. */
 export const SOURCE_TYPE_VALUES = Object.freeze(['upload', 'repository']);
@@ -128,22 +121,9 @@ const projectSchema = createBaseSchema({
   members: { type: [projectMemberSchema], required: true, default: () => [] },
 });
 
-projectSchema.index(
-  { orgId: 1, updatedAt: -1, _id: -1 },
-  { partialFilterExpression: { status: ROW_STATUS_ACTIVE } },
-);
-projectSchema.index(
-  { orgId: 1, lastAccessedAt: -1, _id: -1 },
-  { partialFilterExpression: { status: ROW_STATUS_ACTIVE } },
-);
-projectSchema.index(
-  { orgId: 1, lifecycleStatus: 1 },
-  { partialFilterExpression: { status: ROW_STATUS_ACTIVE } },
-);
-projectSchema.index(
-  { orgId: 1, 'members.userId': 1 },
-  { partialFilterExpression: { status: ROW_STATUS_ACTIVE } },
-);
+projectSchema.index({ orgId: 1, updatedAt: -1, _id: -1 }, { partialFilterExpression: { status: ROW_STATUS_ACTIVE } });
+projectSchema.index({ orgId: 1, lastAccessedAt: -1, _id: -1 }, { partialFilterExpression: { status: ROW_STATUS_ACTIVE } });
+projectSchema.index({ orgId: 1, lifecycleStatus: 1 }, { partialFilterExpression: { status: ROW_STATUS_ACTIVE } });
+projectSchema.index({ orgId: 1, 'members.userId': 1 }, { partialFilterExpression: { status: ROW_STATUS_ACTIVE } });
 
-export const Project =
-  mongoose.models.Project ?? mongoose.model('Project', projectSchema, 'projects');
+export const Project = mongoose.models.Project ?? mongoose.model('Project', projectSchema, 'projects');

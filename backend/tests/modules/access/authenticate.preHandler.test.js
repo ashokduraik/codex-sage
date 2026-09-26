@@ -33,9 +33,7 @@ describe('authenticate.preHandler', () => {
     await expect(authenticate({ headers: {} }, {})).rejects.toMatchObject({
       code: 'UNAUTHENTICATED',
     });
-    await expect(
-      authenticate({ headers: { authorization: 'Bearer ' } }, {}),
-    ).rejects.toMatchObject({ code: 'UNAUTHENTICATED' });
+    await expect(authenticate({ headers: { authorization: 'Bearer ' } }, {})).rejects.toMatchObject({ code: 'UNAUTHENTICATED' });
   });
 
   it('maps verify SESSION_EXPIRED and other verify failures', async () => {
@@ -46,18 +44,14 @@ describe('authenticate.preHandler', () => {
         throw err;
       },
     });
-    await expect(
-      expired({ headers: { authorization: 'Bearer tok' } }, {}),
-    ).rejects.toMatchObject({ code: 'SESSION_EXPIRED' });
+    await expect(expired({ headers: { authorization: 'Bearer tok' } }, {})).rejects.toMatchObject({ code: 'SESSION_EXPIRED' });
 
     const bad = createAuthenticatePreHandler({
       verifyAccessToken: () => {
         throw new Error('bad');
       },
     });
-    await expect(
-      bad({ headers: { authorization: 'Bearer tok' } }, {}),
-    ).rejects.toMatchObject({ code: 'UNAUTHENTICATED' });
+    await expect(bad({ headers: { authorization: 'Bearer tok' } }, {})).rejects.toMatchObject({ code: 'UNAUTHENTICATED' });
   });
 
   it('rejects with PASSWORD_CHANGE_REQUIRED when flag is set and route is not allowlisted', async () => {
@@ -211,9 +205,9 @@ describe('authenticate.preHandler', () => {
       loggedOutAt: new Date(),
       expiresAt: new Date(Date.now() + 60_000),
     });
-    await expect(
-      authenticate({ headers: { authorization: 'Bearer tok' }, routeOptions: { config: {} } }, {}),
-    ).rejects.toMatchObject({ code: 'SESSION_EXPIRED' });
+    await expect(authenticate({ headers: { authorization: 'Bearer tok' }, routeOptions: { config: {} } }, {})).rejects.toMatchObject({
+      code: 'SESSION_EXPIRED',
+    });
 
     mockLoginSession({
       _id: 's1',
@@ -225,8 +219,8 @@ describe('authenticate.preHandler', () => {
       loggedOutAt: null,
       expiresAt: new Date(Date.now() + 60_000),
     });
-    await expect(
-      authenticate({ headers: { authorization: 'Bearer tok' }, routeOptions: { config: {} } }, {}),
-    ).rejects.toMatchObject({ code: 'SESSION_EXPIRED' });
+    await expect(authenticate({ headers: { authorization: 'Bearer tok' }, routeOptions: { config: {} } }, {})).rejects.toMatchObject({
+      code: 'SESSION_EXPIRED',
+    });
   });
 });

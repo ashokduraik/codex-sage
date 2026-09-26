@@ -4,11 +4,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
-import {
-  IDENTITY_MODELS,
-  createOrganization,
-  ensureBuiltInRoles,
-} from '../../../src/modules/masters/index.js';
+import { IDENTITY_MODELS, createOrganization, ensureBuiltInRoles } from '../../../src/modules/masters/index.js';
 import { Role } from '../../../src/models/role.model.js';
 import { ALL_PERMISSION_KEYS } from '../../../src/modules/access/permissions.js';
 import { createRoleCache } from '../../../src/modules/access/permissions.js';
@@ -47,11 +43,7 @@ describe('permissionResolver', () => {
       permissions: ['chat.ask', 'search.run'],
       isBuiltIn: false,
     });
-    const effective = await resolveEffectivePermissions(
-      String(org._id),
-      [String(roleA._id), String(roleB._id)],
-      { cache },
-    );
+    const effective = await resolveEffectivePermissions(String(org._id), [String(roleA._id), String(roleB._id)], { cache });
     expect(effective.sort()).toEqual(['chat.ask', 'org.view', 'search.run'].sort());
   });
 
@@ -75,11 +67,7 @@ describe('permissionResolver', () => {
       permissions: ['org.view', 'not.a.real.permission'],
       isBuiltIn: false,
     });
-    const effective = await resolveEffectivePermissions(
-      String(org._id),
-      [String(role._id)],
-      { cache },
-    );
+    const effective = await resolveEffectivePermissions(String(org._id), [String(role._id)], { cache });
     expect(effective).toEqual(['org.view']);
   });
 
@@ -88,11 +76,7 @@ describe('permissionResolver', () => {
     const { roles } = await ensureBuiltInRoles(org._id);
     const orgAdmin = roles.find((role) => role.builtInKey === 'org_admin');
     const cache = createRoleCache();
-    const effective = await resolveEffectivePermissions(
-      String(org._id),
-      [String(orgAdmin._id)],
-      { cache },
-    );
+    const effective = await resolveEffectivePermissions(String(org._id), [String(orgAdmin._id)], { cache });
     expect(effective.sort()).toEqual([...ALL_PERMISSION_KEYS].sort());
   });
 
@@ -106,11 +90,7 @@ describe('permissionResolver', () => {
       isBuiltIn: false,
     });
     const cache = createRoleCache();
-    const effective = await resolveEffectivePermissions(
-      String(orgA._id),
-      [String(roleB._id)],
-      { cache },
-    );
+    const effective = await resolveEffectivePermissions(String(orgA._id), [String(roleB._id)], { cache });
     expect(effective).toEqual([]);
   });
 
@@ -133,11 +113,7 @@ describe('permissionResolver', () => {
     });
     expect(cached).toEqual(['org.view']);
     cache.invalidateRole(String(org._id), String(role._id));
-    const refreshed = await resolveEffectivePermissions(
-      String(org._id),
-      [String(role._id)],
-      { cache },
-    );
+    const refreshed = await resolveEffectivePermissions(String(org._id), [String(role._id)], { cache });
     expect(refreshed).toEqual(['chat.ask']);
   });
 });

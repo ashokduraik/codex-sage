@@ -40,9 +40,7 @@ export async function countActiveUsersManageHolders(orgId, options = {}) {
     if (user.userStatus !== 'active') {
       continue;
     }
-    const roleIds =
-      options.overrideRoleIdsByUserId?.[userId] ??
-      (user.roleIds ?? []).map((id) => String(id));
+    const roleIds = options.overrideRoleIdsByUserId?.[userId] ?? (user.roleIds ?? []).map((id) => String(id));
     const effective = await resolveEffectivePermissions(orgId, roleIds);
     if (holdsUsersManage(effective)) {
       count += 1;
@@ -70,8 +68,7 @@ export async function wouldRemoveLastAdmin(orgId, input) {
 
   const currentRoleIds = (target.roleIds ?? []).map((id) => String(id));
   const currentEffective = await resolveEffectivePermissions(orgId, currentRoleIds);
-  const targetCurrentlyAdmin =
-    target.userStatus === 'active' && holdsUsersManage(currentEffective);
+  const targetCurrentlyAdmin = target.userStatus === 'active' && holdsUsersManage(currentEffective);
 
   if (!targetCurrentlyAdmin) {
     return false;

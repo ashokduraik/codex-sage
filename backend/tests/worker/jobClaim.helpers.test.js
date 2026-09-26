@@ -21,7 +21,7 @@ import {
 import { ProjectJobLock } from '../../src/models/projectJobLock.model.js';
 import { createJobLogger, buildJobLogBindings } from '../../src/worker/workerLogger.js';
 import { runWorkerSmokeHandler } from '../../src/worker/handlers/workerSmokeHandler.js';
-import { refreshProjectJobLock, releaseProjectJobLock, acquireProjectJobLock } from '../../src/worker/projectJobLock.js';
+import { acquireProjectJobLock } from '../../src/worker/projectJobLock.js';
 
 const harness = createMongoHarness({
   models: [Job, ProjectJobLock],
@@ -148,9 +148,7 @@ describe('jobClaim helpers', () => {
     expect(withProgress.partialSuccess).toBe(true);
     expect(withProgress.currentStage).toBe('store_files');
 
-    expect(resolveNextDueAt(new Date('2030-01-01T00:00:00.000Z')).toISOString()).toBe(
-      '2030-01-01T00:00:00.000Z',
-    );
+    expect(resolveNextDueAt(new Date('2030-01-01T00:00:00.000Z')).toISOString()).toBe('2030-01-01T00:00:00.000Z');
     expect(resolveNextDueAt(5000).getTime()).toBeGreaterThan(Date.now());
     expect(() => resolveNextDueAt('bad')).toThrow(/nextDueAt/);
   });
@@ -161,9 +159,7 @@ describe('jobClaim helpers', () => {
     const jobId = new mongoose.Types.ObjectId();
     await acquireProjectJobLock({ orgId, projectId, jobId, workerId: 'w-same' });
     // Second acquire by same worker/job should refresh and succeed.
-    expect(
-      await acquireProjectJobLock({ orgId, projectId, jobId, workerId: 'w-same' }),
-    ).toEqual({ acquired: true });
+    expect(await acquireProjectJobLock({ orgId, projectId, jobId, workerId: 'w-same' })).toEqual({ acquired: true });
 
     const { ProjectJobLock: LockModel } = await import('../../src/models/projectJobLock.model.js');
     const createSpy = vi.spyOn(LockModel, 'create').mockRejectedValueOnce(new Error('disk full'));

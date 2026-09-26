@@ -3,18 +3,9 @@
  */
 import { requireProjectPermission } from '../../http/preHandlers/requireProjectPermission.js';
 import { Project } from '../../models/projects.model.js';
-import {
-  assertOrgId,
-  ROW_STATUS_ACTIVE,
-  ROW_STATUS_DELETED,
-} from '../../platform/data/index.js';
+import { assertOrgId, ROW_STATUS_ACTIVE, ROW_STATUS_DELETED } from '../../platform/data/index.js';
 import { ApiError } from '../../platform/errors.js';
-import {
-  resolveEffectivePermissions,
-  isKnownPermissionKey,
-  recordAuditEvent,
-  buildAuditContextFromRequest,
-} from '../access/index.js';
+import { resolveEffectivePermissions, isKnownPermissionKey, recordAuditEvent, buildAuditContextFromRequest } from '../access/index.js';
 import { bumpOrganizationAclVersion, findOrganizationById } from './organizations.js';
 import { findProjectById } from './projects.helper.js';
 import { findRoleById } from './roles.js';
@@ -253,11 +244,7 @@ function catalogPermissions(permissions) {
   if (!Array.isArray(permissions)) {
     return [];
   }
-  return [
-    ...new Set(
-      permissions.filter((key) => typeof key === 'string' && isKnownPermissionKey(key)),
-    ),
-  ];
+  return [...new Set(permissions.filter((key) => typeof key === 'string' && isKnownPermissionKey(key)))];
 }
 
 /**
@@ -288,8 +275,7 @@ async function overlayPermissionsFromMember(orgId, member) {
  */
 async function computeProjectPermissions(orgId, userId, projectId) {
   const organization = await findOrganizationById(orgId);
-  const aclVersion =
-    organization && typeof organization.aclVersion === 'number' ? organization.aclVersion : 0;
+  const aclVersion = organization && typeof organization.aclVersion === 'number' ? organization.aclVersion : 0;
 
   const project = await findProjectById(orgId, projectId);
   if (!project) {
@@ -343,25 +329,18 @@ export async function resolveProjectPermissions(orgId, userId, projectId, option
   }
 
   const organization = await findOrganizationById(orgId);
-  const aclVersion =
-    organization && typeof organization.aclVersion === 'number' ? organization.aclVersion : 0;
+  const aclVersion = organization && typeof organization.aclVersion === 'number' ? organization.aclVersion : 0;
 
   const cached = cache.get(orgId, userId, projectId, aclVersion);
   if (cached) {
     /** @type {ProjectAclResult} */
     const fromCache =
-      cached.kind === 'NO_ACCESS'
-        ? PROJECT_ACL_NO_ACCESS
-        : { kind: 'OK', visible: true, permissions: [...(cached.permissions ?? [])] };
+      cached.kind === 'NO_ACCESS' ? PROJECT_ACL_NO_ACCESS : { kind: 'OK', visible: true, permissions: [...(cached.permissions ?? [])] };
     options.requestMemo?.set(memoKey, fromCache);
     return fromCache;
   }
 
-  const { result, aclVersion: computedVersion } = await computeProjectPermissions(
-    orgId,
-    userId,
-    projectId,
-  );
+  const { result, aclVersion: computedVersion } = await computeProjectPermissions(orgId, userId, projectId);
 
   cache.set(orgId, userId, projectId, {
     kind: result.kind,
@@ -444,11 +423,7 @@ export function findActiveMemberOnProject(project, userId) {
     return null;
   }
   const wanted = String(userId);
-  return (
-    project.members.find(
-      (member) => String(member.userId) === wanted && member.status === ROW_STATUS_ACTIVE,
-    ) ?? null
-  );
+  return project.members.find((member) => String(member.userId) === wanted && member.status === ROW_STATUS_ACTIVE) ?? null;
 }
 
 /**
@@ -476,12 +451,7 @@ export async function findActiveProjectMember(orgId, projectId, userId, options 
  * @param {{ session?: import('mongoose').ClientSession }} [options] Session.
  * @returns {Promise<object | null>}
  */
-export async function findProjectMemberIncludingDeleted(
-  orgId,
-  projectId,
-  userId,
-  options = {},
-) {
+export async function findProjectMemberIncludingDeleted(orgId, projectId, userId, options = {}) {
   assertOrgId(orgId);
   if (!mongoose.isValidObjectId(projectId) || !mongoose.isValidObjectId(userId)) {
     return null;
@@ -711,10 +681,7 @@ export function mapProjectMemberToDto(member) {
     roleId: member.roleId ? String(member.roleId) : null,
     permissions: Array.isArray(member.permissions) ? [...member.permissions] : [],
     addedByUserId: String(member.addedByUserId),
-    createdAt:
-      member.createdAt instanceof Date
-        ? member.createdAt.toISOString()
-        : String(member.createdAt),
+    createdAt: member.createdAt instanceof Date ? member.createdAt.toISOString() : String(member.createdAt),
   };
 }
 
@@ -725,9 +692,7 @@ export function mapProjectMemberToDto(member) {
  */
 function normalizeMemberOverlay(input) {
   const roleId = input.roleId ? String(input.roleId) : null;
-  const permissions = Array.isArray(input.permissions)
-    ? [...new Set(input.permissions.map(String))]
-    : [];
+  const permissions = Array.isArray(input.permissions) ? [...new Set(input.permissions.map(String))] : [];
 
   if (!roleId && permissions.length === 0) {
     throw ApiError.fromCode('VALIDATION_ERROR', {
@@ -807,11 +772,7 @@ export async function addProjectMember(input) {
     return { member: mapProjectMemberToDto(active), created: false };
   }
 
-  const existing = await findProjectMemberIncludingDeleted(
-    input.orgId,
-    input.projectId,
-    input.userId,
-  );
+  const existing = await findProjectMemberIncludingDeleted(input.orgId, input.projectId, input.userId);
 
   const mongoSession = await mongoose.startSession();
   /** @type {object | null} */
@@ -907,12 +868,10 @@ export async function removeProjectMember(input) {
   const mongoSession = await mongoose.startSession();
   try {
     await mongoSession.withTransaction(async () => {
-      const result = await softDeleteProjectMember(
-        input.orgId,
-        input.projectId,
-        input.userId,
-        { updatedBy: input.actorUserId, session: mongoSession },
-      );
+      const result = await softDeleteProjectMember(input.orgId, input.projectId, input.userId, {
+        updatedBy: input.actorUserId,
+        session: mongoSession,
+      });
       if (!result.matchedCount) {
         throw ApiError.fromCode('MEMBER_NOT_FOUND');
       }
@@ -1007,10 +966,7 @@ function serviceContext(request) {
 }
 
 /** Members manage: projects.update on the project OR org-level users.manage. */
-const requireMembersManage = requireProjectPermission(
-  ['projects.update', 'users.manage'],
-  { mode: 'any' },
-);
+const requireMembersManage = requireProjectPermission(['projects.update', 'users.manage'], { mode: 'any' });
 
 /**
  * Registers project member routes under `/api/v1`.
@@ -1084,4 +1040,3 @@ export async function projectMemberRoutes(app) {
     },
   );
 }
-

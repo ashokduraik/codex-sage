@@ -5,10 +5,42 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const listProjects = vi.fn(async (options = {}) => ({
   items: options.q
-    ? [{ id: 'prj_atlas', name: 'Atlas Commerce', description: '', lifecycleStatus: 'knowledge_ready', knowledgeHealth: 'ready', sourceConfig: { sourceType: 'repository' }, counts: { sourceVersions: 0, files: 0, excludedFiles: 0, conversations: 0 }, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' }]
+    ? [
+        {
+          id: 'prj_atlas',
+          name: 'Atlas Commerce',
+          description: '',
+          lifecycleStatus: 'knowledge_ready',
+          knowledgeHealth: 'ready',
+          sourceConfig: { sourceType: 'repository' },
+          counts: { sourceVersions: 0, files: 0, excludedFiles: 0, conversations: 0 },
+          createdAt: '2026-01-01T00:00:00.000Z',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+        },
+      ]
     : [
-        { id: 'prj_atlas', name: 'Atlas Commerce', description: '', lifecycleStatus: 'knowledge_ready', knowledgeHealth: 'ready', sourceConfig: { sourceType: 'repository' }, counts: { sourceVersions: 0, files: 0, excludedFiles: 0, conversations: 0 }, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' },
-        { id: 'prj_orion', name: 'Orion Analytics', description: '', lifecycleStatus: 'awaiting_source', knowledgeHealth: 'none', sourceConfig: { sourceType: 'upload' }, counts: { sourceVersions: 0, files: 0, excludedFiles: 0, conversations: 0 }, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' },
+        {
+          id: 'prj_atlas',
+          name: 'Atlas Commerce',
+          description: '',
+          lifecycleStatus: 'knowledge_ready',
+          knowledgeHealth: 'ready',
+          sourceConfig: { sourceType: 'repository' },
+          counts: { sourceVersions: 0, files: 0, excludedFiles: 0, conversations: 0 },
+          createdAt: '2026-01-01T00:00:00.000Z',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+        },
+        {
+          id: 'prj_orion',
+          name: 'Orion Analytics',
+          description: '',
+          lifecycleStatus: 'awaiting_source',
+          knowledgeHealth: 'none',
+          sourceConfig: { sourceType: 'upload' },
+          counts: { sourceVersions: 0, files: 0, excludedFiles: 0, conversations: 0 },
+          createdAt: '2026-01-01T00:00:00.000Z',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+        },
       ],
   pageInfo: { nextCursor: null, hasMore: false },
 }));
@@ -57,11 +89,7 @@ import NotFoundPage from '@/features/not-found/NotFoundPage';
 import '@/shared/i18n';
 import { setAccessToken } from '@/shared/api';
 import { AppDataProvider } from '@/shared/mock-data';
-import {
-  buildTestAuthUser,
-  clearAuthSession,
-  seedAuthSession,
-} from '@tests/renderWithProviders';
+import { buildTestAuthUser, clearAuthSession, seedAuthSession } from '@tests/renderWithProviders';
 
 afterEach(() => {
   cleanup();
@@ -98,9 +126,7 @@ describe('Sidebar', () => {
   });
 
   it('renders nav labels and can collapse to icon mode', () => {
-    const { rerender } = renderLayout(
-      <Sidebar collapsed={false} onToggle={() => undefined} />,
-    );
+    const { rerender } = renderLayout(<Sidebar collapsed={false} onToggle={() => undefined} />);
     expect(screen.getByText('Home')).toBeTruthy();
     expect(screen.getByText('Codex Sage')).toBeTruthy();
     expect(screen.getByText('Collapse')).toBeTruthy();
@@ -135,9 +161,7 @@ describe('Sidebar', () => {
 
 describe('ProcessingIndicator', () => {
   it('returns null when there is no job', () => {
-    const { container } = renderLayout(
-      <ProcessingIndicator job={null} project={null} />,
-    );
+    const { container } = renderLayout(<ProcessingIndicator job={null} project={null} />);
     expect(container.textContent).toBe('');
   });
 
@@ -150,9 +174,7 @@ describe('ProcessingIndicator', () => {
       currentStage: 'codegraph_update',
     };
     const project = { id: 'p1', name: 'Atlas' };
-    const { container } = renderLayout(
-      <ProcessingIndicator job={job} project={project} />,
-    );
+    const { container } = renderLayout(<ProcessingIndicator job={job} project={project} />);
     expect(screen.getByText(/Project structure analyzed · Atlas/)).toBeTruthy();
     expect(container.textContent).not.toMatch(/%/);
   });

@@ -3,13 +3,7 @@
  */
 import i18n from '@/shared/i18n';
 import { API_BASE_URL } from './apiConfig.js';
-import {
-  ApiError,
-  apiErrorFromNetworkFailure,
-  apiErrorFromResponse,
-  isRequestAbortedError,
-  RequestAbortedError,
-} from './ApiError.js';
+import { ApiError, apiErrorFromNetworkFailure, apiErrorFromResponse, isRequestAbortedError, RequestAbortedError } from './ApiError.js';
 import { clearSession, getAccessToken } from './apiSession.js';
 import { refreshAccessToken } from './refreshClient.js';
 
@@ -75,15 +69,10 @@ async function executeApiRequest(path, options, hasRetriedAfterRefresh) {
 
   let response;
   try {
-    response = await fetch(
-      path.startsWith('/') ? `${API_BASE_URL}${path}` : `${API_BASE_URL}/${path}`,
-      init,
-    );
+    response = await fetch(path.startsWith('/') ? `${API_BASE_URL}${path}` : `${API_BASE_URL}/${path}`, init);
   } catch (error) {
     if (isRequestAbortedError(error) || options.signal?.aborted) {
-      throw error instanceof Error && error.name === 'AbortError'
-        ? error
-        : new RequestAbortedError();
+      throw error instanceof Error && error.name === 'AbortError' ? error : new RequestAbortedError();
     }
     throw apiErrorFromNetworkFailure();
   }

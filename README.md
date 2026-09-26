@@ -29,16 +29,16 @@ no `npm run bootstrap` CLI and no `BOOTSTRAP_*` env vars (see ADR 0011).
 
 All root commands operate on **both** `backend/` and `frontend/`.
 
-| Command | What it does |
-| --- | --- |
-| `npm run setup` | Verify Node >= 26, copy `.env.example` → `.env` only if missing, then install |
-| `npm run install` | `npm ci` per app when a lockfile exists; otherwise `npm install` |
-| `npm run dev` | Dev servers: backend (`node --watch`, **:3000**) and frontend (Vite; `/api` proxied to **:3000**) |
-| `npm run build` | Production builds: backend (no-op; plain JavaScript) and frontend (`vite build`) |
-| `npm run start` | Production run: one Fastify process serves `/api/v1` and the built SPA (`frontend/dist`); requires a prior `npm run build` |
-| `npm run test` | Vitest with coverage in both apps |
-| `npm run lint` | ESLint in both apps |
-| `npm run clean` | Remove `node_modules`, `dist`, and `coverage` in both apps (prompts; use `npm run clean -- --yes` to skip) |
+| Command           | What it does                                                                                                               |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `npm run setup`   | Verify Node >= 26, copy `.env.example` → `.env` only if missing, then install                                              |
+| `npm run install` | `npm ci` per app when a lockfile exists; otherwise `npm install`                                                           |
+| `npm run dev`     | Dev servers: backend (`node --watch`, **:3000**) and frontend (Vite; `/api` proxied to **:3000**)                          |
+| `npm run build`   | Production builds: backend (no-op; plain JavaScript) and frontend (`vite build`)                                           |
+| `npm run start`   | Production run: one Fastify process serves `/api/v1` and the built SPA (`frontend/dist`); requires a prior `npm run build` |
+| `npm run test`    | Vitest with coverage in both apps                                                                                          |
+| `npm run lint`    | ESLint in both apps                                                                                                        |
+| `npm run clean`   | Remove `node_modules`, `dist`, and `coverage` in both apps (prompts; use `npm run clean -- --yes` to skip)                 |
 
 You can also run the scripts directly:
 

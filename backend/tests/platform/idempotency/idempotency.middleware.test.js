@@ -2,11 +2,7 @@
  * Unit tests for idempotency onSend / preHandler edge cases.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  ApiError,
-  isIdempotencyReplayError,
-  setIdempotencyErrorHooks,
-} from '../../../src/platform/errors.js';
+import { ApiError, isIdempotencyReplayError, setIdempotencyErrorHooks } from '../../../src/platform/errors.js';
 import {
   IDEMPOTENCY_BODY_MAX_BYTES,
   IdempotencyReplay,
@@ -18,9 +14,7 @@ import {
 
 vi.mock('../../../src/platform/idempotency/idempotency.repository.js', () => ({
   beginIdempotencyClaim: vi.fn(),
-  buildIdempotencyRouteLabel: vi.fn(
-    (method, path) => `${String(method).toUpperCase()} ${path}`,
-  ),
+  buildIdempotencyRouteLabel: vi.fn((method, path) => `${String(method).toUpperCase()} ${path}`),
   completeIdempotencyRecord: vi.fn(),
   findActiveIdempotencyRecord: vi.fn(),
   releaseIdempotencyClaim: vi.fn(async () => {}),
@@ -41,11 +35,7 @@ describe('idempotencyOnSend', () => {
   });
 
   it('skips when the request does not own a claim', async () => {
-    const payload = await idempotencyOnSend(
-      { idempotency: null },
-      { statusCode: 201 },
-      '{"ok":true}',
-    );
+    const payload = await idempotencyOnSend({ idempotency: null }, { statusCode: 201 }, '{"ok":true}');
     expect(payload).toBe('{"ok":true}');
     expect(completeIdempotencyRecord).not.toHaveBeenCalled();
   });
@@ -66,9 +56,7 @@ describe('idempotencyOnSend', () => {
       idempotency: { isOwner: true, recordId: 'r1' },
       principal: { orgId: 'o1', userId: 'u1' },
     };
-    await expect(
-      idempotencyOnSend(request, { statusCode: 201 }, JSON.stringify(huge)),
-    ).rejects.toBeInstanceOf(ApiError);
+    await expect(idempotencyOnSend(request, { statusCode: 201 }, JSON.stringify(huge))).rejects.toBeInstanceOf(ApiError);
     expect(releaseIdempotencyClaim).toHaveBeenCalled();
   });
 
@@ -77,11 +65,7 @@ describe('idempotencyOnSend', () => {
       idempotency: { isOwner: true, recordId: 'r1' },
       principal: { orgId: 'o1', userId: 'u1' },
     };
-    const payload = await idempotencyOnSend(
-      request,
-      { statusCode: 201 },
-      '{"id":"abc123","email":"a@example.com"}',
-    );
+    const payload = await idempotencyOnSend(request, { statusCode: 201 }, '{"id":"abc123","email":"a@example.com"}');
     expect(payload).toBe('{"id":"abc123","email":"a@example.com"}');
     expect(completeIdempotencyRecord).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -100,41 +84,23 @@ describe('idempotencyOnSend', () => {
       principal: { orgId: 'o1', userId: 'u1' },
     };
     await idempotencyOnSend(request, { statusCode: 204 }, '');
-    expect(completeIdempotencyRecord).toHaveBeenCalledWith(
-      expect.objectContaining({ responseBody: null, resourceId: null }),
-    );
+    expect(completeIdempotencyRecord).toHaveBeenCalledWith(expect.objectContaining({ responseBody: null, resourceId: null }));
 
     request.idempotency.isOwner = true;
-    await idempotencyOnSend(
-      request,
-      { statusCode: 201 },
-      Buffer.from('{"ok":true}', 'utf8'),
-    );
-    expect(completeIdempotencyRecord).toHaveBeenCalledWith(
-      expect.objectContaining({ responseBody: { ok: true }, resourceId: null }),
-    );
+    await idempotencyOnSend(request, { statusCode: 201 }, Buffer.from('{"ok":true}', 'utf8'));
+    expect(completeIdempotencyRecord).toHaveBeenCalledWith(expect.objectContaining({ responseBody: { ok: true }, resourceId: null }));
 
     request.idempotency.isOwner = true;
     await idempotencyOnSend(request, { statusCode: 201 }, 'not-json');
-    expect(completeIdempotencyRecord).toHaveBeenCalledWith(
-      expect.objectContaining({ responseBody: 'not-json' }),
-    );
+    expect(completeIdempotencyRecord).toHaveBeenCalledWith(expect.objectContaining({ responseBody: 'not-json' }));
 
     request.idempotency.isOwner = true;
-    await idempotencyOnSend(
-      request,
-      { statusCode: 201 },
-      Buffer.from('not-json', 'utf8'),
-    );
-    expect(completeIdempotencyRecord).toHaveBeenCalledWith(
-      expect.objectContaining({ responseBody: 'not-json' }),
-    );
+    await idempotencyOnSend(request, { statusCode: 201 }, Buffer.from('not-json', 'utf8'));
+    expect(completeIdempotencyRecord).toHaveBeenCalledWith(expect.objectContaining({ responseBody: 'not-json' }));
 
     request.idempotency.isOwner = true;
     await idempotencyOnSend(request, { statusCode: 201 }, { id: 42 });
-    expect(completeIdempotencyRecord).toHaveBeenCalledWith(
-      expect.objectContaining({ resourceId: null }),
-    );
+    expect(completeIdempotencyRecord).toHaveBeenCalledWith(expect.objectContaining({ resourceId: null }));
   });
 });
 
@@ -347,8 +313,7 @@ describe('releaseOwnedIdempotencyClaim', () => {
 describe('idempotencyErrorHooks defaults', () => {
   it('detects IdempotencyReplay by name before hooks are wired', () => {
     setIdempotencyErrorHooks({
-      isReplayError: (error) =>
-        Boolean(error && typeof error === 'object' && error.name === 'IdempotencyReplay'),
+      isReplayError: (error) => Boolean(error && typeof error === 'object' && error.name === 'IdempotencyReplay'),
       releaseOwnedClaim: async () => {},
     });
     expect(isIdempotencyReplayError(new IdempotencyReplay(201, {}))).toBe(true);

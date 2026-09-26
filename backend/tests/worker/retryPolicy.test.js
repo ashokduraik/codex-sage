@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  classifyThrownFailure,
-  computeRetryBackoffMs,
-  createJobFailureError,
-  decideFailureOutcome,
-} from '../../src/worker/retryPolicy.js';
+import { classifyThrownFailure, computeRetryBackoffMs, createJobFailureError, decideFailureOutcome } from '../../src/worker/retryPolicy.js';
 import { WORKER_RETRY_BACKOFF_BASE_MS, WORKER_RETRY_BACKOFF_MAX_MS } from '../../src/worker/worker.constants.js';
 
 describe('retryPolicy', () => {
@@ -81,9 +76,7 @@ describe('retryPolicy', () => {
       failureClass: 'temporary',
       unclassified: true,
     });
-    expect(
-      classifyThrownFailure({ failureClass: 'nope', code: 'X' }),
-    ).toMatchObject({ failureClass: 'temporary', unclassified: true });
+    expect(classifyThrownFailure({ failureClass: 'nope', code: 'X' })).toMatchObject({ failureClass: 'temporary', unclassified: true });
     expect(
       decideFailureOutcome({
         failure: { failureClass: 'temporary', code: 'T', message: 't' },

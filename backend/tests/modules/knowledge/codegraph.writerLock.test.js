@@ -2,12 +2,7 @@
  * Unit tests for the in-process CodeGraph writer mutex.
  */
 import { afterEach, describe, expect, it } from 'vitest';
-import {
-  acquireWriter,
-  buildWriterLockKey,
-  isWriterHeld,
-  resetWriterLocksForTests,
-} from '../../../src/modules/knowledge/codegraph.js';
+import { acquireWriter, buildWriterLockKey, isWriterHeld, resetWriterLocksForTests } from '../../../src/modules/knowledge/codegraph.js';
 
 describe('codegraph.writerLock', () => {
   afterEach(() => {

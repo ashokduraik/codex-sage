@@ -6,11 +6,7 @@ import mongoose from 'mongoose';
 import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
 import { SourceChangeSummary } from '../../../src/models/sourceChangeSummary.model.js';
-import {
-  findChangeSummaryForVersion,
-  findLatestComputedChangeSummary,
-  upsertChangeSummary,
-} from '../../../src/modules/knowledge/changeSummary.js';
+import { findChangeSummaryForVersion, findLatestComputedChangeSummary, upsertChangeSummary } from '../../../src/modules/knowledge/changeSummary.js';
 
 const harness = createMongoHarness({
   models: [SourceChangeSummary],

@@ -27,10 +27,7 @@ describe('loadKnowledgeBrowse', () => {
 
   it('throws PROJECT_NOT_FOUND for a missing or soft-deleted project', async () => {
     await expect(
-      loadKnowledgeBrowse(
-        { orgId: 'o1', projectId: 'p1', kind: 'summary', workspaceRoot: '/tmp/ws' },
-        { findProject: async () => null },
-      ),
+      loadKnowledgeBrowse({ orgId: 'o1', projectId: 'p1', kind: 'summary', workspaceRoot: '/tmp/ws' }, { findProject: async () => null }),
     ).rejects.toMatchObject({ code: 'PROJECT_NOT_FOUND' });
 
     await expect(
@@ -221,9 +218,7 @@ describe('loadKnowledgeBrowse', () => {
           queryStats: () => ({ nodeCount: 1 }),
           queryApis: () => [],
           queryWorkflows: () => [],
-          querySymbols: () => [
-            { id: 'n1', name: 'refund', filePath: 'p.js', kind: 'function', startLine: 2 },
-          ],
+          querySymbols: () => [{ id: 'n1', name: 'refund', filePath: 'p.js', kind: 'function', startLine: 2 }],
         }),
       },
     );

@@ -24,17 +24,10 @@ export {
  * @returns {string} Base64url-encoded cursor.
  */
 export function encodeCursor(payload) {
-  if (
-    typeof payload?.t !== 'string' ||
-    payload.t.length === 0 ||
-    typeof payload?.i !== 'string' ||
-    payload.i.length === 0
-  ) {
+  if (typeof payload?.t !== 'string' || payload.t.length === 0 || typeof payload?.i !== 'string' || payload.i.length === 0) {
     throw ApiError.fromCode('INVALID_CURSOR');
   }
-  return Buffer.from(JSON.stringify({ t: payload.t, i: payload.i }), 'utf8').toString(
-    'base64url',
-  );
+  return Buffer.from(JSON.stringify({ t: payload.t, i: payload.i }), 'utf8').toString('base64url');
 }
 
 /**
@@ -50,12 +43,7 @@ export function decodeCursor(cursor) {
   try {
     const raw = Buffer.from(cursor, 'base64url').toString('utf8');
     const parsed = JSON.parse(raw);
-    if (
-      typeof parsed?.t !== 'string' ||
-      parsed.t.length === 0 ||
-      typeof parsed?.i !== 'string' ||
-      parsed.i.length === 0
-    ) {
+    if (typeof parsed?.t !== 'string' || parsed.t.length === 0 || typeof parsed?.i !== 'string' || parsed.i.length === 0) {
       throw ApiError.fromCode('INVALID_CURSOR');
     }
     return { t: parsed.t, i: parsed.i };

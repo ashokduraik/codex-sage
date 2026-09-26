@@ -25,9 +25,7 @@ describe('passwordHasher', () => {
   it('returns false for a wrong password and for a malformed stored hash', async () => {
     const hash = await hashPassword('correct-horse');
     expect(await verifyPassword(hash, 'wrong')).toBe(false);
-    expect(await verifyPassword('not-a-valid-argon-hash', 'correct-horse')).toBe(
-      false,
-    );
+    expect(await verifyPassword('not-a-valid-argon-hash', 'correct-horse')).toBe(false);
   });
 
   it('reports needsRehash when stored parameters are below current constants', async () => {

@@ -7,14 +7,10 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/features/projects/api/repositoriesApi.js', () => ({
   attachProjectRepository: vi.fn(),
-  repositoryConnectionQueryKey: (projectId) =>
-    Object.freeze(['projects', String(projectId), 'repositories', 'connection']),
+  repositoryConnectionQueryKey: (projectId) => Object.freeze(['projects', String(projectId), 'repositories', 'connection']),
 }));
 
-import {
-  attachProjectRepository,
-  repositoryConnectionQueryKey,
-} from '@/features/projects/api/repositoriesApi.js';
+import { attachProjectRepository, repositoryConnectionQueryKey } from '@/features/projects/api/repositoriesApi.js';
 import { projectDetailQueryKey } from '@/features/projects/api/projectsApi.js';
 import { useRepositoryAttach } from '@/features/projects/hooks/useRepositoryAttach.js';
 

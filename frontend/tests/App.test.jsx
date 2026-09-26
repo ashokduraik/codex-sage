@@ -61,8 +61,6 @@ describe('App', () => {
     expect(getAccessToken()).toBe('test-access-token');
     window.history.pushState({}, '', '/');
     render(<App />);
-    expect(
-      await screen.findByRole('heading', { name: 'Understand your software system.' }),
-    ).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Understand your software system.' })).toBeTruthy();
   });
 });

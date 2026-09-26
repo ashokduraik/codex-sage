@@ -125,9 +125,7 @@ describe('mapProbeResult', () => {
 
 describe('tokenPageUrl', () => {
   it('uses GitHub settings for github and GitLab self-hosted baseUrl', () => {
-    expect(tokenPageUrl({ provider: 'github' })).toBe(
-      'https://github.com/settings/tokens/new',
-    );
+    expect(tokenPageUrl({ provider: 'github' })).toBe('https://github.com/settings/tokens/new');
     expect(
       tokenPageUrl({
         provider: 'gitlab',
@@ -135,8 +133,6 @@ describe('tokenPageUrl', () => {
         baseUrl: 'https://gitlab.acme.io/',
       }),
     ).toBe('https://gitlab.acme.io/-/user_settings/personal_access_tokens');
-    expect(tokenPageUrl({ provider: 'gitlab', hostKind: 'gitlab_dotcom' })).toBe(
-      'https://gitlab.com/-/user_settings/personal_access_tokens',
-    );
+    expect(tokenPageUrl({ provider: 'gitlab', hostKind: 'gitlab_dotcom' })).toBe('https://gitlab.com/-/user_settings/personal_access_tokens');
   });
 });

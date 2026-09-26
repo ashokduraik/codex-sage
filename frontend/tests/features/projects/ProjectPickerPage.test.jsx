@@ -4,11 +4,7 @@
 import { cleanup, fireEvent, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/shared/api/index';
-import {
-  clearAuthSession,
-  renderWithProviders,
-  seedAuthSession,
-} from '@tests/renderWithProviders';
+import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
 
 vi.mock('@/features/projects/api/projectsApi.js', async (importOriginal) => {
   const actual = await importOriginal();
@@ -60,9 +56,7 @@ describe('ProjectPickerPage', () => {
   it('lists accessible non-archived projects', async () => {
     renderWithProviders(<ProjectPickerPage tab="chat" />);
     expect(await screen.findByText('Atlas Commerce')).toBeTruthy();
-    expect(listProjects).toHaveBeenCalledWith(
-      expect.objectContaining({ includeArchived: false }),
-    );
+    expect(listProjects).toHaveBeenCalledWith(expect.objectContaining({ includeArchived: false }));
   });
 
   it('shows empty state when there are no projects', async () => {

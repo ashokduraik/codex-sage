@@ -2,11 +2,7 @@
  * Unit tests for GitHub/GitLab archive HEAD + download.
  */
 import { describe, expect, it, vi } from 'vitest';
-import {
-  downloadRepositoryArchive,
-  resolveRemoteHead,
-  splitGithubFullName,
-} from '../../../src/modules/knowledge/repoSync.js';
+import { downloadRepositoryArchive, resolveRemoteHead, splitGithubFullName } from '../../../src/modules/knowledge/repoSync.js';
 
 const TOKEN = 'ghp_sync_adapter_token_never_log';
 
@@ -42,9 +38,7 @@ describe('archiveSyncAdapter', () => {
       outboundGet,
     });
     expect(head.commitSha).toBe('def456');
-    expect(outboundGet.mock.calls[0][0].url).toContain(
-      'https://gitlab.example/api/v4/projects/group%2Fnested%2Fapp/repository/commits/develop',
-    );
+    expect(outboundGet.mock.calls[0][0].url).toContain('https://gitlab.example/api/v4/projects/group%2Fnested%2Fapp/repository/commits/develop');
   });
 
   it('maps authenticated 401 to user_action_required', async () => {
@@ -113,9 +107,7 @@ describe('archiveSyncAdapter', () => {
         fullName: 'acme/payments',
         branch: 'main',
         commitSha: 'abc',
-        outboundDownload: vi.fn().mockRejectedValue(
-          Object.assign(new Error('down'), { code: 'PROBE_NETWORK' }),
-        ),
+        outboundDownload: vi.fn().mockRejectedValue(Object.assign(new Error('down'), { code: 'PROBE_NETWORK' })),
       }),
     ).rejects.toMatchObject({ code: 'network_unreachable' });
 

@@ -2,10 +2,7 @@
  * Unit tests for idempotency repository helpers (no Mongo).
  */
 import { describe, expect, it } from 'vitest';
-import {
-  buildIdempotencyRouteLabel,
-  isMongoDuplicateKeyError,
-} from '../../../src/platform/idempotency/idempotency.repository.js';
+import { buildIdempotencyRouteLabel, isMongoDuplicateKeyError } from '../../../src/platform/idempotency/idempotency.repository.js';
 import { IdempotencyReplay } from '../../../src/platform/idempotency/idempotency.middleware.js';
 
 describe('buildIdempotencyRouteLabel', () => {

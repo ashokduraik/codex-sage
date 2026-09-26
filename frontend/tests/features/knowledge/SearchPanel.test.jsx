@@ -25,11 +25,7 @@ vi.mock('@/features/knowledge/api/knowledgeApi.js', async (importOriginal) => {
   };
 });
 
-import {
-  clearAuthSession,
-  renderWithProviders,
-  seedAuthSession,
-} from '@tests/renderWithProviders';
+import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
 import ProjectDetailPage from '@/features/projects/ProjectDetailPage';
 import SearchPanel from '@/features/knowledge/SearchPanel';
 

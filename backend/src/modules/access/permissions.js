@@ -3,11 +3,7 @@
  */
 import { Role } from '../../models/role.model.js';
 import { ApiError } from '../../platform/errors.js';
-import {
-  buildAuditContextFromRequest,
-  recordAuditEvent,
-  shouldAuditAuthorizationDenial,
-} from './audit.js';
+import { buildAuditContextFromRequest, recordAuditEvent, shouldAuditAuthorizationDenial } from './audit.js';
 
 // --- from authorization/permissionCatalog.js ---
 /**
@@ -203,9 +199,7 @@ export const PERMISSION_GROUPS = Object.freeze([
 ]);
 
 /** Flat list of every catalog permission key (solution §8.2 order). */
-export const ALL_PERMISSION_KEYS = Object.freeze(
-  PERMISSION_GROUPS.flatMap((group) => group.permissions.map((entry) => entry.key)),
-);
+export const ALL_PERMISSION_KEYS = Object.freeze(PERMISSION_GROUPS.flatMap((group) => group.permissions.map((entry) => entry.key)));
 
 /** Set for O(1) membership checks. */
 export const PERMISSION_KEY_SET = Object.freeze(new Set(ALL_PERMISSION_KEYS));
@@ -257,9 +251,7 @@ export async function assertRolePermissionsInCatalog() {
     }
   }
   if (unknown.length > 0) {
-    throw new Error(
-      `Role permission catalog drift: unknown keys ${unknown.slice(0, 20).join(', ')}`,
-    );
+    throw new Error(`Role permission catalog drift: unknown keys ${unknown.slice(0, 20).join(', ')}`);
   }
 }
 
@@ -278,11 +270,7 @@ const VIEWER_PERMISSIONS = Object.freeze([
 ]);
 
 /** Standard member: viewer plus upload and conversation archive. */
-const MEMBER_PERMISSIONS = Object.freeze([
-  ...VIEWER_PERMISSIONS,
-  'conversations.archive',
-  'sources.upload',
-]);
+const MEMBER_PERMISSIONS = Object.freeze([...VIEWER_PERMISSIONS, 'conversations.archive', 'sources.upload']);
 
 /** Project admin: member plus project/source/knowledge write capabilities. */
 const PROJECT_ADMIN_PERMISSIONS = Object.freeze([
@@ -586,13 +574,7 @@ export function hasRequiredPermissions(effective, required, mode = 'all') {
  */
 
 /** Paths that need no authentication (relative to their mount prefix). */
-export const PUBLIC_ROUTE_PATHS = Object.freeze([
-  '/health',
-  '/readiness',
-  '/auth/login',
-  '/auth/refresh',
-  '/auth/logout',
-]);
+export const PUBLIC_ROUTE_PATHS = Object.freeze(['/health', '/readiness', '/auth/login', '/auth/refresh', '/auth/logout']);
 
 /**
  * @typedef {object} RouteAccessConfig
@@ -685,9 +667,7 @@ function auditOneRoute(entry, failures) {
 export function assertAllRoutesDeclareAccess(app) {
   const collected = app.authorizationRouteRegistry;
   if (!Array.isArray(collected) || collected.length === 0) {
-    throw new Error(
-      'Route declaration audit found no routes — ensure onRoute registry is installed.',
-    );
+    throw new Error('Route declaration audit found no routes — ensure onRoute registry is installed.');
   }
 
   /** @type {Array<{ method: string, url: string, reason: string }>} */
@@ -697,9 +677,7 @@ export function assertAllRoutesDeclareAccess(app) {
   }
 
   if (failures.length > 0) {
-    const detail = failures
-      .map((item) => `${item.method} ${item.url}: ${item.reason}`)
-      .join('; ');
+    const detail = failures.map((item) => `${item.method} ${item.url}: ${item.reason}`).join('; ');
     throw new Error(`Route declaration audit failed: ${detail}`);
   }
 }
@@ -738,9 +716,7 @@ export function createAuthorizePreHandler(authenticate) {
    * @returns {Promise<void>}
    */
   return async function authorize(request, reply) {
-    const config = /** @type {import('./routeDeclarationAudit.js').RouteAccessConfig | undefined} */ (
-      request.routeOptions?.config
-    );
+    const config = /** @type {import('./routeDeclarationAudit.js').RouteAccessConfig | undefined} */ (request.routeOptions?.config);
     const normalized = normalizeRoutePath(request.routeOptions?.url ?? request.url);
     const classification = classifyRouteAccess(config, normalized);
 

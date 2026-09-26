@@ -241,9 +241,7 @@ export async function finishJobFailed(input) {
       orgId: updated.orgId,
       projectId: updated.projectId,
       jobId: updated._id,
-      eventCode: exhausted
-        ? WORKER_EVENT_FAILED_ATTEMPTS_EXHAUSTED
-        : WORKER_EVENT_FAILED_PERMANENT,
+      eventCode: exhausted ? WORKER_EVENT_FAILED_ATTEMPTS_EXHAUSTED : WORKER_EVENT_FAILED_PERMANENT,
       severity: 'error',
       message: exhausted ? WORKER_MSG_FAILED_ATTEMPTS : input.message || WORKER_MSG_FAILED_PERMANENT,
       data: {

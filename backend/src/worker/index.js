@@ -4,6 +4,6 @@
 import 'dotenv/config';
 import { startWorker } from './startWorker.js';
 startWorker().catch((err) => {
-    console.error(err);
-    process.exit(1);
+  console.error(err);
+  process.exit(1);
 });

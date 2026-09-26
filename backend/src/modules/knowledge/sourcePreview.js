@@ -173,7 +173,7 @@ export function graphCoverageFromFile(file) {
     excludedFromGraph: excluded,
     graphCoverage: {
       includedInGraph: !excluded,
-      reason: excluded ? file.exclusionReason ?? 'excluded' : null,
+      reason: excluded ? (file.exclusionReason ?? 'excluded') : null,
     },
   };
 }
@@ -190,9 +190,7 @@ async function loadCurrentSourceScope(orgId, projectId, deps) {
   if (!project || project.status !== ROW_STATUS_ACTIVE) {
     throw ApiError.fromCode('PROJECT_NOT_FOUND');
   }
-  const knowledgeVersionId = project.currentKnowledgeVersionId
-    ? String(project.currentKnowledgeVersionId)
-    : null;
+  const knowledgeVersionId = project.currentKnowledgeVersionId ? String(project.currentKnowledgeVersionId) : null;
   const knowledgeVersion = knowledgeVersionId
     ? await deps.findKnowledgeVersion({
         orgId,
@@ -200,9 +198,7 @@ async function loadCurrentSourceScope(orgId, projectId, deps) {
         knowledgeVersionId,
       })
     : null;
-  const sourceVersionId = knowledgeVersion?.sourceVersionId
-    ? String(knowledgeVersion.sourceVersionId)
-    : null;
+  const sourceVersionId = knowledgeVersion?.sourceVersionId ? String(knowledgeVersion.sourceVersionId) : null;
   if (!sourceVersionId) {
     throw ApiError.fromCode('SOURCE_NOT_FOUND');
   }
@@ -377,37 +373,29 @@ export async function sourcePreviewRoutes(app) {
   const config = { routeAccess: 'authenticated' };
   const preHandler = requireProjectPermission('sources.preview');
 
-  app.get(
-    '/projects/:projectId/files/slice',
-    { config, preHandler },
-    async (request) => {
-      const parsed = sliceQuerySchema.safeParse(request.query ?? {});
-      if (!parsed.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
-      }
-      return loadSourceFileSlice({
-        orgId: request.projectScope.orgId,
-        projectId: request.projectScope.projectId,
-        path: parsed.data.path,
-        startLine: parsed.data.startLine,
-        endLine: parsed.data.endLine,
-      });
-    },
-  );
+  app.get('/projects/:projectId/files/slice', { config, preHandler }, async (request) => {
+    const parsed = sliceQuerySchema.safeParse(request.query ?? {});
+    if (!parsed.success) {
+      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
+    }
+    return loadSourceFileSlice({
+      orgId: request.projectScope.orgId,
+      projectId: request.projectScope.projectId,
+      path: parsed.data.path,
+      startLine: parsed.data.startLine,
+      endLine: parsed.data.endLine,
+    });
+  });
 
-  app.get(
-    '/projects/:projectId/files',
-    { config, preHandler },
-    async (request) => {
-      const parsed = metadataQuerySchema.safeParse(request.query ?? {});
-      if (!parsed.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
-      }
-      return loadSourceFileMetadata({
-        orgId: request.projectScope.orgId,
-        projectId: request.projectScope.projectId,
-        path: parsed.data.path,
-      });
-    },
-  );
+  app.get('/projects/:projectId/files', { config, preHandler }, async (request) => {
+    const parsed = metadataQuerySchema.safeParse(request.query ?? {});
+    if (!parsed.success) {
+      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
+    }
+    return loadSourceFileMetadata({
+      orgId: request.projectScope.orgId,
+      projectId: request.projectScope.projectId,
+      path: parsed.data.path,
+    });
+  });
 }

@@ -18,9 +18,7 @@ describe('codegraph.paths', () => {
   const tempDirs = [];
 
   afterEach(async () => {
-    await Promise.all(
-      tempDirs.splice(0).map((dir) => fs.rm(dir, { recursive: true, force: true })),
-    );
+    await Promise.all(tempDirs.splice(0).map((dir) => fs.rm(dir, { recursive: true, force: true })));
   });
 
   /**
@@ -47,10 +45,7 @@ describe('codegraph.paths', () => {
   it('writes codegraph.json exclude patterns for S2 exclusions', async () => {
     const workspace = await makeTempWorkspace();
     await writeCodegraphExcludeConfig(workspace, ['big/file.js', 'big/file.js', 'skip/me.ts']);
-    const raw = await fs.readFile(
-      path.join(workspace, CODEGRAPH_PROJECT_CONFIG_FILENAME),
-      'utf8',
-    );
+    const raw = await fs.readFile(path.join(workspace, CODEGRAPH_PROJECT_CONFIG_FILENAME), 'utf8');
     expect(JSON.parse(raw)).toEqual({
       exclude: ['big/file.js', 'skip/me.ts'],
     });
@@ -58,9 +53,7 @@ describe('codegraph.paths', () => {
 
   it('rethrows non-ENOENT stat errors from codegraphIndexExists', async () => {
     const workspace = await makeTempWorkspace();
-    vi.spyOn(fs, 'stat').mockRejectedValueOnce(
-      Object.assign(new Error('EACCES'), { code: 'EACCES' }),
-    );
+    vi.spyOn(fs, 'stat').mockRejectedValueOnce(Object.assign(new Error('EACCES'), { code: 'EACCES' }));
     try {
       await expect(codegraphIndexExists(workspace)).rejects.toMatchObject({ code: 'EACCES' });
     } finally {

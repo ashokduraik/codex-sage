@@ -1,15 +1,4 @@
-import {
-  BookOpen,
-  ChevronLeft,
-  ChevronRight,
-  FolderKanban,
-  Home,
-  MessageSquare,
-  MessagesSquare,
-  Search,
-  Shield,
-  Sparkles,
-} from 'lucide-react';
+import { BookOpen, ChevronLeft, ChevronRight, FolderKanban, Home, MessageSquare, MessagesSquare, Search, Shield, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { useProject } from '@/features/projects/hooks/useProject.js';
@@ -38,9 +27,7 @@ export default function Sidebar({ collapsed, onToggle, onNavigate }) {
   const { t } = useTranslation();
   const location = useLocation();
   const params = useParams();
-  const routeProjectId = location.pathname.startsWith('/projects/')
-    ? params.id || location.pathname.split('/')[2]
-    : undefined;
+  const routeProjectId = location.pathname.startsWith('/projects/') ? params.id || location.pathname.split('/')[2] : undefined;
   const activeProjectQuery = useProject(routeProjectId, {
     enabled: Boolean(routeProjectId),
   });
@@ -55,8 +42,7 @@ export default function Sidebar({ collapsed, onToggle, onNavigate }) {
    * @returns Nav link element.
    */
   function renderNavItem(to, label, Icon) {
-    const active =
-      to === '/' ? location.pathname === '/' : location.pathname.startsWith(to);
+    const active = to === '/' ? location.pathname === '/' : location.pathname.startsWith(to);
     return (
       <Link
         key={to}
@@ -66,9 +52,7 @@ export default function Sidebar({ collapsed, onToggle, onNavigate }) {
         className={cn(
           'group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
           collapsed && 'justify-center px-0',
-          active
-            ? 'bg-brand-muted text-brand'
-            : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+          active ? 'bg-brand-muted text-brand' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
         )}
       >
         <Icon className={cn('h-[18px] w-[18px] shrink-0', active && 'text-brand')} />
@@ -78,29 +62,15 @@ export default function Sidebar({ collapsed, onToggle, onNavigate }) {
   }
 
   return (
-    <aside
-      className={cn(
-        'flex h-full flex-col border-r border-border bg-sidebar',
-        collapsed ? 'w-[60px]' : 'w-[232px]',
-      )}
-    >
-      <div
-        className={cn(
-          'flex h-14 items-center gap-2 border-b border-border px-3',
-          collapsed && 'justify-center px-0',
-        )}
-      >
+    <aside className={cn('flex h-full flex-col border-r border-border bg-sidebar', collapsed ? 'w-[60px]' : 'w-[232px]')}>
+      <div className={cn('flex h-14 items-center gap-2 border-b border-border px-3', collapsed && 'justify-center px-0')}>
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand text-brand-foreground">
           <Sparkles className="h-4 w-4" />
         </div>
         {!collapsed ? (
           <div className="min-w-0">
-            <div className="font-display text-[15px] font-medium leading-tight text-foreground">
-              {t('nav.productName')}
-            </div>
-            <div className="truncate text-[11px] text-muted-foreground">
-              {t('nav.productTagline')}
-            </div>
+            <div className="font-display text-[15px] font-medium leading-tight text-foreground">{t('nav.productName')}</div>
+            <div className="truncate text-[11px] text-muted-foreground">{t('nav.productTagline')}</div>
           </div>
         ) : null}
       </div>
@@ -113,12 +83,8 @@ export default function Sidebar({ collapsed, onToggle, onNavigate }) {
 
       {!collapsed && activeProject ? (
         <div className="border-t border-border p-3">
-          <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-            {t('nav.currentProject')}
-          </div>
-          <div className="mt-0.5 truncate text-sm font-medium text-foreground">
-            {activeProject.name}
-          </div>
+          <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('nav.currentProject')}</div>
+          <div className="mt-0.5 truncate text-sm font-medium text-foreground">{activeProject.name}</div>
         </div>
       ) : null}
 

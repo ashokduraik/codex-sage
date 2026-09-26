@@ -42,10 +42,7 @@ describe('jobsApi', () => {
       jobStatus: 'failed',
       signal: undefined,
     });
-    expect(apiRequest).toHaveBeenCalledWith(
-      '/projects/p1/jobs?cursor=abc&limit=10&jobStatus=failed',
-      { signal: undefined },
-    );
+    expect(apiRequest).toHaveBeenCalledWith('/projects/p1/jobs?cursor=abc&limit=10&jobStatus=failed', { signal: undefined });
   });
 
   it('gets job detail', async () => {
@@ -75,12 +72,7 @@ describe('jobsApi', () => {
 
   it('exposes query keys used by upload invalidation', () => {
     expect(projectJobsQueryRoot('p1')).toEqual(['projects', 'p1', 'jobs']);
-    expect(projectJobsQueryKey('p1')).toEqual([
-      'projects',
-      'p1',
-      'jobs',
-      { jobStatus: null },
-    ]);
+    expect(projectJobsQueryKey('p1')).toEqual(['projects', 'p1', 'jobs', { jobStatus: null }]);
     expect(jobDetailQueryKey('j1')).toEqual(['jobs', 'detail', 'j1']);
   });
 });

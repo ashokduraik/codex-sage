@@ -69,9 +69,7 @@ describe('knowledge HTTP fetchers', () => {
     apiRequest.mockResolvedValueOnce({ counts: { added: 1 } });
     expect(await fetchChangeSummary('p1')).toEqual({ counts: { added: 1 } });
 
-    apiRequest.mockRejectedValueOnce(
-      new ApiError({ status: 404, code: 'CHANGE_SUMMARY_NOT_FOUND', message: 'none' }),
-    );
+    apiRequest.mockRejectedValueOnce(new ApiError({ status: 404, code: 'CHANGE_SUMMARY_NOT_FOUND', message: 'none' }));
     expect(await fetchChangeSummary('p1')).toBeNull();
 
     apiRequest.mockRejectedValueOnce(new ApiError({ status: 500, code: 'INTERNAL_ERROR', message: 'x' }));

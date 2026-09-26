@@ -1,10 +1,6 @@
 import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  clearAuthSession,
-  renderWithProviders,
-  seedAuthSession,
-} from '@tests/renderWithProviders';
+import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
 import { API_BASE_URL } from '@/shared/api/index';
 import AdminUsers from '@/features/admin/AdminUsers';
 
@@ -171,10 +167,7 @@ describe('AdminUsers', () => {
     const fetchMock = vi.fn(async (url) => {
       const path = String(url).replace(API_BASE_URL, '');
       if (path.startsWith('/users')) {
-        return jsonResponse(
-          { error: { code: 'INTERNAL_ERROR', message: 'Users unavailable.' } },
-          500,
-        );
+        return jsonResponse({ error: { code: 'INTERNAL_ERROR', message: 'Users unavailable.' } }, 500);
       }
       if (path.startsWith('/roles')) {
         return jsonResponse({
@@ -209,21 +202,14 @@ describe('AdminUsers', () => {
     });
     fireEvent.click(await screen.findByLabelText('Member'));
 
-    const dialogInvite = screen
-      .getAllByRole('button', { name: /Invite user/i })
-      .at(-1);
+    const dialogInvite = screen.getAllByRole('button', { name: /Invite user/i }).at(-1);
     fireEvent.click(dialogInvite);
 
     await waitFor(() => {
-      const createCall = fetchMock.mock.calls.find(
-        ([url, init]) =>
-          String(url).endsWith('/users') && init?.method === 'POST',
-      );
+      const createCall = fetchMock.mock.calls.find(([url, init]) => String(url).endsWith('/users') && init?.method === 'POST');
       expect(createCall).toBeTruthy();
       const body = JSON.parse(createCall[1].body);
-      expect(body.roleIds).toEqual(
-        expect.arrayContaining([ROLE_VIEWER.id, ROLE_MEMBER.id]),
-      );
+      expect(body.roleIds).toEqual(expect.arrayContaining([ROLE_VIEWER.id, ROLE_MEMBER.id]));
       expect(createCall[1].headers['Idempotency-Key']).toBeTruthy();
     });
   });
@@ -249,19 +235,11 @@ describe('AdminUsers', () => {
     fireEvent.change(screen.getByLabelText('Email'), {
       target: { value: 'dup@acme.io' },
     });
-    fireEvent.click(
-      screen.getAllByRole('button', { name: /Invite user/i }).at(-1),
-    );
+    fireEvent.click(screen.getAllByRole('button', { name: /Invite user/i }).at(-1));
 
-    expect(
-      await screen.findByText(
-        'A user with this email already exists in the organization.',
-      ),
-    ).toBeTruthy();
+    expect(await screen.findByText('A user with this email already exists in the organization.')).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Create user' })).toBeTruthy();
-    expect(/** @type {HTMLInputElement} */ (screen.getByLabelText('Email')).value).toBe(
-      'dup@acme.io',
-    );
+    expect(/** @type {HTMLInputElement} */ (screen.getByLabelText('Email')).value).toBe('dup@acme.io');
   });
 
   it('opens remove consequences dialog and cancels without DELETE', async () => {
@@ -277,9 +255,7 @@ describe('AdminUsers', () => {
     expect(screen.getByText(/lose access to this organization/i)).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-    expect(
-      fetchMock.mock.calls.filter(([, init]) => init?.method === 'DELETE'),
-    ).toHaveLength(0);
+    expect(fetchMock.mock.calls.filter(([, init]) => init?.method === 'DELETE')).toHaveLength(0);
   });
 
   it('confirms remove and calls DELETE', async () => {
@@ -295,12 +271,7 @@ describe('AdminUsers', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Remove user' }));
 
     await waitFor(() => {
-      expect(
-        fetchMock.mock.calls.some(
-          ([url, init]) =>
-            String(url).includes('/users/u1') && init?.method === 'DELETE',
-        ),
-      ).toBe(true);
+      expect(fetchMock.mock.calls.some(([url, init]) => String(url).includes('/users/u1') && init?.method === 'DELETE')).toBe(true);
     });
   });
 
@@ -334,11 +305,7 @@ describe('AdminUsers', () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
     stubAdminFetch(fetchMock, {
-      onDeactivate: () =>
-        jsonResponse(
-          { error: { code: 'FORBIDDEN', message: 'Not permitted.' } },
-          403,
-        ),
+      onDeactivate: () => jsonResponse({ error: { code: 'FORBIDDEN', message: 'Not permitted.' } }, 403),
     });
 
     renderWithProviders(<AdminUsers />, { route: '/admin/users' });
@@ -383,10 +350,7 @@ describe('AdminUsers', () => {
     await waitFor(() => {
       expect(
         fetchMock.mock.calls.some(
-          ([url, init]) =>
-            String(url).includes('/users/u1') &&
-            init?.method === 'PATCH' &&
-            JSON.parse(init.body).roleIds.includes(ROLE_MEMBER.id),
+          ([url, init]) => String(url).includes('/users/u1') && init?.method === 'PATCH' && JSON.parse(init.body).roleIds.includes(ROLE_MEMBER.id),
         ),
       ).toBe(true);
     });
@@ -405,9 +369,7 @@ describe('AdminUsers', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Activate' }));
 
     await waitFor(() => {
-      expect(
-        fetchMock.mock.calls.some(([url]) => String(url).endsWith('/activate')),
-      ).toBe(true);
+      expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith('/activate'))).toBe(true);
     });
   });
 
@@ -466,11 +428,7 @@ describe('AdminUsers', () => {
 
     await waitFor(() => {
       expect(
-        fetchMock.mock.calls.some(
-          ([url]) =>
-            String(url).includes('userStatus=active') &&
-            String(url).includes(`roleId=${ROLE_VIEWER.id}`),
-        ),
+        fetchMock.mock.calls.some(([url]) => String(url).includes('userStatus=active') && String(url).includes(`roleId=${ROLE_VIEWER.id}`)),
       ).toBe(true);
     });
   });
@@ -492,9 +450,7 @@ describe('AdminUsers', () => {
     });
 
     await waitFor(() => {
-      expect(
-        fetchMock.mock.calls.some(([url]) => String(url).includes('q=pri')),
-      ).toBe(true);
+      expect(fetchMock.mock.calls.some(([url]) => String(url).includes('q=pri'))).toBe(true);
     });
     vi.useRealTimers();
   });
@@ -525,10 +481,7 @@ describe('AdminUsers', () => {
     fetchMock.mockImplementation(async (url, init = {}) => {
       const path = String(url).replace(API_BASE_URL, '');
       if (init.method === 'DELETE') {
-        return jsonResponse(
-          { error: { code: 'LAST_ADMIN_REQUIRED', message: 'Keep an admin.' } },
-          409,
-        );
+        return jsonResponse({ error: { code: 'LAST_ADMIN_REQUIRED', message: 'Keep an admin.' } }, 409);
       }
       const roles = [ROLE_VIEWER, ROLE_MEMBER];
       if (path.startsWith('/roles')) {
@@ -561,10 +514,7 @@ describe('AdminUsers', () => {
     const original = fetchMock.getMockImplementation();
     fetchMock.mockImplementation(async (url, init = {}) => {
       if (init.method === 'PATCH') {
-        return jsonResponse(
-          { error: { code: 'FORBIDDEN', message: 'Cannot change roles.' } },
-          403,
-        );
+        return jsonResponse({ error: { code: 'FORBIDDEN', message: 'Cannot change roles.' } }, 403);
       }
       return original(url, init);
     });
@@ -748,9 +698,7 @@ describe('AdminUsers', () => {
     fireEvent.change(screen.getByLabelText('Email'), {
       target: { value: 'dup@acme.io' },
     });
-    fireEvent.click(
-      screen.getAllByRole('button', { name: /Invite user/i }).at(-1),
-    );
+    fireEvent.click(screen.getAllByRole('button', { name: /Invite user/i }).at(-1));
     expect(await screen.findByText('Duplicate.')).toBeTruthy();
     expect(screen.getByText(/corr-create/)).toBeTruthy();
   });

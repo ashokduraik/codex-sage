@@ -12,7 +12,7 @@ import {
   DEFAULT_ADMIN_PASSWORD,
   IDENTITY_MODELS,
   createOrganization,
-  createUser, createUserInRepo,
+  createUserInRepo,
   findBuiltInRole,
   findUserById,
   findUserByIdWithPassword,
@@ -106,11 +106,7 @@ describe('password.routes and adminPasswordReset.routes', () => {
   it('self-change returns 200, revokes sessions, and rejects the old access token', async () => {
     await runBootstrapSeed(createMockLog());
     app = await readyApp();
-    const { accessToken, user } = await login(
-      app,
-      DEFAULT_ADMIN_EMAIL,
-      DEFAULT_ADMIN_PASSWORD,
-    );
+    const { accessToken, user } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
 
     const change = await app.inject({
       method: 'POST',
@@ -148,11 +144,7 @@ describe('password.routes and adminPasswordReset.routes', () => {
   it('self-change with the wrong current password returns 403 and keeps sessions', async () => {
     await runBootstrapSeed(createMockLog());
     app = await readyApp();
-    const { accessToken, user } = await login(
-      app,
-      DEFAULT_ADMIN_EMAIL,
-      DEFAULT_ADMIN_PASSWORD,
-    );
+    const { accessToken, user } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
 
     const change = await app.inject({
       method: 'POST',
@@ -212,11 +204,7 @@ describe('password.routes and adminPasswordReset.routes', () => {
     });
 
     app = await readyApp();
-    const { accessToken, user: admin } = await login(
-      app,
-      DEFAULT_ADMIN_EMAIL,
-      DEFAULT_ADMIN_PASSWORD,
-    );
+    const { accessToken, user: admin } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
 
     const reset = await app.inject({
       method: 'POST',
@@ -289,11 +277,7 @@ describe('password.routes and adminPasswordReset.routes', () => {
   it('admin set-password targeting the caller returns 409', async () => {
     await runBootstrapSeed(createMockLog());
     app = await readyApp();
-    const { accessToken, user } = await login(
-      app,
-      DEFAULT_ADMIN_EMAIL,
-      DEFAULT_ADMIN_PASSWORD,
-    );
+    const { accessToken, user } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const reset = await app.inject({
       method: 'POST',
       url: `${API_BASE_PATH}/users/${user.id}/reset-password`,
@@ -308,7 +292,7 @@ describe('password.routes and adminPasswordReset.routes', () => {
     const seed = await runBootstrapSeed(createMockLog());
     const orgId = seed.orgId;
     const memberRole = await findBuiltInRole(orgId, 'member');
-    const member = await createUserInRepo(orgId, {
+    await createUserInRepo(orgId, {
       email: 'member@example.com',
       displayName: 'Member',
       userStatus: 'active',
@@ -429,7 +413,7 @@ describe('password.routes and adminPasswordReset.routes', () => {
       isBuiltIn: false,
       permissions: ['users.manage'],
     });
-    const manager = await createUserInRepo(orgId, {
+    await createUserInRepo(orgId, {
       email: 'mgr@example.com',
       displayName: 'Mgr',
       userStatus: 'active',

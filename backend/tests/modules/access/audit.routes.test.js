@@ -15,7 +15,7 @@ import {
   DEFAULT_ORG_SLUG,
   IDENTITY_MODELS,
   createOrganization,
-  createUser, createUserInRepo,
+  createUserInRepo,
   ensureBuiltInRoles,
   findOrganizationBySlug,
   runBootstrapSeed,
@@ -89,8 +89,8 @@ describe('audit routes', () => {
       userStatus: 'active',
       passwordHash: await hashPassword(password),
       passwordUpdatedAt: new Date(),
-          roleIds: [viewer._id]
-        });
+      roleIds: [viewer._id],
+    });
 
     app = await readyApp();
     const unauth = await app.inject({
@@ -124,8 +124,8 @@ describe('audit routes', () => {
       userStatus: 'active',
       passwordHash: await hashPassword(passwordB),
       passwordUpdatedAt: new Date(),
-          roleIds: [adminB._id]
-        });
+      roleIds: [adminB._id],
+    });
 
     const actorA = new mongoose.Types.ObjectId();
     for (let i = 0; i < 3; i += 1) {
@@ -165,9 +165,7 @@ describe('audit routes', () => {
     const bodyA = listA.json();
     expect(bodyA.items).toHaveLength(2);
     expect(bodyA.pageInfo.hasMore).toBe(true);
-    expect(bodyA.items.every((item) => item.correlationId.startsWith('REQ-a'))).toBe(
-      true,
-    );
+    expect(bodyA.items.every((item) => item.correlationId.startsWith('REQ-a'))).toBe(true);
 
     const page2 = await app.inject({
       method: 'GET',
@@ -257,11 +255,7 @@ describe('audit routes', () => {
       result: 'success',
       correlationId: 'REQ-soft-delete',
     });
-    await AuditEvent.updateOne(
-      { _id: doc._id },
-      { $set: { status: ROW_STATUS_DELETED } },
-      { retentionJob: true },
-    );
+    await AuditEvent.updateOne({ _id: doc._id }, { $set: { status: ROW_STATUS_DELETED } }, { retentionJob: true });
 
     app = await readyApp();
     const token = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
@@ -360,8 +354,8 @@ describe('audit routes', () => {
       userStatus: 'active',
       passwordHash: await hashPassword(password),
       passwordUpdatedAt: new Date(),
-          roleIds: [viewer._id]
-        });
+      roleIds: [viewer._id],
+    });
 
     app = await readyApp();
     const token = await login(app, user.email, password);
@@ -391,18 +385,10 @@ describe('audit routes', () => {
     expect(items.length).toBeGreaterThanOrEqual(2);
     expect(items.every((item) => item.result === 'denied')).toBe(true);
     expect(
-      items.some((item) =>
-        Array.isArray(item.context?.requiredPermissions)
-          ? item.context.requiredPermissions.includes('roles.manage')
-          : false,
-      ),
+      items.some((item) => (Array.isArray(item.context?.requiredPermissions) ? item.context.requiredPermissions.includes('roles.manage') : false)),
     ).toBe(true);
     expect(
-      items.some((item) =>
-        Array.isArray(item.context?.requiredPermissions)
-          ? item.context.requiredPermissions.includes('audit.view')
-          : false,
-      ),
+      items.some((item) => (Array.isArray(item.context?.requiredPermissions) ? item.context.requiredPermissions.includes('audit.view') : false)),
     ).toBe(true);
 
     // Non-admin permission class is not present in the seeded catalog routes yet;
@@ -410,11 +396,7 @@ describe('audit routes', () => {
     const orgEvents = await listAuditEvents(org._id, { action: 'authz.denied' });
     for (const doc of orgEvents.items) {
       const required = doc.context?.requiredPermissions ?? [];
-      expect(
-        required.some((key) =>
-          ['users.manage', 'roles.manage', 'settings.manage', 'audit.view'].includes(key),
-        ),
-      ).toBe(true);
+      expect(required.some((key) => ['users.manage', 'roles.manage', 'settings.manage', 'audit.view'].includes(key))).toBe(true);
     }
   });
 });

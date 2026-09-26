@@ -20,12 +20,7 @@ export function isInvalidAuditCursorError(error) {
   if (!Array.isArray(error.details)) {
     return false;
   }
-  return error.details.some(
-    (detail) =>
-      detail &&
-      typeof detail === 'object' &&
-      /** @type {{ path?: unknown }} */ (detail).path === 'cursor',
-  );
+  return error.details.some((detail) => detail && typeof detail === 'object' && /** @type {{ path?: unknown }} */ (detail).path === 'cursor');
 }
 
 /**

@@ -15,7 +15,7 @@ import {
   DEFAULT_ADMIN_PASSWORD,
   IDENTITY_MODELS,
   createRoleInRepo,
-  createUser, createUserInRepo,
+  createUserInRepo,
   findBuiltInRole,
   findOrganizationBySlug,
   runBootstrapSeed,
@@ -26,14 +26,7 @@ import { CONVERSATION_MODELS, Message, refreshConversationSearchText } from '../
 import { CONVERSATION_DEFAULT_TITLE } from '../../../src/modules/conversation/conversation.helper.js';
 
 const harness = createMongoHarness({
-  models: [
-    ...IDENTITY_MODELS,
-    ...AUTH_MODELS,
-    ...AUDIT_MODELS,
-    ...IDEMPOTENCY_MODELS,
-    ...PROJECT_MODELS,
-    ...CONVERSATION_MODELS,
-  ],
+  models: [...IDENTITY_MODELS, ...AUTH_MODELS, ...AUDIT_MODELS, ...IDEMPOTENCY_MODELS, ...PROJECT_MODELS, ...CONVERSATION_MODELS],
   uri: TEST_APP_CONFIG.mongo.uri,
 });
 
@@ -138,13 +131,7 @@ describe('conversation routes', () => {
     expect(missingKey.statusCode).toBe(400);
     expect(missingKey.json().error.code).toBe('IDEMPOTENCY_KEY_REQUIRED');
 
-    const first = await createConversation(
-      app,
-      accessToken,
-      project.id,
-      {},
-      'idem-conv-create-1',
-    );
+    const first = await createConversation(app, accessToken, project.id, {}, 'idem-conv-create-1');
     expect(first.statusCode).toBe(201);
     const body = first.json();
     expect(body.title).toBe(CONVERSATION_DEFAULT_TITLE);
@@ -152,23 +139,11 @@ describe('conversation routes', () => {
     expect(body.messageCount).toBe(0);
     expect(body.lastMessageAt).toBeNull();
 
-    const replay = await createConversation(
-      app,
-      accessToken,
-      project.id,
-      {},
-      'idem-conv-create-1',
-    );
+    const replay = await createConversation(app, accessToken, project.id, {}, 'idem-conv-create-1');
     expect(replay.statusCode).toBe(201);
     expect(replay.json().id).toBe(body.id);
 
-    const named = await createConversation(
-      app,
-      accessToken,
-      project.id,
-      { title: 'Checkout flow' },
-      'idem-conv-create-2',
-    );
+    const named = await createConversation(app, accessToken, project.id, { title: 'Checkout flow' }, 'idem-conv-create-2');
     expect(named.statusCode).toBe(201);
     expect(named.json().title).toBe('Checkout flow');
     expect(named.json().titleSource).toBe('user');
@@ -190,13 +165,7 @@ describe('conversation routes', () => {
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const org = await findOrganizationBySlug('default');
     const project = await createProject(app, accessToken, 'Chat Life', 'idem-conv-proj-life');
-    const created = await createConversation(
-      app,
-      accessToken,
-      project.id,
-      { title: 'Keep history' },
-      'idem-conv-life-1',
-    );
+    const created = await createConversation(app, accessToken, project.id, { title: 'Keep history' }, 'idem-conv-life-1');
     const conversationId = created.json().id;
 
     await Message.create({
@@ -305,25 +274,19 @@ describe('conversation routes', () => {
     const admin = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const org = await findOrganizationBySlug('default');
     const project = await createProject(app, admin.accessToken, 'Private Chat', 'idem-conv-priv');
-    const created = await createConversation(
-      app,
-      admin.accessToken,
-      project.id,
-      { title: 'Admin private thread' },
-      'idem-conv-priv-1',
-    );
+    const created = await createConversation(app, admin.accessToken, project.id, { title: 'Admin private thread' }, 'idem-conv-priv-1');
     const conversationId = created.json().id;
 
     const adminRole = await findBuiltInRole(org._id, 'org_admin');
     const passwordHash = await hashPassword('OtherAdmin1!');
-    const otherAdmin = await createUserInRepo(org._id, {
+    await createUserInRepo(org._id, {
       email: 'other-admin@example.com',
       displayName: 'Other Admin',
       userStatus: 'active',
       passwordHash,
-          roleIds: [adminRole._id],
-          projectAccessMode: 'all'
-        });
+      roleIds: [adminRole._id],
+      projectAccessMode: 'all',
+    });
     const other = await login(app, 'other-admin@example.com', 'OtherAdmin1!');
 
     const getDenied = await app.inject({
@@ -371,13 +334,7 @@ describe('conversation routes', () => {
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const org = await findOrganizationBySlug('default');
     const project = await createProject(app, accessToken, 'Chat Search', 'idem-conv-search');
-    const created = await createConversation(
-      app,
-      accessToken,
-      project.id,
-      { title: 'Refund policy' },
-      'idem-conv-search-1',
-    );
+    const created = await createConversation(app, accessToken, project.id, { title: 'Refund policy' }, 'idem-conv-search-1');
     const conversationId = created.json().id;
     await Message.create({
       orgId: org._id,
@@ -483,13 +440,7 @@ describe('conversation routes', () => {
     const admin = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const org = await findOrganizationBySlug('default');
     const project = await createProject(app, admin.accessToken, 'Chat ACL', 'idem-conv-acl');
-    const created = await createConversation(
-      app,
-      admin.accessToken,
-      project.id,
-      { title: 'Scoped' },
-      'idem-conv-acl-1',
-    );
+    const created = await createConversation(app, admin.accessToken, project.id, { title: 'Scoped' }, 'idem-conv-acl-1');
 
     const role = await createRoleInRepo(org._id, {
       name: 'No chat',
@@ -503,8 +454,8 @@ describe('conversation routes', () => {
       passwordHash,
       userStatus: 'active',
       createdBy: null,
-          roleIds: [role._id]
-        });
+      roleIds: [role._id],
+    });
     await addProjectMember({
       orgId: String(org._id),
       projectId: project.id,
@@ -553,13 +504,7 @@ describe('conversation routes', () => {
     });
     expect(badCursor.statusCode).toBe(400);
 
-    const badCreate = await createConversation(
-      app,
-      admin.accessToken,
-      project.id,
-      { title: '' },
-      'idem-conv-acl-bad',
-    );
+    const badCreate = await createConversation(app, admin.accessToken, project.id, { title: '' }, 'idem-conv-acl-bad');
     expect(badCreate.statusCode).toBe(400);
 
     const badList = await app.inject({

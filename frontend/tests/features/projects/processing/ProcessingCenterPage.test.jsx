@@ -172,9 +172,7 @@ describe('ProcessingCenterPage', () => {
   });
 
   it('refetches the list after a failure', async () => {
-    listProjectJobs.mockRejectedValueOnce(
-      new ApiError({ status: 500, code: 'INTERNAL_ERROR', message: 'boom' }),
-    );
+    listProjectJobs.mockRejectedValueOnce(new ApiError({ status: 500, code: 'INTERNAL_ERROR', message: 'boom' }));
     renderWithProviders(<ProcessingCenterPage />, {
       route: '/processing?projectId=prj_atlas',
     });
@@ -287,9 +285,7 @@ describe('ProcessingCenterPage', () => {
     renderWithProviders(<ProcessingCenterPage />, {
       route: '/processing?projectId=prj_atlas',
     });
-    expect(
-      await screen.findByText(/Cancellation requested/),
-    ).toBeTruthy();
+    expect(await screen.findByText(/Cancellation requested/)).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull();
   });
 

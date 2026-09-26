@@ -6,12 +6,7 @@ import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG, TEST_JWT_ACCESS_TOKEN_SECRET } from '../../appConfig.js';
 import { AUTH_MODELS } from '../../../src/modules/access/index.js';
 import { createAuthService } from '../../../src/modules/access/auth.js';
-import {
-  DEFAULT_ADMIN_EMAIL,
-  DEFAULT_ADMIN_PASSWORD,
-  IDENTITY_MODELS,
-  runBootstrapSeed,
-} from '../../../src/modules/masters/index.js';
+import { DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD, IDENTITY_MODELS, runBootstrapSeed } from '../../../src/modules/masters/index.js';
 
 const harness = createMongoHarness({
   models: [...IDENTITY_MODELS, ...AUTH_MODELS],
@@ -36,10 +31,7 @@ describe('auth.service', () => {
     const auth = createAuthService(TEST_JWT_ACCESS_TOKEN_SECRET);
     const log = { info: vi.fn() };
 
-    const ok = await auth.login(
-      { email: DEFAULT_ADMIN_EMAIL, password: DEFAULT_ADMIN_PASSWORD },
-      { log },
-    );
+    const ok = await auth.login({ email: DEFAULT_ADMIN_EMAIL, password: DEFAULT_ADMIN_PASSWORD }, { log });
     expect(ok.outcome).toBe('authenticated');
     expect(ok.accessToken).toBeTruthy();
     expect(ok.refreshToken).toBeTruthy();
@@ -47,10 +39,7 @@ describe('auth.service', () => {
     expect(JSON.stringify(log.info.mock.calls)).not.toContain(ok.accessToken);
     expect(JSON.stringify(log.info.mock.calls)).not.toContain(ok.refreshToken);
 
-    const bad = await auth.login(
-      { email: DEFAULT_ADMIN_EMAIL, password: 'nope' },
-      { log },
-    );
+    const bad = await auth.login({ email: DEFAULT_ADMIN_EMAIL, password: 'nope' }, { log });
     expect(bad.outcome).toBe('invalid_credentials');
     expect(bad.emailHash).toMatch(/^[a-f0-9]{64}$/);
   });

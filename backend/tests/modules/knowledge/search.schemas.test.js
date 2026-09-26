@@ -57,11 +57,7 @@ describe('parseSearchQuery', () => {
     expect(clampSearchLimit(0)).toBe(SEARCH_PAGE_SIZE);
     expect(clampSearchLimit(999)).toBe(SEARCH_PAGE_SIZE);
     expect(clampSearchLimit(4)).toBe(4);
-    expect(zodDetails({ issues: [{ path: ['q'], message: 'Required' }] })).toEqual([
-      { path: 'q', message: 'Required' },
-    ]);
-    expect(zodDetails({ issues: [{ path: [], message: 'bad' }] })).toEqual([
-      { path: 'query', message: 'bad' },
-    ]);
+    expect(zodDetails({ issues: [{ path: ['q'], message: 'Required' }] })).toEqual([{ path: 'q', message: 'Required' }]);
+    expect(zodDetails({ issues: [{ path: [], message: 'bad' }] })).toEqual([{ path: 'query', message: 'bad' }]);
   });
 });

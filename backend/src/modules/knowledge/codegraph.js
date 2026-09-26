@@ -243,9 +243,7 @@ export async function validateCodegraphIndex(input) {
 
   probes.push(
     await runProbe('watcher_off', async () => {
-      const watching = await Promise.resolve(
-        typeof input.graph.isWatching === 'function' ? input.graph.isWatching() : false,
-      );
+      const watching = await Promise.resolve(typeof input.graph.isWatching === 'function' ? input.graph.isWatching() : false);
       if (watching) {
         throw new Error('filesystem watcher is active');
       }
@@ -415,18 +413,9 @@ export async function isCodegraphLoadable() {
  */
 export function mapCodegraphLibraryError(err) {
   const message = err instanceof Error ? err.message : String(err ?? 'CodeGraph failed');
-  const code =
-    err && typeof err === 'object' && 'code' in err
-      ? String(/** @type {{ code?: unknown }} */ (err).code)
-      : '';
+  const code = err && typeof err === 'object' && 'code' in err ? String(/** @type {{ code?: unknown }} */ (err).code) : '';
 
-  if (
-    code === 'SQLITE_BUSY' ||
-    code === 'EBUSY' ||
-    /database is locked/i.test(message) ||
-    /SQLITE_BUSY/i.test(message) ||
-    /EAGAIN/i.test(message)
-  ) {
+  if (code === 'SQLITE_BUSY' || code === 'EBUSY' || /database is locked/i.test(message) || /SQLITE_BUSY/i.test(message) || /EAGAIN/i.test(message)) {
     return {
       failureClass: 'temporary',
       code: 'CODEGRAPH_SQLITE_BUSY',
@@ -544,10 +533,7 @@ export function createCodegraphAdapter(config = {}) {
       return graph;
     }
 
-    const exists =
-      typeof CodeGraph.isInitialized === 'function'
-        ? CodeGraph.isInitialized(workspacePath)
-        : await codegraphIndexExists(workspacePath);
+    const exists = typeof CodeGraph.isInitialized === 'function' ? CodeGraph.isInitialized(workspacePath) : await codegraphIndexExists(workspacePath);
 
     const graph = exists
       ? await CodeGraph.open(workspacePath, { sync: false, readOnly: false })
@@ -648,10 +634,7 @@ export function createCodegraphAdapter(config = {}) {
           disableFilesystemWatch(graph);
           const graphPath = resolveCodegraphDir(workspacePath);
           const { getDatabasePath } = await ensureLibrary();
-          const dbPath =
-            typeof getDatabasePath === 'function'
-              ? getDatabasePath(workspacePath)
-              : path.join(graphPath, 'codegraph.db');
+          const dbPath = typeof getDatabasePath === 'function' ? getDatabasePath(workspacePath) : path.join(graphPath, 'codegraph.db');
           const graphHash = await fingerprintDatabase(dbPath);
           return {
             mode: /** @type {'indexAll'} */ ('indexAll'),
@@ -714,13 +697,9 @@ export function createCodegraphAdapter(config = {}) {
           disableFilesystemWatch(graph);
           const graphPath = resolveCodegraphDir(workspacePath);
           const { getDatabasePath } = await ensureLibrary();
-          const dbPath =
-            typeof getDatabasePath === 'function'
-              ? getDatabasePath(workspacePath)
-              : path.join(graphPath, 'codegraph.db');
+          const dbPath = typeof getDatabasePath === 'function' ? getDatabasePath(workspacePath) : path.join(graphPath, 'codegraph.db');
           const graphHash = await fingerprintDatabase(dbPath);
-          const indexedFileCount =
-            Number(raw?.filesAdded ?? 0) + Number(raw?.filesModified ?? 0);
+          const indexedFileCount = Number(raw?.filesAdded ?? 0) + Number(raw?.filesModified ?? 0);
           return {
             mode: /** @type {'sync'} */ ('sync'),
             success: true,
@@ -806,8 +785,7 @@ export function createCodegraphAdapter(config = {}) {
      * >}
      */
     async acquireReadLease(input) {
-      const hasMongoWriter =
-        config.hasMongoWriterLock ?? hasActiveProjectWriterLock;
+      const hasMongoWriter = config.hasMongoWriterLock ?? hasActiveProjectWriterLock;
       const writerHeld =
         (config.isInProcessWriterHeld ?? isWriterHeld)({
           orgId: input.orgId,

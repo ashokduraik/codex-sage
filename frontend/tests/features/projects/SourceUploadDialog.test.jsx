@@ -68,14 +68,7 @@ describe('SourceUploadDialog', () => {
     mutateAsync.mockResolvedValue({ sourceVersionId: 'sv1', jobId: 'j1' });
     const onUploaded = vi.fn();
     const onOpenChange = vi.fn();
-    renderWithProviders(
-      <SourceUploadDialog
-        open
-        onOpenChange={onOpenChange}
-        projectId="prj_atlas"
-        onUploaded={onUploaded}
-      />,
-    );
+    renderWithProviders(<SourceUploadDialog open onOpenChange={onOpenChange} projectId="prj_atlas" onUploaded={onUploaded} />);
     expect(screen.getByText(/Folder upload is not supported/i)).toBeTruthy();
     const zip = new File(['pk'], 'src.zip', { type: 'application/zip' });
     fireEvent.change(getZipInput(), { target: { files: [zip] } });
@@ -86,9 +79,7 @@ describe('SourceUploadDialog', () => {
       expect(onUploaded).toHaveBeenCalledWith({ sourceVersionId: 'sv1', jobId: 'j1' });
     });
     expect(onOpenChange).toHaveBeenCalledWith(false);
-    expect(mutateAsync).toHaveBeenCalledWith(
-      expect.objectContaining({ projectId: 'prj_atlas', file: zip }),
-    );
+    expect(mutateAsync).toHaveBeenCalledWith(expect.objectContaining({ projectId: 'prj_atlas', file: zip }));
   });
 
   it('shows SOURCE_ZIP_SLIP and a correlation id', async () => {
@@ -99,9 +90,7 @@ describe('SourceUploadDialog', () => {
       correlationId: 'corr-slip',
     });
     mutateAsync.mockRejectedValue(error);
-    renderWithProviders(
-      <SourceUploadDialog open onOpenChange={() => undefined} projectId="prj_atlas" />,
-    );
+    renderWithProviders(<SourceUploadDialog open onOpenChange={() => undefined} projectId="prj_atlas" />);
     fireEvent.change(getZipInput(), {
       target: { files: [new File(['pk'], 'bad.zip', { type: 'application/zip' })] },
     });
@@ -112,9 +101,7 @@ describe('SourceUploadDialog', () => {
   });
 
   it('rejects a non-zip selection with folder-unsupported copy', () => {
-    renderWithProviders(
-      <SourceUploadDialog open onOpenChange={() => undefined} projectId="prj_atlas" />,
-    );
+    renderWithProviders(<SourceUploadDialog open onOpenChange={() => undefined} projectId="prj_atlas" />);
     fireEvent.change(getZipInput(), {
       target: { files: [new File(['x'], 'readme.md', { type: 'text/plain' })] },
     });
@@ -124,9 +111,7 @@ describe('SourceUploadDialog', () => {
 
   it('cancels from the pick stage', () => {
     const onOpenChange = vi.fn();
-    renderWithProviders(
-      <SourceUploadDialog open onOpenChange={onOpenChange} projectId="prj_atlas" />,
-    );
+    renderWithProviders(<SourceUploadDialog open onOpenChange={onOpenChange} projectId="prj_atlas" />);
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
@@ -140,9 +125,7 @@ describe('SourceUploadDialog', () => {
         correlationId: 'corr-403',
       }),
     );
-    renderWithProviders(
-      <SourceUploadDialog open onOpenChange={() => undefined} projectId="prj_atlas" />,
-    );
+    renderWithProviders(<SourceUploadDialog open onOpenChange={() => undefined} projectId="prj_atlas" />);
     fireEvent.change(getZipInput(), {
       target: { files: [new File(['pk'], 'src.zip', { type: 'application/zip' })] },
     });
@@ -163,13 +146,9 @@ describe('SourceUploadDialog', () => {
 
   it('issues a new Idempotency-Key after a network failure', async () => {
     mutateAsync
-      .mockRejectedValueOnce(
-        new ApiError({ status: 0, code: 'NETWORK', message: 'offline' }),
-      )
+      .mockRejectedValueOnce(new ApiError({ status: 0, code: 'NETWORK', message: 'offline' }))
       .mockResolvedValueOnce({ sourceVersionId: 'sv2', jobId: 'j2' });
-    renderWithProviders(
-      <SourceUploadDialog open onOpenChange={() => undefined} projectId="prj_atlas" />,
-    );
+    renderWithProviders(<SourceUploadDialog open onOpenChange={() => undefined} projectId="prj_atlas" />);
     fireEvent.change(getZipInput(), {
       target: { files: [new File(['pk'], 'src.zip', { type: 'application/zip' })] },
     });
@@ -177,15 +156,11 @@ describe('SourceUploadDialog', () => {
     expect(await screen.findByText('offline')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Start processing' }));
     await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(2));
-    expect(mutateAsync.mock.calls[0][0].idempotencyKey).not.toBe(
-      mutateAsync.mock.calls[1][0].idempotencyKey,
-    );
+    expect(mutateAsync.mock.calls[0][0].idempotencyKey).not.toBe(mutateAsync.mock.calls[1][0].idempotencyKey);
   });
 
   it('constrains the dialog width on a 375px viewport', () => {
-    renderWithProviders(
-      <SourceUploadDialog open onOpenChange={() => undefined} projectId="prj_atlas" />,
-    );
+    renderWithProviders(<SourceUploadDialog open onOpenChange={() => undefined} projectId="prj_atlas" />);
     const dialog = document.querySelector('[role="dialog"]');
     expect(dialog?.className).toContain('w-[calc(100vw-1.5rem)]');
   });
@@ -198,9 +173,7 @@ describe('SourceUploadDialog', () => {
       }),
     );
     hookProgress = { loaded: 512, total: 1024 };
-    renderWithProviders(
-      <SourceUploadDialog open onOpenChange={() => undefined} projectId="prj_atlas" />,
-    );
+    renderWithProviders(<SourceUploadDialog open onOpenChange={() => undefined} projectId="prj_atlas" />);
     const dropzone = screen.getByText(/Drag & drop a ZIP archive/i).parentElement;
     fireEvent.dragOver(dropzone, { preventDefault() {} });
     fireEvent.dragLeave(dropzone);
@@ -215,9 +188,7 @@ describe('SourceUploadDialog', () => {
   });
 
   it('formats megabyte sizes and accepts zip mime without a .zip name', () => {
-    renderWithProviders(
-      <SourceUploadDialog open onOpenChange={() => undefined} projectId="prj_atlas" />,
-    );
+    renderWithProviders(<SourceUploadDialog open onOpenChange={() => undefined} projectId="prj_atlas" />);
     const large = new File([new Uint8Array(1024 * 1024 + 10)], 'archive.bin', {
       type: 'application/x-zip-compressed',
     });
@@ -228,9 +199,7 @@ describe('SourceUploadDialog', () => {
 
   it('clears a missing file selection and surfaces a non-ApiError message', async () => {
     mutateAsync.mockRejectedValue('offline-now');
-    renderWithProviders(
-      <SourceUploadDialog open onOpenChange={() => undefined} projectId="prj_atlas" />,
-    );
+    renderWithProviders(<SourceUploadDialog open onOpenChange={() => undefined} projectId="prj_atlas" />);
     fireEvent.change(getZipInput(), { target: { files: [] } });
     fireEvent.change(getZipInput(), {
       target: { files: [new File(['pk'], 'src.zip', { type: 'application/zip' })] },

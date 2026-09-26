@@ -17,9 +17,7 @@ function renderSelect(ui) {
 
 describe('RoleMultiSelect', () => {
   it('shows an empty message when no roles are available', () => {
-    renderSelect(
-      <RoleMultiSelect roles={[]} selectedRoleIds={[]} onChange={() => {}} />,
-    );
+    renderSelect(<RoleMultiSelect roles={[]} selectedRoleIds={[]} onChange={() => {}} />);
     expect(screen.getByText('No roles available to assign.')).toBeTruthy();
   });
 

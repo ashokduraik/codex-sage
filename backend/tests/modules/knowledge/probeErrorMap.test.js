@@ -39,9 +39,7 @@ describe('probeErrorMap', () => {
       probeStatus: 'unreachable',
       reason: { code: 'network_unreachable' },
     });
-    expect(mapOutboundThrown({ code: 'PROBE_HOST_NOT_ALLOWED' }).reason.code).toBe(
-      'host_not_allowed',
-    );
+    expect(mapOutboundThrown({ code: 'PROBE_HOST_NOT_ALLOWED' }).reason.code).toBe('host_not_allowed');
     expect(mapOutboundThrown(new Error('nope')).reason.code).toBe('provider_unavailable');
     expect(mapTransportOrUnexpected(503).reason.code).toBe('provider_unavailable');
     expect(mapTransportOrUnexpected(429).reason.code).toBe('provider_rate_limited');

@@ -19,9 +19,7 @@ describe('projectStatusMap', () => {
     expect(keys.size).toBe(10);
     expect(mapLifecycleStatus('knowledge_ready').tone).toBe('success');
     expect(mapLifecycleStatus('partially_available').tone).toBe('attention');
-    expect(mapLifecycleStatus('knowledge_ready').i18nKey).not.toBe(
-      mapLifecycleStatus('partially_available').i18nKey,
-    );
+    expect(mapLifecycleStatus('knowledge_ready').i18nKey).not.toBe(mapLifecycleStatus('partially_available').i18nKey);
   });
 
   it('maps every known knowledge-health code', () => {
@@ -45,22 +43,16 @@ describe('projectStatusMap', () => {
   });
 
   it('treats archived and non-ready health as not askable', () => {
-    expect(
-      isProjectAskable({ lifecycleStatus: 'knowledge_ready', knowledgeHealth: 'ready' }),
-    ).toBe(true);
+    expect(isProjectAskable({ lifecycleStatus: 'knowledge_ready', knowledgeHealth: 'ready' })).toBe(true);
     expect(
       isProjectAskable({
         lifecycleStatus: 'partially_available',
         knowledgeHealth: 'partially_available',
       }),
     ).toBe(true);
-    expect(
-      isProjectAskable({ lifecycleStatus: 'archived', knowledgeHealth: 'ready' }),
-    ).toBe(false);
+    expect(isProjectAskable({ lifecycleStatus: 'archived', knowledgeHealth: 'ready' })).toBe(false);
     for (const health of ['none', 'updating', 'stale', 'failed']) {
-      expect(
-        isProjectAskable({ lifecycleStatus: 'knowledge_ready', knowledgeHealth: health }),
-      ).toBe(false);
+      expect(isProjectAskable({ lifecycleStatus: 'knowledge_ready', knowledgeHealth: health })).toBe(false);
     }
     expect(isProjectAskable(null)).toBe(false);
     expect(isProjectArchived({ lifecycleStatus: 'archived' })).toBe(true);

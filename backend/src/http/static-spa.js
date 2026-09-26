@@ -34,8 +34,7 @@ export function assertFrontendDistPresent(distRoot) {
   const indexPath = path.join(distRoot, 'index.html');
   if (!existsSync(distRoot) || !existsSync(indexPath)) {
     throw new Error(
-      `Production SPA dist is missing. Expected index.html at ${indexPath}. ` +
-        'Run `npm run build` in frontend/ before starting the API.',
+      `Production SPA dist is missing. Expected index.html at ${indexPath}. ` + 'Run `npm run build` in frontend/ before starting the API.',
     );
   }
 }

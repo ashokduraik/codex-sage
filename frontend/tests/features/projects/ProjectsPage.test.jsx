@@ -3,11 +3,7 @@
  */
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  clearAuthSession,
-  renderWithProviders,
-  seedAuthSession,
-} from '@tests/renderWithProviders';
+import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
 
 vi.mock('@/features/projects/api/projectsApi.js', async (importOriginal) => {
   const actual = await importOriginal();
@@ -83,11 +79,7 @@ describe('ProjectsPage', () => {
     fireEvent.change(screen.getByPlaceholderText('Search projects…'), {
       target: { value: 'Atlas' },
     });
-    await waitFor(() =>
-      expect(listProjects).toHaveBeenCalledWith(
-        expect.objectContaining({ q: 'Atlas' }),
-      ),
-    );
+    await waitFor(() => expect(listProjects).toHaveBeenCalledWith(expect.objectContaining({ q: 'Atlas' })));
   });
 
   it('opens the create project dialog', async () => {
@@ -107,11 +99,7 @@ describe('ProjectsPage', () => {
     renderWithProviders(<ProjectsPage />);
     await screen.findByText('Atlas Commerce');
     fireEvent.click(screen.getByRole('button', { name: /Active/i }));
-    await waitFor(() =>
-      expect(listProjects).toHaveBeenCalledWith(
-        expect.objectContaining({ includeArchived: true }),
-      ),
-    );
+    await waitFor(() => expect(listProjects).toHaveBeenCalledWith(expect.objectContaining({ includeArchived: true })));
     expect(await screen.findByText('No archived projects')).toBeTruthy();
   });
 

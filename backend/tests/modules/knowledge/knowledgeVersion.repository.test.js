@@ -44,9 +44,7 @@ describe('knowledgeVersion.repository', () => {
         sourceVersionId: 'v1',
       }),
     ).resolves.toBe(4);
-    expect(countDocuments).toHaveBeenCalledWith(
-      expect.objectContaining({ excludedFromGraph: true }),
-    );
+    expect(countDocuments).toHaveBeenCalledWith(expect.objectContaining({ excludedFromGraph: true }));
   });
 
   it('returns null for invalid knowledge version ids', async () => {

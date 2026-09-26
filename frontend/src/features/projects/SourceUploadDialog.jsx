@@ -3,14 +3,7 @@ import { UploadCloud, File, Loader2, AlertCircle, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ApiError } from '@/shared/api';
 import { Button } from '@/shared/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@/shared/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/shared/ui/dialog';
 import { cn } from '@/shared/lib/utils';
 import { useUploadSource } from './hooks/useUploadSource.js';
 
@@ -60,11 +53,7 @@ export function SourceUploadDialog({ open, onOpenChange, projectId, onUploaded }
       return;
     }
     const fileName = nextFile.name.toLowerCase();
-    if (
-      !fileName.endsWith('.zip') &&
-      nextFile.type !== 'application/zip' &&
-      nextFile.type !== 'application/x-zip-compressed'
-    ) {
+    if (!fileName.endsWith('.zip') && nextFile.type !== 'application/zip' && nextFile.type !== 'application/x-zip-compressed') {
       setFile(null);
       setRejectMsg(t('sources.folderUnsupported'));
       return;
@@ -112,24 +101,13 @@ export function SourceUploadDialog({ open, onOpenChange, projectId, onUploaded }
   }
 
   const uploading = upload.isPending;
-  const apiError =
-    submitError instanceof ApiError
-      ? submitError
-      : upload.error instanceof ApiError
-        ? upload.error
-        : null;
+  const apiError = submitError instanceof ApiError ? submitError : upload.error instanceof ApiError ? upload.error : null;
   const alertMessage =
     rejectMsg ||
-    (apiError?.code === 'IDEMPOTENCY_IN_FLIGHT'
-      ? t('sources.stillProcessing')
-      : apiError?.message) ||
+    (apiError?.code === 'IDEMPOTENCY_IN_FLIGHT' ? t('sources.stillProcessing') : apiError?.message) ||
     (submitError instanceof Error ? submitError.message : null);
   const percent =
-    upload.progress.total > 0
-      ? Math.min(100, Math.round((upload.progress.loaded / upload.progress.total) * 100))
-      : uploading
-        ? null
-        : 0;
+    upload.progress.total > 0 ? Math.min(100, Math.round((upload.progress.loaded / upload.progress.total) * 100)) : uploading ? null : 0;
 
   return (
     <Dialog
@@ -210,10 +188,7 @@ export function SourceUploadDialog({ open, onOpenChange, projectId, onUploaded }
                 <span className="font-medium">{percent == null ? '…' : `${percent}%`}</span>
               </div>
               <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                <div
-                  className="h-full bg-brand transition-all"
-                  style={{ width: `${percent ?? 30}%` }}
-                />
+                <div className="h-full bg-brand transition-all" style={{ width: `${percent ?? 30}%` }} />
               </div>
             </div>
           )}
@@ -226,9 +201,7 @@ export function SourceUploadDialog({ open, onOpenChange, projectId, onUploaded }
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
               <div>
                 <p>{alertMessage}</p>
-                {apiError?.correlationId && (
-                  <p className="mt-1 text-xs text-muted-foreground">{apiError.correlationId}</p>
-                )}
+                {apiError?.correlationId && <p className="mt-1 text-xs text-muted-foreground">{apiError.correlationId}</p>}
               </div>
             </div>
           )}
@@ -246,14 +219,8 @@ export function SourceUploadDialog({ open, onOpenChange, projectId, onUploaded }
             <X className="mr-2 h-4 w-4" aria-hidden="true" />
             {t('common.cancel')}
           </Button>
-          <Button
-            onClick={() => void startUpload()}
-            disabled={!file || uploading}
-            aria-busy={uploading}
-          >
-            {uploading && (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
-            )}
+          <Button onClick={() => void startUpload()} disabled={!file || uploading} aria-busy={uploading}>
+            {uploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
             {uploading ? t('sources.processing') : t('sources.startProcessing')}
           </Button>
         </DialogFooter>

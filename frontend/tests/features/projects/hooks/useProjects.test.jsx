@@ -45,15 +45,10 @@ describe('useProjects', () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
-    const { result } = renderHook(
-      () => useProjects({ q: 'a', includeArchived: false, sort: 'updatedAt' }),
-      { wrapper: createWrapper(queryClient) },
-    );
+    const { result } = renderHook(() => useProjects({ q: 'a', includeArchived: false, sort: 'updatedAt' }), { wrapper: createWrapper(queryClient) });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(listProjects).toHaveBeenCalledWith(
-      expect.objectContaining({ q: 'a', includeArchived: false, cursor: undefined }),
-    );
+    expect(listProjects).toHaveBeenCalledWith(expect.objectContaining({ q: 'a', includeArchived: false, cursor: undefined }));
     expect(projectsListQueryKey({ q: 'a' })[0]).toBe('projects');
     expect(result.current.hasNextPage).toBe(true);
 
@@ -61,9 +56,7 @@ describe('useProjects', () => {
       await result.current.fetchNextPage();
     });
     await waitFor(() => expect(result.current.data?.pages?.length).toBe(2));
-    expect(listProjects).toHaveBeenCalledWith(
-      expect.objectContaining({ cursor: 'c2' }),
-    );
+    expect(listProjects).toHaveBeenCalledWith(expect.objectContaining({ cursor: 'c2' }));
     expect(flattenProjectPages(result.current.data).map((p) => p.id)).toEqual(['1', '2']);
     expect(flattenProjectPages(undefined)).toEqual([]);
   });

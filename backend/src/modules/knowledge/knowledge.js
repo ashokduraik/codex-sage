@@ -11,7 +11,7 @@ import { hasActiveProjectWriterLock } from '../../worker/projectJobLock.js';
 import { createJobFailureError } from '../../worker/retryPolicy.js';
 import { recordAuditEvent } from '../access/index.js';
 import { findProjectById } from '../masters/index.js';
-import { CODEGRAPH_DIR_NAME, resolveCodegraphDir, createCodegraphAdapter } from './codegraph.js';
+import { resolveCodegraphDir, createCodegraphAdapter } from './codegraph.js';
 import { listSectionsForVersion } from './documents.js';
 import { runMaterializeDocsStage, runCodegraphUpdateStage } from './ingest.util.js';
 import { SOURCE_FILE_STATE_STORED, resolveProjectWorkspacePath } from './sources.js';
@@ -184,9 +184,7 @@ export async function assertKnowledgeReadable(scope, deps = {}) {
     return gateResult('deny', 'KNOWLEDGE_UNAVAILABLE');
   }
 
-  const knowledgeVersionId = project.currentKnowledgeVersionId
-    ? String(project.currentKnowledgeVersionId)
-    : null;
+  const knowledgeVersionId = project.currentKnowledgeVersionId ? String(project.currentKnowledgeVersionId) : null;
   if (!knowledgeVersionId) {
     return gateResult('deny', 'KNOWLEDGE_UNAVAILABLE');
   }
@@ -203,11 +201,8 @@ export async function assertKnowledgeReadable(scope, deps = {}) {
     return gateResult('queue', 'KNOWLEDGE_UPDATING');
   }
 
-  const healthOk =
-    project.knowledgeHealth === 'ready' || project.knowledgeHealth === 'partially_available';
-  const lifecycleOk =
-    project.lifecycleStatus === 'knowledge_ready' ||
-    project.lifecycleStatus === 'partially_available';
+  const healthOk = project.knowledgeHealth === 'ready' || project.knowledgeHealth === 'partially_available';
+  const lifecycleOk = project.lifecycleStatus === 'knowledge_ready' || project.lifecycleStatus === 'partially_available';
   if (healthOk && lifecycleOk) {
     return gateResult('allow', undefined, knowledgeVersionId);
   }
@@ -288,11 +283,7 @@ export async function publishKnowledgeVersion(input) {
     projectId: input.projectId,
     sourceVersionId: input.sourceVersionId,
   });
-  if (
-    existing &&
-    existing.graphIdentity?.graphHash === graphIdentity.graphHash &&
-    existing.publishedHealth === publishedHealth
-  ) {
+  if (existing && existing.graphIdentity?.graphHash === graphIdentity.graphHash && existing.publishedHealth === publishedHealth) {
     return {
       knowledgeVersionId: String(existing._id),
       publishedHealth,
@@ -374,11 +365,7 @@ export function isRecoverableCodegraphFailure(err) {
   if (failureClass !== 'temporary') {
     return false;
   }
-  return (
-    code.startsWith('CODEGRAPH_') ||
-    code === 'INGEST_STAGE_TIMEOUT' ||
-    code === 'WORKSPACE_IO_ERROR'
-  );
+  return code.startsWith('CODEGRAPH_') || code === 'INGEST_STAGE_TIMEOUT' || code === 'WORKSPACE_IO_ERROR';
 }
 
 /**
@@ -415,10 +402,7 @@ export async function runCodegraphUpdateWithRecovery(ctx, deps = {}) {
     }
 
     const nextAttempts = priorAttempts + 1;
-    const priorCursor =
-      ctx.checkpoint?.cursor && typeof ctx.checkpoint.cursor === 'object'
-        ? { ...ctx.checkpoint.cursor }
-        : {};
+    const priorCursor = ctx.checkpoint?.cursor && typeof ctx.checkpoint.cursor === 'object' ? { ...ctx.checkpoint.cursor } : {};
     priorCursor.recoveryAttempts = nextAttempts;
 
     const lastCompleted = ctx.checkpoint?.lastCompletedStage ?? null;
@@ -434,15 +418,11 @@ export async function runCodegraphUpdateWithRecovery(ctx, deps = {}) {
       };
     }
 
-    ctx.logger?.warn?.(
-      { recoveryAttempts: nextAttempts, maxAttempts },
-      'codegraph recovery rematerialize starting',
-    );
+    ctx.logger?.warn?.({ recoveryAttempts: nextAttempts, maxAttempts }, 'codegraph recovery rematerialize starting');
 
     await runS3(ctx);
 
-    const workspacePath =
-      typeof ctx.carry?.workspacePath === 'string' ? ctx.carry.workspacePath : null;
+    const workspacePath = typeof ctx.carry?.workspacePath === 'string' ? ctx.carry.workspacePath : null;
     if (workspacePath) {
       await wipeIndex(workspacePath);
     }
@@ -571,9 +551,7 @@ export function mapApiItem(raw, index) {
       id: `api:${raw.url}:${raw.handler ?? index}`,
       title: raw.url,
       description: typeof raw.handler === 'string' ? raw.handler : undefined,
-      sourceRefs: raw.handlerFile
-        ? [{ path: raw.handlerFile, startLine: Number(raw.handlerLine) || null, kind: 'code' }]
-        : [],
+      sourceRefs: raw.handlerFile ? [{ path: raw.handlerFile, startLine: Number(raw.handlerLine) || null, kind: 'code' }] : [],
     };
   }
   const path = typeof raw.filePath === 'string' ? raw.filePath : null;
@@ -663,10 +641,7 @@ export function mapHealthDimensions(input) {
     },
     exclusions: {
       state: input.excludedFromGraphCount > 0 ? 'partial' : 'none',
-      detail:
-        input.excludedFromGraphCount > 0
-          ? `${input.excludedFromGraphCount} files are not in the code map`
-          : null,
+      detail: input.excludedFromGraphCount > 0 ? `${input.excludedFromGraphCount} files are not in the code map` : null,
     },
   };
 }
@@ -737,9 +712,7 @@ async function loadReadyBrowse(input, deps) {
     projectId: input.projectId,
     knowledgeVersionId: input.knowledgeVersionId,
   });
-  const sourceVersionId = knowledgeVersion?.sourceVersionId
-    ? String(knowledgeVersion.sourceVersionId)
-    : null;
+  const sourceVersionId = knowledgeVersion?.sourceVersionId ? String(knowledgeVersion.sourceVersionId) : null;
   const excludedFromGraphCount = Number(knowledgeVersion?.excludedFileCount ?? 0);
   const sections = sourceVersionId
     ? await deps.listSections({
@@ -764,11 +737,7 @@ async function loadReadyBrowse(input, deps) {
     };
   }
 
-  const workspacePath = resolveProjectWorkspacePath(
-    input.workspaceRoot,
-    input.orgId,
-    input.projectId,
-  );
+  const workspacePath = resolveProjectWorkspacePath(input.workspaceRoot, input.orgId, input.projectId);
   const adapter = deps.createAdapter();
   const leased = await adapter.acquireReadLease({
     orgId: input.orgId,
@@ -831,19 +800,11 @@ async function loadReadyBrowse(input, deps) {
     const graph = leased.lease.graph;
     const limit = clampBrowseLimit(input.query?.limit);
     const stats = adapter.queryStats(graph);
-    const frameworks =
-      typeof graph.getDetectedFrameworks === 'function' ? graph.getDetectedFrameworks() : [];
-    const symbolKindCount = Number(stats?.nodesByKind?.function ?? 0) +
-      Number(stats?.nodesByKind?.method ?? 0) +
-      Number(stats?.nodeCount ?? 0);
-    const apiHits =
-      input.kind === 'index' || input.kind === 'apis' ? adapter.queryApis(graph, limit) : [];
-    const workflowHits =
-      input.kind === 'index' || input.kind === 'workflows'
-        ? adapter.queryWorkflows(graph, limit)
-        : [];
-    const symbolHits =
-      input.kind === 'symbols' ? adapter.querySymbols(graph, input.query?.q ?? '', limit) : [];
+    const frameworks = typeof graph.getDetectedFrameworks === 'function' ? graph.getDetectedFrameworks() : [];
+    const symbolKindCount = Number(stats?.nodesByKind?.function ?? 0) + Number(stats?.nodesByKind?.method ?? 0) + Number(stats?.nodeCount ?? 0);
+    const apiHits = input.kind === 'index' || input.kind === 'apis' ? adapter.queryApis(graph, limit) : [];
+    const workflowHits = input.kind === 'index' || input.kind === 'workflows' ? adapter.queryWorkflows(graph, limit) : [];
+    const symbolHits = input.kind === 'symbols' ? adapter.querySymbols(graph, input.query?.q ?? '', limit) : [];
     const symbols = symbolHits.map(mapSymbolItem).filter(Boolean);
     const apis = apiHits.map((row, index) => mapApiItem(row, index)).filter(Boolean);
     const workflows = workflowHits.map((row, index) => mapApiItem(row, index)).filter(Boolean);
@@ -1026,65 +987,43 @@ async function handleBrowse(request, kind, query) {
 export async function knowledgeBrowseRoutes(app) {
   const config = { routeAccess: 'authenticated' };
 
-  app.get(
-    '/projects/:projectId/knowledge/summary',
-    { config, preHandler: browsePreHandler },
-    async (request) => handleBrowse(request, 'summary', {}),
+  app.get('/projects/:projectId/knowledge/summary', { config, preHandler: browsePreHandler }, async (request) =>
+    handleBrowse(request, 'summary', {}),
   );
 
-  app.get(
-    '/projects/:projectId/knowledge/workflows',
-    { config, preHandler: browsePreHandler },
-    async (request) => {
-      const parsed = listQuerySchema.safeParse(request.query ?? {});
-      if (!parsed.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
-      }
-      return handleBrowse(request, 'workflows', parsed.data);
-    },
-  );
+  app.get('/projects/:projectId/knowledge/workflows', { config, preHandler: browsePreHandler }, async (request) => {
+    const parsed = listQuerySchema.safeParse(request.query ?? {});
+    if (!parsed.success) {
+      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
+    }
+    return handleBrowse(request, 'workflows', parsed.data);
+  });
 
-  app.get(
-    '/projects/:projectId/knowledge/apis',
-    { config, preHandler: browsePreHandler },
-    async (request) => {
-      const parsed = listQuerySchema.safeParse(request.query ?? {});
-      if (!parsed.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
-      }
-      return handleBrowse(request, 'apis', parsed.data);
-    },
-  );
+  app.get('/projects/:projectId/knowledge/apis', { config, preHandler: browsePreHandler }, async (request) => {
+    const parsed = listQuerySchema.safeParse(request.query ?? {});
+    if (!parsed.success) {
+      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
+    }
+    return handleBrowse(request, 'apis', parsed.data);
+  });
 
-  app.get(
-    '/projects/:projectId/knowledge/symbols',
-    { config, preHandler: browsePreHandler },
-    async (request) => {
-      const parsed = symbolsQuerySchema.safeParse(request.query ?? {});
-      if (!parsed.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
-      }
-      return handleBrowse(request, 'symbols', parsed.data);
-    },
-  );
+  app.get('/projects/:projectId/knowledge/symbols', { config, preHandler: browsePreHandler }, async (request) => {
+    const parsed = symbolsQuerySchema.safeParse(request.query ?? {});
+    if (!parsed.success) {
+      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
+    }
+    return handleBrowse(request, 'symbols', parsed.data);
+  });
 
-  app.get(
-    '/projects/:projectId/knowledge/health',
-    { config, preHandler: browsePreHandler },
-    async (request) => handleBrowse(request, 'health', {}),
-  );
+  app.get('/projects/:projectId/knowledge/health', { config, preHandler: browsePreHandler }, async (request) => handleBrowse(request, 'health', {}));
 
-  app.get(
-    '/projects/:projectId/knowledge',
-    { config, preHandler: browsePreHandler },
-    async (request) => {
-      const parsed = listQuerySchema.safeParse(request.query ?? {});
-      if (!parsed.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
-      }
-      return handleBrowse(request, 'index', parsed.data);
-    },
-  );
+  app.get('/projects/:projectId/knowledge', { config, preHandler: browsePreHandler }, async (request) => {
+    const parsed = listQuerySchema.safeParse(request.query ?? {});
+    if (!parsed.success) {
+      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
+    }
+    return handleBrowse(request, 'index', parsed.data);
+  });
 }
 
 export { KnowledgeVersion } from '../../models/knowledgeVersion.model.js';

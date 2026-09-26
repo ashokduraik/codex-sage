@@ -14,7 +14,7 @@ import {
   DEFAULT_ADMIN_PASSWORD,
   IDENTITY_MODELS,
   createOrganization,
-  createUser, createUserInRepo,
+  createUserInRepo,
   ensureBuiltInRoles,
   findBuiltInRole,
   runBootstrapSeed,
@@ -77,18 +77,16 @@ describe('identity.routes', () => {
 
   it('returns 401 without a token and 403 without users.manage', async () => {
     await runBootstrapSeed(createMockLog());
-    const org = await (
-      await import('../../../src/modules/masters/organizations.js')
-    ).findOrganizationBySlug('default');
+    const org = await (await import('../../../src/modules/masters/organizations.js')).findOrganizationBySlug('default');
     const memberRole = await findBuiltInRole(org._id, 'member');
     const passwordHash = await hashPassword('memberpass1');
-    const member = await createUserInRepo(org._id, {
+    await createUserInRepo(org._id, {
       email: 'member@example.com',
       displayName: 'Member',
       userStatus: 'active',
       passwordHash,
-          roleIds: [memberRole._id]
-        });
+      roleIds: [memberRole._id],
+    });
 
     app = await readyApp();
     const unauth = await app.inject({
@@ -113,9 +111,7 @@ describe('identity.routes', () => {
     await runBootstrapSeed(createMockLog());
     app = await readyApp();
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
-    const org = await (
-      await import('../../../src/modules/masters/organizations.js')
-    ).findOrganizationBySlug('default');
+    const org = await (await import('../../../src/modules/masters/organizations.js')).findOrganizationBySlug('default');
     const memberRole = await findBuiltInRole(org._id, 'member');
 
     const create = await app.inject({
@@ -195,9 +191,7 @@ describe('identity.routes', () => {
 
   it('keyset pagination across pages has no duplicates', async () => {
     await runBootstrapSeed(createMockLog());
-    const org = await (
-      await import('../../../src/modules/masters/organizations.js')
-    ).findOrganizationBySlug('default');
+    const org = await (await import('../../../src/modules/masters/organizations.js')).findOrganizationBySlug('default');
     const memberRole = await findBuiltInRole(org._id, 'member');
     for (let i = 0; i < 5; i += 1) {
       await createUserInRepo(org._id, {
@@ -259,9 +253,7 @@ describe('identity.routes', () => {
 
   it('PATCH email revokes sessions and role create/update/delete work', async () => {
     await runBootstrapSeed(createMockLog());
-    const org = await (
-      await import('../../../src/modules/masters/organizations.js')
-    ).findOrganizationBySlug('default');
+    const org = await (await import('../../../src/modules/masters/organizations.js')).findOrganizationBySlug('default');
     const memberRole = await findBuiltInRole(org._id, 'member');
     const passwordHash = await hashPassword('targetpass1');
     const target = await createUserInRepo(org._id, {
@@ -269,8 +261,8 @@ describe('identity.routes', () => {
       displayName: 'Target',
       userStatus: 'active',
       passwordHash,
-          roleIds: [memberRole._id]
-        });
+      roleIds: [memberRole._id],
+    });
 
     app = await readyApp();
     const targetLogin = await login(app, 'target@example.com', 'targetpass1');
@@ -334,11 +326,7 @@ describe('identity.routes', () => {
   it('self-deactivate fails and last admin cannot be deactivated', async () => {
     await runBootstrapSeed(createMockLog());
     app = await readyApp();
-    const { accessToken, user } = await login(
-      app,
-      DEFAULT_ADMIN_EMAIL,
-      DEFAULT_ADMIN_PASSWORD,
-    );
+    const { accessToken, user } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const self = await app.inject({
       method: 'POST',
       url: `${API_BASE_PATH}/users/${user.id}/deactivate`,
@@ -374,9 +362,7 @@ describe('identity.routes', () => {
     await runBootstrapSeed(createMockLog());
     app = await readyApp();
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
-    const org = await (
-      await import('../../../src/modules/masters/organizations.js')
-    ).findOrganizationBySlug('default');
+    const org = await (await import('../../../src/modules/masters/organizations.js')).findOrganizationBySlug('default');
     const memberRole = await findBuiltInRole(org._id, 'member');
     const missing = await app.inject({
       method: 'POST',
@@ -396,9 +382,7 @@ describe('identity.routes', () => {
     await runBootstrapSeed(createMockLog());
     app = await readyApp();
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
-    const org = await (
-      await import('../../../src/modules/masters/organizations.js')
-    ).findOrganizationBySlug('default');
+    const org = await (await import('../../../src/modules/masters/organizations.js')).findOrganizationBySlug('default');
     const memberRole = await findBuiltInRole(org._id, 'member');
     const payload = {
       email: 'idempotent@example.com',
@@ -441,9 +425,7 @@ describe('identity.routes', () => {
     await runBootstrapSeed(createMockLog());
     app = await readyApp();
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
-    const org = await (
-      await import('../../../src/modules/masters/organizations.js')
-    ).findOrganizationBySlug('default');
+    const org = await (await import('../../../src/modules/masters/organizations.js')).findOrganizationBySlug('default');
     const memberRole = await findBuiltInRole(org._id, 'member');
     const headers = {
       authorization: `Bearer ${accessToken}`,
@@ -480,9 +462,7 @@ describe('identity.routes', () => {
     await runBootstrapSeed(createMockLog());
     app = await readyApp();
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
-    const org = await (
-      await import('../../../src/modules/masters/organizations.js')
-    ).findOrganizationBySlug('default');
+    const org = await (await import('../../../src/modules/masters/organizations.js')).findOrganizationBySlug('default');
     const memberRole = await findBuiltInRole(org._id, 'member');
     const payload = {
       email: 'concurrent@example.com',
@@ -523,16 +503,14 @@ describe('identity.routes', () => {
 
   it('reset-password response and logs contain no secret', async () => {
     await runBootstrapSeed(createMockLog());
-    const org = await (
-      await import('../../../src/modules/masters/organizations.js')
-    ).findOrganizationBySlug('default');
+    const org = await (await import('../../../src/modules/masters/organizations.js')).findOrganizationBySlug('default');
     const memberRole = await findBuiltInRole(org._id, 'member');
     const target = await createUserInRepo(org._id, {
       email: 'resetme@example.com',
       displayName: 'Reset',
       userStatus: 'invited',
-          roleIds: [memberRole._id]
-        });
+      roleIds: [memberRole._id],
+    });
 
     app = await readyApp();
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);

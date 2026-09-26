@@ -1,13 +1,4 @@
-import {
-  Bell,
-  ChevronDown,
-  FolderKanban,
-  KeyRound,
-  LogOut,
-  Search,
-  Settings,
-  User as UserIcon,
-} from 'lucide-react';
+import { Bell, ChevronDown, FolderKanban, KeyRound, LogOut, Search, Settings, User as UserIcon } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -95,10 +86,7 @@ export default function Header({ onMenu }) {
   const { activeJob } = useActiveProjectJob(routeProjectId, { enabled: Boolean(routeProjectId) });
 
   const switcherProjects = flattenProjectPages(switcherQuery.data);
-  const searchResults = useMemo(
-    () => (debouncedQuery ? flattenProjectPages(searchQuery.data).slice(0, 5) : []),
-    [debouncedQuery, searchQuery.data],
-  );
+  const searchResults = useMemo(() => (debouncedQuery ? flattenProjectPages(searchQuery.data).slice(0, 5) : []), [debouncedQuery, searchQuery.data]);
   const activeProject = activeProjectQuery.data;
   const unread = notifications.filter((notification) => !notification.read).length;
 
@@ -119,12 +107,7 @@ export default function Header({ onMenu }) {
   return (
     <header className="flex h-14 items-center gap-3 border-b border-border bg-background/80 px-4 backdrop-blur">
       {onMenu ? (
-        <button
-          type="button"
-          className="-ml-1 p-1.5 text-muted-foreground lg:hidden"
-          onClick={onMenu}
-          aria-label={t('header.openMenu')}
-        >
+        <button type="button" className="-ml-1 p-1.5 text-muted-foreground lg:hidden" onClick={onMenu} aria-label={t('header.openMenu')}>
           <FolderKanban className="h-5 w-5" />
         </button>
       ) : null}
@@ -143,13 +126,9 @@ export default function Header({ onMenu }) {
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-56">
-          <DropdownMenuLabel className="text-xs text-muted-foreground">
-            {t('header.planLabel', { plan: org.plan })}
-          </DropdownMenuLabel>
+          <DropdownMenuLabel className="text-xs text-muted-foreground">{t('header.planLabel', { plan: org.plan })}</DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => navigate('/admin')}>
-            {t('header.organizationSettings')}
-          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => navigate('/admin')}>{t('header.organizationSettings')}</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -158,31 +137,21 @@ export default function Header({ onMenu }) {
           <span className="text-muted-foreground/40">/</span>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium text-foreground hover:bg-muted"
-              >
+              <button type="button" className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium text-foreground hover:bg-muted">
                 {activeProject.name}
                 <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-64">
-              <DropdownMenuLabel className="text-xs text-muted-foreground">
-                {t('header.switchProject')}
-              </DropdownMenuLabel>
+              <DropdownMenuLabel className="text-xs text-muted-foreground">{t('header.switchProject')}</DropdownMenuLabel>
               <DropdownMenuSeparator />
               {switcherProjects.map((project) => (
-                <DropdownMenuItem
-                  key={project.id}
-                  onClick={() => navigate(`/projects/${project.id}`)}
-                >
+                <DropdownMenuItem key={project.id} onClick={() => navigate(`/projects/${project.id}`)}>
                   <span className="truncate">{project.name}</span>
                 </DropdownMenuItem>
               ))}
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => navigate('/projects')}>
-                {t('header.allProjects')}
-              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate('/projects')}>{t('header.allProjects')}</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </>
@@ -235,27 +204,19 @@ export default function Header({ onMenu }) {
             aria-label={t('common.notifications')}
           >
             <Bell className="h-[18px] w-[18px]" />
-            {unread > 0 ? (
-              <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-brand" />
-            ) : null}
+            {unread > 0 ? <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-brand" /> : null}
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-80">
           <div className="flex items-center justify-between px-2 py-1.5">
             <span className="text-sm font-semibold">{t('common.notifications')}</span>
-            <button
-              type="button"
-              onClick={markAllNotificationsRead}
-              className="text-xs text-brand hover:underline"
-            >
+            <button type="button" onClick={markAllNotificationsRead} className="text-xs text-brand hover:underline">
               {t('common.markAllRead')}
             </button>
           </div>
           <DropdownMenuSeparator />
           {notifications.length === 0 ? (
-            <div className="px-3 py-6 text-center text-sm text-muted-foreground">
-              {t('common.noNotifications')}
-            </div>
+            <div className="px-3 py-6 text-center text-sm text-muted-foreground">{t('common.noNotifications')}</div>
           ) : null}
           {notifications.map((notification) => (
             <button
@@ -269,9 +230,7 @@ export default function Header({ onMenu }) {
             >
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">{notification.title}</span>
-                {!notification.read ? (
-                  <span className="h-1.5 w-1.5 rounded-full bg-brand" />
-                ) : null}
+                {!notification.read ? <span className="h-1.5 w-1.5 rounded-full bg-brand" /> : null}
               </div>
               <span className="text-xs text-muted-foreground">{notification.body}</span>
             </button>
@@ -291,9 +250,7 @@ export default function Header({ onMenu }) {
         <DropdownMenuContent align="end" className="w-56">
           <DropdownMenuLabel className="font-normal">
             <div className="flex flex-col">
-              <span className="text-sm font-medium">
-                {user?.displayName || t('header.account')}
-              </span>
+              <span className="text-sm font-medium">{user?.displayName || t('header.account')}</span>
               <span className="truncate text-xs text-muted-foreground">{user?.email}</span>
             </div>
           </DropdownMenuLabel>
@@ -308,10 +265,7 @@ export default function Header({ onMenu }) {
             <Settings className="mr-2 h-4 w-4" /> {t('common.settings')}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onClick={() => void logout()}
-            className="text-destructive focus:text-destructive"
-          >
+          <DropdownMenuItem onClick={() => void logout()} className="text-destructive focus:text-destructive">
             <LogOut className="mr-2 h-4 w-4" /> {t('header.signOut')}
           </DropdownMenuItem>
         </DropdownMenuContent>

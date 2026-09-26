@@ -13,66 +13,22 @@ import mongoose from 'mongoose';
 /** Allowed next states keyed by current lifecycle status. */
 export const LIFECYCLE_TRANSITIONS = Object.freeze({
   creating: Object.freeze(['awaiting_source', 'connecting_repository', 'failed']),
-  awaiting_source: Object.freeze([
-    'source_received',
-    'connecting_repository',
-    'failed',
-    'archived',
-  ]),
-  connecting_repository: Object.freeze([
-    'source_received',
-    'awaiting_source',
-    'failed',
-    'archived',
-  ]),
-  source_received: Object.freeze([
-    'processing',
-    'connecting_repository',
-    'failed',
-    'archived',
-  ]),
-  processing: Object.freeze([
-    'knowledge_ready',
-    'partially_available',
-    'failed',
-    'archived',
-  ]),
+  awaiting_source: Object.freeze(['source_received', 'connecting_repository', 'failed', 'archived']),
+  connecting_repository: Object.freeze(['source_received', 'awaiting_source', 'failed', 'archived']),
+  source_received: Object.freeze(['processing', 'connecting_repository', 'failed', 'archived']),
+  processing: Object.freeze(['knowledge_ready', 'partially_available', 'failed', 'archived']),
   knowledge_ready: Object.freeze(['updating', 'failed', 'archived']),
-  updating: Object.freeze([
-    'knowledge_ready',
-    'partially_available',
-    'failed',
-    'archived',
-  ]),
-  partially_available: Object.freeze([
-    'updating',
-    'knowledge_ready',
-    'failed',
-    'archived',
-  ]),
-  failed: Object.freeze([
-    'awaiting_source',
-    'connecting_repository',
-    'processing',
-    'updating',
-    'archived',
-  ]),
+  updating: Object.freeze(['knowledge_ready', 'partially_available', 'failed', 'archived']),
+  partially_available: Object.freeze(['updating', 'knowledge_ready', 'failed', 'archived']),
+  failed: Object.freeze(['awaiting_source', 'connecting_repository', 'processing', 'updating', 'archived']),
   archived: Object.freeze([]),
 });
 
 /** States that require worker source + knowledgeVersionId. */
-export const WORKER_ONLY_LIFECYCLE_STATUSES = Object.freeze([
-  'knowledge_ready',
-  'partially_available',
-]);
+export const WORKER_ONLY_LIFECYCLE_STATUSES = Object.freeze(['knowledge_ready', 'partially_available']);
 
 /** Lifecycle states that cannot have knowledgeHealth ready. */
-export const PRE_KNOWLEDGE_LIFECYCLE_STATUSES = Object.freeze([
-  'creating',
-  'awaiting_source',
-  'connecting_repository',
-  'source_received',
-]);
+export const PRE_KNOWLEDGE_LIFECYCLE_STATUSES = Object.freeze(['creating', 'awaiting_source', 'connecting_repository', 'source_received']);
 
 /**
  * Returns whether `status` is a known lifecycle code.
@@ -129,11 +85,7 @@ export function assertLifecycleTransitionAllowed(input) {
         details: { from, to, reason: 'worker_source_required' },
       });
     }
-    if (
-      knowledgeVersionId === undefined ||
-      knowledgeVersionId === null ||
-      knowledgeVersionId === ''
-    ) {
+    if (knowledgeVersionId === undefined || knowledgeVersionId === null || knowledgeVersionId === '') {
       throw ApiError.fromCode('INVALID_STATE_TRANSITION', {
         details: { from, to, reason: 'knowledge_version_required' },
       });
@@ -148,12 +100,8 @@ export function assertLifecycleTransitionAllowed(input) {
  */
 export function assertKnowledgeHealthAllowed(input) {
   const { lifecycleStatus, knowledgeHealth } = input;
-  const blockedBeforeProcessing =
-    knowledgeHealth === 'ready' || knowledgeHealth === 'partially_available';
-  if (
-    blockedBeforeProcessing &&
-    PRE_KNOWLEDGE_LIFECYCLE_STATUSES.includes(lifecycleStatus)
-  ) {
+  const blockedBeforeProcessing = knowledgeHealth === 'ready' || knowledgeHealth === 'partially_available';
+  if (blockedBeforeProcessing && PRE_KNOWLEDGE_LIFECYCLE_STATUSES.includes(lifecycleStatus)) {
     throw ApiError.fromCode('INVALID_STATE_TRANSITION', {
       details: {
         lifecycleStatus,
@@ -232,11 +180,7 @@ function keysetAfterFilter(cursor, sortField) {
       };
     }
     return {
-      $or: [
-        { lastAccessedAt: { $lt: stamp, $ne: null } },
-        { lastAccessedAt: stamp, _id: { $lt: id } },
-        { lastAccessedAt: null },
-      ],
+      $or: [{ lastAccessedAt: { $lt: stamp, $ne: null } }, { lastAccessedAt: stamp, _id: { $lt: id } }, { lastAccessedAt: null }],
     };
   }
   return {
@@ -355,9 +299,7 @@ export async function listProjects(orgId, filters = {}) {
       return { items: [], pageInfo: { nextCursor: null, hasMore: false } };
     }
     query._id = {
-      $in: filters.projectIds
-        .filter((id) => mongoose.isValidObjectId(id))
-        .map((id) => new mongoose.Types.ObjectId(String(id))),
+      $in: filters.projectIds.filter((id) => mongoose.isValidObjectId(id)).map((id) => new mongoose.Types.ObjectId(String(id))),
     };
   }
 
@@ -366,7 +308,9 @@ export async function listProjects(orgId, filters = {}) {
   }
 
   if (filters.q && String(filters.q).trim().length > 0) {
-    const escaped = String(filters.q).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const escaped = String(filters.q)
+      .trim()
+      .replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     query.name = { $regex: escaped, $options: 'i' };
   }
 
@@ -434,11 +378,7 @@ export async function updateProjectMetadata(orgId, projectId, patch) {
   if (patch.description !== undefined) {
     $set.description = patch.description;
   }
-  return Project.findOneAndUpdate(
-    { _id: projectId, orgId, status: ROW_STATUS_ACTIVE },
-    { $set },
-    { returnDocument: 'after' },
-  ).exec();
+  return Project.findOneAndUpdate({ _id: projectId, orgId, status: ROW_STATUS_ACTIVE }, { $set }, { returnDocument: 'after' }).exec();
 }
 
 /**
@@ -615,9 +555,5 @@ export async function softDeleteProject(orgId, projectId, options = {}) {
   if (!mongoose.isValidObjectId(projectId)) {
     return { acknowledged: true, matchedCount: 0, modifiedCount: 0 };
   }
-  return softDelete(
-    Project,
-    { _id: projectId, orgId },
-    { updatedBy: options.updatedBy ?? null },
-  );
+  return softDelete(Project, { _id: projectId, orgId }, { updatedBy: options.updatedBy ?? null });
 }

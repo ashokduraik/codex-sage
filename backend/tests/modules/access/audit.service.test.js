@@ -16,11 +16,7 @@ import {
   insertAuditEvent,
   listAuditEvents,
 } from '../../../src/modules/access/audit.js';
-import {
-  buildAuditContextFromRequest,
-  recordAuditEvent,
-  shouldAuditAuthorizationDenial,
-} from '../../../src/modules/access/audit.js';
+import { buildAuditContextFromRequest, recordAuditEvent, shouldAuditAuthorizationDenial } from '../../../src/modules/access/audit.js';
 
 const harness = createMongoHarness({
   models: [...IDENTITY_MODELS, ...AUDIT_MODELS],
@@ -53,13 +49,9 @@ describe('audit model, repository, and service', () => {
       correlationId: 'REQ-testappendonly1',
     });
 
-    await expect(
-      AuditEvent.updateOne({ _id: doc._id }, { $set: { action: 'x' } }),
-    ).rejects.toThrow(/append-only/);
+    await expect(AuditEvent.updateOne({ _id: doc._id }, { $set: { action: 'x' } })).rejects.toThrow(/append-only/);
 
-    await expect(AuditEvent.deleteOne({ _id: doc._id })).rejects.toThrow(
-      /append-only|hard-delete/,
-    );
+    await expect(AuditEvent.deleteOne({ _id: doc._id })).rejects.toThrow(/append-only|hard-delete/);
   });
 
   it('allows retentionJob soft-delete to status D only', async () => {
@@ -75,61 +67,26 @@ describe('audit model, repository, and service', () => {
       correlationId: 'REQ-testappendonly2',
     });
 
-    await AuditEvent.updateOne(
-      { _id: doc._id },
-      { $set: { status: ROW_STATUS_DELETED } },
-      { retentionJob: true },
-    );
+    await AuditEvent.updateOne({ _id: doc._id }, { $set: { status: ROW_STATUS_DELETED } }, { retentionJob: true });
 
     const listed = await listAuditEvents(org._id);
     expect(listed.items).toHaveLength(0);
 
+    await expect(AuditEvent.updateOne({ _id: doc._id }, { $set: { action: 'nope' } }, { retentionJob: true })).rejects.toThrow(/status to D/);
+
+    await expect(AuditEvent.deleteMany({ _id: doc._id }, { retentionJob: true })).rejects.toThrow(/soft-delete/);
+
+    await expect(AuditEvent.findOneAndDelete({ _id: doc._id })).rejects.toThrow(/append-only/);
+
+    await expect(AuditEvent.findOneAndUpdate({ _id: doc._id }, { $set: { action: 'x' } })).rejects.toThrow(/append-only/);
+
+    await expect(AuditEvent.updateOne({ _id: doc._id }, { status: ROW_STATUS_DELETED }, { retentionJob: true })).rejects.toThrow(/status to D/);
+
     await expect(
-      AuditEvent.updateOne(
-        { _id: doc._id },
-        { $set: { action: 'nope' } },
-        { retentionJob: true },
-      ),
+      AuditEvent.updateOne({ _id: doc._id }, { $set: { status: ROW_STATUS_DELETED }, $unset: { action: 1 } }, { retentionJob: true }),
     ).rejects.toThrow(/status to D/);
 
-    await expect(
-      AuditEvent.deleteMany({ _id: doc._id }, { retentionJob: true }),
-    ).rejects.toThrow(/soft-delete/);
-
-    await expect(
-      AuditEvent.findOneAndDelete({ _id: doc._id }),
-    ).rejects.toThrow(/append-only/);
-
-    await expect(
-      AuditEvent.findOneAndUpdate(
-        { _id: doc._id },
-        { $set: { action: 'x' } },
-      ),
-    ).rejects.toThrow(/append-only/);
-
-    await expect(
-      AuditEvent.updateOne(
-        { _id: doc._id },
-        { status: ROW_STATUS_DELETED },
-        { retentionJob: true },
-      ),
-    ).rejects.toThrow(/status to D/);
-
-    await expect(
-      AuditEvent.updateOne(
-        { _id: doc._id },
-        { $set: { status: ROW_STATUS_DELETED }, $unset: { action: 1 } },
-        { retentionJob: true },
-      ),
-    ).rejects.toThrow(/status to D/);
-
-    await expect(
-      AuditEvent.updateMany(
-        { _id: doc._id },
-        { $set: { status: ROW_STATUS_DELETED } },
-        { retentionJob: true },
-      ),
-    ).resolves.toBeTruthy();
+    await expect(AuditEvent.updateMany({ _id: doc._id }, { $set: { status: ROW_STATUS_DELETED } }, { retentionJob: true })).resolves.toBeTruthy();
   });
 
   it('rejects mismatched resourceType and invalid result without throwing', async () => {
@@ -174,9 +131,7 @@ describe('audit model, repository, and service', () => {
       { log: { error } },
     );
     const listed = await listAuditEvents(org._id);
-    expect(listed.items.some((row) => row.correlationId === 'REQ-default-type')).toBe(
-      true,
-    );
+    expect(listed.items.some((row) => row.correlationId === 'REQ-default-type')).toBe(true);
   });
 
   it('filters by from/to/actor/action/resourceType and rejects bad actor', async () => {
@@ -193,10 +148,7 @@ describe('audit model, repository, and service', () => {
       result: 'success',
       correlationId: 'REQ-old',
     });
-    await AuditEvent.collection.updateOne(
-      { _id: older._id },
-      { $set: { createdAt: new Date('2020-01-01T00:00:00.000Z') } },
-    );
+    await AuditEvent.collection.updateOne({ _id: older._id }, { $set: { createdAt: new Date('2020-01-01T00:00:00.000Z') } });
     await insertAuditEvent({
       orgId: org._id,
       actorUserId: actor,
@@ -216,9 +168,7 @@ describe('audit model, repository, and service', () => {
     expect(filtered.items).toHaveLength(1);
     expect(filtered.items[0].correlationId).toBe('REQ-new');
 
-    await expect(
-      listAuditEvents(org._id, { actor: 'not-an-id' }),
-    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    await expect(listAuditEvents(org._id, { actor: 'not-an-id' })).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
 
     await expect(
       listAuditEvents(org._id, {
@@ -249,9 +199,7 @@ describe('audit model, repository, and service', () => {
     expect(clampAuditListLimit(undefined)).toBe(AUDIT_LIST_PAGE_SIZE_DEFAULT);
     expect(clampAuditListLimit(0)).toBe(AUDIT_LIST_PAGE_SIZE_DEFAULT);
     expect(clampAuditListLimit(10)).toBe(10);
-    expect(clampAuditListLimit(AUDIT_LIST_PAGE_SIZE_MAX + 50)).toBe(
-      AUDIT_LIST_PAGE_SIZE_MAX,
-    );
+    expect(clampAuditListLimit(AUDIT_LIST_PAGE_SIZE_MAX + 50)).toBe(AUDIT_LIST_PAGE_SIZE_MAX);
   });
 
   it('logs and does not throw when required fields are missing', async () => {

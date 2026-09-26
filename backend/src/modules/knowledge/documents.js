@@ -137,8 +137,7 @@ function splitMarkdownByHeadings(content) {
 
   for (let m = 0; m < markers.length; m += 1) {
     const start = markers[m].lineStartIndex;
-    const endExclusive =
-      m + 1 < markers.length ? markers[m + 1].lineStartIndex : lines.length;
+    const endExclusive = m + 1 < markers.length ? markers[m + 1].lineStartIndex : lines.length;
     const slice = lines.slice(start, endExclusive);
     sections.push({
       heading: markers[m].heading,

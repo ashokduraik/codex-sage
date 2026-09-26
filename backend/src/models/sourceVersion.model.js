@@ -10,11 +10,7 @@ const ObjectId = mongoose.Schema.Types.ObjectId;
 
 export const SOURCE_ORIGIN_UPLOAD = 'upload';
 export const SOURCE_ORIGIN_REPOSITORY = 'repository';
-export const VERSION_LIFECYCLE_VALUES = Object.freeze([
-  'received',
-  'failed',
-  'accepted',
-]);
+export const VERSION_LIFECYCLE_VALUES = Object.freeze(['received', 'failed', 'accepted']);
 export const VERSION_LIFECYCLE_RECEIVED = 'received';
 
 const fileCountsSchema = new mongoose.Schema(
@@ -50,10 +46,6 @@ const sourceVersionSchema = createBaseSchema({
   fileCounts: { type: fileCountsSchema, required: true, default: () => ({ accepted: 0, skipped: 0, excludedFromGraph: 0 }) },
 });
 
-sourceVersionSchema.index(
-  { orgId: 1, projectId: 1, createdAt: -1 },
-  { partialFilterExpression: { status: ROW_STATUS_ACTIVE } },
-);
+sourceVersionSchema.index({ orgId: 1, projectId: 1, createdAt: -1 }, { partialFilterExpression: { status: ROW_STATUS_ACTIVE } });
 
-export const SourceVersion =
-  mongoose.models.SourceVersion ?? mongoose.model('SourceVersion', sourceVersionSchema);
+export const SourceVersion = mongoose.models.SourceVersion ?? mongoose.model('SourceVersion', sourceVersionSchema);

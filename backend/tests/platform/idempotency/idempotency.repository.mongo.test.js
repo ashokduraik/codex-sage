@@ -153,10 +153,7 @@ describe('idempotency.repository (mongo)', () => {
       createdBy: userId,
     });
 
-    await IdempotencyRecord.updateOne(
-      { _id: record._id },
-      { $set: { expiresAt: new Date(Date.now() - 60_000) } },
-    ).exec();
+    await IdempotencyRecord.updateOne({ _id: record._id }, { $set: { expiresAt: new Date(Date.now() - 60_000) } }).exec();
 
     expect(
       await findActiveIdempotencyRecord({
@@ -181,9 +178,7 @@ describe('idempotency.repository (mongo)', () => {
   it('throws when a duplicate conflict cannot resolve an active record', async () => {
     const orgId = new mongoose.Types.ObjectId();
     const userId = new mongoose.Types.ObjectId();
-    const createSpy = vi
-      .spyOn(IdempotencyRecord, 'create')
-      .mockRejectedValue({ code: 11000 });
+    const createSpy = vi.spyOn(IdempotencyRecord, 'create').mockRejectedValue({ code: 11000 });
     const findSpy = vi.spyOn(IdempotencyRecord, 'findOne').mockReturnValue({
       exec: async () => null,
     });

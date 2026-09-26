@@ -23,12 +23,8 @@ describe('routeDeclarationAudit', () => {
 
   it('classifies public allowlisted paths without explicit config', () => {
     expect(classifyRouteAccess({}, '/health')).toBe('public');
-    expect(classifyRouteAccess({ routeAccess: 'authenticated' }, '/auth/me')).toBe(
-      'authenticated',
-    );
-    expect(classifyRouteAccess({ requiredPermissions: ['org.view'] }, '/x')).toBe(
-      'permissions',
-    );
+    expect(classifyRouteAccess({ routeAccess: 'authenticated' }, '/auth/me')).toBe('authenticated');
+    expect(classifyRouteAccess({ requiredPermissions: ['org.view'] }, '/x')).toBe('permissions');
     expect(classifyRouteAccess({ file: 'index.html' }, '/')).toBe('public');
     expect(classifyRouteAccess({}, '/secret')).toBe('undeclared');
   });
@@ -45,11 +41,7 @@ describe('routeDeclarationAudit', () => {
     app = Fastify();
     installRouteDeclarationCollector(app);
     app.get('/health', { config: { routeAccess: 'public' } }, async () => ({ ok: true }));
-    app.get(
-      '/secure',
-      { config: { requiredPermissions: ['org.view'] } },
-      async () => ({ ok: true }),
-    );
+    app.get('/secure', { config: { requiredPermissions: ['org.view'] } }, async () => ({ ok: true }));
     await app.ready();
     expect(() => assertAllRoutesDeclareAccess(app)).not.toThrow();
   });

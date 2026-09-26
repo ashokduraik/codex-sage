@@ -38,8 +38,8 @@ vi.mock('../../../src/modules/access/audit.js', async (importOriginal) => {
   };
 });
 
+import argon2 from 'argon2';
 import { User } from '../../../src/models/user.model.js';
-import { findUserByIdWithPassword } from '../../../src/modules/masters/index.js';
 import { verifyPassword } from '../../../src/modules/access/auth.js';
 
 /**
@@ -100,7 +100,8 @@ describe('password.routes edge outcomes', () => {
   });
 
   it('maps policy_violation from a same-as-current password', async () => {
-    mockUserLookup({ passwordHash: 'old' });
+    const passwordHash = await argon2.hash('abcdef');
+    mockUserLookup({ passwordHash });
     verifyPassword.mockResolvedValue(true);
     const app = createFakeApp();
     await passwordRoutes(/** @type {any} */ (app));

@@ -1,16 +1,6 @@
 import { healthRoutes } from './health.routes.js';
-import {
-  authRoutes,
-  passwordRoutes,
-  permissionsRoutes,
-  auditRoutes,
-} from '../modules/access/index.js';
-import {
-  identityRoutes,
-  projectRoutes,
-  projectMemberRoutes,
-  jobRoutes,
-} from '../modules/masters/index.js';
+import { authRoutes, passwordRoutes, permissionsRoutes, auditRoutes } from '../modules/access/index.js';
+import { identityRoutes, projectRoutes, projectMemberRoutes, jobRoutes } from '../modules/masters/index.js';
 import {
   changeSummaryRoutes,
   sourcePreviewRoutes,

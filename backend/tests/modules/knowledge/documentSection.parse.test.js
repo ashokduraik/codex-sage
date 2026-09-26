@@ -102,9 +102,7 @@ describe('parseDocumentSections', () => {
     expect(parseDocumentSections({ path: 'empty.md', content: '' })).toEqual([
       expect.objectContaining({ heading: null, startLine: 1, endLine: 1, text: '', sectionIndex: 0 }),
     ]);
-    expect(parseDocumentSections({ path: 'x.md', content: /** @type {any} */ (null) })).toEqual([
-      expect.objectContaining({ text: '' }),
-    ]);
+    expect(parseDocumentSections({ path: 'x.md', content: /** @type {any} */ (null) })).toEqual([expect.objectContaining({ text: '' })]);
     expect(capSectionText(/** @type {any} */ (null))).toBe('');
     expect(isDocumentPath(/** @type {any} */ (null))).toBe(false);
   });

@@ -3,12 +3,9 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { TEST_APP_CONFIG } from '../appConfig.js';
-import {
-  resetProcessHandlersForTests,
-  resetShutdownForTests,
-} from '../../src/platform/shutdown.js';
+import { resetProcessHandlersForTests, resetShutdownForTests } from '../../src/platform/shutdown.js';
 import { clearJobHandlersForTests } from '../../src/worker/handlerRegistry.js';
-import { startWorker, WORKER_HEARTBEAT_INTERVAL_MS } from '../../src/worker/startWorker.js';
+import { startWorker } from '../../src/worker/startWorker.js';
 
 describe('startWorker', () => {
   beforeEach(() => {
@@ -62,9 +59,7 @@ describe('startWorker', () => {
     expect(syncSchemaIndexes).toHaveBeenCalledOnce();
     expect(handle.workerId).toBe('test-host-42-ab');
     expect(log.info).toHaveBeenCalledWith({ workerId: 'test-host-42-ab' }, 'worker started');
-    expect(startWorkerRuntime).toHaveBeenCalledWith(
-      expect.objectContaining({ workerId: 'test-host-42-ab', log }),
-    );
+    expect(startWorkerRuntime).toHaveBeenCalledWith(expect.objectContaining({ workerId: 'test-host-42-ab', log }));
     expect(registerShutdownHook).toHaveBeenCalledWith('stop-worker-runtime', expect.any(Function));
     expect(registerShutdownHook).toHaveBeenCalledWith('disconnect-mongo', expect.any(Function));
     expect(attachShutdownSignals).toHaveBeenCalledOnce();
@@ -103,9 +98,7 @@ describe('startWorker', () => {
     });
     expect(enqueueDueRepositorySyncs).toHaveBeenCalled();
     expect(setIntervalFn).toHaveBeenCalled();
-    const stopScheduler = registerShutdownHook.mock.calls.find(
-      (call) => call[0] === 'stop-repo-sync-scheduler',
-    )[1];
+    const stopScheduler = registerShutdownHook.mock.calls.find((call) => call[0] === 'stop-repo-sync-scheduler')[1];
     await stopScheduler();
     expect(clearIntervalFn).toHaveBeenCalledWith(7);
     await handle.stopRuntime();

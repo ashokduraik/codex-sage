@@ -91,12 +91,7 @@ describe('repositoriesApi', () => {
     expect(apiRequest).toHaveBeenCalledWith('/projects/p1/repositories/connection', {
       signal: undefined,
     });
-    expect(repositoryConnectionQueryKey('p1')).toEqual([
-      'projects',
-      'p1',
-      'repositories',
-      'connection',
-    ]);
+    expect(repositoryConnectionQueryKey('p1')).toEqual(['projects', 'p1', 'repositories', 'connection']);
   });
 
   it('replaces, revokes, and re-tests credentials on the shipped paths', async () => {

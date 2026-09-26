@@ -24,9 +24,7 @@ describe('summarizeInspection', () => {
     expect(summary.emptyAfterExclude).toBe(false);
     expect(summary.accepted.map((item) => item.path).sort()).toEqual(['README.md', 'src/a.js']);
     expect(summary.accepted.every((item) => item.excludedFromGraph === false)).toBe(true);
-    const skippedReasons = Object.fromEntries(
-      summary.skipped.map((item) => [item.path, item.reasonCode]),
-    );
+    const skippedReasons = Object.fromEntries(summary.skipped.map((item) => [item.path, item.reasonCode]));
     expect(skippedReasons['node_modules/pkg/index.js']).toBe('ignored_directory');
     expect(skippedReasons['.git/HEAD']).toBe('ignored_directory');
     expect(skippedReasons['photo.png']).toBe('ignored_image');
@@ -51,16 +49,12 @@ describe('summarizeInspection', () => {
   });
 
   it('throws SOURCE_VERSION_EMPTY_AFTER_EXCLUSIONS when only ignored paths remain', async () => {
-    const { entries } = await inspectZip(
-      await readFile(path.join(fixturesDir, 'only-ignored.zip')),
-    );
+    const { entries } = await inspectZip(await readFile(path.join(fixturesDir, 'only-ignored.zip')));
     expect(() => summarizeInspection(entries)).toThrow(ApiError);
     try {
       summarizeInspection(entries);
     } catch (error) {
-      expect(/** @type {ApiError} */ (error).code).toBe(
-        'SOURCE_VERSION_EMPTY_AFTER_EXCLUSIONS',
-      );
+      expect(/** @type {ApiError} */ (error).code).toBe('SOURCE_VERSION_EMPTY_AFTER_EXCLUSIONS');
     }
   });
 
@@ -78,9 +72,7 @@ describe('summarizeInspection', () => {
   });
 
   it('throws for images-only archives after inspection', async () => {
-    const { entries } = await inspectZip(
-      await readFile(path.join(fixturesDir, 'images-only.zip')),
-    );
+    const { entries } = await inspectZip(await readFile(path.join(fixturesDir, 'images-only.zip')));
     expect(() => summarizeInspection(entries)).toThrow(ApiError);
   });
 });

@@ -104,10 +104,7 @@ export function truncateSnippet(text) {
  * @returns {string}
  */
 export function encodeSearchCursor(item) {
-  return Buffer.from(
-    JSON.stringify({ type: item.type, title: item.title, id: item.id }),
-    'utf8',
-  ).toString('base64url');
+  return Buffer.from(JSON.stringify({ type: item.type, title: item.title, id: item.id }), 'utf8').toString('base64url');
 }
 
 /**
@@ -121,12 +118,7 @@ export function decodeSearchCursor(cursor) {
   }
   try {
     const parsed = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
-    if (
-      !parsed ||
-      typeof parsed.type !== 'string' ||
-      typeof parsed.title !== 'string' ||
-      typeof parsed.id !== 'string'
-    ) {
+    if (!parsed || typeof parsed.type !== 'string' || typeof parsed.title !== 'string' || typeof parsed.id !== 'string') {
       return null;
     }
     return parsed;
@@ -314,10 +306,7 @@ export function mapDocSearchItem(section, knowledgeVersionId) {
   if (!path || !sectionId) {
     return null;
   }
-  const title =
-    typeof section.heading === 'string' && section.heading.trim()
-      ? section.heading.trim()
-      : path;
+  const title = typeof section.heading === 'string' && section.heading.trim() ? section.heading.trim() : path;
   return {
     id: encodeSearchResultId(knowledgeVersionId, 'doc', sectionId),
     type: 'doc',
@@ -353,12 +342,7 @@ export function mapGraphSearchItem(raw, knowledgeVersionId, type) {
   const startLine = Number(node.startLine) || 0;
   const endLine = Number(node.endLine) || startLine || undefined;
   const opaqueKey = encodeOpaqueKey([path, name, startLine]);
-  const snippetSource =
-    typeof raw.snippet === 'string'
-      ? raw.snippet
-      : typeof node.signature === 'string'
-        ? node.signature
-        : name;
+  const snippetSource = typeof raw.snippet === 'string' ? raw.snippet : typeof node.signature === 'string' ? node.signature : name;
   return {
     id: encodeSearchResultId(knowledgeVersionId, type, opaqueKey),
     type,
@@ -389,17 +373,11 @@ export function mapApiSearchItem(raw, knowledgeVersionId, index) {
     const startLine = Number(raw.handlerLine) || 0;
     const title = raw.url;
     return {
-      id: encodeSearchResultId(
-        knowledgeVersionId,
-        'api',
-        encodeOpaqueKey([title, path, startLine, raw.handler ?? index]),
-      ),
+      id: encodeSearchResultId(knowledgeVersionId, 'api', encodeOpaqueKey([title, path, startLine, raw.handler ?? index])),
       type: 'api',
       title,
       snippet: truncateSnippet(typeof raw.handler === 'string' ? raw.handler : title),
-      sourceRef: path
-        ? { path, startLine: startLine || undefined }
-        : { path: title },
+      sourceRef: path ? { path, startLine: startLine || undefined } : { path: title },
       score: null,
     };
   }
@@ -430,28 +408,14 @@ export function mapWorkflowSearchItem(raw, knowledgeVersionId, index) {
   if (!raw || typeof raw !== 'object') {
     return null;
   }
-  const title =
-    typeof raw.title === 'string'
-      ? raw.title
-      : typeof raw.name === 'string'
-        ? raw.name
-        : null;
-  const path =
-    typeof raw.path === 'string'
-      ? raw.path
-      : typeof raw.filePath === 'string'
-        ? raw.filePath
-        : '';
+  const title = typeof raw.title === 'string' ? raw.title : typeof raw.name === 'string' ? raw.name : null;
+  const path = typeof raw.path === 'string' ? raw.path : typeof raw.filePath === 'string' ? raw.filePath : '';
   if (!title) {
     return null;
   }
   const startLine = Number(raw.startLine) || 0;
   return {
-    id: encodeSearchResultId(
-      knowledgeVersionId,
-      'workflow',
-      encodeOpaqueKey([title, path, startLine, raw.id ?? index]),
-    ),
+    id: encodeSearchResultId(knowledgeVersionId, 'workflow', encodeOpaqueKey([title, path, startLine, raw.id ?? index])),
     type: 'workflow',
     title,
     snippet: truncateSnippet(typeof raw.description === 'string' ? raw.description : title),
@@ -468,16 +432,7 @@ export function mapWorkflowSearchItem(raw, knowledgeVersionId, index) {
  */
 export function matchesQueryText(item, query) {
   const needle = query.toLowerCase();
-  const haystacks = [
-    item.title,
-    item.name,
-    item.url,
-    item.path,
-    item.filePath,
-    item.handlerFile,
-    item.handler,
-    item.description,
-  ];
+  const haystacks = [item.title, item.name, item.url, item.path, item.filePath, item.handlerFile, item.handler, item.description];
   return haystacks.some((value) => typeof value === 'string' && value.toLowerCase().includes(needle));
 }
 
@@ -668,9 +623,7 @@ async function loadReadySearch(input, deps) {
     projectId: input.projectId,
     knowledgeVersionId: input.knowledgeVersionId,
   });
-  const sourceVersionId = knowledgeVersion?.sourceVersionId
-    ? String(knowledgeVersion.sourceVersionId)
-    : null;
+  const sourceVersionId = knowledgeVersion?.sourceVersionId ? String(knowledgeVersion.sourceVersionId) : null;
 
   /** @type {object[]} */
   let docItems = [];
@@ -697,11 +650,7 @@ async function loadReadySearch(input, deps) {
     };
   }
 
-  const workspacePath = resolveProjectWorkspacePath(
-    input.workspaceRoot,
-    input.orgId,
-    input.projectId,
-  );
+  const workspacePath = resolveProjectWorkspacePath(input.workspaceRoot, input.orgId, input.projectId);
   const adapter = deps.createAdapter();
   const leased = await adapter.acquireReadLease({
     orgId: input.orgId,
@@ -745,13 +694,7 @@ async function loadReadySearch(input, deps) {
         ...paged,
       };
     }
-    const graphItems = collectGraphSearchItems(
-      adapter,
-      leased.lease.graph,
-      input.q,
-      input.types,
-      input.knowledgeVersionId,
-    );
+    const graphItems = collectGraphSearchItems(adapter, leased.lease.graph, input.q, input.types, input.knowledgeVersionId);
     if (leased.lease.expired) {
       const sorted = [...docItems].sort(compareSearchItems);
       const paged = pageSearchItems(sorted, input.cursor, input.limit);

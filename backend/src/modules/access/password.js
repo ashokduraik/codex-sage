@@ -41,11 +41,7 @@ export async function validatePasswordCandidate(candidate, options = {}) {
     violations.push('TOO_SHORT');
   }
 
-  if (
-    options.currentHash &&
-    typeof options.verifyPassword === 'function' &&
-    candidate.length > 0
-  ) {
+  if (options.currentHash && typeof options.verifyPassword === 'function' && candidate.length > 0) {
     const matchesCurrent = await options.verifyPassword(options.currentHash, candidate);
     if (matchesCurrent) {
       violations.push('SAME_AS_CURRENT');
@@ -207,9 +203,7 @@ export async function changeOwnPassword(input, ctx = {}) {
   } catch (err) {
     if (err instanceof ApiError && err.code === 'PASSWORD_POLICY_VIOLATION') {
       const violations =
-        err.details &&
-        typeof err.details === 'object' &&
-        Array.isArray(/** @type {{ violations?: unknown }} */ (err.details).violations)
+        err.details && typeof err.details === 'object' && Array.isArray(/** @type {{ violations?: unknown }} */ (err.details).violations)
           ? /** @type {{ violations: string[] }} */ (err.details).violations
           : [];
       ctx.log?.info?.({ outcome: 'policy_violation' }, 'password change rejected');
@@ -257,10 +251,7 @@ export async function adminSetPassword(input, ctx = {}) {
       actorUserId: input.actorUserId,
       currentHash: target.passwordHash ?? null,
     });
-    ctx.log?.info?.(
-      { outcome: 'password_changed', targetUserId: String(input.targetUserId) },
-      'admin password set succeeded',
-    );
+    ctx.log?.info?.({ outcome: 'password_changed', targetUserId: String(input.targetUserId) }, 'admin password set succeeded');
     return {
       ...result,
       userId: String(input.targetUserId),
@@ -268,9 +259,7 @@ export async function adminSetPassword(input, ctx = {}) {
   } catch (err) {
     if (err instanceof ApiError && err.code === 'PASSWORD_POLICY_VIOLATION') {
       const violations =
-        err.details &&
-        typeof err.details === 'object' &&
-        Array.isArray(/** @type {{ violations?: unknown }} */ (err.details).violations)
+        err.details && typeof err.details === 'object' && Array.isArray(/** @type {{ violations?: unknown }} */ (err.details).violations)
           ? /** @type {{ violations: string[] }} */ (err.details).violations
           : [];
       ctx.log?.info?.({ outcome: 'policy_violation' }, 'admin password set rejected');

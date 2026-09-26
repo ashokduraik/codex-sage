@@ -15,7 +15,7 @@ import {
   DEFAULT_ADMIN_PASSWORD,
   IDENTITY_MODELS,
   createOrganization,
-  createUser, createUserInRepo,
+  createUserInRepo,
   ensureBuiltInRoles,
   findBuiltInRole,
   findOrganizationBySlug,
@@ -27,13 +27,7 @@ import { PROJECT_MODELS, createProjectInRepo } from '../../../src/modules/master
 import { findActiveProjectMember } from '../../../src/modules/masters/projectMembers.js';
 
 const harness = createMongoHarness({
-  models: [
-    ...IDENTITY_MODELS,
-    ...AUTH_MODELS,
-    ...AUDIT_MODELS,
-    ...IDEMPOTENCY_MODELS,
-    ...PROJECT_MODELS,
-  ],
+  models: [...IDENTITY_MODELS, ...AUTH_MODELS, ...AUDIT_MODELS, ...IDEMPOTENCY_MODELS, ...PROJECT_MODELS],
   uri: TEST_APP_CONFIG.mongo.uri,
 });
 
@@ -106,9 +100,9 @@ describe('projectMembers.routes', () => {
       displayName: 'Target',
       userStatus: 'active',
       passwordHash,
-          roleIds: [memberRole._id],
-          projectAccessMode: 'selected'
-        });
+      roleIds: [memberRole._id],
+      projectAccessMode: 'selected',
+    });
 
     const headers = { authorization: `Bearer ${accessToken}` };
 
@@ -142,11 +136,7 @@ describe('projectMembers.routes', () => {
     expect(addAgain.statusCode).toBe(200);
     expect(addAgain.json().id).toBe(memberBody.id);
 
-    const { accessToken: memberToken } = await login(
-      app,
-      'target-member@example.com',
-      'memberpass1',
-    );
+    const { accessToken: memberToken } = await login(app, 'target-member@example.com', 'memberpass1');
     const allowed = await app.inject({
       method: 'GET',
       url: `${API_BASE_PATH}/projects/${project.id}`,
@@ -212,11 +202,7 @@ describe('projectMembers.routes', () => {
     await runBootstrapSeed(createMockLog());
     app = await readyApp();
     const org = await findOrganizationBySlug('default');
-    const { accessToken: adminToken } = await login(
-      app,
-      DEFAULT_ADMIN_EMAIL,
-      DEFAULT_ADMIN_PASSWORD,
-    );
+    const { accessToken: adminToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
 
     const passwordHash = await hashPassword('selpass12');
     const memberRole = await findBuiltInRole(org._id, 'member');
@@ -225,18 +211,18 @@ describe('projectMembers.routes', () => {
       displayName: 'Selected',
       userStatus: 'active',
       passwordHash,
-          roleIds: [memberRole._id],
-          projectAccessMode: 'selected'
-        });
+      roleIds: [memberRole._id],
+      projectAccessMode: 'selected',
+    });
 
-    const noneUser = await createUserInRepo(org._id, {
+    await createUserInRepo(org._id, {
       email: 'none@example.com',
       displayName: 'None',
       userStatus: 'active',
       passwordHash: await hashPassword('nonepass12'),
-          roleIds: [memberRole._id],
-          projectAccessMode: 'none'
-        });
+      roleIds: [memberRole._id],
+      projectAccessMode: 'none',
+    });
 
     const a = await createProject(app, adminToken, 'Project A', 'idem-list-a-1');
     const b = await createProject(app, adminToken, 'Project B', 'idem-list-b-1');
@@ -248,11 +234,7 @@ describe('projectMembers.routes', () => {
       payload: { userId: String(selectedUser._id), permissions: ['projects.view'] },
     });
 
-    const { accessToken: selectedToken } = await login(
-      app,
-      'selected@example.com',
-      'selpass12',
-    );
+    const { accessToken: selectedToken } = await login(app, 'selected@example.com', 'selpass12');
     const selectedList = await app.inject({
       method: 'GET',
       url: `${API_BASE_PATH}/projects?limit=20`,
@@ -287,11 +269,7 @@ describe('projectMembers.routes', () => {
     await runBootstrapSeed(createMockLog());
     app = await readyApp();
     const org = await findOrganizationBySlug('default');
-    const { accessToken: adminToken } = await login(
-      app,
-      DEFAULT_ADMIN_EMAIL,
-      DEFAULT_ADMIN_PASSWORD,
-    );
+    const { accessToken: adminToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const project = await createProject(app, adminToken, 'Iso', 'idem-iso-proj-1');
 
     const other = await createOrganization({
@@ -305,9 +283,9 @@ describe('projectMembers.routes', () => {
       displayName: 'Other',
       userStatus: 'active',
       passwordHash: await hashPassword('otherpass1'),
-          roleIds: [otherAdminRole._id],
-          projectAccessMode: 'all'
-        });
+      roleIds: [otherAdminRole._id],
+      projectAccessMode: 'all',
+    });
 
     const foreignProject = await createProjectInRepo(other._id, {
       name: 'Foreign',
@@ -351,9 +329,9 @@ describe('projectMembers.routes', () => {
       displayName: 'Viewer',
       userStatus: 'active',
       passwordHash,
-          roleIds: [viewerRole._id],
-          projectAccessMode: 'selected'
-        });
+      roleIds: [viewerRole._id],
+      projectAccessMode: 'selected',
+    });
     await app.inject({
       method: 'POST',
       url: `${API_BASE_PATH}/projects/${project.id}/members`,
@@ -363,11 +341,7 @@ describe('projectMembers.routes', () => {
         permissions: ['projects.view'],
       },
     });
-    const { accessToken: viewerToken } = await login(
-      app,
-      'viewer-acl@example.com',
-      'viewpass12',
-    );
+    const { accessToken: viewerToken } = await login(app, 'viewer-acl@example.com', 'viewpass12');
     const patchForbidden = await app.inject({
       method: 'PATCH',
       url: `${API_BASE_PATH}/projects/${project.id}`,
@@ -381,14 +355,10 @@ describe('projectMembers.routes', () => {
       displayName: 'NoAccess',
       userStatus: 'active',
       passwordHash: await hashPassword('nopass123'),
-          roleIds: [viewerRole._id],
-          projectAccessMode: 'selected'
-        });
-    const { accessToken: noAccessToken } = await login(
-      app,
-      'noaccess@example.com',
-      'nopass123',
-    );
+      roleIds: [viewerRole._id],
+      projectAccessMode: 'selected',
+    });
+    const { accessToken: noAccessToken } = await login(app, 'noaccess@example.com', 'nopass123');
     const noAccessGet = await app.inject({
       method: 'GET',
       url: `${API_BASE_PATH}/projects/${project.id}`,
@@ -418,11 +388,7 @@ describe('projectMembers.routes', () => {
         permissions: ['projects.view', 'projects.update'],
       },
     });
-    const { accessToken: elevatedToken } = await login(
-      app,
-      'viewer-acl@example.com',
-      'viewpass12',
-    );
+    const { accessToken: elevatedToken } = await login(app, 'viewer-acl@example.com', 'viewpass12');
     const elevatedPatch = await app.inject({
       method: 'PATCH',
       url: `${API_BASE_PATH}/projects/${project.id}`,

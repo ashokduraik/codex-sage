@@ -172,7 +172,10 @@ describe('runRepoSyncJob', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     outboundGet.mockReset();
-    vi.stubGlobal('fetch', vi.fn(async () => fakeArchiveFetch()));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => fakeArchiveFetch()),
+    );
     hasActiveProjectWriterLock.mockResolvedValue(false);
     findActiveJobForProjectByTypes.mockResolvedValue(null);
     createArchiveFlowRewriter.mockReturnValue((path) => path);
@@ -200,9 +203,7 @@ describe('runRepoSyncJob', () => {
     const result = await runRepoSyncJob(context);
     expect(result.result).toBe('deferred');
     expect(deferRunningJob).toHaveBeenCalled();
-    expect(context.recordEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ eventCode: 'repo.sync.deferred' }),
-    );
+    expect(context.recordEvent).toHaveBeenCalledWith(expect.objectContaining({ eventCode: 'repo.sync.deferred' }));
     expect(outboundGet).not.toHaveBeenCalled();
   });
 

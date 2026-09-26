@@ -7,11 +7,7 @@ import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
 import { RepositoryConnection } from '../../../src/models/repositoryConnection.model.js';
 import { insertConnection } from '../../../src/modules/knowledge/repositories.js';
-import {
-  decryptConnectionToken,
-  replaceEncryptedCredential,
-  storeEncryptedCredential,
-} from '../../../src/modules/knowledge/repositories.js';
+import { decryptConnectionToken, replaceEncryptedCredential, storeEncryptedCredential } from '../../../src/modules/knowledge/repositories.js';
 
 const TOKEN_FIXTURE = 'ghp_probe_token_fixture_never_log';
 
@@ -95,10 +91,7 @@ describe('repositoryCredential.service', () => {
       createdBy: String(seeded.actor),
     });
     const tamperedCiphertext = Buffer.from('tampered-ciphertext-bytes').toString('base64');
-    await RepositoryConnection.updateOne(
-      { _id: seeded.connectionId },
-      { $set: { 'credential.ciphertext': tamperedCiphertext } },
-    ).exec();
+    await RepositoryConnection.updateOne({ _id: seeded.connectionId }, { $set: { 'credential.ciphertext': tamperedCiphertext } }).exec();
 
     const tampered = await RepositoryConnection.findById(seeded.connectionId).lean().exec();
     await expect(decryptConnectionToken(tampered.credential)).rejects.toMatchObject({

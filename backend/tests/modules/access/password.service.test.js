@@ -29,11 +29,7 @@ vi.mock('mongoose', async () => {
 });
 
 import { User } from '../../../src/models/user.model.js';
-import {
-  applyPasswordUpdate,
-  findUserById,
-  findUserByIdWithPassword,
-} from '../../../src/modules/masters/index.js';
+import { applyPasswordUpdate, findUserById, findUserByIdWithPassword } from '../../../src/modules/masters/index.js';
 import { verifyPassword } from '../../../src/modules/access/auth.js';
 
 /**
@@ -53,11 +49,7 @@ function mockUserLookup(doc) {
     exec: vi.fn().mockResolvedValue(doc),
   });
 }
-import {
-  adminSetPassword,
-  changeOwnPassword,
-  getPasswordResetStatus,
-} from '../../../src/modules/access/password.js';
+import { adminSetPassword, changeOwnPassword, getPasswordResetStatus } from '../../../src/modules/access/password.js';
 
 describe('getPasswordResetStatus', () => {
   it('returns none when passwordUpdatedAt is missing', () => {

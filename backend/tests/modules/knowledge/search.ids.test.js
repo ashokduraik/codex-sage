@@ -72,23 +72,8 @@ describe('snippets and cursors', () => {
   });
 
   it('sorts by type order then title then id', () => {
-    expect(
-      compareSearchItems(
-        { type: 'code', title: 'b', id: '1' },
-        { type: 'doc', title: 'a', id: '2' },
-      ),
-    ).toBeLessThan(0);
-    expect(
-      compareSearchItems(
-        { type: 'doc', title: 'b', id: '1' },
-        { type: 'doc', title: 'a', id: '2' },
-      ),
-    ).toBeGreaterThan(0);
-    expect(
-      compareSearchItems(
-        { type: 'doc', title: 'a', id: '2' },
-        { type: 'doc', title: 'a', id: '1' },
-      ),
-    ).toBeGreaterThan(0);
+    expect(compareSearchItems({ type: 'code', title: 'b', id: '1' }, { type: 'doc', title: 'a', id: '2' })).toBeLessThan(0);
+    expect(compareSearchItems({ type: 'doc', title: 'b', id: '1' }, { type: 'doc', title: 'a', id: '2' })).toBeGreaterThan(0);
+    expect(compareSearchItems({ type: 'doc', title: 'a', id: '2' }, { type: 'doc', title: 'a', id: '1' })).toBeGreaterThan(0);
   });
 });

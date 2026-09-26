@@ -50,10 +50,7 @@ describe('useChangeSummary / useSourcePreview', () => {
 
   it('loads metadata only when preview is unavailable', async () => {
     fetchSourceFileMetadata.mockResolvedValue({ previewAvailable: false });
-    const { result } = renderHook(
-      () => useSourcePreview('p1', { path: 'logo.png', startLine: 1, endLine: 2 }),
-      { wrapper },
-    );
+    const { result } = renderHook(() => useSourcePreview('p1', { path: 'logo.png', startLine: 1, endLine: 2 }), { wrapper });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data.slice).toBeNull();
     expect(fetchSourceSlice).not.toHaveBeenCalled();

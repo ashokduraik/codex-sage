@@ -2,12 +2,7 @@
  * Audit action catalog unit tests.
  */
 import { describe, expect, it } from 'vitest';
-import {
-  AUDIT_ACTION_RESOURCE_TYPES,
-  AUDIT_ACTIONS,
-  isKnownAuditAction,
-  resourceTypeForAction,
-} from '../../../src/modules/access/audit.js';
+import { AUDIT_ACTION_RESOURCE_TYPES, AUDIT_ACTIONS, isKnownAuditAction, resourceTypeForAction } from '../../../src/modules/access/audit.js';
 
 describe('audit.actions', () => {
   it('exposes the curated action list', () => {

@@ -32,10 +32,7 @@ export async function sweepExpiredLeases(options = {}) {
   let failed = 0;
 
   for (const job of expired) {
-    const maxAttempts =
-      typeof job.maxAttempts === 'number' && job.maxAttempts >= 1
-        ? job.maxAttempts
-        : WORKER_MAX_ATTEMPTS;
+    const maxAttempts = typeof job.maxAttempts === 'number' && job.maxAttempts >= 1 ? job.maxAttempts : WORKER_MAX_ATTEMPTS;
     const attempt = typeof job.attempt === 'number' ? job.attempt : 0;
 
     try {
@@ -52,10 +49,7 @@ export async function sweepExpiredLeases(options = {}) {
             projectId: updated.projectId,
             jobId: updated._id,
           });
-          log?.info?.(
-            { jobId: String(updated._id), attempt: updated.attempt },
-            'lease expired; job requeued',
-          );
+          log?.info?.({ jobId: String(updated._id), attempt: updated.attempt }, 'lease expired; job requeued');
         }
       } else {
         const updated = await failJobLeaseExpired({
@@ -69,10 +63,7 @@ export async function sweepExpiredLeases(options = {}) {
             projectId: updated.projectId,
             jobId: updated._id,
           });
-          log?.info?.(
-            { jobId: String(updated._id), attempt: updated.attempt },
-            'lease expired; attempts exhausted',
-          );
+          log?.info?.({ jobId: String(updated._id), attempt: updated.attempt }, 'lease expired; attempts exhausted');
         }
       }
     } catch (error) {

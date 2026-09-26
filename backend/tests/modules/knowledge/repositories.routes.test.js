@@ -12,7 +12,7 @@ import {
   DEFAULT_ADMIN_EMAIL,
   DEFAULT_ADMIN_PASSWORD,
   IDENTITY_MODELS,
-  createUser, createUserInRepo,
+  createUserInRepo,
   findBuiltInRole,
   findOrganizationBySlug,
   runBootstrapSeed,
@@ -35,15 +35,7 @@ vi.mock('../../../src/modules/knowledge/repositories.helper.js', async (importOr
 const TOKEN_FIXTURE = 'ghp_probe_token_fixture_never_log';
 
 const harness = createMongoHarness({
-  models: [
-    ...IDENTITY_MODELS,
-    ...AUTH_MODELS,
-    ...AUDIT_MODELS,
-    ...IDEMPOTENCY_MODELS,
-    ...PROJECT_MODELS,
-    ...REPOSITORY_MODELS,
-    ...JOB_MODELS,
-  ],
+  models: [...IDENTITY_MODELS, ...AUTH_MODELS, ...AUDIT_MODELS, ...IDEMPOTENCY_MODELS, ...PROJECT_MODELS, ...REPOSITORY_MODELS, ...JOB_MODELS],
   uri: TEST_APP_CONFIG.mongo.uri,
 });
 
@@ -189,11 +181,7 @@ describe('repository probe routes', () => {
   it('returns 403 without repos.connect and 404 for another org project', async () => {
     await runBootstrapSeed(createMockLog());
     app = await readyApp();
-    const { accessToken: adminToken } = await login(
-      app,
-      DEFAULT_ADMIN_EMAIL,
-      DEFAULT_ADMIN_PASSWORD,
-    );
+    const { accessToken: adminToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const org = await findOrganizationBySlug('default');
     const project = await createProject(app, adminToken, 'Probe ACL', 'idem-probe-proj-4');
 
@@ -204,8 +192,8 @@ describe('repository probe routes', () => {
       passwordHash: await hashPassword('ViewerPass1!'),
       userStatus: 'active',
       createdBy: null,
-          roleIds: [viewerRole._id]
-        });
+      roleIds: [viewerRole._id],
+    });
     await addProjectMember({
       orgId: String(org._id),
       projectId: project.id,
@@ -215,11 +203,7 @@ describe('repository probe routes', () => {
       correlationId: 'corr-probe-viewer',
       log: createMockLog(),
     });
-    const { accessToken: viewerToken } = await login(
-      app,
-      'viewer-probe@example.com',
-      'ViewerPass1!',
-    );
+    const { accessToken: viewerToken } = await login(app, 'viewer-probe@example.com', 'ViewerPass1!');
     const forbidden = await app.inject({
       method: 'POST',
       url: `${API_BASE_PATH}/projects/${project.id}/repositories/probe`,
@@ -422,20 +406,14 @@ describe('repository attach routes', () => {
     });
     expect(secretInvalid.statusCode).toBe(400);
     expect(JSON.stringify(secretInvalid.json())).not.toContain(TOKEN_FIXTURE);
-    const tokenDetail = secretInvalid.json().error.details.find(
-      (row) => row.path === 'accessToken',
-    );
+    const tokenDetail = secretInvalid.json().error.details.find((row) => row.path === 'accessToken');
     expect(tokenDetail?.message).toBe('invalid');
   });
 
   it('lets a viewer GET connection metadata but not mutate', async () => {
     await runBootstrapSeed(createMockLog());
     app = await readyApp();
-    const { accessToken: adminToken } = await login(
-      app,
-      DEFAULT_ADMIN_EMAIL,
-      DEFAULT_ADMIN_PASSWORD,
-    );
+    const { accessToken: adminToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const org = await findOrganizationBySlug('default');
     const project = await createProject(app, adminToken, 'Attach ACL', 'idem-attach-proj-4');
     mockConnectedProbe();
@@ -461,8 +439,8 @@ describe('repository attach routes', () => {
       passwordHash: await hashPassword('ViewerPass1!'),
       userStatus: 'active',
       createdBy: null,
-          roleIds: [viewerRole._id]
-        });
+      roleIds: [viewerRole._id],
+    });
     await addProjectMember({
       orgId: String(org._id),
       projectId: project.id,
@@ -472,11 +450,7 @@ describe('repository attach routes', () => {
       correlationId: 'corr-attach-viewer',
       log: createMockLog(),
     });
-    const { accessToken: viewerToken } = await login(
-      app,
-      'viewer-attach@example.com',
-      'ViewerPass1!',
-    );
+    const { accessToken: viewerToken } = await login(app, 'viewer-attach@example.com', 'ViewerPass1!');
 
     const viewed = await app.inject({
       method: 'GET',
@@ -653,4 +627,3 @@ describe('repository attach routes', () => {
     expect(missing.statusCode).toBe(404);
   });
 });
-

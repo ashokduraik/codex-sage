@@ -30,8 +30,6 @@ describe('secretCrypto', () => {
     expect(() => parseEncryptionKey('short')).toThrow(/32-byte base64/);
     expect(() => parseEncryptionKey('')).toThrow(/32-byte base64/);
     expect(() => encryptSecret('x', Buffer.alloc(16), 'k1')).toThrow(/32-byte base64/);
-    expect(() =>
-      decryptSecret({ ciphertext: 'YQ==', iv: 'YQ==', authTag: 'YQ==' }, Buffer.alloc(16)),
-    ).toThrow(/32-byte base64/);
+    expect(() => decryptSecret({ ciphertext: 'YQ==', iv: 'YQ==', authTag: 'YQ==' }, Buffer.alloc(16))).toThrow(/32-byte base64/);
   });
 });

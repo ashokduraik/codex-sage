@@ -372,9 +372,7 @@ describe('repositoryAttach.service', () => {
 
   it('returns 404 when no active connection exists', async () => {
     const { orgId, project } = await seedProject();
-    await expect(
-      getRepositoryConnection(String(orgId), String(project._id)),
-    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    await expect(getRepositoryConnection(String(orgId), String(project._id))).rejects.toMatchObject({ code: 'NOT_FOUND' });
   });
 
   it('patches the selected branch after a live probe', async () => {
@@ -534,14 +532,10 @@ describe('repositoryAttach.service', () => {
       projectId: String(project._id),
       actorUserId: String(actor),
     });
-    const tombstone = await includeDeleted(RepositoryConnection.findOne({ orgId }))
-      .lean()
-      .exec();
+    const tombstone = await includeDeleted(RepositoryConnection.findOne({ orgId })).lean().exec();
     expect(tombstone?.status).toBe(ROW_STATUS_DELETED);
     expect(tombstone?.credential?.ciphertext).toBeTruthy();
-    await expect(
-      getRepositoryConnection(String(orgId), String(project._id)),
-    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    await expect(getRepositoryConnection(String(orgId), String(project._id))).rejects.toMatchObject({ code: 'NOT_FOUND' });
     const reloaded = await findProjectById(orgId, String(project._id));
     expect(reloaded?.lifecycleStatus).toBe('connecting_repository');
     expect(reloaded?.sourceConfig.repositoryConnectionId).toBeNull();
@@ -623,10 +617,7 @@ describe('repositoryAttach.service', () => {
       probeRepository: async () => connectedProbe(),
     });
     const tamperedCiphertext = Buffer.from('tampered-ciphertext-bytes').toString('base64');
-    await RepositoryConnection.updateMany(
-      { orgId },
-      { $set: { 'credential.ciphertext': tamperedCiphertext } },
-    ).exec();
+    await RepositoryConnection.updateMany({ orgId }, { $set: { 'credential.ciphertext': tamperedCiphertext } }).exec();
     await expect(
       retestRepositoryConnection({
         orgId: String(orgId),
@@ -643,12 +634,8 @@ describe('repositoryAttach.service', () => {
       projectId: String(project._id),
       actorUserId: String(actor),
     };
-    await expect(
-      patchRepositoryBranch({ ...scope, selectedBranch: 'main' }),
-    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
-    await expect(
-      replaceRepositoryCredential({ ...scope, accessToken: 'tok' }),
-    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    await expect(patchRepositoryBranch({ ...scope, selectedBranch: 'main' })).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    await expect(replaceRepositoryCredential({ ...scope, accessToken: 'tok' })).rejects.toMatchObject({ code: 'NOT_FOUND' });
     await expect(revokeRepositoryCredential(scope)).rejects.toMatchObject({
       code: 'NOT_FOUND',
     });

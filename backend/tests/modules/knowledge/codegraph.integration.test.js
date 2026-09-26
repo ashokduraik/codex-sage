@@ -7,16 +7,9 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
-import {
-  codegraphIndexExists,
-  createCodegraphAdapter,
-  isCodegraphLoadable,
-} from '../../../src/modules/knowledge/codegraph.js';
+import { codegraphIndexExists, createCodegraphAdapter, isCodegraphLoadable } from '../../../src/modules/knowledge/codegraph.js';
 
-const FIXTURE_ROOT = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  '../../fixtures/codegraph',
-);
+const FIXTURE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../fixtures/codegraph');
 
 const codegraphAvailable = await isCodegraphLoadable();
 
@@ -25,9 +18,7 @@ describe.skipIf(!codegraphAvailable)('codegraph integration (real library)', () 
   const tempDirs = [];
 
   afterEach(async () => {
-    await Promise.all(
-      tempDirs.splice(0).map((dir) => fs.rm(dir, { recursive: true, force: true })),
-    );
+    await Promise.all(tempDirs.splice(0).map((dir) => fs.rm(dir, { recursive: true, force: true })));
   });
 
   /**

@@ -99,18 +99,16 @@ describe('projects.service race branches', () => {
   });
 
   it('retries a successful transition after a lost first update', async () => {
-    repo.conditionalLifecycleUpdate
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({
-        _id: 'p1',
-        name: 'A',
-        lifecycleStatus: 'failed',
-        knowledgeHealth: 'none',
-        sourceConfig: { sourceType: 'upload' },
-        counts: {},
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
+    repo.conditionalLifecycleUpdate.mockResolvedValueOnce(null).mockResolvedValueOnce({
+      _id: 'p1',
+      name: 'A',
+      lifecycleStatus: 'failed',
+      knowledgeHealth: 'none',
+      sourceConfig: { sourceType: 'upload' },
+      counts: {},
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
     repo.findProjectById.mockResolvedValueOnce({
       _id: 'p1',
       lifecycleStatus: 'awaiting_source',

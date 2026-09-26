@@ -114,10 +114,7 @@ export async function markGridFsFilesOrphaned(gridFsIds, connection = mongoose.c
   }
   const files = db.collection(`${GRIDFS_SOURCE_BUCKET}.files`);
   const now = new Date();
-  await files.updateMany(
-    { _id: { $in: gridFsIds } },
-    { $set: { 'metadata.orphanedAt': now } },
-  );
+  await files.updateMany({ _id: { $in: gridFsIds } }, { $set: { 'metadata.orphanedAt': now } });
 }
 
 /**
@@ -131,18 +128,14 @@ export async function findSourceGridFsFileById(gridFsId, connection = mongoose.c
   if (!db) {
     return null;
   }
-  const id =
-    gridFsId instanceof mongoose.Types.ObjectId
-      ? gridFsId
-      : new mongoose.Types.ObjectId(String(gridFsId));
+  const id = gridFsId instanceof mongoose.Types.ObjectId ? gridFsId : new mongoose.Types.ObjectId(String(gridFsId));
   const doc = await db.collection(`${GRIDFS_SOURCE_BUCKET}.files`).findOne({ _id: id });
   if (!doc) {
     return null;
   }
   return {
     length: typeof doc.length === 'number' ? doc.length : 0,
-    sha256:
-      doc.metadata && typeof doc.metadata.sha256 === 'string' ? doc.metadata.sha256 : null,
+    sha256: doc.metadata && typeof doc.metadata.sha256 === 'string' ? doc.metadata.sha256 : null,
   };
 }
 
@@ -178,10 +171,7 @@ export async function listSourceGridFsFilesForVersion(scope, connection = mongoo
  */
 export function openSourceGridFsDownloadStream(gridFsId, connection = mongoose.connection) {
   const bucket = getSourceFilesBucket(connection);
-  const id =
-    gridFsId instanceof mongoose.Types.ObjectId
-      ? gridFsId
-      : new mongoose.Types.ObjectId(String(gridFsId));
+  const id = gridFsId instanceof mongoose.Types.ObjectId ? gridFsId : new mongoose.Types.ObjectId(String(gridFsId));
   return bucket.openDownloadStream(id);
 }
 
@@ -469,9 +459,7 @@ export async function computeSourceDiff(input) {
     projectId: input.projectId,
     sourceVersionId: input.incomingSourceVersionId,
   });
-  const publishedId = input.publishedSourceVersionId
-    ? String(input.publishedSourceVersionId)
-    : null;
+  const publishedId = input.publishedSourceVersionId ? String(input.publishedSourceVersionId) : null;
   const publishedByPath =
     publishedId && publishedId !== String(input.incomingSourceVersionId)
       ? await loadPathHashesForVersion({
@@ -576,16 +564,13 @@ export async function insertSourceVersion(input, options = {}) {
     _id: new mongoose.Types.ObjectId(input.sourceVersionId),
     orgId: input.orgId,
     projectId: input.projectId,
-    origin:
-      input.origin === SOURCE_ORIGIN_REPOSITORY ? SOURCE_ORIGIN_REPOSITORY : SOURCE_ORIGIN_UPLOAD,
+    origin: input.origin === SOURCE_ORIGIN_REPOSITORY ? SOURCE_ORIGIN_REPOSITORY : SOURCE_ORIGIN_UPLOAD,
     exclusionRulesetId: input.exclusionRulesetId,
     versionLifecycle: VERSION_LIFECYCLE_RECEIVED,
     jobId: input.jobId ? new mongoose.Types.ObjectId(input.jobId) : null,
     commitSha: input.commitSha ?? null,
     branch: input.branch ?? null,
-    repositoryConnectionId: input.repositoryConnectionId
-      ? new mongoose.Types.ObjectId(input.repositoryConnectionId)
-      : null,
+    repositoryConnectionId: input.repositoryConnectionId ? new mongoose.Types.ObjectId(input.repositoryConnectionId) : null,
     fileCounts: input.fileCounts,
     createdBy: input.createdBy,
     updatedBy: input.createdBy,
@@ -786,11 +771,7 @@ export async function listSourceFilePathHashesPage(input) {
   if (input.afterPath) {
     filter.path = { $gt: input.afterPath };
   }
-  return SourceFile.find(filter, { path: 1, sha256: 1, _id: 0 })
-    .sort({ path: 1 })
-    .limit(input.limit)
-    .lean()
-    .exec();
+  return SourceFile.find(filter, { path: 1, sha256: 1, _id: 0 }).sort({ path: 1 }).limit(input.limit).lean().exec();
 }
 
 /**
@@ -911,20 +892,12 @@ export async function listProjectSourceVersions(orgId, projectId, query = {}) {
  * @returns {Promise<{ jobId: string, sourceVersionId: string, jobType: string }>}
  */
 export async function enqueueSourceReingest(input) {
-  const version = await findActiveSourceVersionForProject(
-    input.orgId,
-    input.projectId,
-    input.sourceVersionId,
-  );
+  const version = await findActiveSourceVersionForProject(input.orgId, input.projectId, input.sourceVersionId);
   if (!version) {
     throw ApiError.fromCode('SOURCE_VERSION_NOT_FOUND');
   }
 
-  const active = await findActiveJobForSourceVersion(
-    input.orgId,
-    input.projectId,
-    input.sourceVersionId,
-  );
+  const active = await findActiveJobForSourceVersion(input.orgId, input.projectId, input.sourceVersionId);
   if (active) {
     return {
       jobId: String(active._id),
@@ -1004,11 +977,7 @@ export async function sourceRoutes(app) {
           details: [{ path: 'limit', message: 'limit must be a positive integer' }],
         });
       }
-      return listProjectSourceVersions(
-        request.projectScope.orgId,
-        request.projectScope.projectId,
-        parsed.data,
-      );
+      return listProjectSourceVersions(request.projectScope.orgId, request.projectScope.projectId, parsed.data);
     },
   );
 
@@ -1034,8 +1003,4 @@ export async function sourceRoutes(app) {
   );
 }
 
-export const SOURCE_MODELS = Object.freeze([
-  SourceVersion,
-  SourceFile,
-  SourceChangeSummary,
-]);
+export const SOURCE_MODELS = Object.freeze([SourceVersion, SourceFile, SourceChangeSummary]);

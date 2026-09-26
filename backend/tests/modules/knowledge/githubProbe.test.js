@@ -2,11 +2,7 @@
  * Unit tests for GitHub probe helpers (README extract + branch paging).
  */
 import { describe, expect, it, vi } from 'vitest';
-import {
-  firstReadmeParagraph,
-  listGithubBranches,
-  readGithubDescription,
-} from '../../../src/modules/knowledge/repositories.helper.js';
+import { firstReadmeParagraph, listGithubBranches, readGithubDescription } from '../../../src/modules/knowledge/repositories.helper.js';
 
 describe('firstReadmeParagraph', () => {
   it('returns the first non-heading paragraph', () => {

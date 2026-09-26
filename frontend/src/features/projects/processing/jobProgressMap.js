@@ -8,12 +8,7 @@ import { AlertTriangle, Check, Circle, Loader2, Minus, XCircle } from 'lucide-re
 export const ACTIVE_JOB_STATUSES = Object.freeze(['pending', 'retrying', 'running']);
 
 /** Job statuses shown in processing history. */
-export const HISTORY_JOB_STATUSES = Object.freeze([
-  'completed',
-  'completed_with_warnings',
-  'failed',
-  'cancelled',
-]);
+export const HISTORY_JOB_STATUSES = Object.freeze(['completed', 'completed_with_warnings', 'failed', 'cancelled']);
 
 /** @typedef {'neutral' | 'progress' | 'success' | 'attention' | 'danger'} JobTone */
 
@@ -198,9 +193,7 @@ export function selectActiveJob(jobs) {
   if (!Array.isArray(jobs) || jobs.length === 0) {
     return null;
   }
-  const inFlight = jobs.filter(
-    (job) => job.jobStatus === 'running' || job.jobStatus === 'retrying',
-  );
+  const inFlight = jobs.filter((job) => job.jobStatus === 'running' || job.jobStatus === 'retrying');
   if (inFlight.length > 0) {
     return inFlight[0];
   }

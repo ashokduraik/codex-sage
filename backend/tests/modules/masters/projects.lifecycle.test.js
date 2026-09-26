@@ -108,12 +108,7 @@ describe('projects.lifecycle', () => {
   });
 
   it('rejects knowledgeHealth ready or partially_available while lifecycle is pre-processing', () => {
-    for (const lifecycleStatus of [
-      'creating',
-      'awaiting_source',
-      'connecting_repository',
-      'source_received',
-    ]) {
+    for (const lifecycleStatus of ['creating', 'awaiting_source', 'connecting_repository', 'source_received']) {
       for (const knowledgeHealth of ['ready', 'partially_available']) {
         try {
           assertKnowledgeHealthAllowed({ lifecycleStatus, knowledgeHealth });

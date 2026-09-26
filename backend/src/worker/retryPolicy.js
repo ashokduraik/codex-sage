@@ -1,11 +1,7 @@
 /**
  * Failure classification and exponential backoff for temporary failures.
  */
-import {
-  WORKER_MAX_ATTEMPTS,
-  WORKER_RETRY_BACKOFF_BASE_MS,
-  WORKER_RETRY_BACKOFF_MAX_MS,
-} from './worker.constants.js';
+import { WORKER_MAX_ATTEMPTS, WORKER_RETRY_BACKOFF_BASE_MS, WORKER_RETRY_BACKOFF_MAX_MS } from './worker.constants.js';
 
 /** @typedef {'temporary' | 'permanent' | 'user_action_required'} FailureClass */
 
@@ -51,25 +47,16 @@ export function classifyThrownFailure(thrown) {
     thrown &&
     typeof thrown === 'object' &&
     'failureClass' in thrown &&
-    typeof /** @type {{ failureClass?: unknown }} */ (thrown).failureClass === 'string' &&
+    typeof (/** @type {{ failureClass?: unknown }} */ (thrown).failureClass) === 'string' &&
     'code' in thrown &&
-    typeof /** @type {{ code?: unknown }} */ (thrown).code === 'string'
+    typeof (/** @type {{ code?: unknown }} */ (thrown).code) === 'string'
   ) {
-    const failureClass = /** @type {FailureClass} */ (
-      /** @type {{ failureClass: string }} */ (thrown).failureClass
-    );
-    if (
-      failureClass === 'temporary' ||
-      failureClass === 'permanent' ||
-      failureClass === 'user_action_required'
-    ) {
+    const failureClass = /** @type {FailureClass} */ (/** @type {{ failureClass: string }} */ (thrown).failureClass);
+    if (failureClass === 'temporary' || failureClass === 'permanent' || failureClass === 'user_action_required') {
       return {
         failureClass,
         code: /** @type {{ code: string }} */ (thrown).code,
-        message:
-          thrown instanceof Error
-            ? thrown.message
-            : String(/** @type {{ message?: unknown }} */ (thrown).message ?? 'Job failed'),
+        message: thrown instanceof Error ? thrown.message : String(/** @type {{ message?: unknown }} */ (thrown).message ?? 'Job failed'),
         unclassified: false,
       };
     }
@@ -114,10 +101,7 @@ export function computeRetryBackoffMs(attempt, options = {}) {
  * @returns {FailureDecision}
  */
 export function decideFailureOutcome(input) {
-  const maxAttempts =
-    typeof input.maxAttempts === 'number' && input.maxAttempts >= 1
-      ? input.maxAttempts
-      : WORKER_MAX_ATTEMPTS;
+  const maxAttempts = typeof input.maxAttempts === 'number' && input.maxAttempts >= 1 ? input.maxAttempts : WORKER_MAX_ATTEMPTS;
   const { failure, attempt } = input;
 
   if (failure.failureClass === 'permanent' || failure.failureClass === 'user_action_required') {

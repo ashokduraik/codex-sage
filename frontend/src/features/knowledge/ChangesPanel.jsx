@@ -3,15 +3,7 @@
  */
 import { useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import {
-  AlertTriangle,
-  ChevronDown,
-  ChevronRight,
-  FileEdit,
-  FileMinus,
-  FilePlus,
-  GitCompare,
-} from 'lucide-react';
+import { AlertTriangle, ChevronDown, ChevronRight, FileEdit, FileMinus, FilePlus, GitCompare } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { EmptyState } from '@/shared/components';
 import { cn } from '@/shared/lib/utils';
@@ -84,11 +76,7 @@ export default function ChangesPanel() {
     return (
       <div className="h-full overflow-y-auto scrollbar-thin">
         <div className="mx-auto max-w-3xl px-6 py-8">
-          <EmptyState
-            icon={GitCompare}
-            title={t('changes.emptyTitle')}
-            description={t('changes.emptyDescription')}
-          />
+          <EmptyState icon={GitCompare} title={t('changes.emptyTitle')} description={t('changes.emptyDescription')} />
         </div>
       </div>
     );
@@ -109,17 +97,14 @@ export default function ChangesPanel() {
                 <row.icon className="h-4 w-4" aria-hidden="true" />
                 {t(row.labelKey)}
               </div>
-              <div className="mt-1 text-2xl font-semibold text-foreground">
-                {Number(summary.counts?.[row.key]) || 0}
-              </div>
+              <div className="mt-1 text-2xl font-semibold text-foreground">{Number(summary.counts?.[row.key]) || 0}</div>
             </div>
           ))}
         </div>
 
         {summary.impact?.apisChanged != null || summary.impact?.workflowsChanged != null ? (
           <p className="mt-4 text-sm text-muted-foreground">
-            {t('changes.affected')}: {summary.impact.apisChanged ?? '—'} /{' '}
-            {summary.impact.workflowsChanged ?? '—'}
+            {t('changes.affected')}: {summary.impact.apisChanged ?? '—'} / {summary.impact.workflowsChanged ?? '—'}
           </p>
         ) : null}
 
@@ -131,12 +116,7 @@ export default function ChangesPanel() {
             }
             return (
               <div key={row.key}>
-                <h2
-                  className={cn(
-                    'flex items-center gap-2 text-xs font-semibold uppercase tracking-wide',
-                    row.tone,
-                  )}
-                >
+                <h2 className={cn('flex items-center gap-2 text-xs font-semibold uppercase tracking-wide', row.tone)}>
                   <row.icon className="h-3.5 w-3.5" aria-hidden="true" />
                   {t(row.labelKey)}
                 </h2>
@@ -149,9 +129,7 @@ export default function ChangesPanel() {
                       onClick={() => setPreviewTarget({ path: entry.path, startLine: 1, endLine: 40 })}
                     >
                       <div className="font-mono text-sm text-foreground">{entry.path}</div>
-                      {entry.impact ? (
-                        <div className="text-xs text-muted-foreground">{entry.impact}</div>
-                      ) : null}
+                      {entry.impact ? <div className="text-xs text-muted-foreground">{entry.impact}</div> : null}
                     </button>
                   ))}
                 </div>
@@ -192,9 +170,7 @@ export default function ChangesPanel() {
                       </div>
                       <div className="rounded-lg border border-border bg-card p-3">
                         <div className="text-xs font-semibold text-amber-700">{t('changes.docsSay')}</div>
-                        <p className="mt-1 text-sm">
-                          {conflict.documentation?.excerpt || conflict.docs}
-                        </p>
+                        <p className="mt-1 text-sm">{conflict.documentation?.excerpt || conflict.docs}</p>
                       </div>
                     </div>
                   ) : null}
@@ -204,11 +180,7 @@ export default function ChangesPanel() {
           )}
         </div>
       </div>
-      <SourcePreviewDrawer
-        projectId={projectId}
-        target={previewTarget}
-        onClose={() => setPreviewTarget(null)}
-      />
+      <SourcePreviewDrawer projectId={projectId} target={previewTarget} onClose={() => setPreviewTarget(null)} />
     </div>
   );
 }

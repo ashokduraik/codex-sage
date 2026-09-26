@@ -11,9 +11,16 @@
     "start": "bash scripts/start.sh",
     "test": "bash scripts/test.sh",
     "lint": "bash scripts/lint.sh",
-    "clean": "bash scripts/clean.sh"
+    "clean": "bash scripts/clean.sh",
+    "prepare": "husky",
+    "format": "prettier --write ."
   },
   "engines": {
     "node": ">=26"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.0",
+    "prettier": "^3.8.1"
   }
 }

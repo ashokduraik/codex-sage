@@ -58,9 +58,7 @@ function mockXhr() {
       if (!this.responseHeaders) {
         return null;
       }
-      const key = Object.keys(this.responseHeaders).find(
-        (candidate) => candidate.toLowerCase() === name.toLowerCase(),
-      );
+      const key = Object.keys(this.responseHeaders).find((candidate) => candidate.toLowerCase() === name.toLowerCase());
       return key ? this.responseHeaders[key] : null;
     }
 
@@ -229,9 +227,7 @@ describe('apiUpload', () => {
     xhrMock.instances[0].onload();
     await expect(pendingAbort).rejects.toBeInstanceOf(RequestAbortedError);
 
-    refreshAccessToken.mockRejectedValueOnce(
-      new ApiError({ status: 401, code: 'SESSION_EXPIRED', message: 'gone' }),
-    );
+    refreshAccessToken.mockRejectedValueOnce(new ApiError({ status: 401, code: 'SESSION_EXPIRED', message: 'gone' }));
     const pendingFail = apiUpload('/projects/p1/sources', { body: new FormData() });
     const failXhr = xhrMock.instances[1];
     failXhr.status = 401;

@@ -10,11 +10,7 @@ import { createBaseSchema, ROW_STATUS_ACTIVE } from '../platform/data/index.js';
 const ObjectId = mongoose.Schema.Types.ObjectId;
 
 export const SOURCE_FILE_KIND_VALUES = Object.freeze(['code', 'config', 'doc']);
-export const SOURCE_FILE_STATE_VALUES = Object.freeze([
-  'stored',
-  'missing',
-  'corrupt',
-]);
+export const SOURCE_FILE_STATE_VALUES = Object.freeze(['stored', 'missing', 'corrupt']);
 export const SOURCE_FILE_STATE_STORED = 'stored';
 export const SOURCE_FILE_STATE_MISSING = 'missing';
 export const SOURCE_FILE_STATE_CORRUPT = 'corrupt';
@@ -52,5 +48,4 @@ sourceFileSchema.index(
   },
 );
 
-export const SourceFile =
-  mongoose.models.SourceFile ?? mongoose.model('SourceFile', sourceFileSchema);
+export const SourceFile = mongoose.models.SourceFile ?? mongoose.model('SourceFile', sourceFileSchema);

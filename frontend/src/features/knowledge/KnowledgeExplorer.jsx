@@ -3,13 +3,7 @@
  */
 import { useState } from 'react';
 import { Link, useNavigate, useOutletContext } from 'react-router-dom';
-import {
-  ArrowRight,
-  BookOpen,
-  Boxes,
-  ChevronDown,
-  ChevronRight,
-} from 'lucide-react';
+import { ArrowRight, BookOpen, Boxes, ChevronDown, ChevronRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { EmptyState } from '@/shared/components';
 import { useKnowledgeFacet, useKnowledgeFacets, useKnowledgeHealth } from './hooks/useKnowledgeFacets.js';
@@ -95,11 +89,7 @@ function FacetBody({ projectId, facetKey, expanded, knowledgeVersionId, onOpen, 
           <div key={item.id || title} className="flex items-center gap-2 rounded-lg py-1.5 pr-2 hover:bg-muted/50">
             <Boxes className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
             <span className="min-w-0 flex-1 truncate text-sm">{title}</span>
-            {sourceRef?.path ? (
-              <span className="hidden font-mono text-[11px] text-muted-foreground sm:inline">
-                {sourceRef.path}
-              </span>
-            ) : null}
+            {sourceRef?.path ? <span className="hidden font-mono text-[11px] text-muted-foreground sm:inline">{sourceRef.path}</span> : null}
             {sourceRef?.path ? (
               <button
                 type="button"
@@ -186,9 +176,7 @@ export default function KnowledgeExplorer() {
         {healthQuery.data?.dimensions ? (
           <div className="mt-4 rounded-lg border border-border bg-card px-4 py-3 text-sm">
             <div className="font-medium">{t('knowledge.healthTitle')}</div>
-            <p className="mt-1 text-muted-foreground">
-              {healthQuery.data.dimensions.publishedHealth?.state || healthQuery.data.knowledgeHealth}
-            </p>
+            <p className="mt-1 text-muted-foreground">{healthQuery.data.dimensions.publishedHealth?.state || healthQuery.data.knowledgeHealth}</p>
           </div>
         ) : null}
 
@@ -213,11 +201,7 @@ export default function KnowledgeExplorer() {
 
         {!facetsQuery.isLoading && state === 'ready' && facets.length === 0 ? (
           <div className="mt-5">
-            <EmptyState
-              icon={BookOpen}
-              title={t('knowledge.emptyTitle')}
-              description={t('knowledge.emptyDescription')}
-            />
+            <EmptyState icon={BookOpen} title={t('knowledge.emptyTitle')} description={t('knowledge.emptyDescription')} />
           </div>
         ) : null}
 
@@ -236,16 +220,10 @@ export default function KnowledgeExplorer() {
                       aria-expanded={isOpen}
                       aria-label={t(`knowledge.facet.${key}`, { defaultValue: key })}
                     >
-                      {isOpen ? (
-                        <ChevronDown className="h-4 w-4" aria-hidden="true" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4" aria-hidden="true" />
-                      )}
+                      {isOpen ? <ChevronDown className="h-4 w-4" aria-hidden="true" /> : <ChevronRight className="h-4 w-4" aria-hidden="true" />}
                     </button>
                     <Boxes className="h-4 w-4 shrink-0 text-brand" aria-hidden="true" />
-                    <span className="flex-1 truncate text-sm">
-                      {t(`knowledge.facet.${key}`, { defaultValue: key })}
-                    </span>
+                    <span className="flex-1 truncate text-sm">{t(`knowledge.facet.${key}`, { defaultValue: key })}</span>
                   </div>
                   <div className="ml-6 border-l border-border pl-2">
                     <FacetBody
@@ -263,11 +241,7 @@ export default function KnowledgeExplorer() {
           </div>
         ) : null}
       </div>
-      <SourcePreviewDrawer
-        projectId={projectId}
-        target={previewTarget}
-        onClose={() => setPreviewTarget(null)}
-      />
+      <SourcePreviewDrawer projectId={projectId} target={previewTarget} onClose={() => setPreviewTarget(null)} />
     </div>
   );
 }

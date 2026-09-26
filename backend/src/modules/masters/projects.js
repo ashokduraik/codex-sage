@@ -24,13 +24,12 @@ import { z } from 'zod';
 /**
  * Project HTTP routes under `/api/v1`.
  */
-const createBodySchema = z
-  .object({
-    name: z.string().trim().min(1).max(120),
-    description: z.string().trim().max(2000).optional(),
-    sourceType: z.enum(['upload', 'repository']),
-  });
-  // Unknown keys (e.g. forged orgId) are stripped — never trusted from the client.
+const createBodySchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  description: z.string().trim().max(2000).optional(),
+  sourceType: z.enum(['upload', 'repository']),
+});
+// Unknown keys (e.g. forged orgId) are stripped — never trusted from the client.
 
 const patchBodySchema = z
   .object({
@@ -140,22 +139,18 @@ export async function projectRoutes(app) {
     },
   );
 
-  app.get(
-    '/projects',
-    { config: { requiredPermissions: ['projects.view'] } },
-    async (request) => {
-      const parsed = listQuerySchema.safeParse(request.query ?? {});
-      if (!parsed.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
-      }
-      if (parsed.data.limit === 0) {
-        throw ApiError.fromCode('VALIDATION_ERROR', {
-          details: [{ path: 'limit', message: 'limit must be a positive integer' }],
-        });
-      }
-      return listProjects(request.principal.orgId, request.principal.userId, parsed.data);
-    },
-  );
+  app.get('/projects', { config: { requiredPermissions: ['projects.view'] } }, async (request) => {
+    const parsed = listQuerySchema.safeParse(request.query ?? {});
+    if (!parsed.success) {
+      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
+    }
+    if (parsed.data.limit === 0) {
+      throw ApiError.fromCode('VALIDATION_ERROR', {
+        details: [{ path: 'limit', message: 'limit must be a positive integer' }],
+      });
+    }
+    return listProjects(request.principal.orgId, request.principal.userId, parsed.data);
+  });
 
   app.get(
     '/projects/:projectId',
@@ -183,10 +178,7 @@ export async function projectRoutes(app) {
       if (!params.success) {
         throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
       }
-      return recordProjectAccess(
-        request.projectScope.orgId,
-        request.projectScope.projectId,
-      );
+      return recordProjectAccess(request.projectScope.orgId, request.projectScope.projectId);
     },
   );
 
@@ -297,10 +289,7 @@ export async function projectRoutes(app) {
       if (!params.success) {
         throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
       }
-      return getDeletionPreview(
-        request.projectScope.orgId,
-        request.projectScope.projectId,
-      );
+      return getDeletionPreview(request.projectScope.orgId, request.projectScope.projectId);
     },
   );
 
@@ -424,11 +413,8 @@ export function mapProjectToDto(project, options = {}) {
 
   if (detail) {
     dto.archivedAt = toIsoOrNull(project.archivedAt);
-    dto.currentKnowledgeVersionId = project.currentKnowledgeVersionId
-      ? String(project.currentKnowledgeVersionId)
-      : null;
-    dto.settings =
-      project.settings && typeof project.settings === 'object' ? { ...project.settings } : {};
+    dto.currentKnowledgeVersionId = project.currentKnowledgeVersionId ? String(project.currentKnowledgeVersionId) : null;
+    dto.settings = project.settings && typeof project.settings === 'object' ? { ...project.settings } : {};
     dto.lifecycleStatusReasonCode = project.lifecycleStatusReasonCode ?? null;
     dto.lifecycleStatusChangedAt = toIsoOrNull(project.lifecycleStatusChangedAt);
   }
@@ -740,8 +726,7 @@ export async function getProjectSettings(orgId, projectId) {
   if (!project) {
     throw ApiError.fromCode('NOT_FOUND', { message: 'Project not found.' });
   }
-  const settings =
-    project.settings && typeof project.settings === 'object' ? { ...project.settings } : {};
+  const settings = project.settings && typeof project.settings === 'object' ? { ...project.settings } : {};
   return { settings };
 }
 
@@ -797,8 +782,7 @@ export async function patchProjectSettings(input) {
     { log: input.log },
   );
 
-  const settings =
-    updated.settings && typeof updated.settings === 'object' ? { ...updated.settings } : {};
+  const settings = updated.settings && typeof updated.settings === 'object' ? { ...updated.settings } : {};
   return { settings };
 }
 

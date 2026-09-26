@@ -3,10 +3,7 @@
  */
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  sourceVersionsQueryKey,
-  uploadProjectSource,
-} from '@/features/projects/api/sourcesApi.js';
+import { sourceVersionsQueryKey, uploadProjectSource } from '@/features/projects/api/sourcesApi.js';
 import { projectDetailQueryKey } from '@/features/projects/api/projectsApi.js';
 
 /**

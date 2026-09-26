@@ -7,7 +7,7 @@ import { TEST_APP_CONFIG } from '../../appConfig.js';
 import {
   IDENTITY_MODELS,
   createOrganization,
-  createUser, createUserInRepo,
+  createUserInRepo,
   ensureBuiltInRoles,
   findBuiltInRole,
   bumpOrganizationAclVersion,
@@ -55,9 +55,9 @@ describe('resolveProjectPermissions', () => {
       email: `u-${Date.now()}@example.com`,
       displayName: 'User',
       userStatus: 'active',
-          roleIds: [role._id],
-          projectAccessMode: mode
-        });
+      roleIds: [role._id],
+      projectAccessMode: mode,
+    });
     const project = await createProjectInRepo(org._id, {
       name: 'P',
       sourceType: 'upload',
@@ -68,11 +68,7 @@ describe('resolveProjectPermissions', () => {
 
   it('returns org permissions only for all mode without member row', async () => {
     const { org, user, project } = await seed('all', 'viewer');
-    const result = await resolveProjectPermissions(
-      String(org._id),
-      String(user._id),
-      String(project._id),
-    );
+    const result = await resolveProjectPermissions(String(org._id), String(user._id), String(project._id));
     expect(result.kind).toBe('OK');
     expect(result.permissions).toContain('projects.view');
     expect(result.permissions).not.toContain('projects.update');
@@ -86,11 +82,7 @@ describe('resolveProjectPermissions', () => {
       permissions: ['projects.update'],
       addedByUserId: user._id,
     });
-    const result = await resolveProjectPermissions(
-      String(org._id),
-      String(user._id),
-      String(project._id),
-    );
+    const result = await resolveProjectPermissions(String(org._id), String(user._id), String(project._id));
     expect(result.kind).toBe('OK');
     expect(result.permissions).toContain('projects.view');
     expect(result.permissions).toContain('projects.update');
@@ -98,11 +90,7 @@ describe('resolveProjectPermissions', () => {
 
   it('selected mode requires an active member row', async () => {
     const { org, user, project } = await seed('selected', 'member');
-    const denied = await resolveProjectPermissions(
-      String(org._id),
-      String(user._id),
-      String(project._id),
-    );
+    const denied = await resolveProjectPermissions(String(org._id), String(user._id), String(project._id));
     expect(denied.kind).toBe('NO_ACCESS');
 
     await createProjectMember(org._id, {
@@ -111,11 +99,7 @@ describe('resolveProjectPermissions', () => {
       permissions: ['projects.view'],
       addedByUserId: user._id,
     });
-    const allowed = await resolveProjectPermissions(
-      String(org._id),
-      String(user._id),
-      String(project._id),
-    );
+    const allowed = await resolveProjectPermissions(String(org._id), String(user._id), String(project._id));
     expect(allowed.kind).toBe('OK');
   });
 
@@ -127,11 +111,7 @@ describe('resolveProjectPermissions', () => {
       permissions: ['projects.view'],
       addedByUserId: user._id,
     });
-    const result = await resolveProjectPermissions(
-      String(org._id),
-      String(user._id),
-      String(project._id),
-    );
+    const result = await resolveProjectPermissions(String(org._id), String(user._id), String(project._id));
     expect(result.kind).toBe('NO_ACCESS');
   });
 
@@ -144,43 +124,19 @@ describe('resolveProjectPermissions', () => {
       addedByUserId: user._id,
     });
     await softDeleteProjectMember(org._id, String(project._id), user._id);
-    expect(
-      (
-        await resolveProjectPermissions(
-          String(org._id),
-          String(user._id),
-          String(project._id),
-        )
-      ).kind,
-    ).toBe('NO_ACCESS');
+    expect((await resolveProjectPermissions(String(org._id), String(user._id), String(project._id))).kind).toBe('NO_ACCESS');
 
     const other = await seed('all', 'member');
     await softDeleteProject(other.org._id, String(other.project._id), {
       updatedBy: other.user._id,
     });
-    expect(
-      (
-        await resolveProjectPermissions(
-          String(other.org._id),
-          String(other.user._id),
-          String(other.project._id),
-        )
-      ).kind,
-    ).toBe('NO_ACCESS');
+    expect((await resolveProjectPermissions(String(other.org._id), String(other.user._id), String(other.project._id))).kind).toBe('NO_ACCESS');
   });
 
   it('cross-org project and inactive user yield NO_ACCESS', async () => {
     const a = await seed('all', 'member');
     const b = await seed('all', 'member');
-    expect(
-      (
-        await resolveProjectPermissions(
-          String(a.org._id),
-          String(a.user._id),
-          String(b.project._id),
-        )
-      ).kind,
-    ).toBe('NO_ACCESS');
+    expect((await resolveProjectPermissions(String(a.org._id), String(a.user._id), String(b.project._id))).kind).toBe('NO_ACCESS');
 
     const memberRole = await findBuiltInRole(a.org._id, 'member');
     const inactive = await createUserInRepo(a.org._id, {
@@ -190,15 +146,7 @@ describe('resolveProjectPermissions', () => {
       roleIds: [memberRole._id],
       projectAccessMode: 'all',
     });
-    expect(
-      (
-        await resolveProjectPermissions(
-          String(a.org._id),
-          String(inactive._id),
-          String(a.project._id),
-        )
-      ).kind,
-    ).toBe('NO_ACCESS');
+    expect((await resolveProjectPermissions(String(a.org._id), String(inactive._id), String(a.project._id))).kind).toBe('NO_ACCESS');
   });
 
   it('ignores overlay attempts to remove org permissions and foreign roleId', async () => {
@@ -217,11 +165,7 @@ describe('resolveProjectPermissions', () => {
       permissions: [],
       addedByUserId: user._id,
     });
-    const result = await resolveProjectPermissions(
-      String(org._id),
-      String(user._id),
-      String(project._id),
-    );
+    const result = await resolveProjectPermissions(String(org._id), String(user._id), String(project._id));
     expect(result.kind).toBe('OK');
     expect(result.permissions).toContain('projects.view');
     expect(result.permissions).toContain('chat.ask');
@@ -238,31 +182,16 @@ describe('resolveProjectPermissions', () => {
 
     const cache = createProjectAclCache({ enabled: true, ttlMs: 60_000 });
     const memo = new Map();
-    const first = await resolveProjectPermissions(
-      String(org._id),
-      String(user._id),
-      String(project._id),
-      { cache, requestMemo: memo },
-    );
+    const first = await resolveProjectPermissions(String(org._id), String(user._id), String(project._id), { cache, requestMemo: memo });
     expect(first.kind).toBe('OK');
     expect(memo.size).toBe(1);
 
-    const second = await resolveProjectPermissions(
-      String(org._id),
-      String(user._id),
-      String(project._id),
-      { cache, requestMemo: memo },
-    );
+    const second = await resolveProjectPermissions(String(org._id), String(user._id), String(project._id), { cache, requestMemo: memo });
     expect(second).toBe(first);
 
     await softDeleteProjectMember(org._id, String(project._id), user._id);
     await bumpOrganizationAclVersion(org._id);
-    const afterBump = await resolveProjectPermissions(
-      String(org._id),
-      String(user._id),
-      String(project._id),
-      { cache },
-    );
+    const afterBump = await resolveProjectPermissions(String(org._id), String(user._id), String(project._id), { cache });
     expect(afterBump.kind).toBe('NO_ACCESS');
   });
 
@@ -275,12 +204,7 @@ describe('resolveProjectPermissions', () => {
     expect(cache.size()).toBeGreaterThan(0);
     await bumpProjectAclVersion(org._id);
     // Process default cache is cleared by bump; custom cache still needs version mismatch.
-    const next = await resolveProjectPermissions(
-      String(org._id),
-      String(user._id),
-      String(project._id),
-      { cache },
-    );
+    const next = await resolveProjectPermissions(String(org._id), String(user._id), String(project._id), { cache });
     expect(next.kind).toBe('OK');
   });
 });

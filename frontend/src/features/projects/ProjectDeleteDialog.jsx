@@ -12,12 +12,7 @@ import {
 import { Button } from '@/shared/ui/button';
 import { useDeleteProject } from './hooks/useProjectMutations.js';
 import { useProjectDeletionPreview } from './hooks/useProjectDeletionPreview.js';
-import {
-  correlationFromUnknown,
-  isForbiddenApiError,
-  messageFromUnknown,
-  retryAfterFromUnknown,
-} from '@/shared/api';
+import { correlationFromUnknown, isForbiddenApiError, messageFromUnknown, retryAfterFromUnknown } from '@/shared/api';
 
 /**
  * Builds an i18n key for a deletion consequence row.
@@ -49,31 +44,20 @@ function consequenceLabel(consequence, t) {
  * }} props Dialog props.
  * @returns Delete confirmation dialog.
  */
-export function ProjectDeleteDialog({
-  open,
-  onOpenChange,
-  projectId,
-  projectName,
-  onDeleted,
-}) {
+export function ProjectDeleteDialog({ open, onOpenChange, projectId, projectName, onDeleted }) {
   const { t } = useTranslation();
   const previewQuery = useProjectDeletionPreview(projectId, { enabled: open });
   const deleteMutation = useDeleteProject();
 
-  const previewError = previewQuery.isError
-    ? messageFromUnknown(previewQuery.error, t('projects.deletePreviewFailed'))
-    : '';
+  const previewError = previewQuery.isError ? messageFromUnknown(previewQuery.error, t('projects.deletePreviewFailed')) : '';
   const deleteError = deleteMutation.isError
     ? isForbiddenApiError(deleteMutation.error)
       ? t('projects.forbidden')
       : messageFromUnknown(deleteMutation.error, t('projects.detailFailed'))
     : '';
-  const correlationId = correlationFromUnknown(
-    deleteMutation.error || previewQuery.error,
-  );
+  const correlationId = correlationFromUnknown(deleteMutation.error || previewQuery.error);
   const retryAfter = retryAfterFromUnknown(deleteMutation.error);
-  const canConfirm =
-    previewQuery.isSuccess && !previewQuery.isError && !deleteMutation.isPending;
+  const canConfirm = previewQuery.isSuccess && !previewQuery.isError && !deleteMutation.isPending;
 
   /**
    * Confirms soft-delete when the preview succeeded.
@@ -121,37 +105,27 @@ export function ProjectDeleteDialog({
               {previewQuery.isSuccess ? (
                 <>
                   <div>
-                    <p className="font-medium text-foreground">
-                      {t('projects.deleteCountsHeading')}
-                    </p>
+                    <p className="font-medium text-foreground">{t('projects.deleteCountsHeading')}</p>
                     <ul className="mt-1 list-disc space-y-0.5 pl-5">
                       <li>
                         {t('projects.countSourceVersions', {
                           count: previewQuery.data.counts.sourceVersions,
                         })}
                       </li>
-                      <li>
-                        {t('projects.countFiles', { count: previewQuery.data.counts.files })}
-                      </li>
+                      <li>{t('projects.countFiles', { count: previewQuery.data.counts.files })}</li>
                       <li>
                         {t('projects.countConversations', {
                           count: previewQuery.data.counts.conversations,
                         })}
                       </li>
-                      <li>
-                        {t('projects.countJobs', { count: previewQuery.data.counts.jobs })}
-                      </li>
+                      <li>{t('projects.countJobs', { count: previewQuery.data.counts.jobs })}</li>
                     </ul>
                   </div>
                   <div>
-                    <p className="font-medium text-foreground">
-                      {t('projects.deleteConsequencesHeading')}
-                    </p>
+                    <p className="font-medium text-foreground">{t('projects.deleteConsequencesHeading')}</p>
                     <ul className="mt-1 list-disc space-y-0.5 pl-5">
                       {previewQuery.data.consequences.map((row) => (
-                        <li key={`${row.resource}-${row.effect}`}>
-                          {consequenceLabel(row, t)}
-                        </li>
+                        <li key={`${row.resource}-${row.effect}`}>{consequenceLabel(row, t)}</li>
                       ))}
                     </ul>
                   </div>
@@ -161,29 +135,16 @@ export function ProjectDeleteDialog({
               {deleteMutation.isError ? (
                 <div role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-foreground">
                   <p>{deleteError}</p>
-                  {typeof retryAfter === 'number' ? (
-                    <p className="mt-1">{t('projects.retryAfter', { seconds: retryAfter })}</p>
-                  ) : null}
-                  {correlationId ? (
-                    <p className="mt-1 text-xs">
-                      {t('projects.correlationReference', { reference: correlationId })}
-                    </p>
-                  ) : null}
+                  {typeof retryAfter === 'number' ? <p className="mt-1">{t('projects.retryAfter', { seconds: retryAfter })}</p> : null}
+                  {correlationId ? <p className="mt-1 text-xs">{t('projects.correlationReference', { reference: correlationId })}</p> : null}
                 </div>
               ) : null}
             </div>
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={deleteMutation.isPending}>
-            {t('projects.deleteCancel')}
-          </AlertDialogCancel>
-          <Button
-            variant="destructive"
-            disabled={!canConfirm}
-            aria-busy={deleteMutation.isPending}
-            onClick={handleConfirm}
-          >
+          <AlertDialogCancel disabled={deleteMutation.isPending}>{t('projects.deleteCancel')}</AlertDialogCancel>
+          <Button variant="destructive" disabled={!canConfirm} aria-busy={deleteMutation.isPending} onClick={handleConfirm}>
             {deleteMutation.isPending ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
             ) : (

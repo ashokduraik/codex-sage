@@ -2,11 +2,7 @@
  * Source file metadata + slice query for the preview drawer.
  */
 import { useQuery } from '@tanstack/react-query';
-import {
-  fetchSourceFileMetadata,
-  fetchSourceSlice,
-  sourcePreviewQueryKey,
-} from '../api/knowledgeApi.js';
+import { fetchSourceFileMetadata, fetchSourceSlice, sourcePreviewQueryKey } from '../api/knowledgeApi.js';
 
 /**
  * Loads metadata and a slice when a path is selected.

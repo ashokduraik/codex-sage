@@ -82,14 +82,11 @@ export async function probeProjectRepository(input) {
   if (input.accessToken) {
     body.accessToken = input.accessToken;
   }
-  return apiRequest(
-    `/projects/${encodeURIComponent(input.projectId)}/repositories/probe`,
-    {
-      method: 'POST',
-      body,
-      signal: input.signal,
-    },
-  );
+  return apiRequest(`/projects/${encodeURIComponent(input.projectId)}/repositories/probe`, {
+    method: 'POST',
+    body,
+    signal: input.signal,
+  });
 }
 
 /**
@@ -127,10 +124,7 @@ export async function attachProjectRepository(input) {
  * @returns {Promise<{ connection: RepositoryConnectionDto }>}
  */
 export async function getProjectRepositoryConnection(projectId, options = {}) {
-  return apiRequest(
-    `/projects/${encodeURIComponent(projectId)}/repositories/connection`,
-    { signal: options.signal },
-  );
+  return apiRequest(`/projects/${encodeURIComponent(projectId)}/repositories/connection`, { signal: options.signal });
 }
 
 /**
@@ -143,14 +137,11 @@ export async function getProjectRepositoryConnection(projectId, options = {}) {
  * @returns {Promise<{ connection: RepositoryConnectionDto, connectionStatus?: string }>}
  */
 export async function replaceProjectRepositoryCredential(input) {
-  return apiRequest(
-    `/projects/${encodeURIComponent(input.projectId)}/repositories/credentials/replace`,
-    {
-      method: 'POST',
-      body: { accessToken: input.accessToken },
-      signal: input.signal,
-    },
-  );
+  return apiRequest(`/projects/${encodeURIComponent(input.projectId)}/repositories/credentials/replace`, {
+    method: 'POST',
+    body: { accessToken: input.accessToken },
+    signal: input.signal,
+  });
 }
 
 /**
@@ -162,13 +153,10 @@ export async function replaceProjectRepositoryCredential(input) {
  * @returns {Promise<void>}
  */
 export async function revokeProjectRepositoryCredential(input) {
-  return apiRequest(
-    `/projects/${encodeURIComponent(input.projectId)}/repositories/credentials/revoke`,
-    {
-      method: 'POST',
-      signal: input.signal,
-    },
-  );
+  return apiRequest(`/projects/${encodeURIComponent(input.projectId)}/repositories/credentials/revoke`, {
+    method: 'POST',
+    signal: input.signal,
+  });
 }
 
 /**
@@ -180,11 +168,8 @@ export async function revokeProjectRepositoryCredential(input) {
  * @returns {Promise<{ connectionStatus: string, reason?: object }>}
  */
 export async function retestProjectRepositoryConnection(input) {
-  return apiRequest(
-    `/projects/${encodeURIComponent(input.projectId)}/repositories/connection/re-test`,
-    {
-      method: 'POST',
-      signal: input.signal,
-    },
-  );
+  return apiRequest(`/projects/${encodeURIComponent(input.projectId)}/repositories/connection/re-test`, {
+    method: 'POST',
+    signal: input.signal,
+  });
 }

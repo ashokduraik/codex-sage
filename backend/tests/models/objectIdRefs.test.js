@@ -21,9 +21,7 @@ import { SourceVersion } from '../../src/models/sourceVersion.model.js';
 import { User } from '../../src/models/user.model.js';
 
 /** Paths that store an ObjectId that is not a single Mongoose document. */
-const OBJECT_ID_PATHS_WITHOUT_REF = Object.freeze(
-  new Set(['IdempotencyRecord.resourceId', 'SourceFile.gridFsId']),
-);
+const OBJECT_ID_PATHS_WITHOUT_REF = Object.freeze(new Set(['IdempotencyRecord.resourceId', 'SourceFile.gridFsId']));
 
 /**
  * Walks a schema and returns every ObjectId path with its `ref` (if any).
@@ -96,8 +94,7 @@ describe('ObjectId refs on domain models', () => {
     expect(Job.schema.path('projectId').options.ref).toBe('Project');
     expect(Job.schema.path('sourceVersionId').options.ref).toBe('SourceVersion');
     expect(User.schema.path('roleIds').options.ref).toBe('Role');
-    expect(Project.schema.path('sourceConfig').schema.path('repositoryConnectionId').options.ref)
-      .toBe('RepositoryConnection');
+    expect(Project.schema.path('sourceConfig').schema.path('repositoryConnectionId').options.ref).toBe('RepositoryConnection');
     expect(Project.schema.path('members').schema.path('userId').options.ref).toBe('User');
     expect(Project.schema.path('members').schema.path('roleId').options.ref).toBe('Role');
     expect(Project.schema.path('members').schema.path('addedByUserId').options.ref).toBe('User');

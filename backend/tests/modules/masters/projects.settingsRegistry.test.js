@@ -2,11 +2,7 @@
  * Settings registry validation.
  */
 import { describe, expect, it } from 'vitest';
-import {
-  PROJECT_SETTING_KEYS,
-  isKnownProjectSettingKey,
-  validateProjectSettingsKeys,
-} from '../../../src/modules/masters/projects.js';
+import { PROJECT_SETTING_KEYS, isKnownProjectSettingKey, validateProjectSettingsKeys } from '../../../src/modules/masters/projects.js';
 
 describe('projects.settingsRegistry', () => {
   it('starts with an empty key registry', () => {

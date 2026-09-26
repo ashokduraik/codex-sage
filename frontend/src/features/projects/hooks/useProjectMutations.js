@@ -70,11 +70,7 @@ function optimisticallyArchiveInLists(queryClient, projectId) {
         if (includeArchived) {
           return {
             ...page,
-            items: items.map((project) =>
-              String(project.id) === String(projectId)
-                ? { ...project, lifecycleStatus: 'archived' }
-                : project,
-            ),
+            items: items.map((project) => (String(project.id) === String(projectId) ? { ...project, lifecycleStatus: 'archived' } : project)),
           };
         }
         return {

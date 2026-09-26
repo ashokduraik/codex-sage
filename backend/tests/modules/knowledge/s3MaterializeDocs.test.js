@@ -14,13 +14,7 @@ import * as documents from '../../../src/modules/knowledge/documents.js';
 import { DocumentSection } from '../../../src/modules/knowledge/documents.js';
 import { Job } from '../../../src/models/job.model.js';
 import { insertPendingJob } from '../../../src/modules/masters/jobs.helper.js';
-import {
-  SourceFile,
-  SourceVersion,
-  getSourceFilesBucket,
-  insertSourceFiles,
-  insertSourceVersion,
-} from '../../../src/modules/knowledge/sources.js';
+import { SourceFile, SourceVersion, getSourceFilesBucket, insertSourceFiles, insertSourceVersion } from '../../../src/modules/knowledge/sources.js';
 import { clearSourceFilesBucket } from '../../clearSourceFilesBucket.js';
 import { EXCLUSION_RULESET_ID } from '../../../src/modules/knowledge/uploads.js';
 import { buildIngestStageContext } from '../../../src/modules/knowledge/ingest.js';
@@ -199,11 +193,7 @@ describe('s3MaterializeDocs extras', () => {
       ],
     });
 
-    const workspacePath = path.join(
-      workspaceRoot,
-      String(seeded.orgId),
-      String(seeded.projectId),
-    );
+    const workspacePath = path.join(workspaceRoot, String(seeded.orgId), String(seeded.projectId));
     await fs.mkdir(path.join(workspacePath, 'docs'), { recursive: true });
     await fs.writeFile(path.join(workspacePath, 'docs/keep.md'), '# Keep\nunchanged\n');
     await fs.writeFile(path.join(workspacePath, 'docs/gone.md'), '# Gone\n');
@@ -224,9 +214,7 @@ describe('s3MaterializeDocs extras', () => {
 
     const result = await runMaterializeDocsStage(ctx);
     expect(result.outcome).toBe('completed');
-    expect(await fs.readFile(path.join(workspacePath, 'docs/keep.md'), 'utf8')).toContain(
-      'unchanged',
-    );
+    expect(await fs.readFile(path.join(workspacePath, 'docs/keep.md'), 'utf8')).toContain('unchanged');
     await expect(fs.access(path.join(workspacePath, 'docs/gone.md'))).rejects.toMatchObject({
       code: 'ENOENT',
     });
@@ -266,9 +254,7 @@ describe('s3MaterializeDocs extras', () => {
 
     const result = await runMaterializeDocsStage(ctx);
     expect(result.outcome).toBe('completed_with_warnings');
-    expect(result.warnings).toEqual([
-      expect.objectContaining({ code: 'DOCUMENT_PARSE_FAILED', path: 'docs/broken.md' }),
-    ]);
+    expect(result.warnings).toEqual([expect.objectContaining({ code: 'DOCUMENT_PARSE_FAILED', path: 'docs/broken.md' })]);
   });
 
   it('fails permanent when workspace ids cannot form a safe project path', async () => {
@@ -295,9 +281,7 @@ describe('s3MaterializeDocs extras', () => {
       path: 'a.js',
       content: Buffer.from('a'),
     });
-    vi.spyOn(fs, 'rm').mockRejectedValueOnce(
-      Object.assign(new Error('no space left'), { code: 'ENOSPC' }),
-    );
+    vi.spyOn(fs, 'rm').mockRejectedValueOnce(Object.assign(new Error('no space left'), { code: 'ENOSPC' }));
 
     const workerContext = createWorkerContext(seeded.job);
     const version = await loadSourceVersionForIngest({
@@ -321,9 +305,7 @@ describe('s3MaterializeDocs extras', () => {
       path: 'a.js',
       content: Buffer.from('a'),
     });
-    vi.spyOn(fs, 'rm').mockRejectedValueOnce(
-      Object.assign(new Error('unsafe'), { code: 'WORKSPACE_PATH_UNSAFE' }),
-    );
+    vi.spyOn(fs, 'rm').mockRejectedValueOnce(Object.assign(new Error('unsafe'), { code: 'WORKSPACE_PATH_UNSAFE' }));
 
     const workerContext = createWorkerContext(seeded.job);
     const version = await loadSourceVersionForIngest({
@@ -457,10 +439,7 @@ describe('s3MaterializeDocs extras', () => {
       path: 'safe.js',
       content: Buffer.from('ok'),
     });
-    await SourceFile.updateOne(
-      { orgId: seeded.orgId, path: 'safe.js' },
-      { $set: { path: '../../../src/modules/escape.js' } },
-    );
+    await SourceFile.updateOne({ orgId: seeded.orgId, path: 'safe.js' }, { $set: { path: '../../../src/modules/escape.js' } });
 
     const workerContext = createWorkerContext(seeded.job);
     const version = await loadSourceVersionForIngest({

@@ -16,9 +16,7 @@ function jsonResponse({ status, body, headers = {} }) {
     status,
     headers: {
       get(name) {
-        const key = Object.keys(headerMap).find(
-          (candidate) => candidate.toLowerCase() === name.toLowerCase(),
-        );
+        const key = Object.keys(headerMap).find((candidate) => candidate.toLowerCase() === name.toLowerCase());
         return key ? headerMap[key] : null;
       },
     },

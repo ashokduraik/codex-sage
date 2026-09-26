@@ -5,23 +5,12 @@ import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
 import { Textarea } from '@/shared/ui/textarea';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@/shared/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/shared/ui/dialog';
 import { cn } from '@/shared/lib/utils';
 import { ConnectRepositoryDialog } from './ConnectRepositoryDialog';
 import { SourceUploadDialog } from './SourceUploadDialog';
 import { useCreateProject } from './hooks/useProjectMutations.js';
-import {
-  correlationFromUnknown,
-  messageFromUnknown,
-  retryAfterFromUnknown,
-} from '@/shared/api';
+import { correlationFromUnknown, messageFromUnknown, retryAfterFromUnknown } from '@/shared/api';
 
 /**
  * Dialog to create a project and continue into repo connect or upload.
@@ -73,9 +62,7 @@ export function CreateProjectDialog({ open, onOpenChange }) {
     );
   };
 
-  const errorMessage = createMutation.isError
-    ? messageFromUnknown(createMutation.error, t('projects.listFailed'))
-    : '';
+  const errorMessage = createMutation.isError ? messageFromUnknown(createMutation.error, t('projects.listFailed')) : '';
   const correlationId = correlationFromUnknown(createMutation.error);
   const retryAfter = retryAfterFromUnknown(createMutation.error);
   const pending = createMutation.isPending;
@@ -119,10 +106,7 @@ export function CreateProjectDialog({ open, onOpenChange }) {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="pdesc">
-                {t('projects.description')}{' '}
-                <span className="font-normal text-muted-foreground">
-                  ({t('common.optional')})
-                </span>
+                {t('projects.description')} <span className="font-normal text-muted-foreground">({t('common.optional')})</span>
               </Label>
               <Textarea
                 id="pdesc"
@@ -143,22 +127,12 @@ export function CreateProjectDialog({ open, onOpenChange }) {
                   onClick={() => setPath('upload')}
                   className={cn(
                     'flex flex-col items-start gap-1.5 rounded-xl border p-4 text-left transition-colors',
-                    path === 'upload'
-                      ? 'border-brand bg-brand-muted/40 ring-1 ring-brand'
-                      : 'border-border hover:bg-muted',
+                    path === 'upload' ? 'border-brand bg-brand-muted/40 ring-1 ring-brand' : 'border-border hover:bg-muted',
                   )}
                 >
-                  <UploadCloud
-                    className={cn(
-                      'h-5 w-5',
-                      path === 'upload' ? 'text-brand' : 'text-muted-foreground',
-                    )}
-                    aria-hidden="true"
-                  />
+                  <UploadCloud className={cn('h-5 w-5', path === 'upload' ? 'text-brand' : 'text-muted-foreground')} aria-hidden="true" />
                   <span className="text-sm font-medium">{t('projects.sourceUpload')}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {t('projects.sourceUploadHint')}
-                  </span>
+                  <span className="text-xs text-muted-foreground">{t('projects.sourceUploadHint')}</span>
                 </button>
                 <button
                   type="button"
@@ -166,22 +140,12 @@ export function CreateProjectDialog({ open, onOpenChange }) {
                   onClick={() => setPath('repo')}
                   className={cn(
                     'flex flex-col items-start gap-1.5 rounded-xl border p-4 text-left transition-colors',
-                    path === 'repo'
-                      ? 'border-brand bg-brand-muted/40 ring-1 ring-brand'
-                      : 'border-border hover:bg-muted',
+                    path === 'repo' ? 'border-brand bg-brand-muted/40 ring-1 ring-brand' : 'border-border hover:bg-muted',
                   )}
                 >
-                  <GitBranch
-                    className={cn(
-                      'h-5 w-5',
-                      path === 'repo' ? 'text-brand' : 'text-muted-foreground',
-                    )}
-                    aria-hidden="true"
-                  />
+                  <GitBranch className={cn('h-5 w-5', path === 'repo' ? 'text-brand' : 'text-muted-foreground')} aria-hidden="true" />
                   <span className="text-sm font-medium">{t('projects.sourceRepo')}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {t('projects.sourceRepoHint')}
-                  </span>
+                  <span className="text-xs text-muted-foreground">{t('projects.sourceRepoHint')}</span>
                 </button>
               </div>
             </div>
@@ -190,14 +154,10 @@ export function CreateProjectDialog({ open, onOpenChange }) {
               <div role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm">
                 <p>{errorMessage}</p>
                 {typeof retryAfter === 'number' ? (
-                  <p className="mt-1 text-muted-foreground">
-                    {t('projects.retryAfter', { seconds: retryAfter })}
-                  </p>
+                  <p className="mt-1 text-muted-foreground">{t('projects.retryAfter', { seconds: retryAfter })}</p>
                 ) : null}
                 {correlationId ? (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {t('projects.correlationReference', { reference: correlationId })}
-                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">{t('projects.correlationReference', { reference: correlationId })}</p>
                 ) : null}
               </div>
             ) : null}
@@ -214,14 +174,8 @@ export function CreateProjectDialog({ open, onOpenChange }) {
             >
               {t('common.cancel')}
             </Button>
-            <Button
-              onClick={handleCreate}
-              disabled={!name.trim() || !path || pending}
-              aria-busy={pending}
-            >
-              {pending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
-              ) : null}
+            <Button onClick={handleCreate} disabled={!name.trim() || !path || pending} aria-busy={pending}>
+              {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : null}
               {pending
                 ? t('projects.createPending')
                 : path === 'repo'

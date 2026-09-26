@@ -44,10 +44,7 @@ export const PROJECT_JOB_LOCK_SCOPE = 'project_writer';
  */
 export function assertLeaseExceedsHeartbeat(leaseTtlMs, heartbeatIntervalMs) {
   if (leaseTtlMs <= heartbeatIntervalMs) {
-    throw new Error(
-      `WORKER_LEASE_TTL_MS (${leaseTtlMs}) must exceed ` +
-        `WORKER_HEARTBEAT_INTERVAL_MS (${heartbeatIntervalMs})`,
-    );
+    throw new Error(`WORKER_LEASE_TTL_MS (${leaseTtlMs}) must exceed ` + `WORKER_HEARTBEAT_INTERVAL_MS (${heartbeatIntervalMs})`);
   }
 }
 

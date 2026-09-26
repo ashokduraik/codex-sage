@@ -3,10 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, setAccessToken } from '@/shared/api/index';
 import { resetApiSessionForTests } from '@/shared/api/apiSession.js';
-import {
-  isInvalidAuditCursorError,
-  useAuditEvents,
-} from '@/features/admin/api/useAuditEvents.js';
+import { isInvalidAuditCursorError, useAuditEvents } from '@/features/admin/api/useAuditEvents.js';
 
 afterEach(() => {
   resetApiSessionForTests();
@@ -21,9 +18,7 @@ function createWrapper(queryClient) {
    * @param {{ children: import('react').ReactNode }} props
    */
   return function Wrapper({ children }) {
-    return (
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    );
+    return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
   };
 }
 
@@ -167,13 +162,10 @@ describe('useAuditEvents', () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
-    const { result, rerender } = renderHook(
-      ({ filters }) => useAuditEvents(filters),
-      {
-        initialProps: { filters: { action: 'user.create' } },
-        wrapper: createWrapper(queryClient),
-      },
-    );
+    const { result, rerender } = renderHook(({ filters }) => useAuditEvents(filters), {
+      initialProps: { filters: { action: 'user.create' } },
+      wrapper: createWrapper(queryClient),
+    });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.hasNextPage).toBe(true);
@@ -182,9 +174,7 @@ describe('useAuditEvents', () => {
     await waitFor(() => expect(result.current.data?.pages?.length).toBe(2));
 
     rerender({ filters: { action: 'user.deactivate' } });
-    await waitFor(() =>
-      expect(result.current.data?.pages?.[0]?.items?.[0]?.id).toBe('e2'),
-    );
+    await waitFor(() => expect(result.current.data?.pages?.[0]?.items?.[0]?.id).toBe('e2'));
     expect(result.current.data?.pages).toHaveLength(1);
     const lastUrl = String(fetchMock.mock.calls.at(-1)?.[0]);
     expect(lastUrl).toContain('action=user.deactivate');
@@ -192,9 +182,7 @@ describe('useAuditEvents', () => {
   });
 
   it('includes from, to, actor, action, and resourceType in the request URL', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      jsonFetch({ items: [], pageInfo: { nextCursor: null, hasMore: false } }),
-    );
+    const fetchMock = vi.fn().mockResolvedValue(jsonFetch({ items: [], pageInfo: { nextCursor: null, hasMore: false } }));
     vi.stubGlobal('fetch', fetchMock);
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },

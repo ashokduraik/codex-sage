@@ -5,13 +5,8 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import mongoose from 'mongoose';
 import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
-import {
-  CONVERSATION_TRUNCATED_TITLE_MAX_CHARS,
-} from '../../../src/modules/conversation/conversation.helper.js';
-import {
-  scheduleConversationAutoTitle,
-  truncateUserTextTitle,
-} from '../../../src/modules/conversation/conversation.js';
+import { CONVERSATION_TRUNCATED_TITLE_MAX_CHARS } from '../../../src/modules/conversation/conversation.helper.js';
+import { scheduleConversationAutoTitle, truncateUserTextTitle } from '../../../src/modules/conversation/conversation.js';
 import { Conversation } from '../../../src/models/conversations.model.js';
 import { Message } from '../../../src/models/messages.model.js';
 import { insertConversation } from '../../../src/modules/conversation/conversation.helper.js';
@@ -38,9 +33,7 @@ describe('conversations.autoTitle', () => {
     expect(truncateUserTextTitle('  hello   world  ', 20)).toBe('hello world');
     expect(truncateUserTextTitle('   ', 10)).toBe('');
     const long = 'a'.repeat(CONVERSATION_TRUNCATED_TITLE_MAX_CHARS + 10);
-    expect(truncateUserTextTitle(long, CONVERSATION_TRUNCATED_TITLE_MAX_CHARS).length).toBe(
-      CONVERSATION_TRUNCATED_TITLE_MAX_CHARS,
-    );
+    expect(truncateUserTextTitle(long, CONVERSATION_TRUNCATED_TITLE_MAX_CHARS).length).toBe(CONVERSATION_TRUNCATED_TITLE_MAX_CHARS);
   });
 
   it('sets a truncated title only when titleSource is still default', async () => {

@@ -29,14 +29,7 @@ export function safeReturnTo() {
     if (url.origin !== window.location.origin) {
       return '/';
     }
-    for (const param of [
-      'access_token',
-      'clear_access_token',
-      'app_id',
-      'app_base_url',
-      'functions_version',
-      'from_url',
-    ]) {
+    for (const param of ['access_token', 'clear_access_token', 'app_id', 'app_base_url', 'functions_version', 'from_url']) {
       url.searchParams.delete(param);
     }
     const path = url.pathname + url.search;
@@ -64,10 +57,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const returnTo = safeReturnTo();
   const noticeReasonParam = new URLSearchParams(window.location.search).get('reason');
-  const noticeReason =
-    noticeReasonParam === 'session_expired' || noticeReasonParam === 'password_changed'
-      ? noticeReasonParam
-      : null;
+  const noticeReason = noticeReasonParam === 'session_expired' || noticeReasonParam === 'password_changed' ? noticeReasonParam : null;
 
   /**
    * Submit email/password credentials and navigate on success.
@@ -106,32 +96,19 @@ export default function LoginPage() {
       }
     >
       {noticeReason === 'session_expired' && (
-        <div
-          role="status"
-          className="mb-4 rounded-lg bg-muted p-3 text-sm text-foreground"
-        >
+        <div role="status" className="mb-4 rounded-lg bg-muted p-3 text-sm text-foreground">
           {t('auth.sessionExpired')}
         </div>
       )}
       {noticeReason === 'password_changed' && (
-        <div
-          role="status"
-          className="mb-4 rounded-lg bg-muted p-3 text-sm text-foreground"
-        >
+        <div role="status" className="mb-4 rounded-lg bg-muted p-3 text-sm text-foreground">
           {t('auth.passwordChangedSignInAgain')}
         </div>
       )}
       {error && (
-        <div
-          role="alert"
-          className="mb-4 rounded-lg bg-destructive/10 p-3 text-sm text-destructive"
-        >
+        <div role="alert" className="mb-4 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
           <p>{error}</p>
-          {correlationId ? (
-            <p className="mt-1 text-xs opacity-80">
-              {t('auth.correlationReference', { id: correlationId })}
-            </p>
-          ) : null}
+          {correlationId ? <p className="mt-1 text-xs opacity-80">{t('auth.correlationReference', { id: correlationId })}</p> : null}
         </div>
       )}
 
@@ -139,10 +116,7 @@ export default function LoginPage() {
         <div className="space-y-2">
           <Label htmlFor="email">{t('auth.email')}</Label>
           <div className="relative">
-            <Mail
-              className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-              aria-hidden="true"
-            />
+            <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
             <Input
               id="email"
               type="email"
@@ -160,10 +134,7 @@ export default function LoginPage() {
         <div className="space-y-2">
           <Label htmlFor="password">{t('auth.password')}</Label>
           <div className="relative">
-            <Lock
-              className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-              aria-hidden="true"
-            />
+            <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
             <Input
               id="password"
               type="password"
@@ -177,12 +148,7 @@ export default function LoginPage() {
             />
           </div>
         </div>
-        <Button
-          type="submit"
-          className="h-12 w-full font-medium"
-          disabled={loading}
-          aria-busy={loading}
-        >
+        <Button type="submit" className="h-12 w-full font-medium" disabled={loading} aria-busy={loading}>
           {loading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />

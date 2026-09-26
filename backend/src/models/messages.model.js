@@ -34,14 +34,7 @@ const messageSchema = createBaseSchema({
   contextMetrics: { type: mongoose.Schema.Types.Mixed, default: null },
 });
 
-messageSchema.index(
-  { orgId: 1, conversationId: 1, createdAt: 1, _id: 1 },
-  { partialFilterExpression: { status: ROW_STATUS_ACTIVE } },
-);
-messageSchema.index(
-  { orgId: 1, projectId: 1, conversationId: 1 },
-  { partialFilterExpression: { status: ROW_STATUS_ACTIVE } },
-);
+messageSchema.index({ orgId: 1, conversationId: 1, createdAt: 1, _id: 1 }, { partialFilterExpression: { status: ROW_STATUS_ACTIVE } });
+messageSchema.index({ orgId: 1, projectId: 1, conversationId: 1 }, { partialFilterExpression: { status: ROW_STATUS_ACTIVE } });
 
-export const Message =
-  mongoose.models.Message ?? mongoose.model('Message', messageSchema, 'messages');
+export const Message = mongoose.models.Message ?? mongoose.model('Message', messageSchema, 'messages');

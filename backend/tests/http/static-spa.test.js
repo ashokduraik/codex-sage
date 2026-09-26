@@ -4,11 +4,7 @@ import path from 'node:path';
 import { afterEach, describe, expect, it, vi, beforeEach } from 'vitest';
 import { API_BASE_PATH, buildApp, CORRELATION_ID_HEADER } from '../../src/http/app.js';
 import { TEST_APP_CONFIG } from '../appConfig.js';
-import {
-  assertFrontendDistPresent,
-  FRONTEND_DIST_ROOT,
-  isApiUrlPath,
-} from '../../src/http/static-spa.js';
+import { assertFrontendDistPresent, FRONTEND_DIST_ROOT, isApiUrlPath } from '../../src/http/static-spa.js';
 
 vi.mock('../../src/platform/mongo.js', async (importOriginal) => {
   const actual = await importOriginal();
@@ -24,11 +20,7 @@ vi.mock('../../src/platform/mongo.js', async (importOriginal) => {
  */
 function createTempDist() {
   const root = mkdtempSync(path.join(tmpdir(), 'codex-sage-spa-'));
-  writeFileSync(
-    path.join(root, 'index.html'),
-    '<!doctype html><html><body>spa-index</body></html>\n',
-    'utf8',
-  );
+  writeFileSync(path.join(root, 'index.html'), '<!doctype html><html><body>spa-index</body></html>\n', 'utf8');
   const assetsDir = path.join(root, 'assets');
   mkdirSync(assetsDir);
   writeFileSync(path.join(assetsDir, 'app.js'), 'console.log("asset");\n', 'utf8');

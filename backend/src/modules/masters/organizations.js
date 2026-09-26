@@ -6,13 +6,7 @@ import { BUILT_IN_ROLE_KEYS } from '../../models/role.model.js';
 import { ApiError } from '../../platform/errors.js';
 import { hashPassword } from '../access/index.js';
 import { ensureBuiltInRoles } from './roles.js';
-import {
-  createUserInRepo,
-  findUserByEmail,
-  findUserByIdWithPassword,
-  setPasswordHashIfMissing,
-  updateUser,
-} from './users.js';
+import { createUserInRepo, findUserByEmail, findUserByIdWithPassword, setPasswordHashIfMissing, updateUser } from './users.js';
 import mongoose from 'mongoose';
 
 // --- from identity/organization.repository.js ---
@@ -82,11 +76,7 @@ export async function createOrganization(input, options = {}) {
  * @returns {Promise<number | null>} Next aclVersion, or null when org missing.
  */
 export async function bumpOrganizationAclVersion(organizationId, options = {}) {
-  const query = Organization.findOneAndUpdate(
-    { _id: organizationId },
-    { $inc: { aclVersion: 1 } },
-    { returnDocument: 'after' },
-  );
+  const query = Organization.findOneAndUpdate({ _id: organizationId }, { $inc: { aclVersion: 1 } }, { returnDocument: 'after' });
   if (options.session) {
     query.session(options.session);
   }
@@ -184,10 +174,7 @@ export async function runBootstrapSeed(log) {
       const { roles, createdCount: rolesCreated } = await ensureBuiltInRoles(orgId, {
         session,
         onStep: ({ key, created }) => {
-          debug(
-            { step: 'role', builtInKey: key, outcome: created ? 'created' : 'already_present' },
-            'bootstrap seed step',
-          );
+          debug({ step: 'role', builtInKey: key, outcome: created ? 'created' : 'already_present' }, 'bootstrap seed step');
         },
       });
       if (rolesCreated > 0) {
@@ -227,9 +214,7 @@ export async function runBootstrapSeed(log) {
           debug({ step: 'admin_user', outcome: 'already_present' }, 'bootstrap seed step');
         }
       } else {
-        const hasOrgAdminRole = (adminUser.roleIds ?? []).some(
-          (id) => String(id) === String(orgAdmin._id),
-        );
+        const hasOrgAdminRole = (adminUser.roleIds ?? []).some((id) => String(id) === String(orgAdmin._id));
         if (!hasOrgAdminRole || adminUser.projectAccessMode !== 'all') {
           adminUser = await updateUser(
             orgId,
@@ -242,10 +227,7 @@ export async function runBootstrapSeed(log) {
             { session },
           );
           insertedAny = true;
-          debug(
-            { step: 'admin_user', outcome: 'roles_and_project_access_ensured' },
-            'bootstrap seed step',
-          );
+          debug({ step: 'admin_user', outcome: 'roles_and_project_access_ensured' }, 'bootstrap seed step');
         } else {
           debug({ step: 'admin_user', outcome: 'already_present' }, 'bootstrap seed step');
         }
@@ -285,39 +267,25 @@ export async function runBootstrapSeed(log) {
   }
 
   // Password hashing stays outside the Mongo transaction (CPU-bound; keep locks short).
-  const debug =
-    typeof log.debug === 'function' ? log.debug.bind(log) : () => {};
-  const adminWithSecret = await findUserByIdWithPassword(
-    summary.orgId,
-    summary.adminUserId,
-  );
+  const debug = typeof log.debug === 'function' ? log.debug.bind(log) : () => {};
+  const adminWithSecret = await findUserByIdWithPassword(summary.orgId, summary.adminUserId);
   if (adminWithSecret && !adminWithSecret.passwordHash) {
     const passwordHash = await hashPassword(DEFAULT_ADMIN_PASSWORD);
-    const updated = await setPasswordHashIfMissing(
-      summary.orgId,
-      summary.adminUserId,
-      passwordHash,
-    );
+    const updated = await setPasswordHashIfMissing(summary.orgId, summary.adminUserId, passwordHash);
     if (updated.modifiedCount > 0) {
       summary = {
         ...summary,
         result: 'created',
         adminUserStatus: 'active',
       };
-      debug(
-        { step: 'admin_password', outcome: 'created' },
-        'bootstrap seed step',
-      );
+      debug({ step: 'admin_password', outcome: 'created' }, 'bootstrap seed step');
     }
   } else if (adminWithSecret) {
     summary = {
       ...summary,
       adminUserStatus: adminWithSecret.userStatus,
     };
-    debug(
-      { step: 'admin_password', outcome: 'already_present' },
-      'bootstrap seed step',
-    );
+    debug({ step: 'admin_password', outcome: 'already_present' }, 'bootstrap seed step');
   }
 
   log.info(
@@ -340,9 +308,5 @@ export async function runBootstrapSeed(log) {
  * @returns {boolean}
  */
 function isDuplicateKeyError(err) {
-  return (
-    typeof err === 'object' &&
-    err !== null &&
-    /** @type {{ code?: number }} */ (err).code === 11000
-  );
+  return typeof err === 'object' && err !== null && /** @type {{ code?: number }} */ (err).code === 11000;
 }

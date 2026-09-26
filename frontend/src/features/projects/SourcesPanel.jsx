@@ -1,29 +1,12 @@
 import { useState } from 'react';
 import { Link, useOutletContext } from 'react-router-dom';
-import {
-  AlertCircle,
-  Check,
-  GitBranch,
-  KeyRound,
-  Loader2,
-  Plus,
-  RefreshCw,
-  Trash2,
-  UploadCloud,
-} from 'lucide-react';
+import { AlertCircle, Check, GitBranch, KeyRound, Loader2, Plus, RefreshCw, Trash2, UploadCloud } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ApiError, correlationFromUnknown, messageFromUnknown } from '@/shared/api';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/shared/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -79,17 +62,13 @@ export default function SourcesPanel() {
   const actions = useRepositoryCredentialActions(projectId);
   const versions = flattenSourceVersionPages(versionsQuery.data);
   const connection = connectionQuery.data?.connection ?? null;
-  const isRepository =
-    Boolean(connection) || project?.sourceConfig?.sourceType === 'repository';
+  const isRepository = Boolean(connection) || project?.sourceConfig?.sourceType === 'repository';
   const [uploadOpen, setUploadOpen] = useState(false);
   const [connectOpen, setConnectOpen] = useState(false);
   const [replaceOpen, setReplaceOpen] = useState(false);
   const [revokeOpen, setRevokeOpen] = useState(false);
   const [token, setToken] = useState('');
-  const excludedCount =
-    project?.counts?.excludedFiles ??
-    versions[0]?.fileCounts?.excludedFromGraph ??
-    0;
+  const excludedCount = project?.counts?.excludedFiles ?? versions[0]?.fileCounts?.excludedFromGraph ?? 0;
 
   /**
    * Re-tests the live connection.
@@ -139,10 +118,7 @@ export default function SourcesPanel() {
             <h1 className="font-display text-xl font-medium">{t('sources.title')}</h1>
             <p className="text-sm text-muted-foreground">{t('sources.panelSubtitle')}</p>
           </div>
-          <Button
-            variant="outline"
-            onClick={() => (isRepository ? setConnectOpen(true) : setUploadOpen(true))}
-          >
+          <Button variant="outline" onClick={() => (isRepository ? setConnectOpen(true) : setUploadOpen(true))}>
             <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
             {t('sources.addSource')}
           </Button>
@@ -158,9 +134,7 @@ export default function SourcesPanel() {
           <div role="alert" className="mt-5 text-sm">
             <p>{messageFromUnknown(listError, t('sources.listFailed'))}</p>
             {correlationFromUnknown(listError) ? (
-              <p className="mt-1 text-xs text-muted-foreground">
-                {t('errors.correlationId', { id: correlationFromUnknown(listError) })}
-              </p>
+              <p className="mt-1 text-xs text-muted-foreground">{t('errors.correlationId', { id: correlationFromUnknown(listError) })}</p>
             ) : null}
             <Button
               variant="outline"
@@ -186,34 +160,17 @@ export default function SourcesPanel() {
           </div>
           {isRepository ? (
             <div className="mt-3 space-y-2 text-sm">
-              <SourceRow
-                label={t('sources.repository')}
-                value={connection?.repository?.fullName}
-                mono
-              />
-              <SourceRow
-                label={t('sources.repoUrl')}
-                value={connection?.repository?.webUrl}
-                mono
-              />
+              <SourceRow label={t('sources.repository')} value={connection?.repository?.fullName} mono />
+              <SourceRow label={t('sources.repoUrl')} value={connection?.repository?.webUrl} mono />
               <SourceRow label={t('sources.provider')} value={connection?.provider} />
               <SourceRow label={t('sources.branch')} value={connection?.selectedBranch} mono />
-              {connection?.baseUrl ? (
-                <SourceRow label={t('sources.instance')} value={connection.baseUrl} mono />
-              ) : null}
-              {connection?.lastSyncedAt ? (
-                <SourceRow
-                  label={t('sources.lastSync')}
-                  value={formatDateTime(connection.lastSyncedAt)}
-                />
-              ) : null}
+              {connection?.baseUrl ? <SourceRow label={t('sources.instance')} value={connection.baseUrl} mono /> : null}
+              {connection?.lastSyncedAt ? <SourceRow label={t('sources.lastSync')} value={formatDateTime(connection.lastSyncedAt)} /> : null}
               <SourceRow
                 label={t('sources.credentials')}
                 value={t(
-                  typeof connection?.connectionStatus === 'string' &&
-                    connection.connectionStatus.length > 0
-                    ? CONNECTION_STATUS_LABEL_KEYS[connection.connectionStatus] ??
-                      'sources.connectionStatus.unknown'
+                  typeof connection?.connectionStatus === 'string' && connection.connectionStatus.length > 0
+                    ? (CONNECTION_STATUS_LABEL_KEYS[connection.connectionStatus] ?? 'sources.connectionStatus.unknown')
                     : 'sources.connectionStatus.unknown',
                 )}
               />
@@ -222,22 +179,13 @@ export default function SourcesPanel() {
             <div className="mt-3 space-y-2 text-sm">
               <SourceRow label={t('sources.type')} value={t('sources.upload')} />
               <SourceRow label={t('sources.uploads')} value={String(versions.length)} />
-              <SourceRow
-                label={t('sources.lastUpload')}
-                value={versions[0]?.createdAt ? formatDateTime(versions[0].createdAt) : '—'}
-              />
+              <SourceRow label={t('sources.lastUpload')} value={versions[0]?.createdAt ? formatDateTime(versions[0].createdAt) : '—'} />
             </div>
           )}
 
           {isRepository && connection ? (
             <div className="mt-4 flex flex-wrap gap-2 border-t border-border pt-3">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => void onRetest()}
-                disabled={actions.isRetesting}
-                aria-busy={actions.isRetesting}
-              >
+              <Button size="sm" variant="outline" onClick={() => void onRetest()} disabled={actions.isRetesting} aria-busy={actions.isRetesting}>
                 <RefreshCw className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
                 {t('sources.retest')}
               </Button>
@@ -245,20 +193,13 @@ export default function SourcesPanel() {
                 <KeyRound className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
                 {t('sources.replaceCredentials')}
               </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setRevokeOpen(true)}
-                className="text-destructive hover:text-destructive"
-              >
+              <Button size="sm" variant="outline" onClick={() => setRevokeOpen(true)} className="text-destructive hover:text-destructive">
                 <Trash2 className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
                 {t('sources.revoke')}
               </Button>
             </div>
           ) : null}
-          {actions.isRetesting ? (
-            <p className="mt-2 text-xs text-muted-foreground">{t('sources.testing')}</p>
-          ) : null}
+          {actions.isRetesting ? <p className="mt-2 text-xs text-muted-foreground">{t('sources.testing')}</p> : null}
           {!actions.isRetesting &&
           actions.retestError == null &&
           connection?.connectionStatus === 'connected' &&
@@ -283,20 +224,13 @@ export default function SourcesPanel() {
           </h2>
           <div className="mt-2 divide-y divide-border rounded-lg border border-border bg-card">
             {versions.length === 0 ? (
-              <div className="px-4 py-3 text-sm text-muted-foreground">
-                {t('sources.emptyHistory')}
-              </div>
+              <div className="px-4 py-3 text-sm text-muted-foreground">{t('sources.emptyHistory')}</div>
             ) : (
               versions.map((version) => (
-                <div
-                  key={version.id}
-                  className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-                >
+                <div key={version.id} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <div className="text-sm font-medium">
-                      {version.origin === 'repository'
-                        ? version.branch || t('sources.repository')
-                        : t('sources.upload')}
+                      {version.origin === 'repository' ? version.branch || t('sources.repository') : t('sources.upload')}
                     </div>
                     <div className="text-xs text-muted-foreground">
                       {t('sources.versionMeta', {
@@ -307,16 +241,11 @@ export default function SourcesPanel() {
                     </div>
                   </div>
                   {version.jobId ? (
-                    <Link
-                      to={`/processing?projectId=${encodeURIComponent(projectId)}`}
-                      className="text-xs font-medium text-brand hover:underline"
-                    >
+                    <Link to={`/processing?projectId=${encodeURIComponent(projectId)}`} className="text-xs font-medium text-brand hover:underline">
                       {t('sources.viewJob')}
                     </Link>
                   ) : (
-                    <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                      {version.versionLifecycle}
-                    </span>
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{version.versionLifecycle}</span>
                   )}
                 </div>
               ))
@@ -328,9 +257,7 @@ export default function SourcesPanel() {
           <div className="mt-5 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
             <div>
-              <p className="font-medium">
-                {t('sources.excludedTitle', { count: excludedCount })}
-              </p>
+              <p className="font-medium">{t('sources.excludedTitle', { count: excludedCount })}</p>
               <p className="text-xs">{t('sources.excludedBody')}</p>
             </div>
           </div>
@@ -370,14 +297,8 @@ export default function SourcesPanel() {
             <Button variant="outline" onClick={() => setReplaceOpen(false)}>
               {t('common.cancel')}
             </Button>
-            <Button
-              onClick={() => void onReplace()}
-              disabled={!token.trim() || actions.isReplacing}
-              aria-busy={actions.isReplacing}
-            >
-              {actions.isReplacing ? (
-                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-              ) : null}
+            <Button onClick={() => void onReplace()} disabled={!token.trim() || actions.isReplacing} aria-busy={actions.isReplacing}>
+              {actions.isReplacing ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : null}
               {t('sources.saveToken')}
             </Button>
           </DialogFooter>
@@ -392,26 +313,15 @@ export default function SourcesPanel() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => void onRevoke()}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
+            <AlertDialogAction onClick={() => void onRevoke()} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               {t('sources.revokeAction')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      <SourceUploadDialog
-        open={uploadOpen}
-        onOpenChange={setUploadOpen}
-        projectId={projectId}
-      />
-      <ConnectRepositoryDialog
-        open={connectOpen}
-        onOpenChange={setConnectOpen}
-        projectId={projectId}
-      />
+      <SourceUploadDialog open={uploadOpen} onOpenChange={setUploadOpen} projectId={projectId} />
+      <ConnectRepositoryDialog open={connectOpen} onOpenChange={setConnectOpen} projectId={projectId} />
     </div>
   );
 }

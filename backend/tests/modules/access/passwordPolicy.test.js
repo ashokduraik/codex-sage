@@ -2,11 +2,7 @@
  * Unit tests for password policy.
  */
 import { describe, expect, it, vi } from 'vitest';
-import {
-  PASSWORD_HISTORY_LENGTH,
-  PASSWORD_MIN_LENGTH,
-  validatePasswordCandidate,
-} from '../../../src/modules/access/password.js';
+import { PASSWORD_HISTORY_LENGTH, PASSWORD_MIN_LENGTH, validatePasswordCandidate } from '../../../src/modules/access/password.js';
 
 describe('passwordPolicy', () => {
   it('exports locked constants', () => {

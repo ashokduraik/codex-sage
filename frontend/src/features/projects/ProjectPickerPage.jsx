@@ -1,12 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
-import {
-  MessageSquare,
-  BookOpen,
-  Search,
-  FolderKanban,
-  ArrowRight,
-  Loader2,
-} from 'lucide-react';
+import { MessageSquare, BookOpen, Search, FolderKanban, ArrowRight, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { EmptyState } from '@/shared/components';
 import { Button } from '@/shared/ui/button';
@@ -61,15 +54,9 @@ export default function ProjectPickerPage({ tab }) {
         <div role="alert" className="max-w-md text-center text-sm">
           <p>{message}</p>
           {correlationId ? (
-            <p className="mt-1 text-xs text-muted-foreground">
-              {t('projects.correlationReference', { reference: correlationId })}
-            </p>
+            <p className="mt-1 text-xs text-muted-foreground">{t('projects.correlationReference', { reference: correlationId })}</p>
           ) : null}
-          <Button
-            variant="outline"
-            className="mt-3"
-            onClick={() => void listQuery.refetch()}
-          >
+          <Button variant="outline" className="mt-3" onClick={() => void listQuery.refetch()}>
             {t('projects.retry')}
           </Button>
         </div>
@@ -86,10 +73,7 @@ export default function ProjectPickerPage({ tab }) {
             title={t('projects.pickerEmptyTitle')}
             description={t('projects.pickerEmptyDescription')}
             action={
-              <Button
-                onClick={() => navigate('/projects')}
-                className="bg-brand text-brand-foreground hover:bg-brand/90"
-              >
+              <Button onClick={() => navigate('/projects')} className="bg-brand text-brand-foreground hover:bg-brand/90">
                 {t('projects.create')}
               </Button>
             }
@@ -111,17 +95,11 @@ export default function ProjectPickerPage({ tab }) {
         </p>
         <div className="mt-5 divide-y divide-border rounded-lg border border-border bg-card">
           {active.map((project) => (
-            <Link
-              key={project.id}
-              to={`/projects/${project.id}/${tab}`}
-              className="flex items-center gap-3 px-4 py-3 hover:bg-muted/40"
-            >
+            <Link key={project.id} to={`/projects/${project.id}/${tab}`} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/40">
               <FolderKanban className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-medium">{project.name}</div>
-                <div className="truncate text-xs text-muted-foreground">
-                  {project.description}
-                </div>
+                <div className="truncate text-xs text-muted-foreground">{project.description}</div>
               </div>
               <ArrowRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
             </Link>

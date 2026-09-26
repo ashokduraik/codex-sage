@@ -16,13 +16,7 @@ import { cn } from '@/shared/lib/utils';
  * }} props Control props.
  * @returns Role multi-select UI.
  */
-export function RoleMultiSelect({
-  roles,
-  selectedRoleIds,
-  onChange,
-  disabled = false,
-  idPrefix = 'role',
-}) {
+export function RoleMultiSelect({ roles, selectedRoleIds, onChange, disabled = false, idPrefix = 'role' }) {
   const { t } = useTranslation();
   const selectedSet = useMemo(() => new Set(selectedRoleIds.map(String)), [selectedRoleIds]);
 
@@ -57,16 +51,8 @@ export function RoleMultiSelect({
         const checked = selectedSet.has(roleId);
         return (
           <div key={roleId} className="flex items-center gap-2">
-            <Checkbox
-              id={inputId}
-              checked={checked}
-              disabled={disabled}
-              onCheckedChange={(value) => toggleRole(roleId, value === true)}
-            />
-            <Label
-              htmlFor={inputId}
-              className={cn('cursor-pointer font-normal', disabled && 'opacity-70')}
-            >
+            <Checkbox id={inputId} checked={checked} disabled={disabled} onCheckedChange={(value) => toggleRole(roleId, value === true)} />
+            <Label htmlFor={inputId} className={cn('cursor-pointer font-normal', disabled && 'opacity-70')}>
               {role.name}
             </Label>
           </div>

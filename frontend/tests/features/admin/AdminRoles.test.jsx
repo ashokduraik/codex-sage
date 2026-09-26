@@ -1,10 +1,6 @@
 import { cleanup, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  clearAuthSession,
-  renderWithProviders,
-  seedAuthSession,
-} from '@tests/renderWithProviders';
+import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
 import { API_BASE_URL } from '@/shared/api/index';
 import AdminRoles from '@/features/admin/AdminRoles';
 
@@ -131,20 +127,13 @@ describe('AdminRoles', () => {
     );
 
     renderWithProviders(<AdminRoles />, { route: '/admin/roles' });
-    expect(
-      await screen.findByText('No roles are available in this organization.'),
-    ).toBeTruthy();
+    expect(await screen.findByText('No roles are available in this organization.')).toBeTruthy();
   });
 
   it('shows an error state with retry', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () =>
-        jsonResponse(
-          { error: { code: 'FORBIDDEN', message: 'Roles forbidden.' } },
-          403,
-        ),
-      ),
+      vi.fn(async () => jsonResponse({ error: { code: 'FORBIDDEN', message: 'Roles forbidden.' } }, 403)),
     );
 
     renderWithProviders(<AdminRoles />, { route: '/admin/roles' });

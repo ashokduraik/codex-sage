@@ -1,11 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiRequest } from '@/shared/api/apiRequest.js';
-import {
-  getAccessToken,
-  resetApiSessionForTests,
-  setAccessToken,
-  subscribeSessionCleared,
-} from '@/shared/api/apiSession.js';
+import { getAccessToken, resetApiSessionForTests, setAccessToken, subscribeSessionCleared } from '@/shared/api/apiSession.js';
 import { resetRefreshClientForTests } from '@/shared/api/refreshClient.js';
 import { API_BASE_URL } from '@/shared/api/apiConfig.js';
 import { RequestAbortedError } from '@/shared/api/ApiError.js';
@@ -22,9 +17,7 @@ function jsonResponse({ status, body, headers = {} }) {
     status,
     headers: {
       get(name) {
-        const key = Object.keys(headerMap).find(
-          (candidate) => candidate.toLowerCase() === name.toLowerCase(),
-        );
+        const key = Object.keys(headerMap).find((candidate) => candidate.toLowerCase() === name.toLowerCase());
         return key ? headerMap[key] : null;
       },
     },
@@ -50,9 +43,7 @@ describe('apiRequest', () => {
 
   it('returns typed JSON on 200 and attaches Authorization when a token exists', async () => {
     setAccessToken('access-1');
-    const fetchMock = vi.fn().mockResolvedValue(
-      jsonResponse({ status: 200, body: { id: 'u1' } }),
-    );
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ status: 200, body: { id: 'u1' } }));
     vi.stubGlobal('fetch', fetchMock);
 
     await expect(apiRequest('/auth/me')).resolves.toEqual({ id: 'u1' });
@@ -152,9 +143,7 @@ describe('apiRequest', () => {
     const fetchMock = vi.fn().mockImplementation((url) => {
       if (String(url).endsWith('/auth/refresh')) {
         refreshCalls += 1;
-        return Promise.resolve(
-          jsonResponse({ status: 200, body: { accessToken: 'fresh-shared' } }),
-        );
+        return Promise.resolve(jsonResponse({ status: 200, body: { accessToken: 'fresh-shared' } }));
       }
       if (getAccessToken() === 'fresh-shared') {
         return Promise.resolve(jsonResponse({ status: 200, body: { ok: true } }));
@@ -217,9 +206,9 @@ describe('apiRequest', () => {
     );
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(
-      apiRequest('/auth/login', { method: 'POST', body: {}, skipAuthRefresh: true }),
-    ).rejects.toMatchObject({ code: 'INVALID_CREDENTIALS' });
+    await expect(apiRequest('/auth/login', { method: 'POST', body: {}, skipAuthRefresh: true })).rejects.toMatchObject({
+      code: 'INVALID_CREDENTIALS',
+    });
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
@@ -272,22 +261,28 @@ describe('apiRequest', () => {
   });
 
   it('returns undefined for an empty 200 body', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      headers: { get: () => null },
-      text: async () => '',
-    }));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        headers: { get: () => null },
+        text: async () => '',
+      }),
+    );
     await expect(apiRequest('/auth/logout', { method: 'POST' })).resolves.toBeUndefined();
   });
 
   it('throws UNEXPECTED when a success body is not JSON', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      headers: { get: () => 'REQ-x' },
-      text: async () => 'not-json',
-    }));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        headers: { get: () => 'REQ-x' },
+        text: async () => 'not-json',
+      }),
+    );
     await expect(apiRequest('/weird')).rejects.toMatchObject({
       code: 'UNEXPECTED',
       correlationId: 'REQ-x',

@@ -67,12 +67,7 @@ export async function listProjectSourceVersions(options) {
     search.set(key, String(value));
   }
   const encoded = search.toString();
-  return apiRequest(
-    `/projects/${encodeURIComponent(options.projectId)}/source-versions${
-      encoded ? `?${encoded}` : ''
-    }`,
-    { signal: options.signal },
-  );
+  return apiRequest(`/projects/${encodeURIComponent(options.projectId)}/source-versions${encoded ? `?${encoded}` : ''}`, { signal: options.signal });
 }
 
 /**

@@ -10,12 +10,7 @@ const ObjectId = mongoose.Schema.Types.ObjectId;
 
 export const CONVERSATION_TITLE_MAX_LENGTH = 200;
 export const CONVERSATION_LIFECYCLE_STATUS_VALUES = Object.freeze(['active', 'archived']);
-export const CONVERSATION_TITLE_SOURCE_VALUES = Object.freeze([
-  'default',
-  'user',
-  'truncated_user_text',
-  'llm',
-]);
+export const CONVERSATION_TITLE_SOURCE_VALUES = Object.freeze(['default', 'user', 'truncated_user_text', 'llm']);
 
 const conversationSchema = createBaseSchema({
   // Project this thread belongs to (Payments API)
@@ -54,6 +49,4 @@ conversationSchema.index(
   },
 );
 
-export const Conversation =
-  mongoose.models.Conversation ??
-  mongoose.model('Conversation', conversationSchema, 'conversations');
+export const Conversation = mongoose.models.Conversation ?? mongoose.model('Conversation', conversationSchema, 'conversations');

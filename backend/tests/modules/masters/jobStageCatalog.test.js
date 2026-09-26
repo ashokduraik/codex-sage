@@ -2,10 +2,7 @@
  * Unit tests for job stage catalogue helpers.
  */
 import { describe, expect, it } from 'vitest';
-import {
-  labelForJobStage,
-  listStagesForJobType,
-} from '../../../src/modules/masters/jobs.helper.js';
+import { labelForJobStage, listStagesForJobType } from '../../../src/modules/masters/jobs.helper.js';
 
 describe('jobStageCatalog', () => {
   it('lists ingest stages and labels', () => {
@@ -16,11 +13,7 @@ describe('jobStageCatalog', () => {
 
   it('lists repo_sync stages separately from ingest', () => {
     const stages = listStagesForJobType('repo_sync');
-    expect(stages.map((entry) => entry.stage)).toEqual([
-      'fetch_remote',
-      'persist_source',
-      'enqueue_ingest',
-    ]);
+    expect(stages.map((entry) => entry.stage)).toEqual(['fetch_remote', 'persist_source', 'enqueue_ingest']);
     expect(labelForJobStage('repo_sync', 'fetch_remote')).toBe('Checking repository');
   });
 

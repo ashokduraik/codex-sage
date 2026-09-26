@@ -248,10 +248,7 @@ describe('repoSync.service', () => {
 
 describe('createArchiveRootRewriter', () => {
   it('strips a shared first segment when nested files exist', () => {
-    const rewrite = createArchiveRootRewriter([
-      'payments-abc/src/a.js',
-      'payments-abc/README.md',
-    ]);
+    const rewrite = createArchiveRootRewriter(['payments-abc/src/a.js', 'payments-abc/README.md']);
     expect(rewrite('payments-abc/src/a.js')).toBe('src/a.js');
     expect(rewrite('payments-abc/README.md')).toBe('README.md');
   });

@@ -5,7 +5,9 @@ import { createRoot } from 'react-dom/client';
 import { App } from '@/app/App';
 const rootEl = document.getElementById('root');
 if (rootEl) {
-    createRoot(rootEl).render(<StrictMode>
+  createRoot(rootEl).render(
+    <StrictMode>
       <App />
-    </StrictMode>);
+    </StrictMode>,
+  );
 }

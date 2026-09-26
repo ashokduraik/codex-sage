@@ -2,23 +2,13 @@
  * Unit tests for guarded outbound HTTP.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import {
-  assertHostAllowed,
-  outboundGet,
-  REPO_PROBE_MAX_RESPONSE_BYTES,
-} from '../../../src/modules/knowledge/repositories.helper.js';
+import { assertHostAllowed, outboundGet, REPO_PROBE_MAX_RESPONSE_BYTES } from '../../../src/modules/knowledge/repositories.helper.js';
 
 describe('assertHostAllowed', () => {
   it('rejects loopback addresses when private hosts are disallowed', () => {
-    expect(() => assertHostAllowed('https://127.0.0.1/x', false)).toThrow(
-      expect.objectContaining({ code: 'PROBE_HOST_NOT_ALLOWED' }),
-    );
-    expect(() => assertHostAllowed('https://localhost/x', false)).toThrow(
-      expect.objectContaining({ code: 'PROBE_HOST_NOT_ALLOWED' }),
-    );
-    expect(() => assertHostAllowed('https://10.0.0.5/x', false)).toThrow(
-      expect.objectContaining({ code: 'PROBE_HOST_NOT_ALLOWED' }),
-    );
+    expect(() => assertHostAllowed('https://127.0.0.1/x', false)).toThrow(expect.objectContaining({ code: 'PROBE_HOST_NOT_ALLOWED' }));
+    expect(() => assertHostAllowed('https://localhost/x', false)).toThrow(expect.objectContaining({ code: 'PROBE_HOST_NOT_ALLOWED' }));
+    expect(() => assertHostAllowed('https://10.0.0.5/x', false)).toThrow(expect.objectContaining({ code: 'PROBE_HOST_NOT_ALLOWED' }));
   });
 
   it('allows loopback when the private-host flag is set', () => {

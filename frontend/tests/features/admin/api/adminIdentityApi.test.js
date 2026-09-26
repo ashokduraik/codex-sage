@@ -26,9 +26,7 @@ function jsonResponse({ status, body, headers = {} }) {
     status,
     headers: {
       get(name) {
-        const key = Object.keys(headerMap).find(
-          (candidate) => candidate.toLowerCase() === name.toLowerCase(),
-        );
+        const key = Object.keys(headerMap).find((candidate) => candidate.toLowerCase() === name.toLowerCase());
         return key ? headerMap[key] : null;
       },
     },
@@ -119,9 +117,7 @@ describe('adminIdentityApi', () => {
 
   it('patchUser sends roleIds for role changes', async () => {
     const fetchMock = /** @type {ReturnType<typeof vi.fn>} */ (fetch);
-    fetchMock.mockResolvedValueOnce(
-      jsonResponse({ status: 200, body: { id: 'u1', roles: [] } }),
-    );
+    fetchMock.mockResolvedValueOnce(jsonResponse({ status: 200, body: { id: 'u1', roles: [] } }));
 
     await patchUser('u1', { roleIds: ['r2', 'r3'] });
 

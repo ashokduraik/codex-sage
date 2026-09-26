@@ -3,7 +3,6 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 
-
 vi.mock('../../../src/modules/access/index.js', () => ({
   buildAuditContextFromRequest: () => ({
     correlationId: 'corr',
@@ -84,10 +83,13 @@ describe('projects.routes unit edges', () => {
     await projectRoutes(/** @type {any} */ (app));
 
     await expect(
-      app.handlers.get('POST /projects')({
-        ...baseRequest(),
-        body: { name: '', sourceType: 'upload' },
-      }, { code: () => ({ send: () => undefined }) }),
+      app.handlers.get('POST /projects')(
+        {
+          ...baseRequest(),
+          body: { name: '', sourceType: 'upload' },
+        },
+        { code: () => ({ send: () => undefined }) },
+      ),
     ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
 
     await expect(
@@ -140,10 +142,13 @@ describe('projects.routes unit edges', () => {
       'PATCH /projects/:projectId',
     ]) {
       await expect(
-        app.handlers.get(key)({
-          ...baseRequest(),
-          params: { projectId: '' },
-        }, { code: () => ({ send: () => undefined }) }),
+        app.handlers.get(key)(
+          {
+            ...baseRequest(),
+            params: { projectId: '' },
+          },
+          { code: () => ({ send: () => undefined }) },
+        ),
       ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
     }
   });

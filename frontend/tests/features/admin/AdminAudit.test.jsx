@@ -1,10 +1,6 @@
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  clearAuthSession,
-  renderWithProviders,
-  seedAuthSession,
-} from '@tests/renderWithProviders';
+import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
 import { API_BASE_URL } from '@/shared/api/index';
 import AdminAudit from '@/features/admin/AdminAudit';
 
@@ -19,9 +15,7 @@ function jsonResponse(body, status = 200, headers = {}) {
     status,
     headers: {
       get(name) {
-        const key = Object.keys(headers).find(
-          (candidate) => candidate.toLowerCase() === name.toLowerCase(),
-        );
+        const key = Object.keys(headers).find((candidate) => candidate.toLowerCase() === name.toLowerCase());
         return key ? headers[key] : null;
       },
     },
@@ -107,9 +101,7 @@ function stubAuditFetch(fetchMock, options = {}) {
     },
   ];
   let pageIndex = 0;
-  const users = options.users ?? [
-    { id: 'u-actor', displayName: 'Admin', email: 'admin@acme.io', roles: [] },
-  ];
+  const users = options.users ?? [{ id: 'u-actor', displayName: 'Admin', email: 'admin@acme.io', roles: [] }];
 
   fetchMock.mockImplementation(async (url) => {
     const path = String(url).replace(API_BASE_URL, '');
@@ -215,12 +207,8 @@ describe('AdminAudit', () => {
 
     await waitFor(() => {
       const urls = fetchMock.mock.calls.map((call) => String(call[0]));
-      expect(urls.some((url) => url.includes('from=2026-09-01T00%3A00%3A00.000Z'))).toBe(
-        true,
-      );
-      expect(urls.some((url) => url.includes('to=2026-09-13T00%3A00%3A00.000Z'))).toBe(
-        true,
-      );
+      expect(urls.some((url) => url.includes('from=2026-09-01T00%3A00%3A00.000Z'))).toBe(true);
+      expect(urls.some((url) => url.includes('to=2026-09-13T00%3A00%3A00.000Z'))).toBe(true);
     });
   });
 
@@ -264,9 +252,7 @@ describe('AdminAudit', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Load more' }));
     await waitFor(() => expect(screen.getByText('viewer@acme.io')).toBeTruthy());
-    const auditUrls = fetchMock.mock.calls
-      .map((call) => String(call[0]))
-      .filter((url) => url.includes('/audit-events'));
+    const auditUrls = fetchMock.mock.calls.map((call) => String(call[0])).filter((url) => url.includes('/audit-events'));
     expect(auditUrls.some((url) => url.includes('cursor=cursor-2'))).toBe(true);
     expect(screen.queryByRole('button', { name: 'Load more' })).toBeNull();
   });
@@ -285,9 +271,7 @@ describe('AdminAudit', () => {
       route: '/admin/audit?action=user.create',
     });
 
-    await waitFor(() =>
-      expect(screen.getByText('No audit events match these filters.')).toBeTruthy(),
-    );
+    await waitFor(() => expect(screen.getByText('No audit events match these filters.')).toBeTruthy());
     fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
     await waitFor(() => expect(screen.getByText('No audit events yet.')).toBeTruthy());
   });
@@ -331,9 +315,7 @@ describe('AdminAudit', () => {
 
     renderWithProviders(<AdminAudit />, { route: '/admin/audit' });
     const alert = await screen.findByRole('alert');
-    expect(alert.textContent).toContain(
-      'You do not have permission to perform this action.',
-    );
+    expect(alert.textContent).toContain('You do not have permission to perform this action.');
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -370,9 +352,7 @@ describe('AdminAudit', () => {
     renderWithProviders(<AdminAudit />, { route: '/admin/audit' });
     await waitFor(() => expect(screen.getByText('u-only-id')).toBeTruthy());
     fireEvent.click(screen.getByText('u-only-id'));
-    await waitFor(() =>
-      expect(screen.getAllByText(/Not recorded/).length).toBeGreaterThan(0),
-    );
+    await waitFor(() => expect(screen.getAllByText(/Not recorded/).length).toBeGreaterThan(0));
   });
 
   it('sends action and resourceType from the URL and retries after a list failure', async () => {
@@ -392,11 +372,7 @@ describe('AdminAudit', () => {
         expect(path).toContain('action=user.create');
         expect(path).toContain('resourceType=user');
         if (auditCalls === 1) {
-          return jsonResponse(
-            { error: { code: 'INTERNAL_ERROR', message: 'Internal server error' } },
-            500,
-            { 'X-Correlation-Id': 'REQ-RETRY' },
-          );
+          return jsonResponse({ error: { code: 'INTERNAL_ERROR', message: 'Internal server error' } }, 500, { 'X-Correlation-Id': 'REQ-RETRY' });
         }
         return jsonResponse({
           items: [EVENT_SUCCESS],
@@ -459,9 +435,7 @@ describe('AdminAudit', () => {
 
     renderWithProviders(<AdminAudit />, { route: '/admin/audit' });
     const alert = await screen.findByRole('alert');
-    expect(alert.textContent).toContain(
-      'You do not have permission to perform this action.',
-    );
+    expect(alert.textContent).toContain('You do not have permission to perform this action.');
     expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
   });
 

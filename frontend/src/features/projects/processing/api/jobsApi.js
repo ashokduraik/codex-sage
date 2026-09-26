@@ -141,12 +141,7 @@ export const JOB_DETAIL_POLL_INTERVAL_MS = 3000;
  * @returns {readonly unknown[]}
  */
 export function projectJobsQueryKey(projectId, filters = {}) {
-  return Object.freeze([
-    'projects',
-    String(projectId),
-    'jobs',
-    { jobStatus: filters.jobStatus ?? null },
-  ]);
+  return Object.freeze(['projects', String(projectId), 'jobs', { jobStatus: filters.jobStatus ?? null }]);
 }
 
 /**
@@ -187,12 +182,9 @@ export async function listProjectJobs(options) {
     search.set(key, String(value));
   }
   const encoded = search.toString();
-  return apiRequest(
-    `/projects/${encodeURIComponent(options.projectId)}/jobs${encoded ? `?${encoded}` : ''}`,
-    {
-      signal: options.signal,
-    },
-  );
+  return apiRequest(`/projects/${encodeURIComponent(options.projectId)}/jobs${encoded ? `?${encoded}` : ''}`, {
+    signal: options.signal,
+  });
 }
 
 /**

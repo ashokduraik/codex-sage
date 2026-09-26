@@ -10,11 +10,7 @@ import { resetApiSessionForTests } from '@/shared/api/apiSession.js';
 import { resetRefreshClientForTests } from '@/shared/api/refreshClient.js';
 import '@/shared/i18n/index';
 import { AppDataProvider } from '@/shared/mock-data/index';
-import {
-  buildTestAuthUser,
-  clearAuthSession,
-  seedAuthSession,
-} from '@tests/renderWithProviders';
+import { buildTestAuthUser, clearAuthSession, seedAuthSession } from '@tests/renderWithProviders';
 
 afterEach(() => {
   cleanup();
@@ -131,9 +127,7 @@ describe('AppRoutes', () => {
   it('renders home when authenticated', async () => {
     const user = buildTestAuthUser('you@acme.io');
     renderRoutes('/', user);
-    expect(
-      await screen.findByRole('heading', { name: 'Understand your software system.' }),
-    ).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Understand your software system.' })).toBeTruthy();
   });
 
   it('renders not-found for removed auth routes', async () => {

@@ -1,20 +1,7 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import {
-  getAccessToken,
-  refreshAccessToken,
-  setAccessToken,
-  subscribeSessionCleared,
-} from '@/shared/api';
+import { getAccessToken, refreshAccessToken, setAccessToken, subscribeSessionCleared } from '@/shared/api';
 import { useCurrentUser } from '@/features/auth/api/useCurrentUser.js';
 import { useLogin } from '@/features/auth/api/useLogin.js';
 import { useLogout } from '@/features/auth/api/useLogout.js';
@@ -47,9 +34,7 @@ export function AuthProvider({ children }) {
   const queryClient = useQueryClient();
   const intentionalClearRef = useRef(false);
 
-  const [bootState, setBootState] = useState(() =>
-    getAccessToken() ? 'ready' : 'pending',
-  );
+  const [bootState, setBootState] = useState(() => (getAccessToken() ? 'ready' : 'pending'));
 
   useEffect(() => {
     if (bootState !== 'pending') {
@@ -99,13 +84,8 @@ export function AuthProvider({ children }) {
 
   const user = meQuery.data ?? null;
   const isAuthenticated = Boolean(user);
-  const isLoadingAuth =
-    bootState === 'pending' ||
-    (bootState === 'ready' && Boolean(getAccessToken()) && meQuery.isPending);
-  const authChecked =
-    bootState === 'signed_out' ||
-    (bootState === 'ready' &&
-      (!getAccessToken() || meQuery.isSuccess || meQuery.isError));
+  const isLoadingAuth = bootState === 'pending' || (bootState === 'ready' && Boolean(getAccessToken()) && meQuery.isPending);
+  const authChecked = bootState === 'signed_out' || (bootState === 'ready' && (!getAccessToken() || meQuery.isSuccess || meQuery.isError));
 
   /**
    * Signs in and ensures the current-user query is populated.

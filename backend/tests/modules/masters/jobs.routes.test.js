@@ -15,29 +15,16 @@ import {
   DEFAULT_ADMIN_EMAIL,
   DEFAULT_ADMIN_PASSWORD,
   IDENTITY_MODELS,
-  createUser, createUserInRepo,
+  createUserInRepo,
   findBuiltInRole,
   findOrganizationBySlug,
   runBootstrapSeed,
 } from '../../../src/modules/masters/index.js';
 import { PROJECT_MODELS } from '../../../src/modules/masters/projects.js';
-import {
-  JOB_MODELS,
-  Job,
-  createPendingJob,
-  JOB_ENQUEUED_MESSAGE,
-  JOB_EVENT_CODE_ENQUEUED,
-} from '../../../src/modules/masters/jobs.js';
+import { JOB_MODELS, Job, createPendingJob, JOB_ENQUEUED_MESSAGE, JOB_EVENT_CODE_ENQUEUED } from '../../../src/modules/masters/jobs.js';
 
 const harness = createMongoHarness({
-  models: [
-    ...IDENTITY_MODELS,
-    ...AUTH_MODELS,
-    ...AUDIT_MODELS,
-    ...IDEMPOTENCY_MODELS,
-    ...PROJECT_MODELS,
-    ...JOB_MODELS,
-  ],
+  models: [...IDENTITY_MODELS, ...AUTH_MODELS, ...AUDIT_MODELS, ...IDEMPOTENCY_MODELS, ...PROJECT_MODELS, ...JOB_MODELS],
   uri: TEST_APP_CONFIG.mongo.uri,
 });
 
@@ -114,12 +101,7 @@ describe('jobs.routes', () => {
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const org = await findOrganizationBySlug('default');
 
-    const created = await createProjectRequest(
-      app,
-      accessToken,
-      { name: 'Jobs Project', sourceType: 'upload' },
-      'idem-jobs-1',
-    );
+    const created = await createProjectRequest(app, accessToken, { name: 'Jobs Project', sourceType: 'upload' }, 'idem-jobs-1');
     expect(created.statusCode).toBe(201);
     const projectId = created.json().id;
 
@@ -172,12 +154,7 @@ describe('jobs.routes', () => {
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const org = await findOrganizationBySlug('default');
 
-    const created = await createProjectRequest(
-      app,
-      accessToken,
-      { name: 'Jobs ACL', sourceType: 'upload' },
-      'idem-jobs-acl',
-    );
+    const created = await createProjectRequest(app, accessToken, { name: 'Jobs ACL', sourceType: 'upload' }, 'idem-jobs-acl');
     const projectId = created.json().id;
 
     const { jobId: activeJobId } = await createPendingJob({
@@ -190,10 +167,7 @@ describe('jobs.routes', () => {
       projectId,
       jobType: 'ingest',
     });
-    await Job.updateOne(
-      { _id: failedJobId },
-      { $set: { jobStatus: 'failed', failureClass: 'temporary' } },
-    );
+    await Job.updateOne({ _id: failedJobId }, { $set: { jobStatus: 'failed', failureClass: 'temporary' } });
 
     const { jobId: deletedJobId } = await createPendingJob({
       orgId: String(org._id),
@@ -241,12 +215,7 @@ describe('jobs.routes', () => {
     await runBootstrapSeed(createMockLog());
     app = await readyApp();
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
-    const created = await createProjectRequest(
-      app,
-      accessToken,
-      { name: 'Jobs Validation', sourceType: 'upload' },
-      'idem-jobs-val',
-    );
+    const created = await createProjectRequest(app, accessToken, { name: 'Jobs Validation', sourceType: 'upload' }, 'idem-jobs-val');
     const projectId = created.json().id;
 
     const unauth = await app.inject({
@@ -282,12 +251,7 @@ describe('jobs.routes', () => {
     app = await readyApp();
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const org = await findOrganizationBySlug('default');
-    const created = await createProjectRequest(
-      app,
-      accessToken,
-      { name: 'Jobs Page', sourceType: 'upload' },
-      'idem-jobs-page',
-    );
+    const created = await createProjectRequest(app, accessToken, { name: 'Jobs Page', sourceType: 'upload' }, 'idem-jobs-page');
     const projectId = created.json().id;
 
     for (let i = 0; i < 3; i += 1) {
@@ -334,22 +298,17 @@ describe('jobs.routes', () => {
     const org = await findOrganizationBySlug('default');
     const viewerRole = await findBuiltInRole(org._id, 'viewer');
     const passwordHash = await hashPassword('viewerpass1');
-    const viewer = await createUserInRepo(org._id, {
+    await createUserInRepo(org._id, {
       email: 'viewer-jobs@example.com',
       displayName: 'Viewer Jobs',
       userStatus: 'active',
       passwordHash,
-          roleIds: [viewerRole._id]
-        });
+      roleIds: [viewerRole._id],
+    });
 
     app = await readyApp();
     const admin = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
-    const created = await createProjectRequest(
-      app,
-      admin.accessToken,
-      { name: 'Restricted Jobs', sourceType: 'upload' },
-      'idem-jobs-restricted',
-    );
+    const created = await createProjectRequest(app, admin.accessToken, { name: 'Restricted Jobs', sourceType: 'upload' }, 'idem-jobs-restricted');
     const projectId = created.json().id;
     const { jobId } = await createPendingJob({
       orgId: String(org._id),
@@ -358,11 +317,7 @@ describe('jobs.routes', () => {
     });
 
     // selected-mode: viewer has no membership on this project → 404 JOB_NOT_FOUND
-    const { accessToken: viewerToken } = await login(
-      app,
-      'viewer-jobs@example.com',
-      'viewerpass1',
-    );
+    const { accessToken: viewerToken } = await login(app, 'viewer-jobs@example.com', 'viewerpass1');
     const listDenied = await app.inject({
       method: 'GET',
       url: `${API_BASE_PATH}/projects/${projectId}/jobs`,

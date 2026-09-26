@@ -13,10 +13,7 @@ import {
   revokeAllLoginSessionsForUser,
 } from '../access/index.js';
 import { z } from 'zod';
-import {
-  assertRolesExistInOrg,
-  wouldRemoveLastAdmin,
-} from './users.helper.js';
+import { assertRolesExistInOrg, wouldRemoveLastAdmin } from './users.helper.js';
 import { bumpProjectAclVersion } from './projectMembers.js';
 import { findRolesByIds, isDuplicateKeyError } from './roles.js';
 import mongoose from 'mongoose';
@@ -77,10 +74,7 @@ function keysetAfterFilter(cursor) {
   }
   const id = new mongoose.Types.ObjectId(cursor.i);
   return {
-    $or: [
-      { createdAt: { $lt: createdAt } },
-      { createdAt, _id: { $lt: id } },
-    ],
+    $or: [{ createdAt: { $lt: createdAt } }, { createdAt, _id: { $lt: id } }],
   };
 }
 
@@ -185,10 +179,7 @@ export async function createUserInRepo(orgId, input, options = {}) {
   if (input.passwordUpdatedAt !== undefined) {
     doc.passwordUpdatedAt = input.passwordUpdatedAt;
   }
-  const [created] = await User.create(
-    [doc],
-    options.session ? { session: options.session } : undefined,
-  );
+  const [created] = await User.create([doc], options.session ? { session: options.session } : undefined);
   return created;
 }
 
@@ -229,11 +220,7 @@ export async function updateUser(orgId, userId, patch, options = {}) {
   if (patch.updatedBy !== undefined) {
     $set.updatedBy = patch.updatedBy ?? null;
   }
-  const query = User.findOneAndUpdate(
-    { _id: userId, orgId },
-    { $set },
-    { returnDocument: 'after' },
-  );
+  const query = User.findOneAndUpdate({ _id: userId, orgId }, { $set }, { returnDocument: 'after' });
   if (options.session) {
     query.session(options.session);
   }
@@ -347,10 +334,7 @@ export async function applyPasswordUpdate(orgId, userId, input, options = {}) {
 export async function touchLastLoginAt(orgId, userId, options = {}) {
   assertOrgId(orgId);
   const now = new Date();
-  const query = User.updateOne(
-    { _id: userId, orgId },
-    { $set: { lastLoginAt: now, updatedAt: now } },
-  );
+  const query = User.updateOne({ _id: userId, orgId }, { $set: { lastLoginAt: now, updatedAt: now } });
   if (options.session) {
     query.session(options.session);
   }
@@ -383,7 +367,9 @@ export async function listUsersInRepo(orgId, filters = {}) {
   }
 
   if (filters.q && String(filters.q).trim().length > 0) {
-    const prefix = String(filters.q).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const prefix = String(filters.q)
+      .trim()
+      .replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const pattern = new RegExp(`^${prefix}`, 'i');
     query.$or = [{ email: pattern }, { displayName: pattern }];
   }
@@ -453,11 +439,7 @@ export async function listUsersInRepo(orgId, filters = {}) {
  */
 export async function softDeleteUser(orgId, userId, options = {}) {
   assertOrgId(orgId);
-  return softDelete(
-    User,
-    { _id: userId, orgId },
-    { updatedBy: options.updatedBy ?? null, session: options.session },
-  );
+  return softDelete(User, { _id: userId, orgId }, { updatedBy: options.updatedBy ?? null, session: options.session });
 }
 
 // --- from identity/user.service.js ---
@@ -482,14 +464,10 @@ export function mapUserToDto(user, roles = []) {
       name: role.name,
       isBuiltIn: Boolean(role.isBuiltIn),
     })),
-    lastLoginAt:
-      user.lastLoginAt instanceof Date ? user.lastLoginAt.toISOString() : null,
+    lastLoginAt: user.lastLoginAt instanceof Date ? user.lastLoginAt.toISOString() : null,
     passwordResetStatus: reset.state,
     passwordResetCompletedAt: reset.completedAt,
-    createdAt:
-      user.createdAt instanceof Date
-        ? user.createdAt.toISOString()
-        : String(user.createdAt ?? ''),
+    createdAt: user.createdAt instanceof Date ? user.createdAt.toISOString() : String(user.createdAt ?? ''),
   };
 }
 
@@ -642,9 +620,7 @@ export async function updateUserDetails(input) {
   }
 
   const previousEmail = user.email;
-  const emailChanged =
-    input.email !== undefined &&
-    String(input.email).toLowerCase().trim() !== String(previousEmail).toLowerCase();
+  const emailChanged = input.email !== undefined && String(input.email).toLowerCase().trim() !== String(previousEmail).toLowerCase();
 
   /** @type {string[] | undefined} */
   let previousRoleIds;
@@ -674,12 +650,7 @@ export async function updateUserDetails(input) {
       await mongoSession.withTransaction(async () => {
         const opts = { session: mongoSession };
         if (input.roleIds && nextRoleIds) {
-          const rolesUpdated = await updateUser(
-            input.orgId,
-            input.targetUserId,
-            { roleIds: nextRoleIds, updatedBy: input.actorUserId },
-            opts,
-          );
+          const rolesUpdated = await updateUser(input.orgId, input.targetUserId, { roleIds: nextRoleIds, updatedBy: input.actorUserId }, opts);
           if (!rolesUpdated) {
             throw ApiError.fromCode('NOT_FOUND', { message: 'User not found.' });
           }
@@ -710,12 +681,7 @@ export async function updateUserDetails(input) {
           }
         }
         if (emailChanged && updated) {
-          await revokeAllLoginSessionsForUser(
-            input.orgId,
-            input.targetUserId,
-            'email_changed',
-            opts,
-          );
+          await revokeAllLoginSessionsForUser(input.orgId, input.targetUserId, 'email_changed', opts);
         }
       });
     } finally {
@@ -796,9 +762,7 @@ export async function updateUserDetails(input) {
     );
   }
 
-  const roles = input.roleIds
-    ? await findRolesByIds(input.orgId, input.roleIds.map(String))
-    : await loadRolesForUser(input.orgId, updated ?? user);
+  const roles = input.roleIds ? await findRolesByIds(input.orgId, input.roleIds.map(String)) : await loadRolesForUser(input.orgId, updated ?? user);
 
   return mapUserToDto(updated ?? user, roles);
 }
@@ -822,11 +786,7 @@ export async function activateUser(input) {
     throw ApiError.fromCode('NOT_FOUND', { message: 'User not found.' });
   }
   const previousStatus = user.userStatus;
-  const updated = await updateUser(
-    input.orgId,
-    input.targetUserId,
-    { userStatus: 'active', updatedBy: input.actorUserId },
-  );
+  const updated = await updateUser(input.orgId, input.targetUserId, { userStatus: 'active', updatedBy: input.actorUserId });
   if (!updated) {
     throw ApiError.fromCode('NOT_FOUND', { message: 'User not found.' });
   }
@@ -893,12 +853,7 @@ export async function deactivateUser(input) {
       if (!updated) {
         throw ApiError.fromCode('NOT_FOUND', { message: 'User not found.' });
       }
-      await revokeAllLoginSessionsForUser(
-        input.orgId,
-        input.targetUserId,
-        'user_disabled',
-        { session: mongoSession },
-      );
+      await revokeAllLoginSessionsForUser(input.orgId, input.targetUserId, 'user_disabled', { session: mongoSession });
     });
   } finally {
     await mongoSession.endSession();
@@ -962,12 +917,7 @@ export async function removeUser(input) {
         updatedBy: input.actorUserId,
         session: mongoSession,
       });
-      await revokeAllLoginSessionsForUser(
-        input.orgId,
-        input.targetUserId,
-        'user_disabled',
-        { session: mongoSession },
-      );
+      await revokeAllLoginSessionsForUser(input.orgId, input.targetUserId, 'user_disabled', { session: mongoSession });
       await bumpProjectAclVersion(input.orgId, { session: mongoSession });
     });
   } finally {
@@ -1069,9 +1019,7 @@ export async function replaceUserRoles(input) {
   return mapUserToDto(updated, roles);
 }
 
-const objectIdStringSchema = z
-  .string()
-  .regex(/^[a-fA-F0-9]{24}$/, 'must be a 24-char hex ObjectId');
+const objectIdStringSchema = z.string().regex(/^[a-fA-F0-9]{24}$/, 'must be a 24-char hex ObjectId');
 
 const roleIdsSchema = z.array(objectIdStringSchema).min(1);
 
@@ -1090,13 +1038,9 @@ const patchUserBodySchema = z
     roleIds: roleIdsSchema.optional(),
   })
   .strict()
-  .refine(
-    (body) =>
-      body.email !== undefined ||
-      body.displayName !== undefined ||
-      body.roleIds !== undefined,
-    { message: 'at least one of email, displayName, roleIds is required' },
-  );
+  .refine((body) => body.email !== undefined || body.displayName !== undefined || body.roleIds !== undefined, {
+    message: 'at least one of email, displayName, roleIds is required',
+  });
 
 const replaceRolesBodySchema = z.object({ roleIds: roleIdsSchema }).strict();
 
@@ -1147,199 +1091,163 @@ function serviceContext(request) {
  * @param {import('fastify').FastifyInstance} app Fastify app.
  */
 export async function userRoutes(app) {
-  app.post(
-    '/users',
-    { config: { requiredPermissions: ['users.manage'], requireIdempotencyKey: true } },
-    async (request, reply) => {
-      const parsed = createUserBodySchema.safeParse(request.body ?? {});
-      if (!parsed.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
-      }
-      const ctx = serviceContext(request);
-      const user = await createUser({
-        ...ctx,
-        email: parsed.data.email,
-        displayName: parsed.data.displayName,
-        roleIds: parsed.data.roleIds,
+  app.post('/users', { config: { requiredPermissions: ['users.manage'], requireIdempotencyKey: true } }, async (request, reply) => {
+    const parsed = createUserBodySchema.safeParse(request.body ?? {});
+    if (!parsed.success) {
+      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
+    }
+    const ctx = serviceContext(request);
+    const user = await createUser({
+      ...ctx,
+      email: parsed.data.email,
+      displayName: parsed.data.displayName,
+      roleIds: parsed.data.roleIds,
+    });
+    return reply.code(201).send(user);
+  });
+
+  app.get('/users', { config: { requiredPermissions: ['users.manage'] } }, async (request) => {
+    const parsed = listUsersQuerySchema.safeParse(request.query ?? {});
+    if (!parsed.success) {
+      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
+    }
+    if (parsed.data.limit === 0) {
+      throw ApiError.fromCode('VALIDATION_ERROR', {
+        details: [{ path: 'limit', message: 'limit must be a positive integer' }],
       });
-      return reply.code(201).send(user);
-    },
-  );
+    }
+    return listUsers(request.principal.orgId, parsed.data);
+  });
 
-  app.get(
-    '/users',
-    { config: { requiredPermissions: ['users.manage'] } },
-    async (request) => {
-      const parsed = listUsersQuerySchema.safeParse(request.query ?? {});
-      if (!parsed.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
-      }
-      if (parsed.data.limit === 0) {
-        throw ApiError.fromCode('VALIDATION_ERROR', {
-          details: [{ path: 'limit', message: 'limit must be a positive integer' }],
-        });
-      }
-      return listUsers(request.principal.orgId, parsed.data);
-    },
-  );
+  app.get('/users/:userId', { config: { requiredPermissions: ['users.manage'] } }, async (request) => {
+    const params = userIdParamsSchema.safeParse(request.params ?? {});
+    if (!params.success) {
+      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+    }
+    return getUser(request.principal.orgId, params.data.userId);
+  });
 
-  app.get(
-    '/users/:userId',
-    { config: { requiredPermissions: ['users.manage'] } },
-    async (request) => {
-      const params = userIdParamsSchema.safeParse(request.params ?? {});
-      if (!params.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
-      }
-      return getUser(request.principal.orgId, params.data.userId);
-    },
-  );
+  app.patch('/users/:userId', { config: { requiredPermissions: ['users.manage'] } }, async (request) => {
+    const params = userIdParamsSchema.safeParse(request.params ?? {});
+    if (!params.success) {
+      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+    }
+    const parsed = patchUserBodySchema.safeParse(request.body ?? {});
+    if (!parsed.success) {
+      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
+    }
+    const ctx = serviceContext(request);
+    return updateUserDetails({
+      ...ctx,
+      targetUserId: params.data.userId,
+      displayName: parsed.data.displayName,
+      email: parsed.data.email,
+      roleIds: parsed.data.roleIds,
+    });
+  });
 
-  app.patch(
-    '/users/:userId',
-    { config: { requiredPermissions: ['users.manage'] } },
-    async (request) => {
-      const params = userIdParamsSchema.safeParse(request.params ?? {});
-      if (!params.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
-      }
-      const parsed = patchUserBodySchema.safeParse(request.body ?? {});
-      if (!parsed.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
-      }
-      const ctx = serviceContext(request);
-      return updateUserDetails({
-        ...ctx,
+  app.post('/users/:userId/activate', { config: { requiredPermissions: ['users.manage'] } }, async (request) => {
+    const params = userIdParamsSchema.safeParse(request.params ?? {});
+    if (!params.success) {
+      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+    }
+    const ctx = serviceContext(request);
+    return activateUser({ ...ctx, targetUserId: params.data.userId });
+  });
+
+  app.post('/users/:userId/deactivate', { config: { requiredPermissions: ['users.manage'] } }, async (request) => {
+    const params = userIdParamsSchema.safeParse(request.params ?? {});
+    if (!params.success) {
+      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+    }
+    const ctx = serviceContext(request);
+    return deactivateUser({ ...ctx, targetUserId: params.data.userId });
+  });
+
+  app.delete('/users/:userId', { config: { requiredPermissions: ['users.manage'] } }, async (request, reply) => {
+    const params = userIdParamsSchema.safeParse(request.params ?? {});
+    if (!params.success) {
+      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+    }
+    const ctx = serviceContext(request);
+    await removeUser({ ...ctx, targetUserId: params.data.userId });
+    return reply.code(204).send();
+  });
+
+  app.put('/users/:userId/roles', { config: { requiredPermissions: ['users.manage', 'roles.manage'] } }, async (request) => {
+    const params = userIdParamsSchema.safeParse(request.params ?? {});
+    if (!params.success) {
+      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+    }
+    const parsed = replaceRolesBodySchema.safeParse(request.body ?? {});
+    if (!parsed.success) {
+      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
+    }
+    const ctx = serviceContext(request);
+    return replaceUserRoles({
+      ...ctx,
+      targetUserId: params.data.userId,
+      roleIds: parsed.data.roleIds,
+    });
+  });
+
+  app.post('/users/:userId/reset-password', { config: { requiredPermissions: ['users.manage'] } }, async (request) => {
+    const params = userIdParamsSchema.safeParse(request.params ?? {});
+    if (!params.success) {
+      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+    }
+    const parsed = resetBodySchema.safeParse(request.body ?? {});
+    if (!parsed.success) {
+      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
+    }
+    if (parsed.data.newPassword.length < PASSWORD_MIN_LENGTH) {
+      throw ApiError.fromCode('PASSWORD_POLICY_VIOLATION', {
+        details: { violations: ['TOO_SHORT'] },
+      });
+    }
+    const principal = request.principal;
+    const auditBase = buildAuditContextFromRequest(request);
+    const result = await adminSetPassword(
+      {
+        orgId: principal.orgId,
+        actorUserId: principal.userId,
         targetUserId: params.data.userId,
-        displayName: parsed.data.displayName,
-        email: parsed.data.email,
-        roleIds: parsed.data.roleIds,
+        newPassword: parsed.data.newPassword,
+      },
+      { log: request.log },
+    );
+    if (result.outcome === 'not_found') {
+      throw ApiError.fromCode('NOT_FOUND', { message: 'User not found.' });
+    }
+    if (result.outcome === 'policy_violation') {
+      throw ApiError.fromCode('PASSWORD_POLICY_VIOLATION', {
+        details: { violations: result.violations ?? [] },
       });
-    },
-  );
-
-  app.post(
-    '/users/:userId/activate',
-    { config: { requiredPermissions: ['users.manage'] } },
-    async (request) => {
-      const params = userIdParamsSchema.safeParse(request.params ?? {});
-      if (!params.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
-      }
-      const ctx = serviceContext(request);
-      return activateUser({ ...ctx, targetUserId: params.data.userId });
-    },
-  );
-
-  app.post(
-    '/users/:userId/deactivate',
-    { config: { requiredPermissions: ['users.manage'] } },
-    async (request) => {
-      const params = userIdParamsSchema.safeParse(request.params ?? {});
-      if (!params.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
-      }
-      const ctx = serviceContext(request);
-      return deactivateUser({ ...ctx, targetUserId: params.data.userId });
-    },
-  );
-
-  app.delete(
-    '/users/:userId',
-    { config: { requiredPermissions: ['users.manage'] } },
-    async (request, reply) => {
-      const params = userIdParamsSchema.safeParse(request.params ?? {});
-      if (!params.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
-      }
-      const ctx = serviceContext(request);
-      await removeUser({ ...ctx, targetUserId: params.data.userId });
-      return reply.code(204).send();
-    },
-  );
-
-  app.put(
-    '/users/:userId/roles',
-    { config: { requiredPermissions: ['users.manage', 'roles.manage'] } },
-    async (request) => {
-      const params = userIdParamsSchema.safeParse(request.params ?? {});
-      if (!params.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
-      }
-      const parsed = replaceRolesBodySchema.safeParse(request.body ?? {});
-      if (!parsed.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
-      }
-      const ctx = serviceContext(request);
-      return replaceUserRoles({
-        ...ctx,
-        targetUserId: params.data.userId,
-        roleIds: parsed.data.roleIds,
-      });
-    },
-  );
-
-  app.post(
-    '/users/:userId/reset-password',
-    { config: { requiredPermissions: ['users.manage'] } },
-    async (request) => {
-      const params = userIdParamsSchema.safeParse(request.params ?? {});
-      if (!params.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
-      }
-      const parsed = resetBodySchema.safeParse(request.body ?? {});
-      if (!parsed.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
-      }
-      if (parsed.data.newPassword.length < PASSWORD_MIN_LENGTH) {
-        throw ApiError.fromCode('PASSWORD_POLICY_VIOLATION', {
-          details: { violations: ['TOO_SHORT'] },
-        });
-      }
-      const principal = request.principal;
-      const auditBase = buildAuditContextFromRequest(request);
-      const result = await adminSetPassword(
-        {
-          orgId: principal.orgId,
-          actorUserId: principal.userId,
-          targetUserId: params.data.userId,
-          newPassword: parsed.data.newPassword,
-        },
-        { log: request.log },
-      );
-      if (result.outcome === 'not_found') {
-        throw ApiError.fromCode('NOT_FOUND', { message: 'User not found.' });
-      }
-      if (result.outcome === 'policy_violation') {
-        throw ApiError.fromCode('PASSWORD_POLICY_VIOLATION', {
-          details: { violations: result.violations ?? [] },
-        });
-      }
-      if (result.outcome !== 'password_changed' || !result.passwordUpdatedAt) {
-        throw ApiError.fromCode('INTERNAL_ERROR');
-      }
-      await recordAuditEvent(
-        {
-          ...auditBase,
-          orgId: principal.orgId,
-          actorUserId: principal.userId,
-          action: 'user.password_set_by_admin',
-          resourceType: 'user',
-          resourceId: String(result.userId ?? params.data.userId),
-          result: 'success',
-          context: { reason: 'admin_set', sessionsRevoked: true },
-        },
-        { log: request.log },
-      );
-      return {
-        userId: result.userId,
-        passwordResetStatus: 'completed',
-        completedAt: result.passwordUpdatedAt.toISOString(),
-        sessionsRevoked: true,
-        deliveryChannel: 'administrator',
-      };
-    },
-  );
+    }
+    if (result.outcome !== 'password_changed' || !result.passwordUpdatedAt) {
+      throw ApiError.fromCode('INTERNAL_ERROR');
+    }
+    await recordAuditEvent(
+      {
+        ...auditBase,
+        orgId: principal.orgId,
+        actorUserId: principal.userId,
+        action: 'user.password_set_by_admin',
+        resourceType: 'user',
+        resourceId: String(result.userId ?? params.data.userId),
+        result: 'success',
+        context: { reason: 'admin_set', sessionsRevoked: true },
+      },
+      { log: request.log },
+    );
+    return {
+      userId: result.userId,
+      passwordResetStatus: 'completed',
+      completedAt: result.passwordUpdatedAt.toISOString(),
+      sessionsRevoked: true,
+      deliveryChannel: 'administrator',
+    };
+  });
 }
 
 /** @deprecated Prefer {@link userRoutes}; kept for existing unit tests. */

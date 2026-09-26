@@ -51,12 +51,7 @@ describe('runBootstrapSeed', () => {
     const result = await runBootstrapSeed(log);
     expect(result.result).toBe('created');
     expect(result.slug).toBe(DEFAULT_ORG_SLUG);
-    expect(result.builtInRoles).toEqual([
-      'org_admin',
-      'project_admin',
-      'member',
-      'viewer',
-    ]);
+    expect(result.builtInRoles).toEqual(['org_admin', 'project_admin', 'member', 'viewer']);
     expect(result.adminUserStatus).toBe('active');
 
     const org = await findOrganizationBySlug(DEFAULT_ORG_SLUG);
@@ -99,14 +94,9 @@ describe('runBootstrapSeed', () => {
   });
 
   it('creates exactly one organization when two seeds run concurrently', async () => {
-    const results = await Promise.all([
-      runBootstrapSeed(createMockLog()),
-      runBootstrapSeed(createMockLog()),
-    ]);
+    const results = await Promise.all([runBootstrapSeed(createMockLog()), runBootstrapSeed(createMockLog())]);
     expect(results.every((r) => r.slug === DEFAULT_ORG_SLUG)).toBe(true);
-    const orgs = await (
-      await import('../../../src/models/organization.model.js')
-    ).Organization.find({ slug: DEFAULT_ORG_SLUG });
+    const orgs = await (await import('../../../src/models/organization.model.js')).Organization.find({ slug: DEFAULT_ORG_SLUG });
     expect(orgs).toHaveLength(1);
   });
 
@@ -114,21 +104,17 @@ describe('runBootstrapSeed', () => {
     const log = createMockLog();
     await runBootstrapSeed(log);
     expect(log.debug.mock.calls.length).toBeGreaterThan(1);
-    expect(log.debug.mock.calls.every((call) => call[1] === 'bootstrap seed step')).toBe(
-      true,
-    );
+    expect(log.debug.mock.calls.every((call) => call[1] === 'bootstrap seed step')).toBe(true);
   });
 
   it('leaves no organization behind when the admin user insert fails', async () => {
     const log = createMockLog();
     const usersRepo = await import('../../../src/modules/masters/users.js');
-    const spy = vi
-      .spyOn(usersRepo, 'createUserInRepo')
-      .mockRejectedValue(
-        ApiError.fromCode('BOOTSTRAP_FAILED', {
-          message: 'Administrator user could not be ensured.',
-        }),
-      );
+    const spy = vi.spyOn(usersRepo, 'createUserInRepo').mockRejectedValue(
+      ApiError.fromCode('BOOTSTRAP_FAILED', {
+        message: 'Administrator user could not be ensured.',
+      }),
+    );
 
     await expect(runBootstrapSeed(log)).rejects.toMatchObject({
       code: 'BOOTSTRAP_FAILED',

@@ -12,28 +12,14 @@ import { DOCUMENT_MODELS } from '../modules/knowledge/index.js';
 import { PROJECT_MODELS } from '../modules/masters/index.js';
 import { KNOWLEDGE_MODELS } from '../modules/knowledge/index.js';
 import { REPOSITORY_MODELS } from '../modules/knowledge/index.js';
-import {
-  attachShutdownSignals,
-  registerProcessHandlers,
-  registerShutdownHook,
-} from '../platform/shutdown.js';
+import { attachShutdownSignals, registerProcessHandlers, registerShutdownHook } from '../platform/shutdown.js';
 import { clearJobHandlersForTests, registerJobHandler } from './handlerRegistry.js';
 import { workerSmokeHandlerRegistration } from './handlers/workerSmokeHandler.js';
-import {
-  ingestHandlerRegistration,
-  reingestHandlerRegistration,
-} from '../modules/knowledge/index.js';
-import {
-  enqueueDueRepositorySyncs,
-  repoSyncHandlerRegistration,
-  REPO_SYNC_SCHEDULER_TICK_MS,
-} from '../modules/knowledge/index.js';
+import { ingestHandlerRegistration, reingestHandlerRegistration } from '../modules/knowledge/index.js';
+import { enqueueDueRepositorySyncs, repoSyncHandlerRegistration, REPO_SYNC_SCHEDULER_TICK_MS } from '../modules/knowledge/index.js';
 import { ProjectJobLock } from '../models/projectJobLock.model.js';
 import { buildWorkerId, startWorkerRuntime } from './workerRuntime.js';
-import {
-  WORKER_HEARTBEAT_INTERVAL_MS,
-  assertWorkerLeaseTimingSafe,
-} from './worker.constants.js';
+import { WORKER_HEARTBEAT_INTERVAL_MS, assertWorkerLeaseTimingSafe } from './worker.constants.js';
 
 export { WORKER_HEARTBEAT_INTERVAL_MS };
 
@@ -87,10 +73,7 @@ export async function startWorker(deps = {}) {
     try {
       await (deps.syncSchemaIndexes ?? syncSchemaIndexes)(WORKER_MODELS);
     } catch (err) {
-      log.error(
-        { errName: err instanceof Error ? err.name : 'Error' },
-        'worker schema index sync failed',
-      );
+      log.error({ errName: err instanceof Error ? err.name : 'Error' }, 'worker schema index sync failed');
       (deps.exit ?? ((code) => process.exit(code)))(1);
       throw new Error('worker index sync failed', { cause: err });
     }
@@ -134,18 +117,14 @@ export async function startWorker(deps = {}) {
   });
 
   const registerHook = deps.registerShutdownHook ?? registerShutdownHook;
-  const enableScheduler =
-    deps.enableRepoSyncScheduler ?? deps.startWorkerRuntime == null;
+  const enableScheduler = deps.enableRepoSyncScheduler ?? deps.startWorkerRuntime == null;
   if (enableScheduler) {
     const schedule = deps.setInterval ?? setInterval;
     const clear = deps.clearInterval ?? clearInterval;
     const enqueueDue = deps.enqueueDueRepositorySyncs ?? enqueueDueRepositorySyncs;
     const tick = () => {
       enqueueDue({ log }).catch((err) => {
-        log.error?.(
-          { errName: err instanceof Error ? err.name : 'Error' },
-          'repo_sync scheduler tick failed',
-        );
+        log.error?.({ errName: err instanceof Error ? err.name : 'Error' }, 'repo_sync scheduler tick failed');
       });
     };
     tick();

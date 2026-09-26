@@ -8,11 +8,13 @@ import { ScrollToTop } from '@/shared/components';
  * @returns Application tree.
  */
 export function App() {
-    return (<BrowserRouter>
+  return (
+    <BrowserRouter>
       <Providers>
         <ScrollToTop />
         <AppRoutes />
       </Providers>
-    </BrowserRouter>);
+    </BrowserRouter>
+  );
 }
 export default App;

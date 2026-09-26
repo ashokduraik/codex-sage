@@ -23,9 +23,7 @@ export default function HomePage() {
     includeArchived: false,
   });
   const recentProjects = flattenProjectPages(recentQuery.data).slice(0, 4);
-  const recentConversations = conversations
-    .filter((conversation) => !conversation.archived)
-    .slice(0, 4);
+  const recentConversations = conversations.filter((conversation) => !conversation.archived).slice(0, 4);
 
   /**
    * Navigate to project chat with a prefilled question.
@@ -45,18 +43,10 @@ export default function HomePage() {
             <Sparkles className="h-3.5 w-3.5 text-brand" aria-hidden="true" />
             {t('home.eyebrow')}
           </div>
-          <h1 className="mt-4 font-display text-4xl font-medium leading-tight tracking-tight text-foreground sm:text-5xl">
-            {t('home.heroTitle')}
-          </h1>
-          <p className="mt-3 max-w-xl text-base text-muted-foreground">
-            {t('home.heroSubtitle')}
-          </p>
+          <h1 className="mt-4 font-display text-4xl font-medium leading-tight tracking-tight text-foreground sm:text-5xl">{t('home.heroTitle')}</h1>
+          <p className="mt-3 max-w-xl text-base text-muted-foreground">{t('home.heroSubtitle')}</p>
           <div className="mt-6 flex flex-wrap gap-2">
-            <Button
-              size="lg"
-              onClick={() => navigate('/projects')}
-              className="bg-brand text-brand-foreground hover:bg-brand/90"
-            >
+            <Button size="lg" onClick={() => navigate('/projects')} className="bg-brand text-brand-foreground hover:bg-brand/90">
               {t('home.askCta')}
               <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
             </Button>
@@ -68,9 +58,7 @@ export default function HomePage() {
         </section>
 
         <section className="mt-10">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            {t('home.suggestedQuestions')}
-          </h2>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{t('home.suggestedQuestions')}</h2>
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
             {SUGGESTED_QUESTIONS.map((question) => {
               const firstProject = recentProjects[0];
@@ -96,9 +84,7 @@ export default function HomePage() {
         <div className="mt-10 grid gap-8 lg:grid-cols-2">
           <section>
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                {t('home.recentProjects')}
-              </h2>
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{t('home.recentProjects')}</h2>
               <Link to="/projects" className="text-xs text-brand hover:underline">
                 {t('home.viewAll')}
               </Link>
@@ -111,9 +97,7 @@ export default function HomePage() {
               ) : null}
               {recentQuery.isError ? (
                 <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm">
-                  <p>
-                    {messageFromUnknown(recentQuery.error, t('home.projectsFailed'))}
-                  </p>
+                  <p>{messageFromUnknown(recentQuery.error, t('home.projectsFailed'))}</p>
                   {correlationFromUnknown(recentQuery.error) ? (
                     <p className="mt-1 text-xs text-muted-foreground">
                       {t('projects.correlationReference', {
@@ -121,12 +105,7 @@ export default function HomePage() {
                       })}
                     </p>
                   ) : null}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-2"
-                    onClick={() => void recentQuery.refetch()}
-                  >
+                  <Button variant="outline" size="sm" className="mt-2" onClick={() => void recentQuery.refetch()}>
                     {t('home.retry')}
                   </Button>
                 </div>
@@ -145,9 +124,7 @@ export default function HomePage() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-medium">{project.name}</div>
-                    <div className="truncate text-xs text-muted-foreground">
-                      {project.description}
-                    </div>
+                    <div className="truncate text-xs text-muted-foreground">{project.description}</div>
                   </div>
                   <KnowledgeHealthBadge code={project.knowledgeHealth} />
                 </Link>
@@ -158,19 +135,13 @@ export default function HomePage() {
           <section className="space-y-8">
             <div>
               <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                  {t('home.recentConversations')}
-                </h2>
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{t('home.recentConversations')}</h2>
                 <Link to="/conversations" className="text-xs text-brand hover:underline">
                   {t('home.all')}
                 </Link>
               </div>
               <div className="mt-3 space-y-2">
-                {recentConversations.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    {t('home.noConversationsYet')}
-                  </p>
-                ) : null}
+                {recentConversations.length === 0 ? <p className="text-sm text-muted-foreground">{t('home.noConversationsYet')}</p> : null}
                 {recentConversations.map((conversation) => {
                   const project = getProject(conversation.projectId);
                   return (
@@ -181,9 +152,7 @@ export default function HomePage() {
                     >
                       <MessageSquare className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                       <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-medium">
-                          {conversation.title}
-                        </div>
+                        <div className="truncate text-sm font-medium">{conversation.title}</div>
                         <div className="truncate text-xs text-muted-foreground">
                           {project?.name} · {formatRelative(conversation.createdAt)}
                         </div>
@@ -195,9 +164,7 @@ export default function HomePage() {
             </div>
 
             <div>
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                {t('home.knowledgeStatus')}
-              </h2>
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{t('home.knowledgeStatus')}</h2>
               <div className="mt-3 space-y-2">
                 {recentProjects.map((project) => (
                   <Link

@@ -14,11 +14,7 @@ export function InlineErrorAlert({ message, correlationId = '' }) {
   return (
     <div role="alert" className="text-sm text-destructive">
       <p>{message}</p>
-      {correlationId ? (
-        <p className="mt-1 text-xs opacity-80">
-          {t('errors.correlationId', { id: correlationId })}
-        </p>
-      ) : null}
+      {correlationId ? <p className="mt-1 text-xs opacity-80">{t('errors.correlationId', { id: correlationId })}</p> : null}
     </div>
   );
 }

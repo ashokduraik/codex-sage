@@ -1,11 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import {
-  clearSession,
-  getAccessToken,
-  resetApiSessionForTests,
-  setAccessToken,
-  subscribeSessionCleared,
-} from '@/shared/api/apiSession.js';
+import { clearSession, getAccessToken, resetApiSessionForTests, setAccessToken, subscribeSessionCleared } from '@/shared/api/apiSession.js';
 
 describe('apiSession', () => {
   beforeEach(() => {

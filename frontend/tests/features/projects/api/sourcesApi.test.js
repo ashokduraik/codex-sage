@@ -51,10 +51,7 @@ describe('uploadProjectSource', () => {
   it('lists source versions with the default page size', async () => {
     apiRequest.mockResolvedValue({ items: [], pageInfo: { nextCursor: null, hasMore: false } });
     await listProjectSourceVersions({ projectId: 'p1' });
-    expect(apiRequest).toHaveBeenCalledWith(
-      `/projects/p1/source-versions?limit=${SOURCE_VERSION_LIST_PAGE_SIZE}`,
-      { signal: undefined },
-    );
+    expect(apiRequest).toHaveBeenCalledWith(`/projects/p1/source-versions?limit=${SOURCE_VERSION_LIST_PAGE_SIZE}`, { signal: undefined });
     expect(sourceVersionsQueryKey('p1')).toEqual(['projects', 'p1', 'source-versions']);
   });
 });

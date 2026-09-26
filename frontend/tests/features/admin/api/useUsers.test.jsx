@@ -18,9 +18,7 @@ function createWrapper(queryClient) {
    * @param {{ children: import('react').ReactNode }} props
    */
   return function Wrapper({ children }) {
-    return (
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    );
+    return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
   };
 }
 
@@ -71,13 +69,10 @@ describe('useUsers', () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
-    const { result, rerender } = renderHook(
-      ({ filters }) => useUsers(filters),
-      {
-        initialProps: { filters: { q: 'a' } },
-        wrapper: createWrapper(queryClient),
-      },
-    );
+    const { result, rerender } = renderHook(({ filters }) => useUsers(filters), {
+      initialProps: { filters: { q: 'a' } },
+      wrapper: createWrapper(queryClient),
+    });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data?.items[0].id).toBe('u1');
@@ -89,9 +84,7 @@ describe('useUsers', () => {
   });
 
   it('includes q, userStatus, and roleId in the request URL', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      jsonFetch({ items: [], pageInfo: { nextCursor: null, hasMore: false } }),
-    );
+    const fetchMock = vi.fn().mockResolvedValue(jsonFetch({ items: [], pageInfo: { nextCursor: null, hasMore: false } }));
     vi.stubGlobal('fetch', fetchMock);
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },

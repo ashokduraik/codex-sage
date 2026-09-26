@@ -1,9 +1,5 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import {
-  ApiError,
-  buildErrorEnvelope,
-  canSendJsonError,
-} from '../../src/platform/errors.js';
+import { ApiError, buildErrorEnvelope, canSendJsonError } from '../../src/platform/errors.js';
 import { buildApp, CORRELATION_ID_HEADER } from '../../src/http/app.js';
 import { TEST_APP_CONFIG } from '../appConfig.js';
 
@@ -107,17 +103,11 @@ describe('buildErrorEnvelope', () => {
   });
 
   it('maps statusCode 404 to NOT_FOUND and keeps known 5xx ApiError messages', () => {
-    const notFound = buildErrorEnvelope(
-      Object.assign(new Error('missing'), { statusCode: 404 }),
-      'REQ-404',
-    );
+    const notFound = buildErrorEnvelope(Object.assign(new Error('missing'), { statusCode: 404 }), 'REQ-404');
     expect(notFound.body.error.code).toBe('NOT_FOUND');
     expect(notFound.statusCode).toBe(404);
 
-    const knowledge = buildErrorEnvelope(
-      ApiError.fromCode('KNOWLEDGE_UNAVAILABLE'),
-      'REQ-k',
-    );
+    const knowledge = buildErrorEnvelope(ApiError.fromCode('KNOWLEDGE_UNAVAILABLE'), 'REQ-k');
     expect(knowledge.statusCode).toBe(503);
     expect(knowledge.body.error.message).toBe('Project knowledge is not available.');
     expect(knowledge.body.error.retryability).toBe('temporary');
@@ -239,10 +229,7 @@ describe('registerErrorHandler (integration via buildApp)', () => {
 
   it('assigns distinct references to concurrent requests', async () => {
     app = buildApp(TEST_APP_CONFIG);
-    const [a, b] = await Promise.all([
-      app.inject({ method: 'GET', url: '/nonexistent' }),
-      app.inject({ method: 'GET', url: '/nonexistent' }),
-    ]);
+    const [a, b] = await Promise.all([app.inject({ method: 'GET', url: '/nonexistent' }), app.inject({ method: 'GET', url: '/nonexistent' })]);
     expect(a.json().error.reference).not.toBe(b.json().error.reference);
   });
 
@@ -322,9 +309,6 @@ describe('registerErrorHandler (integration via buildApp)', () => {
       send: vi.fn(),
     };
     await app.errorHandler(ApiError.fromCode('VALIDATION_ERROR'), request, reply);
-    expect(warnLog).toHaveBeenCalledWith(
-      expect.objectContaining({ err: expect.any(Error) }),
-      'failed to release idempotency claim',
-    );
+    expect(warnLog).toHaveBeenCalledWith(expect.objectContaining({ err: expect.any(Error) }), 'failed to release idempotency claim');
   });
 });

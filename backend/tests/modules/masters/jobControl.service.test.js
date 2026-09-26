@@ -4,12 +4,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../../../src/platform/errors.js';
 
-const {
-  hasRequiredPermissions,
-  resolveProjectPermissions,
-  findProjectById,
-  recordAuditEvent,
-} = vi.hoisted(() => ({
+const { hasRequiredPermissions, resolveProjectPermissions, findProjectById, recordAuditEvent } = vi.hoisted(() => ({
   hasRequiredPermissions: vi.fn(),
   resolveProjectPermissions: vi.fn(),
   findProjectById: vi.fn(),
@@ -105,16 +100,9 @@ describe('jobControl.service', () => {
     expect(result.statusCode).toBe(202);
     expect(result.body.jobStatus).toBe('retrying');
     expect(result.body.retry.mode).toBe('resume');
-    expect(beginUserRetry).toHaveBeenCalledWith(
-      expect.objectContaining({ mode: 'resume', clearCheckpoint: false }),
-    );
-    expect(appendJobEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ eventCode: 'job.retry_requested' }),
-    );
-    expect(recordAuditEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ action: 'job.retry', result: 'success' }),
-      expect.any(Object),
-    );
+    expect(beginUserRetry).toHaveBeenCalledWith(expect.objectContaining({ mode: 'resume', clearCheckpoint: false }));
+    expect(appendJobEvent).toHaveBeenCalledWith(expect.objectContaining({ eventCode: 'job.retry_requested' }));
+    expect(recordAuditEvent).toHaveBeenCalledWith(expect.objectContaining({ action: 'job.retry', result: 'success' }), expect.any(Object));
   });
 
   it('returns alreadyActive when the job is already running', async () => {
@@ -138,16 +126,12 @@ describe('jobControl.service', () => {
         stageCheckpoint: null,
       }),
     );
-    await expect(
-      retryJob({ orgId, userId, jobId, correlationId: 'req_retry_3' }),
-    ).rejects.toMatchObject({ code: 'JOB_NOT_RETRYABLE' });
+    await expect(retryJob({ orgId, userId, jobId, correlationId: 'req_retry_3' })).rejects.toMatchObject({ code: 'JOB_NOT_RETRYABLE' });
   });
 
   it('rejects retry on completed jobs', async () => {
     findJobById.mockResolvedValue(makeJob({ jobStatus: 'completed' }));
-    await expect(
-      retryJob({ orgId, userId, jobId, correlationId: 'req_retry_4' }),
-    ).rejects.toMatchObject({ code: 'INVALID_JOB_TRANSITION' });
+    await expect(retryJob({ orgId, userId, jobId, correlationId: 'req_retry_4' })).rejects.toMatchObject({ code: 'INVALID_JOB_TRANSITION' });
   });
 
   it('cancels a pending job immediately', async () => {
@@ -163,18 +147,13 @@ describe('jobControl.service', () => {
     expect(result.statusCode).toBe(200);
     expect(result.body.jobStatus).toBe('cancelled');
     expect(cancelQueuedJob).toHaveBeenCalled();
-    expect(recordAuditEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ action: 'job.cancel' }),
-      expect.any(Object),
-    );
+    expect(recordAuditEvent).toHaveBeenCalledWith(expect.objectContaining({ action: 'job.cancel' }), expect.any(Object));
   });
 
   it('requests cancel on a running job without marking it cancelled yet', async () => {
     const requestedAt = new Date('2026-09-11T10:44:01.000Z');
     findJobById.mockResolvedValue(makeJob({ jobStatus: 'running' }));
-    requestRunningJobCancel.mockResolvedValue(
-      makeJob({ jobStatus: 'running', cancelRequestedAt: requestedAt }),
-    );
+    requestRunningJobCancel.mockResolvedValue(makeJob({ jobStatus: 'running', cancelRequestedAt: requestedAt }));
 
     const result = await cancelJob({
       orgId,
@@ -204,22 +183,16 @@ describe('jobControl.service', () => {
 
   it('maps missing jobs and forbidden callers', async () => {
     findJobById.mockResolvedValue(null);
-    await expect(
-      retryJob({ orgId, userId, jobId, correlationId: 'req_x' }),
-    ).rejects.toMatchObject({ code: 'JOB_NOT_FOUND' });
+    await expect(retryJob({ orgId, userId, jobId, correlationId: 'req_x' })).rejects.toMatchObject({ code: 'JOB_NOT_FOUND' });
 
     findJobById.mockResolvedValue(makeJob());
     hasRequiredPermissions.mockReturnValue(false);
-    await expect(
-      cancelJob({ orgId, userId, jobId, correlationId: 'req_y' }),
-    ).rejects.toBeInstanceOf(ApiError);
+    await expect(cancelJob({ orgId, userId, jobId, correlationId: 'req_y' })).rejects.toBeInstanceOf(ApiError);
   });
 
   it('returns alreadyActive when another project job is active', async () => {
     findJobById.mockResolvedValue(makeJob());
-    findActiveJobForProject.mockResolvedValue(
-      makeJob({ _id: '665f1c9d4b2a8e0012a4f099', jobStatus: 'running' }),
-    );
+    findActiveJobForProject.mockResolvedValue(makeJob({ _id: '665f1c9d4b2a8e0012a4f099', jobStatus: 'running' }));
     const result = await retryJob({
       orgId,
       userId,
@@ -234,15 +207,11 @@ describe('jobControl.service', () => {
   it('rejects soft-deleted projects and retry ceiling', async () => {
     findJobById.mockResolvedValue(makeJob());
     findProjectById.mockResolvedValue(null);
-    await expect(
-      retryJob({ orgId, userId, jobId, correlationId: 'req_retry_del' }),
-    ).rejects.toMatchObject({ code: 'JOB_NOT_FOUND' });
+    await expect(retryJob({ orgId, userId, jobId, correlationId: 'req_retry_del' })).rejects.toMatchObject({ code: 'JOB_NOT_FOUND' });
 
     findProjectById.mockResolvedValue({ _id: projectId });
     findJobById.mockResolvedValue(makeJob({ retryCount: 10 }));
-    await expect(
-      retryJob({ orgId, userId, jobId, correlationId: 'req_retry_max' }),
-    ).rejects.toMatchObject({ code: 'JOB_RETRY_LIMIT_EXCEEDED' });
+    await expect(retryJob({ orgId, userId, jobId, correlationId: 'req_retry_max' })).rejects.toMatchObject({ code: 'JOB_RETRY_LIMIT_EXCEEDED' });
   });
 
   it('full-mode retry clears the checkpoint', async () => {
@@ -253,9 +222,7 @@ describe('jobControl.service', () => {
         stageCheckpoint: { lastCompletedStage: 'materialize_docs' },
       }),
     );
-    beginUserRetry.mockResolvedValue(
-      makeJob({ jobStatus: 'retrying', lastRetryMode: 'full', stageCheckpoint: null }),
-    );
+    beginUserRetry.mockResolvedValue(makeJob({ jobStatus: 'retrying', lastRetryMode: 'full', stageCheckpoint: null }));
     const result = await retryJob({
       orgId,
       userId,
@@ -264,15 +231,11 @@ describe('jobControl.service', () => {
     });
     expect(result.statusCode).toBe(202);
     expect(result.body.retry.mode).toBe('full');
-    expect(beginUserRetry).toHaveBeenCalledWith(
-      expect.objectContaining({ mode: 'full', clearCheckpoint: true }),
-    );
+    expect(beginUserRetry).toHaveBeenCalledWith(expect.objectContaining({ mode: 'full', clearCheckpoint: true }));
   });
 
   it('handles beginUserRetry races', async () => {
-    findJobById
-      .mockResolvedValueOnce(makeJob())
-      .mockResolvedValueOnce(makeJob({ jobStatus: 'retrying' }));
+    findJobById.mockResolvedValueOnce(makeJob()).mockResolvedValueOnce(makeJob({ jobStatus: 'retrying' }));
     beginUserRetry.mockResolvedValue(null);
     const raced = await retryJob({
       orgId,
@@ -283,20 +246,14 @@ describe('jobControl.service', () => {
     expect(raced.statusCode).toBe(200);
     expect(raced.body.alreadyActive).toBe(true);
 
-    findJobById
-      .mockResolvedValueOnce(makeJob())
-      .mockResolvedValueOnce(makeJob({ jobStatus: 'completed' }));
+    findJobById.mockResolvedValueOnce(makeJob()).mockResolvedValueOnce(makeJob({ jobStatus: 'completed' }));
     beginUserRetry.mockResolvedValue(null);
-    await expect(
-      retryJob({ orgId, userId, jobId, correlationId: 'req_retry_race2' }),
-    ).rejects.toMatchObject({ code: 'INVALID_JOB_TRANSITION' });
+    await expect(retryJob({ orgId, userId, jobId, correlationId: 'req_retry_race2' })).rejects.toMatchObject({ code: 'INVALID_JOB_TRANSITION' });
   });
 
   it('handles cancel races and duplicate running cancel requests', async () => {
     const requestedAt = new Date('2026-09-11T10:44:01.000Z');
-    findJobById.mockResolvedValue(
-      makeJob({ jobStatus: 'running', cancelRequestedAt: requestedAt }),
-    );
+    findJobById.mockResolvedValue(makeJob({ jobStatus: 'running', cancelRequestedAt: requestedAt }));
     const dup = await cancelJob({
       orgId,
       userId,
@@ -306,9 +263,7 @@ describe('jobControl.service', () => {
     expect(dup.statusCode).toBe(202);
     expect(dup.body.cancellation.requested).toBe(true);
 
-    findJobById
-      .mockResolvedValueOnce(makeJob({ jobStatus: 'pending' }))
-      .mockResolvedValueOnce(makeJob({ jobStatus: 'cancelled' }));
+    findJobById.mockResolvedValueOnce(makeJob({ jobStatus: 'pending' })).mockResolvedValueOnce(makeJob({ jobStatus: 'cancelled' }));
     cancelQueuedJob.mockResolvedValue(null);
     const racedPending = await cancelJob({
       orgId,
@@ -318,19 +273,13 @@ describe('jobControl.service', () => {
     });
     expect(racedPending.statusCode).toBe(200);
 
-    findJobById
-      .mockResolvedValueOnce(makeJob({ jobStatus: 'pending' }))
-      .mockResolvedValueOnce(makeJob({ jobStatus: 'running' }));
+    findJobById.mockResolvedValueOnce(makeJob({ jobStatus: 'pending' })).mockResolvedValueOnce(makeJob({ jobStatus: 'running' }));
     cancelQueuedJob.mockResolvedValue(null);
-    await expect(
-      cancelJob({ orgId, userId, jobId, correlationId: 'req_cancel_race2' }),
-    ).rejects.toMatchObject({ code: 'INVALID_JOB_TRANSITION' });
+    await expect(cancelJob({ orgId, userId, jobId, correlationId: 'req_cancel_race2' })).rejects.toMatchObject({ code: 'INVALID_JOB_TRANSITION' });
 
     findJobById
       .mockResolvedValueOnce(makeJob({ jobStatus: 'running', cancelRequestedAt: null }))
-      .mockResolvedValueOnce(
-        makeJob({ jobStatus: 'running', cancelRequestedAt: '2026-09-11T10:44:01.000Z' }),
-      );
+      .mockResolvedValueOnce(makeJob({ jobStatus: 'running', cancelRequestedAt: '2026-09-11T10:44:01.000Z' }));
     requestRunningJobCancel.mockResolvedValue(null);
     const racedRunning = await cancelJob({
       orgId,
@@ -344,9 +293,7 @@ describe('jobControl.service', () => {
       .mockResolvedValueOnce(makeJob({ jobStatus: 'running', cancelRequestedAt: null }))
       .mockResolvedValueOnce(makeJob({ jobStatus: 'failed', cancelRequestedAt: null }));
     requestRunningJobCancel.mockResolvedValue(null);
-    await expect(
-      cancelJob({ orgId, userId, jobId, correlationId: 'req_cancel_race4' }),
-    ).rejects.toMatchObject({ code: 'INVALID_JOB_TRANSITION' });
+    await expect(cancelJob({ orgId, userId, jobId, correlationId: 'req_cancel_race4' })).rejects.toMatchObject({ code: 'INVALID_JOB_TRANSITION' });
   });
 
   it('cancels a retrying job and rejects cancel on completed', async () => {
@@ -361,16 +308,12 @@ describe('jobControl.service', () => {
     expect(result.statusCode).toBe(200);
 
     findJobById.mockResolvedValue(makeJob({ jobStatus: 'completed' }));
-    await expect(
-      cancelJob({ orgId, userId, jobId, correlationId: 'req_cancel_done' }),
-    ).rejects.toMatchObject({ code: 'INVALID_JOB_TRANSITION' });
+    await expect(cancelJob({ orgId, userId, jobId, correlationId: 'req_cancel_done' })).rejects.toMatchObject({ code: 'INVALID_JOB_TRANSITION' });
   });
 
   it('returns 404 when project ACL is NO_ACCESS', async () => {
     findJobById.mockResolvedValue(makeJob());
     resolveProjectPermissions.mockResolvedValue({ kind: 'NO_ACCESS', permissions: new Set() });
-    await expect(
-      retryJob({ orgId, userId, jobId, correlationId: 'req_no_access' }),
-    ).rejects.toMatchObject({ code: 'JOB_NOT_FOUND' });
+    await expect(retryJob({ orgId, userId, jobId, correlationId: 'req_no_access' })).rejects.toMatchObject({ code: 'JOB_NOT_FOUND' });
   });
 });

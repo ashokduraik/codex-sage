@@ -2,11 +2,7 @@
  * Infinite keyset list of source versions for one project.
  */
 import { useInfiniteQuery } from '@tanstack/react-query';
-import {
-  SOURCE_VERSION_LIST_PAGE_SIZE,
-  listProjectSourceVersions,
-  sourceVersionsQueryKey,
-} from '@/features/projects/api/sourcesApi.js';
+import { SOURCE_VERSION_LIST_PAGE_SIZE, listProjectSourceVersions, sourceVersionsQueryKey } from '@/features/projects/api/sourcesApi.js';
 
 /**
  * Lists source versions for a project.

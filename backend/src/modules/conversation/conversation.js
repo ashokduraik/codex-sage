@@ -9,7 +9,6 @@ import mongoose from 'mongoose';
 import {
   CONVERSATION_TITLE_MAX_LENGTH,
   CONVERSATION_AUTO_TITLE_MAX_INPUT_CHARS,
-  CONVERSATION_DEFAULT_TITLE,
   CONVERSATION_SEARCH_MIN_QUERY_LENGTH,
   CONVERSATION_SEARCH_SNIPPET_MAX_CHARS,
   CONVERSATION_TRUNCATED_TITLE_MAX_CHARS,
@@ -248,13 +247,7 @@ export async function conversationRoutes(app) {
       }
       assertPositiveLimit(parsed.data.limit);
       const ctx = serviceContext(request);
-      return listConversationMessages(
-        ctx.orgId,
-        ctx.projectId,
-        params.conversationId,
-        ctx.actorUserId,
-        parsed.data,
-      );
+      return listConversationMessages(ctx.orgId, ctx.projectId, params.conversationId, ctx.actorUserId, parsed.data);
     },
   );
 
@@ -560,20 +553,13 @@ export function truncateUserTextTitle(text, maxChars) {
  * @returns {Promise<void>}
  */
 export async function scheduleConversationAutoTitle(input) {
-  const raw =
-    typeof input.firstUserContent === 'string'
-      ? input.firstUserContent.slice(0, CONVERSATION_AUTO_TITLE_MAX_INPUT_CHARS)
-      : '';
+  const raw = typeof input.firstUserContent === 'string' ? input.firstUserContent.slice(0, CONVERSATION_AUTO_TITLE_MAX_INPUT_CHARS) : '';
   const title = truncateUserTextTitle(raw, CONVERSATION_TRUNCATED_TITLE_MAX_CHARS);
   if (!title) {
     return;
   }
 
-  const conversation = await findConversationInProject(
-    input.orgId,
-    input.projectId,
-    input.conversationId,
-  );
+  const conversation = await findConversationInProject(input.orgId, input.projectId, input.conversationId);
   if (!conversation || conversation.titleSource !== 'default') {
     return;
   }
@@ -708,13 +694,7 @@ export async function getConversation(orgId, projectId, conversationId, userId) 
  * @param {{ cursor?: string, limit?: unknown }} [filters] Page filters.
  * @returns {Promise<{ items: object[], nextCursor: string | null }>}
  */
-export async function listConversationMessages(
-  orgId,
-  projectId,
-  conversationId,
-  userId,
-  filters = {},
-) {
+export async function listConversationMessages(orgId, projectId, conversationId, userId, filters = {}) {
   await loadConversationForUser(orgId, projectId, conversationId, userId);
   const page = await listMessagesForConversation(orgId, projectId, conversationId, filters);
   return {
@@ -751,12 +731,7 @@ export async function listRecentMessages(orgId, projectId, conversationId, limit
  * @returns {Promise<object>}
  */
 export async function archiveConversation(input) {
-  const conversation = await loadConversationForUser(
-    input.orgId,
-    input.projectId,
-    input.conversationId,
-    input.actorUserId,
-  );
+  const conversation = await loadConversationForUser(input.orgId, input.projectId, input.conversationId, input.actorUserId);
   assertConversationArchiveAllowed(conversation);
   const updated = await archiveOwnConversation({
     orgId: input.orgId,
@@ -802,12 +777,7 @@ export async function archiveConversation(input) {
  * @returns {Promise<object>}
  */
 export async function restoreConversation(input) {
-  const conversation = await loadConversationForUser(
-    input.orgId,
-    input.projectId,
-    input.conversationId,
-    input.actorUserId,
-  );
+  const conversation = await loadConversationForUser(input.orgId, input.projectId, input.conversationId, input.actorUserId);
   assertConversationRestoreAllowed(conversation);
   const updated = await restoreOwnConversation({
     orgId: input.orgId,
@@ -853,12 +823,7 @@ export async function restoreConversation(input) {
  * @returns {Promise<void>}
  */
 export async function deleteConversation(input) {
-  await loadConversationForUser(
-    input.orgId,
-    input.projectId,
-    input.conversationId,
-    input.actorUserId,
-  );
+  await loadConversationForUser(input.orgId, input.projectId, input.conversationId, input.actorUserId);
   const mongoSession = await mongoose.startSession();
   try {
     await mongoSession.withTransaction(async () => {
@@ -914,12 +879,7 @@ export async function deleteConversation(input) {
  * @returns {Promise<object>}
  */
 export async function updateConversationTitle(input) {
-  const conversation = await loadConversationForUser(
-    input.orgId,
-    input.projectId,
-    input.conversationId,
-    input.actorUserId,
-  );
+  const conversation = await loadConversationForUser(input.orgId, input.projectId, input.conversationId, input.actorUserId);
   const title = input.title.trim();
   if (!title || title.length > CONVERSATION_TITLE_MAX_LENGTH) {
     throw ApiError.fromCode('VALIDATION_ERROR', {
@@ -990,9 +950,7 @@ export async function searchConversations(input) {
     archived: input.archived,
   });
   return {
-    items: page.items.map((row) =>
-      mapConversationToSearchDto(row, buildConversationSnippet(row, q)),
-    ),
+    items: page.items.map((row) => mapConversationToSearchDto(row, buildConversationSnippet(row, q))),
     nextCursor: page.nextCursor,
   };
 }

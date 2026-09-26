@@ -6,8 +6,7 @@ import { vi } from 'vitest';
 export const ATLAS_API_PROJECT = {
   id: 'prj_atlas',
   name: 'Atlas Commerce',
-  description:
-    'Headless e-commerce platform for multi-brand checkout and payments.',
+  description: 'Headless e-commerce platform for multi-brand checkout and payments.',
   lifecycleStatus: 'knowledge_ready',
   knowledgeHealth: 'ready',
   sourceConfig: { sourceType: 'repository' },

@@ -37,13 +37,7 @@ vi.mock('mongoose', async (importOriginal) => {
 });
 
 import { isRoleReferencedByActiveUser } from '../../../src/modules/masters/users.js';
-import {
-  assertKnownPermissions,
-  createRole,
-  mapRoleToDto,
-  softDeleteRole,
-  updateRole,
-} from '../../../src/modules/masters/roles.js';
+import { assertKnownPermissions, createRole, mapRoleToDto, softDeleteRole, updateRole } from '../../../src/modules/masters/roles.js';
 
 const ORG_ID = '665f1c9d4b2a8e0012a4f010';
 const ROLE_ID = '665f1c9d4b2a8e0012a4f011';
@@ -56,9 +50,7 @@ describe('role.service', () => {
   });
 
   it('rejects a permission string absent from the catalog', () => {
-    expect(() => assertKnownPermissions(['not.a.real.permission'])).toThrow(
-      expect.objectContaining({ code: 'UNKNOWN_PERMISSION' }),
-    );
+    expect(() => assertKnownPermissions(['not.a.real.permission'])).toThrow(expect.objectContaining({ code: 'UNKNOWN_PERMISSION' }));
   });
 
   it('createRole rejects unknown permissions before writing', async () => {

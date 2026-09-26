@@ -36,12 +36,7 @@ const ROLES = [
 
 describe('buildPermissionMatrixRows', () => {
   it('places unknown permission keys under the other group with a generic label', () => {
-    const rows = buildPermissionMatrixRows(
-      CATALOG,
-      ROLES,
-      'Other permissions',
-      'Additional permission',
-    );
+    const rows = buildPermissionMatrixRows(CATALOG, ROLES, 'Other permissions', 'Additional permission');
     const other = rows.find((row) => row.groupId === 'other');
     expect(other).toBeTruthy();
     expect(other.permissions[0].key).toBe('legacy.unknown');
@@ -49,12 +44,7 @@ describe('buildPermissionMatrixRows', () => {
   });
 
   it('returns catalog groups when there are no unknown keys', () => {
-    const rows = buildPermissionMatrixRows(
-      CATALOG,
-      [{ id: 'r1', permissions: ['chat.ask'] }],
-      'Other permissions',
-      'Additional permission',
-    );
+    const rows = buildPermissionMatrixRows(CATALOG, [{ id: 'r1', permissions: ['chat.ask'] }], 'Other permissions', 'Additional permission');
     expect(rows.some((row) => row.groupId === 'other')).toBe(false);
     expect(rows).toHaveLength(2);
   });

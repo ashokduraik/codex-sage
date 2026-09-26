@@ -8,11 +8,7 @@ import { createBaseSchema, ROW_STATUS_ACTIVE } from '../platform/data/index.js';
 
 const ObjectId = mongoose.Schema.Types.ObjectId;
 
-export const SOURCE_DIFF_STATUS_VALUES = Object.freeze([
-  'pending',
-  'computed',
-  'failed',
-]);
+export const SOURCE_DIFF_STATUS_VALUES = Object.freeze(['pending', 'computed', 'failed']);
 
 const pathSetsSchema = new mongoose.Schema(
   {
@@ -69,15 +65,7 @@ sourceChangeSummarySchema.index(
   },
 );
 
-sourceChangeSummarySchema.index(
-  { orgId: 1, projectId: 1, createdAt: -1 },
-  { partialFilterExpression: { status: ROW_STATUS_ACTIVE } },
-);
+sourceChangeSummarySchema.index({ orgId: 1, projectId: 1, createdAt: -1 }, { partialFilterExpression: { status: ROW_STATUS_ACTIVE } });
 
 export const SourceChangeSummary =
-  mongoose.models.SourceChangeSummary ??
-  mongoose.model(
-    'SourceChangeSummary',
-    sourceChangeSummarySchema,
-    'sourceChangeSummaries',
-  );
+  mongoose.models.SourceChangeSummary ?? mongoose.model('SourceChangeSummary', sourceChangeSummarySchema, 'sourceChangeSummaries');

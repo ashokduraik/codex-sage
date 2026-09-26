@@ -84,9 +84,7 @@ describe('sanitizeAuditContext', () => {
     };
     const sanitized = sanitizeAuditContext(huge);
     expect(sanitized.contextTruncated).toBe(true);
-    expect(Buffer.byteLength(JSON.stringify(sanitized), 'utf8')).toBeLessThanOrEqual(
-      AUDIT_CONTEXT_MAX_BYTES,
-    );
+    expect(Buffer.byteLength(JSON.stringify(sanitized), 'utf8')).toBeLessThanOrEqual(AUDIT_CONTEXT_MAX_BYTES);
   });
 
   it('truncates long strings inside scalar arrays', () => {

@@ -51,14 +51,7 @@ export function projectSearchQueryKey(projectId, q, types) {
  * @returns {readonly unknown[]}
  */
 export function sourcePreviewQueryKey(projectId, path, range = {}) {
-  return Object.freeze([
-    'projects',
-    String(projectId),
-    'files',
-    path,
-    range.startLine ?? null,
-    range.endLine ?? null,
-  ]);
+  return Object.freeze(['projects', String(projectId), 'files', path, range.startLine ?? null, range.endLine ?? null]);
 }
 
 /**
@@ -134,12 +127,9 @@ export async function fetchKnowledgeSymbols(projectId, q, options = {}) {
     search.set('q', String(q));
   }
   const encoded = search.toString();
-  return apiRequest(
-    `/projects/${encodeURIComponent(projectId)}/knowledge/symbols${encoded ? `?${encoded}` : ''}`,
-    {
-      signal: options.signal,
-    },
-  );
+  return apiRequest(`/projects/${encodeURIComponent(projectId)}/knowledge/symbols${encoded ? `?${encoded}` : ''}`, {
+    signal: options.signal,
+  });
 }
 
 /**
@@ -162,15 +152,9 @@ export async function fetchKnowledgeHealth(projectId, options = {}) {
  */
 export async function fetchChangeSummary(projectId, options = {}) {
   try {
-    return await apiRequest(
-      `/projects/${encodeURIComponent(projectId)}/knowledge/updates/latest`,
-      { signal: options.signal },
-    );
+    return await apiRequest(`/projects/${encodeURIComponent(projectId)}/knowledge/updates/latest`, { signal: options.signal });
   } catch (error) {
-    if (
-      error instanceof ApiError &&
-      (error.status === 404 || error.code === 'CHANGE_SUMMARY_NOT_FOUND')
-    ) {
+    if (error instanceof ApiError && (error.status === 404 || error.code === 'CHANGE_SUMMARY_NOT_FOUND')) {
       return null;
     }
     throw error;
@@ -193,10 +177,7 @@ export async function fetchProjectSearch(options) {
   if (options.types) {
     search.set('types', options.types);
   }
-  return apiRequest(
-    `/projects/${encodeURIComponent(options.projectId)}/search?${search.toString()}`,
-    { signal: options.signal },
-  );
+  return apiRequest(`/projects/${encodeURIComponent(options.projectId)}/search?${search.toString()}`, { signal: options.signal });
 }
 
 /**
@@ -206,10 +187,7 @@ export async function fetchProjectSearch(options) {
  */
 export async function fetchSourceFileMetadata(options) {
   const search = new URLSearchParams({ path: options.path });
-  return apiRequest(
-    `/projects/${encodeURIComponent(options.projectId)}/files?${search.toString()}`,
-    { signal: options.signal },
-  );
+  return apiRequest(`/projects/${encodeURIComponent(options.projectId)}/files?${search.toString()}`, { signal: options.signal });
 }
 
 /**
@@ -229,8 +207,5 @@ export async function fetchSourceSlice(options) {
     startLine: String(options.startLine),
     endLine: String(options.endLine),
   });
-  return apiRequest(
-    `/projects/${encodeURIComponent(options.projectId)}/files/slice?${search.toString()}`,
-    { signal: options.signal },
-  );
+  return apiRequest(`/projects/${encodeURIComponent(options.projectId)}/files/slice?${search.toString()}`, { signal: options.signal });
 }

@@ -4,11 +4,7 @@
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/shared/api/index';
-import {
-  clearAuthSession,
-  renderWithProviders,
-  seedAuthSession,
-} from '@tests/renderWithProviders';
+import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
 
 vi.mock('@/features/projects/api/projectsApi.js', async (importOriginal) => {
   const actual = await importOriginal();
@@ -50,21 +46,11 @@ describe('ProjectDeleteDialog', () => {
     );
     deleteProject.mockResolvedValue(undefined);
     const onDeleted = vi.fn();
-    renderWithProviders(
-      <ProjectDeleteDialog
-        open={true}
-        onOpenChange={() => undefined}
-        projectId="p1"
-        projectName="Atlas"
-        onDeleted={onDeleted}
-      />,
-    );
+    renderWithProviders(<ProjectDeleteDialog open={true} onOpenChange={() => undefined} projectId="p1" projectName="Atlas" onDeleted={onDeleted} />);
     expect(screen.getByRole('button', { name: /Delete project/i }).disabled).toBe(true);
     resolvePreview({
       counts: { sourceVersions: 1, files: 2, conversations: 3, jobs: 0 },
-      consequences: [
-        { resource: 'conversations', effect: 'soft_deleted', retentionDays: 365 },
-      ],
+      consequences: [{ resource: 'conversations', effect: 'soft_deleted', retentionDays: 365 }],
     });
     expect(await screen.findByText(/Conversations: 3/)).toBeTruthy();
     const confirm = screen.getByRole('button', { name: /Delete project/i });
@@ -75,17 +61,8 @@ describe('ProjectDeleteDialog', () => {
   });
 
   it('shows preview error and does not offer blind delete', async () => {
-    getProjectDeletionPreview.mockRejectedValue(
-      new ApiError({ status: 500, code: 'INTERNAL_ERROR', message: 'boom' }),
-    );
-    renderWithProviders(
-      <ProjectDeleteDialog
-        open={true}
-        onOpenChange={() => undefined}
-        projectId="p1"
-        projectName="Atlas"
-      />,
-    );
+    getProjectDeletionPreview.mockRejectedValue(new ApiError({ status: 500, code: 'INTERNAL_ERROR', message: 'boom' }));
+    renderWithProviders(<ProjectDeleteDialog open={true} onOpenChange={() => undefined} projectId="p1" projectName="Atlas" />);
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toContain('boom');
     expect(screen.getByRole('button', { name: /Delete project/i }).disabled).toBe(true);
@@ -106,14 +83,7 @@ describe('ProjectDeleteDialog', () => {
       }),
     );
     const onOpenChange = vi.fn();
-    renderWithProviders(
-      <ProjectDeleteDialog
-        open={true}
-        onOpenChange={onOpenChange}
-        projectId="p1"
-        projectName="Atlas"
-      />,
-    );
+    renderWithProviders(<ProjectDeleteDialog open={true} onOpenChange={onOpenChange} projectId="p1" projectName="Atlas" />);
     expect(await screen.findByText(/widgets/i)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /Delete project/i }));
     const alert = await screen.findByRole('alert');

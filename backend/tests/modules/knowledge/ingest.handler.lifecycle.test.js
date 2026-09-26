@@ -16,10 +16,7 @@ vi.mock('../../../src/modules/access/index.js', () => ({
   recordAuditEvent: (...args) => recordAuditEvent(...args),
 }));
 
-import {
-  enterIngestLifecycleAtJobStart,
-  markProjectKnowledgeFailed,
-} from '../../../src/modules/knowledge/ingest.js';
+import { enterIngestLifecycleAtJobStart, markProjectKnowledgeFailed } from '../../../src/modules/knowledge/ingest.js';
 
 describe('enterIngestLifecycleAtJobStart', () => {
   beforeEach(() => {
@@ -90,9 +87,6 @@ describe('markProjectKnowledgeFailed', () => {
         source: 'worker',
       }),
     );
-    expect(recordAuditEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ action: 'knowledge.failed' }),
-      expect.anything(),
-    );
+    expect(recordAuditEvent).toHaveBeenCalledWith(expect.objectContaining({ action: 'knowledge.failed' }), expect.anything());
   });
 });

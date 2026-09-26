@@ -12,11 +12,7 @@ import { PROJECT_JOB_LOCK_SCOPE, WORKER_LEASE_TTL_MS } from './worker.constants.
  * @returns {boolean}
  */
 function isDuplicateKeyError(error) {
-  return Boolean(
-    error &&
-      typeof error === 'object' &&
-      /** @type {{ code?: number }} */ (error).code === 11000,
-  );
+  return Boolean(error && typeof error === 'object' && /** @type {{ code?: number }} */ (error).code === 11000);
 }
 
 /**
@@ -183,10 +179,7 @@ export async function releaseProjectJobLock(input) {
  * @returns {Promise<boolean>}
  */
 export async function hasActiveProjectWriterLock(input) {
-  if (
-    !mongoose.isValidObjectId(String(input.orgId)) ||
-    !mongoose.isValidObjectId(String(input.projectId))
-  ) {
+  if (!mongoose.isValidObjectId(String(input.orgId)) || !mongoose.isValidObjectId(String(input.projectId))) {
     return false;
   }
   const found = await ProjectJobLock.findOne({

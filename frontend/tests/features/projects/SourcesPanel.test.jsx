@@ -10,15 +10,13 @@ vi.mock('@/features/projects/api/projectsApi.js', async () => {
 
 vi.mock('@/features/projects/api/sourcesApi.js', () => ({
   SOURCE_VERSION_LIST_PAGE_SIZE: 20,
-  sourceVersionsQueryKey: (projectId) =>
-    Object.freeze(['projects', String(projectId), 'source-versions']),
+  sourceVersionsQueryKey: (projectId) => Object.freeze(['projects', String(projectId), 'source-versions']),
   listProjectSourceVersions: vi.fn(),
   uploadProjectSource: vi.fn(),
 }));
 
 vi.mock('@/features/projects/api/repositoriesApi.js', () => ({
-  repositoryConnectionQueryKey: (projectId) =>
-    Object.freeze(['projects', String(projectId), 'repositories', 'connection']),
+  repositoryConnectionQueryKey: (projectId) => Object.freeze(['projects', String(projectId), 'repositories', 'connection']),
   getProjectRepositoryConnection: vi.fn(),
   replaceProjectRepositoryCredential: vi.fn(),
   revokeProjectRepositoryCredential: vi.fn(),
@@ -27,11 +25,7 @@ vi.mock('@/features/projects/api/repositoriesApi.js', () => ({
   attachProjectRepository: vi.fn(),
 }));
 
-import {
-  clearAuthSession,
-  renderWithProviders,
-  seedAuthSession,
-} from '@tests/renderWithProviders';
+import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
 import { listProjectSourceVersions } from '@/features/projects/api/sourcesApi.js';
 import {
   getProjectRepositoryConnection,
@@ -114,9 +108,7 @@ describe('SourcesPanel', () => {
     expect(await screen.findByText('acme/atlas-commerce')).toBeTruthy();
     expect(screen.getByRole('button', { name: /Re-test connection/i })).toBeTruthy();
     expect(screen.getByRole('button', { name: /Add source/i })).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'View processing job' }).getAttribute('href')).toBe(
-      '/processing?projectId=prj_atlas',
-    );
+    expect(screen.getByRole('link', { name: 'View processing job' }).getAttribute('href')).toBe('/processing?projectId=prj_atlas');
   });
 
   it('shows verified status after re-test completes', async () => {
@@ -161,7 +153,7 @@ describe('SourcesPanel', () => {
   it('revokes repository credentials after confirmation', async () => {
     renderSources();
     fireEvent.click(await screen.findByRole('button', { name: /Revoke \/ disconnect/i }));
-    expect(await screen.findByText(/Revoke repository credentials/i )).toBeTruthy();
+    expect(await screen.findByText(/Revoke repository credentials/i)).toBeTruthy();
     const confirmButtons = screen.getAllByRole('button', { name: /^Revoke$/i });
     fireEvent.click(confirmButtons[confirmButtons.length - 1]);
     await waitFor(() => {
@@ -170,14 +162,12 @@ describe('SourcesPanel', () => {
       });
     });
     await waitFor(() => {
-      expect(screen.queryByText(/Revoke repository credentials/i )).toBeNull();
+      expect(screen.queryByText(/Revoke repository credentials/i)).toBeNull();
     });
   });
 
   it('shows a forbidden alert when revoke is denied', async () => {
-    revokeProjectRepositoryCredential.mockRejectedValue(
-      new ApiError({ status: 403, code: 'FORBIDDEN', message: 'nope' }),
-    );
+    revokeProjectRepositoryCredential.mockRejectedValue(new ApiError({ status: 403, code: 'FORBIDDEN', message: 'nope' }));
     renderSources();
     fireEvent.click(await screen.findByRole('button', { name: /Revoke \/ disconnect/i }));
     const confirmButtons = screen.getAllByRole('button', { name: /^Revoke$/i });
@@ -215,9 +205,7 @@ describe('SourcesPanel', () => {
   });
 
   it('shows a retryable error when the versions list fails', async () => {
-    listProjectSourceVersions.mockRejectedValue(
-      new ApiError({ status: 500, code: 'SYSTEM_ERROR', message: 'boom' }),
-    );
+    listProjectSourceVersions.mockRejectedValue(new ApiError({ status: 500, code: 'SYSTEM_ERROR', message: 'boom' }));
     renderSources();
     expect(await screen.findByRole('alert')).toBeTruthy();
     expect(screen.getByRole('button', { name: /Retry/i })).toBeTruthy();

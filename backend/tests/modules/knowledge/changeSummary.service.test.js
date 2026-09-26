@@ -2,11 +2,7 @@
  * Unit tests for change-summary mapping and latest-read.
  */
 import { describe, expect, it } from 'vitest';
-import {
-  loadLatestChangeSummary,
-  mapChangeSummaryDto,
-  mapSummaryPaths,
-} from '../../../src/modules/knowledge/changeSummary.js';
+import { loadLatestChangeSummary, mapChangeSummaryDto, mapSummaryPaths } from '../../../src/modules/knowledge/changeSummary.js';
 
 describe('mapChangeSummaryDto', () => {
   it('maps changed → modified and leaves impact unknown', () => {
@@ -40,9 +36,9 @@ describe('mapChangeSummaryDto', () => {
 
 describe('loadLatestChangeSummary', () => {
   it('throws PROJECT_NOT_FOUND or CHANGE_SUMMARY_NOT_FOUND', async () => {
-    await expect(
-      loadLatestChangeSummary({ orgId: 'o1', projectId: 'p1' }, { findProject: async () => null }),
-    ).rejects.toMatchObject({ code: 'PROJECT_NOT_FOUND' });
+    await expect(loadLatestChangeSummary({ orgId: 'o1', projectId: 'p1' }, { findProject: async () => null })).rejects.toMatchObject({
+      code: 'PROJECT_NOT_FOUND',
+    });
     await expect(
       loadLatestChangeSummary(
         { orgId: 'o1', projectId: 'p1' },

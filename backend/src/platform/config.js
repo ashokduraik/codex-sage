@@ -29,17 +29,12 @@ const portSchema = z.coerce
   .max(65535, { error: 'expected integer 1–65535' });
 
 /** Required MongoDB URI; never include the received value in error output. */
-const mongoUriSchema = z
-  .string()
-  .trim()
-  .min(1, { error: 'required MongoDB connection string (no default)' });
+const mongoUriSchema = z.string().trim().min(1, { error: 'required MongoDB connection string (no default)' });
 
 /** JWT signing secret; never include the received value in error output. */
-const jwtSecretSchema = z
-  .string()
-  .min(JWT_ACCESS_TOKEN_SECRET_MIN_LENGTH, {
-    error: `must be at least ${JWT_ACCESS_TOKEN_SECRET_MIN_LENGTH} characters`,
-  });
+const jwtSecretSchema = z.string().min(JWT_ACCESS_TOKEN_SECRET_MIN_LENGTH, {
+  error: `must be at least ${JWT_ACCESS_TOKEN_SECRET_MIN_LENGTH} characters`,
+});
 
 /**
  * Reads the repository credential encryption key without requiring Mongo/JWT env.
@@ -61,14 +56,9 @@ export function resolveRepositoryCrypto(env = process.env) {
  * @returns {{ encryptionKey: Buffer | null, keyId: string, error?: string }}
  */
 function parseRepositoryCrypto(env, nodeEnv) {
-  const rawKey =
-    typeof env.REPO_CREDENTIAL_ENCRYPTION_KEY === 'string'
-      ? env.REPO_CREDENTIAL_ENCRYPTION_KEY
-      : '';
-  const keyCandidate =
-    rawKey.trim() || (nodeEnv === 'test' ? TEST_DEFAULT_REPO_ENCRYPTION_KEY_B64 : '');
-  const keyIdRaw =
-    typeof env.REPO_CREDENTIAL_KEY_ID === 'string' ? env.REPO_CREDENTIAL_KEY_ID.trim() : '';
+  const rawKey = typeof env.REPO_CREDENTIAL_ENCRYPTION_KEY === 'string' ? env.REPO_CREDENTIAL_ENCRYPTION_KEY : '';
+  const keyCandidate = rawKey.trim() || (nodeEnv === 'test' ? TEST_DEFAULT_REPO_ENCRYPTION_KEY_B64 : '');
+  const keyIdRaw = typeof env.REPO_CREDENTIAL_KEY_ID === 'string' ? env.REPO_CREDENTIAL_KEY_ID.trim() : '';
   const keyId = keyIdRaw || 'k1';
   if (!keyCandidate) {
     return {
@@ -146,8 +136,7 @@ function collectFieldError(errors, variable, result) {
  */
 function parseWorkspaceRoot(env, nodeEnv, errors) {
   const raw = typeof env.WORKSPACE_ROOT === 'string' ? env.WORKSPACE_ROOT.trim() : '';
-  const candidate =
-    raw || (nodeEnv === 'test' ? TEST_DEFAULT_WORKSPACE_ROOT : '');
+  const candidate = raw || (nodeEnv === 'test' ? TEST_DEFAULT_WORKSPACE_ROOT : '');
   if (!candidate) {
     errors.push('WORKSPACE_ROOT: required absolute path to the encrypted workspace volume');
     return null;

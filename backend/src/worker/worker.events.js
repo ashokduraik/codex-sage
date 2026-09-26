@@ -14,17 +14,12 @@ export const WORKER_EVENT_COMPLETED_WITH_WARNINGS = 'job.completed_with_warnings
 export const WORKER_EVENT_CANCELLED = 'job.cancelled';
 
 export const WORKER_MSG_CLAIMED = 'Processing started.';
-export const WORKER_MSG_PROJECT_BUSY =
-  'Another knowledge or sync update is already running on this project. This job will retry shortly.';
-export const WORKER_MSG_INTERRUPTED =
-  'Processing was interrupted and will resume automatically.';
-export const WORKER_MSG_RETRY_SCHEDULED =
-  'A temporary failure occurred; processing will retry automatically.';
+export const WORKER_MSG_PROJECT_BUSY = 'Another knowledge or sync update is already running on this project. This job will retry shortly.';
+export const WORKER_MSG_INTERRUPTED = 'Processing was interrupted and will resume automatically.';
+export const WORKER_MSG_RETRY_SCHEDULED = 'A temporary failure occurred; processing will retry automatically.';
 export const WORKER_MSG_FAILED_PERMANENT = 'Processing failed and will not retry automatically.';
-export const WORKER_MSG_FAILED_ATTEMPTS =
-  'Processing failed after the maximum number of attempts.';
-export const WORKER_MSG_RELEASED_SHUTDOWN =
-  'The worker shut down and released this job so another worker can claim it.';
+export const WORKER_MSG_FAILED_ATTEMPTS = 'Processing failed after the maximum number of attempts.';
+export const WORKER_MSG_RELEASED_SHUTDOWN = 'The worker shut down and released this job so another worker can claim it.';
 export const WORKER_MSG_COMPLETED = 'Processing completed.';
 export const WORKER_MSG_COMPLETED_WARNINGS = 'Processing completed with warnings.';
 export const WORKER_MSG_CANCELLED = 'Processing was cancelled.';

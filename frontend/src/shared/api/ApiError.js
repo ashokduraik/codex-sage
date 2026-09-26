@@ -51,11 +51,7 @@ export function resolveRetryAfterSeconds(headers, details) {
   if (fromHeader !== undefined) {
     return fromHeader;
   }
-  if (
-    details &&
-    typeof details === 'object' &&
-    typeof /** @type {{ retryAfterSec?: unknown }} */ (details).retryAfterSec === 'number'
-  ) {
+  if (details && typeof details === 'object' && typeof (/** @type {{ retryAfterSec?: unknown }} */ (details).retryAfterSec) === 'number') {
     const sec = /** @type {{ retryAfterSec: number }} */ (details).retryAfterSec;
     if (Number.isFinite(sec) && sec >= 0) {
       return Math.ceil(sec);
@@ -101,11 +97,7 @@ export function isRequestAbortedError(error) {
   if (error instanceof RequestAbortedError) {
     return true;
   }
-  return (
-    Boolean(error) &&
-    typeof error === 'object' &&
-    /** @type {{ name?: string }} */ (error).name === 'AbortError'
-  );
+  return Boolean(error) && typeof error === 'object' && /** @type {{ name?: string }} */ (error).name === 'AbortError';
 }
 
 /**
@@ -121,20 +113,12 @@ export function apiErrorFromResponse(response, parsedBody) {
     parsedBody &&
     typeof parsedBody === 'object' &&
     /** @type {{ error?: unknown }} */ (parsedBody).error &&
-    typeof /** @type {{ error: unknown }} */ (parsedBody).error === 'object'
-      ? /** @type {{ error: { code?: unknown, message?: unknown, details?: unknown, reference?: unknown } }} */ (
-          parsedBody
-        ).error
+    typeof (/** @type {{ error: unknown }} */ (parsedBody).error) === 'object'
+      ? /** @type {{ error: { code?: unknown, message?: unknown, details?: unknown, reference?: unknown } }} */ (parsedBody).error
       : null;
 
-  if (
-    envelope &&
-    typeof envelope.code === 'string' &&
-    typeof envelope.message === 'string'
-  ) {
-    const correlationId =
-      correlationFromHeader ||
-      (typeof envelope.reference === 'string' ? envelope.reference : undefined);
+  if (envelope && typeof envelope.code === 'string' && typeof envelope.message === 'string') {
+    const correlationId = correlationFromHeader || (typeof envelope.reference === 'string' ? envelope.reference : undefined);
     return new ApiError({
       status: response.status,
       code: envelope.code,

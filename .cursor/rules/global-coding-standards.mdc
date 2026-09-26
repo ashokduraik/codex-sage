@@ -31,7 +31,7 @@ Objective: code must be **production-grade, enterprise-grade, and easy to mainta
 
 ## Formatting (target; enforced by Prettier/ESLint once wired)
 - **2-space** indentation; **no trailing whitespace**; **semicolons required**.
-- **Single quotes** for strings in JavaScript; **max line length 100**.
+- **Single quotes** for strings in JavaScript; **max line length 150**.
 
 ## External references
 - Format with **Prettier**; obey the project **ESLint** config when present.

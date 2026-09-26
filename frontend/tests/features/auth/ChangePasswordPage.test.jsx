@@ -2,11 +2,7 @@ import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ChangePasswordPage from '@/features/auth/ChangePasswordPage';
 import { resetRefreshClientForTests } from '@/shared/api/refreshClient.js';
-import {
-  clearAuthSession,
-  renderWithProviders,
-  seedAuthSession,
-} from '@tests/renderWithProviders';
+import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
 
 afterEach(() => {
   cleanup();
@@ -115,9 +111,7 @@ describe('ChangePasswordPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save password' }));
 
     await waitFor(() => {
-      expect(
-        fetchMock.mock.calls.some((call) => String(call[0]).includes('/auth/password/change')),
-      ).toBe(true);
+      expect(fetchMock.mock.calls.some((call) => String(call[0]).includes('/auth/password/change'))).toBe(true);
     });
   });
 

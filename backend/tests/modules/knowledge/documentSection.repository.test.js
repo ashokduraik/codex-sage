@@ -86,9 +86,7 @@ describe('documentSection.repository', () => {
       sourceVersionId,
       path: 'docs/a.md',
     });
-    expect(await listSectionsForPath({ orgId, projectId, sourceVersionId, path: 'docs/a.md' })).toEqual(
-      [],
-    );
+    expect(await listSectionsForPath({ orgId, projectId, sourceVersionId, path: 'docs/a.md' })).toEqual([]);
 
     await insertDocumentSections({
       orgId,
@@ -175,9 +173,7 @@ describe('documentSection.repository', () => {
     const projectId = new mongoose.Types.ObjectId();
     const sourceVersionId = new mongoose.Types.ObjectId();
 
-    expect(
-      await searchDocumentSections({ orgId, projectId, sourceVersionId }, { q: '   ', limit: 5 }),
-    ).toEqual([]);
+    expect(await searchDocumentSections({ orgId, projectId, sourceVersionId }, { q: '   ', limit: 5 })).toEqual([]);
 
     await insertDocumentSections({
       orgId,
@@ -200,10 +196,7 @@ describe('documentSection.repository', () => {
       sourceVersionId,
       path: 'docs/refunds.md',
     });
-    const hits = await searchDocumentSections(
-      { orgId, projectId, sourceVersionId },
-      { q: 'refunds', limit: 5 },
-    );
+    const hits = await searchDocumentSections({ orgId, projectId, sourceVersionId }, { q: 'refunds', limit: 5 });
     expect(hits.length).toBeGreaterThan(0);
     expect(hits[0].path).toBe('docs/refunds.md');
 

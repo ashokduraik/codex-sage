@@ -7,8 +7,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/shared/api/index';
 
 vi.mock('@/features/projects/api/repositoriesApi.js', () => ({
-  repositoryConnectionQueryKey: (projectId) =>
-    Object.freeze(['projects', String(projectId), 'repositories', 'connection']),
+  repositoryConnectionQueryKey: (projectId) => Object.freeze(['projects', String(projectId), 'repositories', 'connection']),
   getProjectRepositoryConnection: vi.fn(),
 }));
 
@@ -51,9 +50,7 @@ describe('useRepositoryConnection', () => {
   });
 
   it('maps 404 NOT_FOUND to a null connection', async () => {
-    getProjectRepositoryConnection.mockRejectedValue(
-      new ApiError({ status: 404, code: 'NOT_FOUND', message: 'missing' }),
-    );
+    getProjectRepositoryConnection.mockRejectedValue(new ApiError({ status: 404, code: 'NOT_FOUND', message: 'missing' }));
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
@@ -67,9 +64,7 @@ describe('useRepositoryConnection', () => {
   });
 
   it('rethrows non-404 errors', async () => {
-    getProjectRepositoryConnection.mockRejectedValue(
-      new ApiError({ status: 500, code: 'SYSTEM_ERROR', message: 'boom' }),
-    );
+    getProjectRepositoryConnection.mockRejectedValue(new ApiError({ status: 500, code: 'SYSTEM_ERROR', message: 'boom' }));
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });

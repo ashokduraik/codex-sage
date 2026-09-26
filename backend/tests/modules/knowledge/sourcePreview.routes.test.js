@@ -14,7 +14,7 @@ import {
   DEFAULT_ADMIN_PASSWORD,
   IDENTITY_MODELS,
   createRoleInRepo,
-  createUser, createUserInRepo,
+  createUserInRepo,
   findOrganizationBySlug,
   runBootstrapSeed,
 } from '../../../src/modules/masters/index.js';
@@ -24,12 +24,7 @@ import { Project } from '../../../src/models/projects.model.js';
 import { addProjectMember } from '../../../src/modules/masters/projectMembers.js';
 import { DOCUMENT_MODELS } from '../../../src/modules/knowledge/documents.js';
 import { KNOWLEDGE_MODELS, insertKnowledgeVersion } from '../../../src/modules/knowledge/knowledge.js';
-import {
-  SOURCE_MODELS,
-  getSourceFilesBucket,
-  insertSourceFiles,
-  insertSourceVersion,
-} from '../../../src/modules/knowledge/sources.js';
+import { SOURCE_MODELS, getSourceFilesBucket, insertSourceFiles, insertSourceVersion } from '../../../src/modules/knowledge/sources.js';
 import { clearSourceFilesBucket } from '../../clearSourceFilesBucket.js';
 import { upsertChangeSummary } from '../../../src/modules/knowledge/changeSummary.js';
 import { EXCLUSION_RULESET_ID } from '../../../src/modules/knowledge/uploads.js';
@@ -263,11 +258,7 @@ describe('source preview and change-summary routes', () => {
   it('returns 404 for a missing file and 403 without sources.preview', async () => {
     await runBootstrapSeed(createMockLog());
     app = await readyApp();
-    const { accessToken: adminToken } = await login(
-      app,
-      DEFAULT_ADMIN_EMAIL,
-      DEFAULT_ADMIN_PASSWORD,
-    );
+    const { accessToken: adminToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const org = await findOrganizationBySlug('default');
     const project = await createProject(app, adminToken, 'Preview ACL', 'idem-preview-acl');
     await seedFile({ orgId: String(org._id), projectId: project.id });
@@ -291,8 +282,8 @@ describe('source preview and change-summary routes', () => {
       passwordHash,
       userStatus: 'active',
       createdBy: null,
-          roleIds: [role._id]
-        });
+      roleIds: [role._id],
+    });
     await addProjectMember({
       orgId: String(org._id),
       projectId: project.id,

@@ -35,12 +35,7 @@ export function requireProjectPermission(permission, options = {}) {
       request.projectAclMemo = new Map();
     }
 
-    const resolved = await resolveProjectPermissions(
-      principal.orgId,
-      principal.userId,
-      projectId,
-      { requestMemo: request.projectAclMemo },
-    );
+    const resolved = await resolveProjectPermissions(principal.orgId, principal.userId, projectId, { requestMemo: request.projectAclMemo });
 
     if (resolved.kind === 'NO_ACCESS') {
       throw ApiError.fromCode('PROJECT_NOT_FOUND');

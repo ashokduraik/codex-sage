@@ -7,13 +7,7 @@ import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
 import { KnowledgeVersion } from '../../../src/models/knowledgeVersion.model.js';
 import { Project } from '../../../src/models/projects.model.js';
-import {
-  SourceChangeSummary,
-  SourceFile,
-  SourceVersion,
-  insertSourceFiles,
-  insertSourceVersion,
-} from '../../../src/modules/knowledge/sources.js';
+import { SourceChangeSummary, SourceFile, SourceVersion, insertSourceFiles, insertSourceVersion } from '../../../src/modules/knowledge/sources.js';
 import { EXCLUSION_RULESET_ID } from '../../../src/modules/knowledge/uploads.js';
 import { applySourceDiffAfterValidate, hydrateSourceDiffCarry } from '../../../src/modules/knowledge/ingest.util.js';
 

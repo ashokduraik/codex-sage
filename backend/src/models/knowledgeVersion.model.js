@@ -9,11 +9,7 @@ import { createBaseSchema, ROW_STATUS_ACTIVE } from '../platform/data/index.js';
 const ObjectId = mongoose.Schema.Types.ObjectId;
 
 /** Whether this published graph is ready, only partly usable, or failed. */
-export const PUBLISHED_HEALTH_VALUES = Object.freeze([
-  'ready',
-  'partially_available',
-  'failed',
-]);
+export const PUBLISHED_HEALTH_VALUES = Object.freeze(['ready', 'partially_available', 'failed']);
 
 const graphIdentitySchema = new mongoose.Schema(
   {
@@ -50,15 +46,7 @@ const knowledgeVersionSchema = createBaseSchema({
   publishedAt: { type: Date, required: true, default: () => new Date() },
 });
 
-knowledgeVersionSchema.index(
-  { orgId: 1, projectId: 1, publishedAt: -1, _id: -1 },
-  { partialFilterExpression: { status: ROW_STATUS_ACTIVE } },
-);
-knowledgeVersionSchema.index(
-  { orgId: 1, projectId: 1, sourceVersionId: 1 },
-  { partialFilterExpression: { status: ROW_STATUS_ACTIVE } },
-);
+knowledgeVersionSchema.index({ orgId: 1, projectId: 1, publishedAt: -1, _id: -1 }, { partialFilterExpression: { status: ROW_STATUS_ACTIVE } });
+knowledgeVersionSchema.index({ orgId: 1, projectId: 1, sourceVersionId: 1 }, { partialFilterExpression: { status: ROW_STATUS_ACTIVE } });
 
-export const KnowledgeVersion =
-  mongoose.models.KnowledgeVersion ??
-  mongoose.model('KnowledgeVersion', knowledgeVersionSchema, 'knowledgeVersions');
+export const KnowledgeVersion = mongoose.models.KnowledgeVersion ?? mongoose.model('KnowledgeVersion', knowledgeVersionSchema, 'knowledgeVersions');

@@ -17,7 +17,7 @@ import {
   DEFAULT_ADMIN_PASSWORD,
   DEFAULT_ORG_SLUG,
   IDENTITY_MODELS,
-  createUser, createUserInRepo,
+  createUserInRepo,
   ensureBuiltInRoles,
   findOrganizationBySlug,
   findUserByEmail,
@@ -108,8 +108,8 @@ describe('authorization routes', () => {
       userStatus: 'active',
       passwordHash: await hashPassword(password),
       passwordUpdatedAt: new Date(),
-          roleIds: [viewer._id]
-        });
+      roleIds: [viewer._id],
+    });
 
     app = await readyApp();
     const adminToken = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
@@ -148,8 +148,8 @@ describe('authorization routes', () => {
       userStatus: 'active',
       passwordHash: await hashPassword(password),
       passwordUpdatedAt: new Date(),
-          roleIds: [role._id]
-        });
+      roleIds: [role._id],
+    });
     const admin = await findUserByEmail(org._id, DEFAULT_ADMIN_EMAIL);
 
     app = await readyApp();
@@ -191,14 +191,11 @@ describe('authorization routes', () => {
       userStatus: 'active',
       passwordHash: await hashPassword(password),
       passwordUpdatedAt: new Date(),
-          roleIds: [role._id]
-        });
+      roleIds: [role._id],
+    });
 
     const authService = createAuthService(TEST_APP_CONFIG.auth.jwtAccessTokenSecret);
-    const loginResult = await authService.login(
-      { email: user.email, password },
-      { log: createMockLog() },
-    );
+    const loginResult = await authService.login({ email: user.email, password }, { log: createMockLog() });
     expect(loginResult.outcome).toBe('authenticated');
 
     app = Fastify({ genReqId: () => 'REQ-testauthorization000000000001' });
@@ -206,16 +203,8 @@ describe('authorization routes', () => {
     registerErrorHandler(app);
     const authenticate = createAuthenticatePreHandler(authService);
     app.addHook('preHandler', createAuthorizePreHandler(authenticate));
-    app.get(
-      '/guarded',
-      { config: { requiredPermissions: ['chat.ask'] } },
-      async () => ({ ok: true }),
-    );
-    app.get(
-      '/admin-only',
-      { config: { requiredPermissions: ['roles.manage'] } },
-      async () => ({ ok: true }),
-    );
+    app.get('/guarded', { config: { requiredPermissions: ['chat.ask'] } }, async () => ({ ok: true }));
+    app.get('/admin-only', { config: { requiredPermissions: ['roles.manage'] } }, async () => ({ ok: true }));
     app.get(
       '/any-guard',
       {
@@ -229,9 +218,7 @@ describe('authorization routes', () => {
     await app.ready();
 
     const headers = { authorization: `Bearer ${loginResult.accessToken}` };
-    expect((await app.inject({ method: 'GET', url: '/guarded', headers })).statusCode).toBe(
-      200,
-    );
+    expect((await app.inject({ method: 'GET', url: '/guarded', headers })).statusCode).toBe(200);
     const forbidden = await app.inject({
       method: 'GET',
       url: '/admin-only',
@@ -239,14 +226,10 @@ describe('authorization routes', () => {
     });
     expect(forbidden.statusCode).toBe(403);
     expect(forbidden.json().error.message).not.toMatch(/roles\.manage/);
-    expect(
-      (await app.inject({ method: 'GET', url: '/any-guard', headers })).statusCode,
-    ).toBe(200);
+    expect((await app.inject({ method: 'GET', url: '/any-guard', headers })).statusCode).toBe(200);
 
     await Role.updateOne({ _id: role._id }, { $set: { permissions: [] } });
     invalidateRole(String(org._id), String(role._id));
-    expect((await app.inject({ method: 'GET', url: '/guarded', headers })).statusCode).toBe(
-      403,
-    );
+    expect((await app.inject({ method: 'GET', url: '/guarded', headers })).statusCode).toBe(403);
   });
 });

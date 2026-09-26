@@ -3,16 +3,7 @@
  */
 import { useState } from 'react';
 import { Link, useNavigate, useOutletContext } from 'react-router-dom';
-import {
-  ArrowRight,
-  BookOpen,
-  Boxes,
-  FileCode,
-  FileQuestion,
-  Plug,
-  Search,
-  Workflow,
-} from 'lucide-react';
+import { ArrowRight, BookOpen, Boxes, FileCode, FileQuestion, Plug, Search, Workflow } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { EmptyState } from '@/shared/components';
 import { Input } from '@/shared/ui/input';
@@ -63,10 +54,7 @@ export default function SearchPanel() {
         <p className="text-sm text-muted-foreground">{t('search.subtitle')}</p>
 
         <div className="relative mt-4">
-          <Search
-            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-            aria-hidden="true"
-          />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
@@ -84,9 +72,7 @@ export default function SearchPanel() {
               onClick={() => setType(chip.token)}
               className={cn(
                 'rounded-full px-3 py-1 text-xs font-medium transition-colors',
-                type === chip.token
-                  ? 'bg-brand text-brand-foreground'
-                  : 'bg-muted text-muted-foreground hover:bg-muted/70',
+                type === chip.token ? 'bg-brand text-brand-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/70',
               )}
             >
               {t(chip.labelKey)}
@@ -117,11 +103,7 @@ export default function SearchPanel() {
               {t('search.loading')}
             </p>
           ) : items.length === 0 ? (
-            <EmptyState
-              icon={FileQuestion}
-              title={t('search.emptyTitle')}
-              description={t('search.emptyForQuery', { query })}
-            />
+            <EmptyState icon={FileQuestion} title={t('search.emptyTitle')} description={t('search.emptyForQuery', { query })} />
           ) : (
             <div className="divide-y divide-border rounded-lg border border-border bg-card">
               {items.map((result) => {
@@ -184,11 +166,7 @@ export default function SearchPanel() {
           )}
         </div>
       </div>
-      <SourcePreviewDrawer
-        projectId={projectId}
-        target={previewTarget}
-        onClose={() => setPreviewTarget(null)}
-      />
+      <SourcePreviewDrawer projectId={projectId} target={previewTarget} onClose={() => setPreviewTarget(null)} />
     </div>
   );
 }

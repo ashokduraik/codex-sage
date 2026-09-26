@@ -6,20 +6,20 @@ The backend shall provide an enterprise-grade software intelligence platform tha
 
 The system shall support:
 
-* Engineering teams
-* Product/business teams
-* Support teams
-* Operations teams
-* Enterprise administrators
-* Multiple organizations
-* Multiple projects
-* Multiple users
-* Multiple roles
-* Multiple source updates
-* Persistent conversations
-* Project-aware conversational context
-* Code and documentation understanding
-* Database query generation and execution in a **later slice** (not current; see below)
+- Engineering teams
+- Product/business teams
+- Support teams
+- Operations teams
+- Enterprise administrators
+- Multiple organizations
+- Multiple projects
+- Multiple users
+- Multiple roles
+- Multiple source updates
+- Persistent conversations
+- Project-aware conversational context
+- Code and documentation understanding
+- Database query generation and execution in a **later slice** (not current; see below)
 
 The backend must be designed as a **multi-tenant SaaS platform** with strong isolation, authorization, auditability, reliability, and scalability.
 
@@ -28,10 +28,10 @@ The backend must be designed as a **multi-tenant SaaS platform** with strong iso
 The following are **not** acceptance criteria for the current product slice. Where later
 sections still describe them, they are retained as future requirements only:
 
-* Live query generation or execution against a **customer application database**
+- Live query generation or execution against a **customer application database**
   (§§71–82, 121–126)
-* Document or code embeddings, vector search, or a reranker (§§22, 57)
-* Image upload / image-as-source processing (§10)
+- Document or code embeddings, vector search, or a reranker (§§22, 57)
+- Image upload / image-as-source processing (§10)
 
 ### Target application (design baseline)
 
@@ -39,13 +39,13 @@ The primary ingested target application class is a **Node.js application using M
 
 Scale the backend must be designed for (not a small demo):
 
-* On the order of **~2 million lines of code**
-* Source files larger than the active code indexer's supported per-file limit may be accepted,
+- On the order of **~2 million lines of code**
+- Source files larger than the active code indexer's supported per-file limit may be accepted,
   but they must be excluded from code intelligence with a visible reason
-* Any project with excluded source files must report **partial** knowledge; it must not claim
+- Any project with excluded source files must report **partial** knowledge; it must not claim
   complete code understanding
-* Documentation alongside source (Markdown preferred)
-* Dependency trees that commonly include `node_modules` (must be excluded from ingest)
+- Documentation alongside source (Markdown preferred)
+- Dependency trees that commonly include `node_modules` (must be excluded from ingest)
 
 Design indexing, retrieval, and job processing must assume this scale. Do not optimize only
 for tiny sample repos. Do not introduce embeddings or vector search in this slice.
@@ -128,16 +128,16 @@ The platform must support multiple organizations.
 
 Each organization must have isolated:
 
-* Users
-* Projects
-* Source code
-* Documentation
-* Knowledge
-* Conversations
-* Query history
-* Usage
-* Configuration
-* Audit information
+- Users
+- Projects
+- Source code
+- Documentation
+- Knowledge
+- Conversations
+- Query history
+- Usage
+- Configuration
+- Audit information
 
 A user belonging to one organization must never be able to access another organization's information unless explicitly authorized.
 
@@ -151,14 +151,14 @@ An organization represents a SaaS customer.
 
 An organization should contain:
 
-* Organization information
-* Users
-* Roles
-* Projects
-* Access policies
-* Usage information
-* Configuration
-* Audit history
+- Organization information
+- Users
+- Roles
+- Projects
+- Access policies
+- Usage information
+- Configuration
+- Audit history
 
 The backend must support organization-level administration.
 
@@ -168,16 +168,16 @@ The backend must support organization-level administration.
 
 The backend must support:
 
-* User creation
-* User authentication
-* User activation
-* User deactivation
-* Password management
-* Password reset
-* Role assignment
-* Project access
-* User removal
-* User status
+- User creation
+- User authentication
+- User activation
+- User deactivation
+- Password management
+- Password reset
+- Role assignment
+- Project access
+- User removal
+- User status
 
 Administrators must be able to create users for their organization.
 
@@ -191,27 +191,27 @@ The backend must provide role-based authorization.
 
 Permissions should be granular enough to control operations such as:
 
-* View organization
-* Manage users
-* Manage roles
-* Create projects
-* View projects
-* Update projects
-* Delete projects
-* Upload source
-* Connect repositories
-* Trigger knowledge updates
-* View knowledge
-* Ask questions
-* View conversations
-* Archive conversations
-* Search project knowledge
-* Generate database queries (later slice; not current)
-* Execute database queries (later slice; not current)
-* View query results (later slice; not current)
-* Manage project settings
-* View audit logs
-* View usage
+- View organization
+- Manage users
+- Manage roles
+- Create projects
+- View projects
+- Update projects
+- Delete projects
+- Upload source
+- Connect repositories
+- Trigger knowledge updates
+- View knowledge
+- Ask questions
+- View conversations
+- Archive conversations
+- Search project knowledge
+- Generate database queries (later slice; not current)
+- Execute database queries (later slice; not current)
+- View query results (later slice; not current)
+- Manage project settings
+- View audit logs
+- View usage
 
 The backend must enforce permissions regardless of what the UI displays.
 
@@ -225,21 +225,21 @@ A project represents one software system/application.
 
 A project should contain:
 
-* Project identity
-* Organization
-* Description
-* Source configuration
-* Repository configuration
-* Branch information
-* Source versions
-* Documentation
-* Knowledge status
-* Knowledge versions
-* Conversations
-* Project configuration
-* Access permissions
-* Processing history
-* Audit information
+- Project identity
+- Organization
+- Description
+- Source configuration
+- Repository configuration
+- Branch information
+- Source versions
+- Documentation
+- Knowledge status
+- Knowledge versions
+- Conversations
+- Project configuration
+- Access permissions
+- Processing history
+- Audit information
 
 ---
 
@@ -249,9 +249,9 @@ Project access must be independently controllable.
 
 A user may have access to:
 
-* All organization projects
-* Selected projects
-* No projects
+- All organization projects
+- Selected projects
+- No projects
 
 Project-level permissions must be evaluated on every relevant operation.
 
@@ -268,16 +268,16 @@ The project must not become partially usable without clearly representing its cu
 
 Possible project states include:
 
-* Creating
-* Awaiting source
-* Connecting repository
-* Source received
-* Processing
-* Knowledge ready
-* Updating
-* Failed
-* Partially available
-* Archived
+- Creating
+- Awaiting source
+- Connecting repository
+- Source received
+- Processing
+- Knowledge ready
+- Updating
+- Failed
+- Partially available
+- Archived
 
 ---
 
@@ -285,11 +285,11 @@ Possible project states include:
 
 The backend must support source ingestion from:
 
-* Multiple file uploads
-* Folder uploads
-* ZIP uploads
-* GitHub repositories
-* GitLab repositories
+- Multiple file uploads
+- Folder uploads
+- ZIP uploads
+- GitHub repositories
+- GitLab repositories
 
 The system must support adding more source material to an existing project later.
 
@@ -297,8 +297,8 @@ The system must support adding more source material to an existing project later
 
 Wherever the upload format exposes file paths (ZIP entries, multipart file lists, folder uploads, repository trees), the backend **must skip** irrelevant paths **during upload / extract** so they are never stored as project source. At minimum exclude:
 
-* `node_modules/`
-* Other deterministic ignore patterns (e.g. `.git/`, `dist/`, `build/`, `coverage/`) as configured
+- `node_modules/`
+- Other deterministic ignore patterns (e.g. `.git/`, `dist/`, `build/`, `coverage/`) as configured
 
 Skipped paths must be recorded in processing information so users can see what was excluded.
 
@@ -338,15 +338,15 @@ Track source updates as identifiable versions or processing events.
 
 Each source update should have:
 
-* Project
-* Source origin
-* Timestamp
-* Initiating user
-* Files affected
-* Processing status
-* Result
-* Errors
-* Knowledge update status
+- Project
+- Source origin
+- Timestamp
+- Initiating user
+- Files affected
+- Processing status
+- Result
+- Errors
+- Knowledge update status
 
 The backend must be able to determine which knowledge state corresponds to which source state.
 
@@ -376,13 +376,13 @@ Users should be able to understand what was excluded.
 
 Before processing uploaded content, validate:
 
-* File integrity
-* Supported format
-* Size constraints
-* Archive integrity
-* Path safety
-* Duplicate content
-* Unsupported content
+- File integrity
+- Supported format
+- Size constraints
+- Archive integrity
+- Path safety
+- Duplicate content
+- Unsupported content
 
 Invalid content should produce understandable errors.
 
@@ -394,13 +394,13 @@ Uploaded source code and documentation must be treated as sensitive enterprise i
 
 The backend must prevent:
 
-* Unauthorized access
-* Path traversal
-* Arbitrary file access
-* Cross-project access
-* Cross-tenant access
-* Unauthorized downloads
-* Unauthorized processing
+- Unauthorized access
+- Path traversal
+- Arbitrary file access
+- Cross-project access
+- Cross-tenant access
+- Unauthorized downloads
+- Unauthorized processing
 
 ---
 
@@ -427,12 +427,12 @@ If repository authentication is required, the backend must clearly communicate t
 
 Possible states:
 
-* Authentication required
-* Authentication in progress
-* Authentication successful
-* Authentication failed
-* Access denied
-* Repository unavailable
+- Authentication required
+- Authentication in progress
+- Authentication successful
+- Authentication failed
+- Access denied
+- Repository unavailable
 
 The backend must not expose sensitive credentials in logs, responses, errors, or UI payloads.
 
@@ -444,12 +444,12 @@ Repository credentials must be securely handled.
 
 The backend must:
 
-* Minimize credential exposure
-* Avoid returning secrets
-* Avoid logging secrets
-* Support credential validation
-* Support credential replacement/revocation
-* Respect the user's authorization scope
+- Minimize credential exposure
+- Avoid returning secrets
+- Avoid logging secrets
+- Support credential validation
+- Support credential replacement/revocation
+- Respect the user's authorization scope
 
 The backend should request only the permissions necessary for supported operations.
 
@@ -461,11 +461,11 @@ After repository connection, retrieve available branches.
 
 The backend must support:
 
-* Branch listing
-* Branch selection
-* Branch validation
-* Source retrieval from selected branch
-* Future branch changes where permitted
+- Branch listing
+- Branch selection
+- Branch validation
+- Source retrieval from selected branch
+- Future branch changes where permitted
 
 The selected branch must be associated with the project's source configuration.
 
@@ -477,11 +477,11 @@ The system should support future repository updates.
 
 When a project source changes, the backend should be able to determine:
 
-* Added files
-* Modified files
-* Removed files
-* Documentation changes
-* Potentially affected knowledge
+- Added files
+- Modified files
+- Removed files
+- Documentation changes
+- Potentially affected knowledge
 
 The backend should update project knowledge accordingly.
 
@@ -506,19 +506,19 @@ not send every project document to the language model.
 
 The backend must analyze supported project source sufficiently to understand:
 
-* Project structure
-* Files
-* Components
-* Functions
-* Classes
-* APIs
-* Dependencies
-* Relationships
-* Workflows
-* Business functionality
-* Data-related concepts
-* Integrations
-* Configuration where relevant
+- Project structure
+- Files
+- Components
+- Functions
+- Classes
+- APIs
+- Dependencies
+- Relationships
+- Workflows
+- Business functionality
+- Data-related concepts
+- Integrations
+- Configuration where relevant
 
 Documentation may supplement this analysis through on-demand search and bounded reads. It is not
 part of the structural code graph.
@@ -534,14 +534,14 @@ The system must be capable of answering questions about source code.
 
 Examples:
 
-* What does this function do?
-* Where is authentication implemented?
-* How does checkout work?
-* Which component calls this function?
-* Where is this API handled?
-* What happens when payment fails?
-* Which code handles cancellation?
-* What dependencies does this component have?
+- What does this function do?
+- Where is authentication implemented?
+- How does checkout work?
+- Which component calls this function?
+- Where is this API handled?
+- What happens when payment fails?
+- Which code handles cancellation?
+- What dependencies does this component have?
 
 Answers must be grounded in the project's available source and documentation.
 
@@ -557,13 +557,13 @@ For example:
 
 The system should be able to connect relevant:
 
-* APIs
-* Functions
-* Components
-* Services
-* Data
-* Documentation
-* Business rules
+- APIs
+- Functions
+- Components
+- Services
+- Data
+- Documentation
+- Business rules
 
 into an understandable workflow.
 
@@ -577,13 +577,13 @@ Knowledge must be associated with the project.
 
 The backend should support:
 
-* Creating knowledge
-* Updating knowledge
-* Rebuilding knowledge
-* Tracking knowledge versions
-* Detecting stale knowledge
-* Handling partial knowledge
-* Reporting knowledge status
+- Creating knowledge
+- Updating knowledge
+- Rebuilding knowledge
+- Tracking knowledge versions
+- Detecting stale knowledge
+- Handling partial knowledge
+- Reporting knowledge status
 
 ---
 
@@ -619,12 +619,12 @@ Knowledge updates should be traceable.
 
 The backend should be able to identify:
 
-* Knowledge version
-* Source version
-* Creation time
-* Update time
-* Processing status
-* Triggering source changes
+- Knowledge version
+- Source version
+- Creation time
+- Update time
+- Processing status
+- Triggering source changes
 
 ---
 
@@ -666,13 +666,13 @@ Long-running operations must be represented as trackable jobs.
 
 Examples:
 
-* Source upload
-* Repository retrieval
-* Source processing
-* Knowledge creation
-* Knowledge update
-* Repository synchronization
-* Query execution where applicable (later slice; not current)
+- Source upload
+- Repository retrieval
+- Source processing
+- Knowledge creation
+- Knowledge update
+- Repository synchronization
+- Query execution where applicable (later slice; not current)
 
 Each job must have a unique identity and lifecycle.
 
@@ -682,13 +682,13 @@ Each job must have a unique identity and lifecycle.
 
 Support states such as:
 
-* Pending
-* Running
-* Completed
-* Completed with warnings
-* Failed
-* Cancelled
-* Retrying
+- Pending
+- Running
+- Completed
+- Completed with warnings
+- Failed
+- Cancelled
+- Retrying
 
 The UI must be able to query the current state.
 
@@ -698,14 +698,14 @@ The UI must be able to query the current state.
 
 Where meaningful progress can be measured, expose:
 
-* Current stage
-* Completed stages
-* Current progress
-* Items processed
-* Warnings
-* Errors
-* Start time
-* Completion time
+- Current stage
+- Completed stages
+- Current progress
+- Items processed
+- Warnings
+- Errors
+- Start time
+- Completion time
 
 Do not fabricate progress.
 
@@ -738,13 +738,13 @@ The backend must retain processing history.
 
 Users with permission should be able to inspect:
 
-* Previous processing operations
-* Start/end time
-* Trigger
-* Result
-* Warnings
-* Errors
-* Retry information
+- Previous processing operations
+- Start/end time
+- Trigger
+- Result
+- Warnings
+- Errors
+- Retry information
 
 ---
 
@@ -792,15 +792,15 @@ Backend errors must contain enough structured information for the UI to provide 
 
 Errors should distinguish:
 
-* User error
-* Authorization error
-* Source error
-* Repository error
-* Processing error
-* Knowledge error
-* Query error
-* System error
-* Temporary failure
+- User error
+- Authorization error
+- Source error
+- Repository error
+- Processing error
+- Knowledge error
+- Query error
+- System error
+- Temporary failure
 
 Do not require the UI to parse raw error strings.
 
@@ -812,9 +812,9 @@ Each project must support persistent conversations.
 
 A conversation belongs to:
 
-* Organization
-* Project
-* User
+- Organization
+- Project
+- User
 
 subject to the applicable access model.
 
@@ -824,13 +824,13 @@ subject to the applicable access model.
 
 Store conversation history so users can:
 
-* Return later
-* Continue
-* Search
-* Rename
-* Archive
-* Restore
-* Delete where permitted
+- Return later
+- Continue
+- Search
+- Rename
+- Archive
+- Restore
+- Delete where permitted
 
 ---
 
@@ -889,12 +889,12 @@ using a fabricated or knowingly unreliable token estimate.
 
 For each language-model call, the backend must record and expose, where reliable:
 
-* Validated input limit
-* Measured input token count
-* Reserved output token capacity
-* Context percentage consumed
-* Whether conversation or evidence content was summarized, removed, or otherwise reduced
-* Provider-reported input/output usage after completion
+- Validated input limit
+- Measured input token count
+- Reserved output token capacity
+- Context percentage consumed
+- Whether conversation or evidence content was summarized, removed, or otherwise reduced
+- Provider-reported input/output usage after completion
 
 These values must describe the effective model configuration used for that call. The UI must never
 be forced to guess context consumption. If the values cannot be calculated reliably, the model call
@@ -906,15 +906,15 @@ must not start.
 
 Messages should retain:
 
-* Conversation
-* User/assistant role
-* Content
-* Timestamp
-* Processing status
-* Related sources
-* Clarification state where applicable
-* Metrics where available
-* Errors where applicable
+- Conversation
+- User/assistant role
+- Content
+- Timestamp
+- Processing status
+- Related sources
+- Clarification state where applicable
+- Metrics where available
+- Errors where applicable
 
 ---
 
@@ -949,9 +949,9 @@ Do not create a conversation-branch switcher in this slice.
 
 Support:
 
-* Archive
-* Restore
-* Delete where permitted
+- Archive
+- Restore
+- Delete where permitted
 
 Archive must not destroy conversation history.
 
@@ -965,10 +965,10 @@ The backend must support searching a user's accessible project conversations.
 
 Search should consider:
 
-* Conversation title
-* User messages
-* Assistant messages
-* Relevant metadata
+- Conversation title
+- User messages
+- Assistant messages
+- Relevant metadata
 
 Search must respect tenant and project authorization.
 
@@ -980,9 +980,9 @@ The backend should generate useful conversation titles where appropriate.
 
 Examples:
 
-* Checkout flow
-* Authentication implementation
-* Payment failure investigation
+- Checkout flow
+- Authentication implementation
+- Payment failure investigation
 
 Titles should be editable by the user.
 
@@ -992,13 +992,13 @@ Titles should be editable by the user.
 
 For every user question, the backend should first determine:
 
-* What the user is asking
-* Which project context applies
-* Whether the question is sufficiently specific
-* Whether clarification is required
-* What project information is relevant
-* Whether data extraction is required
-* Whether additional authorization is required
+- What the user is asking
+- Which project context applies
+- Whether the question is sufficiently specific
+- Whether clarification is required
+- What project information is relevant
+- Whether data extraction is required
+- Whether additional authorization is required
 
 ---
 
@@ -1014,9 +1014,9 @@ It must not ask unnecessary questions when sufficient information exists.
 
 The backend must support:
 
-* Single-select clarification
-* Multi-select clarification
-* Free-text clarification
+- Single-select clarification
+- Multi-select clarification
+- Free-text clarification
 
 The response format must allow the UI to render the appropriate interaction.
 
@@ -1050,10 +1050,10 @@ The backend must not require a separate round-trip per clarification question af
 
 Clarification state must survive:
 
-* Navigation
-* Page refresh where appropriate
-* Temporary connection interruption
-* Chat reopening
+- Navigation
+- Page refresh where appropriate
+- Temporary connection interruption
+- Chat reopening
 
 The user should not lose an in-progress question.
 
@@ -1089,21 +1089,21 @@ For questions requiring project information, retrieve relevant knowledge.
 
 Retrieval should consider:
 
-* User question
-* Conversation context
-* Project
-* Relevant source versions
-* Relevant documentation
-* Relevant code
-* Relevant functionality
+- User question
+- Conversation context
+- Project
+- Relevant source versions
+- Relevant documentation
+- Relevant code
+- Relevant functionality
 
 For the current product slice:
 
-* Supported code is retrieved from the project's current structural code graph.
-* Markdown, MDX, and plain-text documentation are retrieved through project-scoped keyword/full-text
+- Supported code is retrieved from the project's current structural code graph.
+- Markdown, MDX, and plain-text documentation are retrieved through project-scoped keyword/full-text
   search and bounded reads.
-* Code and documentation retrieval do not use embeddings, vector search, or a reranker.
-* An unavailable code graph must cause a grounded abstention or retryable knowledge error; the
+- Code and documentation retrieval do not use embeddings, vector search, or a reranker.
+- An unavailable code graph must cause a grounded abstention or retryable knowledge error; the
   backend must not invent code behavior from general model knowledge.
 
 ---
@@ -1130,10 +1130,10 @@ Where appropriate, previous assistant responses and their evidence should be reu
 
 This is especially important for:
 
-* Follow-ups
-* Clarifications
-* Corrections
-* Deeper investigation
+- Follow-ups
+- Clarifications
+- Corrections
+- Deeper investigation
 
 After project source changes, a continued conversation uses the current ready graph rather than a
 historical graph snapshot. The backend must make this freshness transition visible and must retain
@@ -1147,11 +1147,11 @@ Answers must be grounded in available project information.
 
 The backend should distinguish between:
 
-* Supported by project evidence
-* Reasonable inference
-* Unknown
-* Insufficient information
-* Conflicting information
+- Supported by project evidence
+- Reasonable inference
+- Unknown
+- Insufficient information
+- Conflicting information
 
 The system must not confidently invent project behavior.
 
@@ -1165,11 +1165,11 @@ A source reference should identify enough information for the UI to allow the us
 
 Possible information:
 
-* Source
-* File/document
-* Relevant location
-* Relevant section
-* Relationship to answer
+- Source
+- File/document
+- Relevant location
+- Relevant section
+- Relationship to answer
 
 ---
 
@@ -1197,9 +1197,9 @@ When an answer depends on source that has changed, the backend must consider sou
 
 If relevant knowledge is outdated:
 
-* Refresh knowledge when possible
-* Indicate stale state
-* Avoid presenting known outdated information as current
+- Refresh knowledge when possible
+- Indicate stale state
+- Avoid presenting known outdated information as current
 
 ---
 
@@ -1209,14 +1209,14 @@ The backend should return assistant responses in Markdown-compatible format.
 
 The response structure must support:
 
-* Headings
-* Lists
-* Tables
-* Code blocks
-* Inline code
-* Links
-* References
-* Structured sections
+- Headings
+- Lists
+- Tables
+- Code blocks
+- Inline code
+- Links
+- References
+- Structured sections
 
 ---
 
@@ -1226,12 +1226,12 @@ If supported by the underlying execution model, the backend should support strea
 
 The event lifecycle should allow the UI to distinguish:
 
-* Started
-* Processing
-* Partial response
-* Completed
-* Failed
-* Cancelled
+- Started
+- Processing
+- Partial response
+- Completed
+- Failed
+- Cancelled
 
 ---
 
@@ -1268,17 +1268,17 @@ It may expose high-level execution stages, but not hidden internal reasoning.
 
 Where supported, capture:
 
-* Input token usage
-* Output token usage
-* Total token usage
+- Input token usage
+- Output token usage
+- Total token usage
 
 Associate usage with:
 
-* Message
-* Conversation
-* User
-* Project
-* Organization
+- Message
+- Conversation
+- User
+- Project
+- Organization
 
 Only report reliable values.
 
@@ -1290,8 +1290,8 @@ Record actual processing duration.
 
 Where useful, expose:
 
-* Total response time
-* Relevant processing time
+- Total response time
+- Relevant processing time
 
 Do not fabricate timing.
 
@@ -1344,13 +1344,13 @@ Where database access is configured, the system must understand the available da
 
 The system should understand:
 
-* Entities
-* Tables
-* Fields
-* Relationships
-* Relevant business meaning
-* Data types
-* Available environments
+- Entities
+- Tables
+- Fields
+- Relationships
+- Relevant business meaning
+- Data types
+- Available environments
 
 ---
 
@@ -1372,13 +1372,13 @@ Before execution, generated queries must be validated.
 
 Validation should consider:
 
-* Syntax
-* Referenced objects
-* Permissions
-* Query type
-* Safety
-* Environment
-* Potentially destructive behavior
+- Syntax
+- Referenced objects
+- Permissions
+- Query type
+- Safety
+- Environment
+- Potentially destructive behavior
 
 ---
 
@@ -1394,11 +1394,11 @@ The system must not rely solely on the generated query behaving correctly.
 
 Database query execution must respect:
 
-* User permissions
-* Project permissions
-* Data access permissions
-* Environment permissions
-* Organization policies
+- User permissions
+- Project permissions
+- Data access permissions
+- Environment permissions
+- Organization policies
 
 ---
 
@@ -1430,12 +1430,12 @@ The backend must maintain approval state.
 
 When execution is authorized, the backend should:
 
-* Execute the validated query
-* Capture execution status
-* Capture duration
-* Capture result metadata
-* Return results safely
-* Handle failures
+- Execute the validated query
+- Capture execution status
+- Capture duration
+- Capture result metadata
+- Return results safely
+- Handle failures
 
 ---
 
@@ -1445,10 +1445,10 @@ Protect the system and users from accidentally retrieving extremely large datase
 
 Support:
 
-* Result limits
-* Pagination
-* Aggregation
-* Truncation indicators
+- Result limits
+- Pagination
+- Aggregation
+- Truncation indicators
 
 The user must know when results are incomplete.
 
@@ -1474,15 +1474,15 @@ The raw result must remain available where appropriate.
 
 Record:
 
-* User
-* Project
-* Question
-* Generated query
-* Approval status
-* Execution status
-* Execution time
-* Result size
-* Environment
+- User
+- Project
+- Question
+- Generated query
+- Approval status
+- Execution status
+- Execution time
+- Result size
+- Environment
 
 Sensitive data should not be unnecessarily copied into audit records.
 
@@ -1494,10 +1494,10 @@ If query generation or execution fails:
 
 Explain:
 
-* What failed
-* Why it failed when known
-* Whether retry is possible
-* Whether clarification is required
+- What failed
+- Why it failed when known
+- Whether retry is possible
+- Whether clarification is required
 
 Do not expose raw database errors as the only response.
 
@@ -1542,12 +1542,12 @@ Do not silently choose one without appropriate handling.
 
 Maintain enough information to determine whether project knowledge is:
 
-* Current
-* Updating
-* Stale
-* Partial
-* Failed
-* Ready
+- Current
+- Updating
+- Stale
+- Partial
+- Failed
+- Ready
 
 ---
 
@@ -1557,21 +1557,21 @@ Enterprise operations must be auditable.
 
 Audit important events including:
 
-* User creation
-* Role changes
-* Permission changes
-* Project creation
-* Project deletion
-* Source upload
-* Repository connection
-* Repository credential changes
-* Knowledge updates
-* Knowledge failures
-* Conversation actions where required
-* Database query generation (later slice; not current)
-* Database query execution (later slice; not current)
-* Approval actions
-* Administrative actions
+- User creation
+- Role changes
+- Permission changes
+- Project creation
+- Project deletion
+- Source upload
+- Repository connection
+- Repository credential changes
+- Knowledge updates
+- Knowledge failures
+- Conversation actions where required
+- Database query generation (later slice; not current)
+- Database query execution (later slice; not current)
+- Approval actions
+- Administrative actions
 
 ---
 
@@ -1579,14 +1579,14 @@ Audit important events including:
 
 Each audit event should include, where appropriate:
 
-* Organization
-* User
-* Action
-* Resource
-* Timestamp
-* Result
-* Relevant context
-* Source of action
+- Organization
+- User
+- Action
+- Resource
+- Timestamp
+- Result
+- Relevant context
+- Source of action
 
 Do not store sensitive information unnecessarily.
 
@@ -1598,16 +1598,16 @@ The backend must treat source code, documentation, project knowledge, conversati
 
 Security must cover:
 
-* Authentication
-* Authorization
-* Tenant isolation
-* Project isolation
-* Secure source handling
-* Credential protection
-* Access control
-* Auditability
-* Data protection
-* Secure deletion
+- Authentication
+- Authorization
+- Tenant isolation
+- Project isolation
+- Secure source handling
+- Credential protection
+- Access control
+- Auditability
+- Data protection
+- Secure deletion
 
 ---
 
@@ -1651,12 +1651,12 @@ Different operations may have different limits.
 
 Examples:
 
-* Authentication
-* Source upload
-* Knowledge processing
-* Chat requests
-* Search
-* Database queries
+- Authentication
+- Source upload
+- Knowledge processing
+- Chat requests
+- Search
+- Database queries
 
 Limits should not unnecessarily interfere with legitimate enterprise usage.
 
@@ -1668,17 +1668,17 @@ Operations that may be retried must be safely repeatable.
 
 Examples:
 
-* Source uploads
-* Knowledge processing
-* Repository synchronization
-* Query execution where applicable (later slice; not current)
+- Source uploads
+- Knowledge processing
+- Repository synchronization
+- Query execution where applicable (later slice; not current)
 
 The backend must prevent accidental duplicate operations caused by:
 
-* Double clicks
-* Network retries
-* Browser retries
-* Request timeouts
+- Double clicks
+- Network retries
+- Browser retries
+- Request timeouts
 
 ---
 
@@ -1708,10 +1708,10 @@ Prevent conflicting knowledge updates from corrupting project knowledge.
 
 If multiple updates are triggered simultaneously, the backend must define a deterministic behavior such as:
 
-* Queueing
-* Serialization
-* Safe merging
-* Conflict detection
+- Queueing
+- Serialization
+- Safe merging
+- Conflict detection
 
 The current product slice serializes code-graph writers per project. Indexing is controlled by the
 background worker under a per-project lock; filesystem auto-watch must not publish source changes
@@ -1728,13 +1728,13 @@ Long-running work must not require the client to keep a single request open inde
 
 The backend must provide a mechanism for:
 
-* Starting an operation
-* Tracking it
-* Checking status
-* Receiving progress
-* Detecting completion
-* Detecting failure
-* Retrying
+- Starting an operation
+- Tracking it
+- Checking status
+- Receiving progress
+- Detecting completion
+- Detecting failure
+- Retrying
 
 Questions queued behind a code-graph update must have a configurable expiry selected through
 evaluation. On expiry, or when bounded graph recovery is exhausted, each queued message must become
@@ -1754,11 +1754,11 @@ When the user reconnects, the current state should be recoverable.
 
 The backend must ensure the UI can always determine:
 
-* Current project state
-* Current knowledge state
-* Current processing state
-* Current conversation state
-* Current query state
+- Current project state
+- Current knowledge state
+- Current processing state
+- Current conversation state
+- Current query state
 
 Avoid ambiguous states such as:
 
@@ -1772,12 +1772,12 @@ The backend must generate notification events for important asynchronous events.
 
 Examples:
 
-* Knowledge completed
-* Knowledge failed
-* Repository update completed
-* Processing requires attention
-* Approval required
-* Approval completed
+- Knowledge completed
+- Knowledge failed
+- Repository update completed
+- Processing requires attention
+- Approval required
+- Approval completed
 
 ---
 
@@ -1787,25 +1787,25 @@ Track usage at appropriate levels:
 
 ### Organization
 
-* Questions
-* Knowledge processing
-* Source ingestion
-* Query execution (later slice; not current)
-* Token usage
+- Questions
+- Knowledge processing
+- Source ingestion
+- Query execution (later slice; not current)
+- Token usage
 
 ### Project
 
-* Questions
-* Processing
-* Source volume
-* Query activity
+- Questions
+- Processing
+- Source volume
+- Query activity
 
 ### User
 
-* Questions
-* Processing initiated
-* Query activity
-* Token usage
+- Questions
+- Processing initiated
+- Query activity
+- Token usage
 
 ---
 
@@ -1821,12 +1821,12 @@ Do not estimate or fabricate usage.
 
 The platform must support configurable retention policies for:
 
-* Source
-* Knowledge
-* Conversations
-* Audit logs
-* Query history
-* Processing history
+- Source
+- Knowledge
+- Conversations
+- Audit logs
+- Query history
+- Processing history
 
 Retention behavior must be explicit.
 
@@ -1838,12 +1838,12 @@ Deletion must respect authorization and organizational policy.
 
 Deleting a project must clearly define what happens to:
 
-* Source
-* Knowledge
-* Conversations
-* Query history
-* Processing history
-* Audit records
+- Source
+- Knowledge
+- Conversations
+- Query history
+- Processing history
+- Audit records
 
 Sensitive data should be removed according to the applicable retention policy.
 
@@ -1861,14 +1861,14 @@ Critical metadata should not be lost because of a transient backend failure.
 
 The backend must provide sufficient operational visibility to determine:
 
-* Request failures
-* Processing failures
-* Knowledge failures
-* Chat failures
-* Query failures
-* Authentication failures
-* Performance problems
-* Capacity problems
+- Request failures
+- Processing failures
+- Knowledge failures
+- Chat failures
+- Query failures
+- Authentication failures
+- Performance problems
+- Capacity problems
 
 Operational diagnostics must not expose customer source code or sensitive data unnecessarily.
 
@@ -1955,9 +1955,9 @@ Permanent failures should not be endlessly retried.
 
 The backend must distinguish between:
 
-* Temporary failure
-* Permanent failure
-* User-action-required failure
+- Temporary failure
+- Permanent failure
+- User-action-required failure
 
 ---
 
@@ -1965,12 +1965,12 @@ The backend must distinguish between:
 
 If an external dependency fails:
 
-* Preserve user data
-* Preserve project state
-* Clearly indicate failure
-* Retry where appropriate
-* Avoid duplicate processing
-* Recover when service becomes available
+- Preserve user data
+- Preserve project state
+- Clearly indicate failure
+- Retry where appropriate
+- Avoid duplicate processing
+- Recover when service becomes available
 
 ---
 
@@ -2090,11 +2090,11 @@ If a conversation is interrupted while a response is being generated, the backen
 
 Possible states:
 
-* Generating
-* Completed
-* Failed
-* Cancelled
-* Interrupted
+- Generating
+- Completed
+- Failed
+- Cancelled
+- Interrupted
 
 The UI should not display an indefinitely spinning message.
 
@@ -2132,9 +2132,9 @@ Where multiple environments exist, the backend must clearly distinguish them.
 
 Examples:
 
-* Development
-* Staging
-* Production
+- Development
+- Staging
+- Production
 
 Production access should be governed by stricter authorization where required.
 
@@ -2144,12 +2144,12 @@ Production access should be governed by stricter authorization where required.
 
 Database credentials must:
 
-* Never be returned to clients
-* Never appear in normal logs
-* Be securely managed
-* Be scoped appropriately
-* Be revocable
-* Be testable
+- Never be returned to clients
+- Never appear in normal logs
+- Be securely managed
+- Be scoped appropriately
+- Be revocable
+- Be testable
 
 ---
 
@@ -2165,12 +2165,12 @@ Where only read access is permitted, enforce it independently of generated query
 
 The backend should provide enough structured information for the UI to explain:
 
-* What data was requested
-* Which data sources were used
-* What query was generated
-* What assumptions were made
-* Whether execution occurred
-* What results were returned
+- What data was requested
+- Which data sources were used
+- What query was generated
+- What assumptions were made
+- Whether execution occurred
+- What results were returned
 
 ---
 
@@ -2232,17 +2232,17 @@ The backend must provide project knowledge access for the UI.
 
 The UI should be able to retrieve:
 
-* Project summary
-* Capabilities
-* Workflows
-* Services
-* APIs
-* Functions
-* Documentation
-* Integrations
-* Data concepts
-* Relationships
-* Knowledge health
+- Project summary
+- Capabilities
+- Workflows
+- Services
+- APIs
+- Functions
+- Documentation
+- Integrations
+- Data concepts
+- Relationships
+- Knowledge health
 
 ---
 
@@ -2250,12 +2250,12 @@ The UI should be able to retrieve:
 
 Project search must support:
 
-* Search query
-* Project scope
-* User authorization
-* Result type
-* Relevance
-* Source reference
+- Search query
+- Project scope
+- User authorization
+- Result type
+- Relevance
+- Source reference
 
 Results should be structured so the UI can distinguish different result types.
 
@@ -2285,10 +2285,10 @@ Where required by enterprise policy, track sensitive source access.
 
 Examples:
 
-* User viewed source
-* User viewed documentation
-* User downloaded source
-* User accessed sensitive data
+- User viewed source
+- User viewed documentation
+- User downloaded source
+- User accessed sensitive data
 
 ---
 
@@ -2296,15 +2296,15 @@ Examples:
 
 Administrators should be able to manage:
 
-* Users
-* Roles
-* Projects
-* Access
-* Repository configuration
-* Data source configuration
-* Retention
-* Usage
-* Audit information
+- Users
+- Roles
+- Projects
+- Access
+- Repository configuration
+- Data source configuration
+- Retention
+- Usage
+- Audit information
 
 ---
 
@@ -2326,15 +2326,15 @@ Configuration should support controlled changes and clear ownership.
 
 The backend must be designed to support enterprise workloads involving:
 
-* Many organizations
-* Many users
-* Many projects
-* Large source repositories
-* Large documentation sets
-* Large knowledge bases
-* Large conversation histories
-* Concurrent users
-* Concurrent processing jobs
+- Many organizations
+- Many users
+- Many projects
+- Large source repositories
+- Large documentation sets
+- Large knowledge bases
+- Large conversation histories
+- Concurrent users
+- Concurrent processing jobs
 
 No specific infrastructure or technology is prescribed.
 
@@ -2351,12 +2351,12 @@ be accepted as source, but they must be listed as excluded and force knowledge h
 
 It must not assume:
 
-* Small source repositories
-* Small file counts
-* Short conversations
-* Small documentation
-* Single-user access
-* Files small enough to prompt in one piece
+- Small source repositories
+- Small file counts
+- Short conversations
+- Small documentation
+- Single-user access
+- Files small enough to prompt in one piece
 
 No complete source file or document may be inserted into a prompt without passing the context
 budget. Code-graph results and document reads must remain project-scoped, bounded, and attributable
@@ -2493,19 +2493,19 @@ Data should only be accessible to users and services with appropriate authorizat
 
 Never expose:
 
-* Repository credentials
-* Database credentials
-* Authentication secrets
-* Internal credentials
-* Sensitive configuration
+- Repository credentials
+- Database credentials
+- Authentication secrets
+- Internal credentials
+- Sensitive configuration
 
 through:
 
-* API responses
-* Logs
-* Errors
-* Audit records
-* Chat responses
+- API responses
+- Logs
+- Errors
+- Audit records
+- Chat responses
 
 unless explicitly authorized and necessary.
 
@@ -2515,11 +2515,11 @@ unless explicitly authorized and necessary.
 
 Operational logging must be sufficient for debugging without unnecessarily logging:
 
-* Source code
-* Credentials
-* Personal data
-* Database results
-* Conversation contents
+- Source code
+- Credentials
+- Personal data
+- Database results
+- Conversation contents
 
 Sensitive information should be protected or omitted.
 
@@ -2537,13 +2537,13 @@ Audit records should be immutable according to the organization's policy.
 
 The backend must be resilient to:
 
-* Temporary service failures
-* Network failures
-* Processing failures
-* Repository failures
-* Partial uploads
-* Interrupted clients
-* Duplicate requests
+- Temporary service failures
+- Network failures
+- Processing failures
+- Repository failures
+- Partial uploads
+- Interrupted clients
+- Duplicate requests
 
 The system should recover automatically where appropriate.
 
@@ -2553,12 +2553,12 @@ The system should recover automatically where appropriate.
 
 The backend must be the source of truth for:
 
-* Project status
-* Processing status
-* Knowledge status
-* Conversation status
-* Query status
-* Approval status
+- Project status
+- Processing status
+- Knowledge status
+- Conversation status
+- Query status
+- Approval status
 
 The frontend must not invent or maintain authoritative business state.
 
@@ -2599,12 +2599,12 @@ The backend must provide enough structured state for the frontend to deliver the
 
 Every major asynchronous process should provide meaningful:
 
-* State
-* Progress
-* Error
-* Result
-* Timestamp
-* Retry state
+- State
+- Progress
+- Error
+- Result
+- Timestamp
+- Retry state
 
 The UI should never have to infer complex backend state from arbitrary messages.
 
