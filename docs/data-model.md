@@ -307,7 +307,11 @@ Owner-private chat thread header (Phases 41–42; ADR 0027). Fields: `projectId`
 (`default` \| `user` \| `truncated_user_text` \| `llm`), `searchText` (denormalized
 message contents for the text index; maintained when messages persist),
 `lifecycleStatus` (`active` \| `archived`), `archivedAt`, `lastMessageAt`,
-`messageCount`, plus base fields.
+`messageCount`, `context` (Phase 44: `summaryText`, `summaryUpdatedAt`,
+`summaryCoversThroughMessageId`, `pinnedFacts[]` of `{ id, text,
+source: 'clarification' \| 'user_correction', messageId?, createdAt }`), plus
+base fields. `context` defaults to an empty summary and no pins. Conversation
+content never writes project knowledge.
 
 Row `status` is never used for archive. Default list is `status: 'A'` and
 `lifecycleStatus: 'active'`; `?archived=true` returns archived rows only.
@@ -326,7 +330,12 @@ One row per chat turn (Phase 41 schema; HTTP create is Phase 50). Fields:
 `projectId`, `conversationId`, `role` (`user` \| `assistant` \| `system`), `content`,
 `messageStatus` (`completed` in this slice; Phase 50 extends the enum),
 `knowledgeVersionId`, `parentMessageId` (reserved for Phase 53), optional
-`evidence` / `usage` / `contextMetrics` (null until later phases), plus base fields.
+`evidence` / `usage` / `contextMetrics` (null until written), plus base fields.
+`contextMetrics` is Mixed: when Phase 43 accounting succeeds it holds
+`validatedContextCapacity`, `measuredInputTokens`, `maximumInputBudget`,
+`reservedOutputTokens`, `compactionActions[]`, and `contextPercentUsed` (0–1)
+only when the budget denominator exists. `usage` is provider-reported tokens
+(Phase 45). The UI omits either key when null.
 
 Indexes (partial `status: 'A'`): `{ orgId, conversationId, createdAt: 1, _id: 1 }`,
 `{ orgId, projectId, conversationId }`. Thread pages are oldest-first on

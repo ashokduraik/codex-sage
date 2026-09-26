@@ -294,8 +294,9 @@ next stage boundary. A sweeper requeues or fails jobs whose heartbeat expired.
                 If index failed → KNOWLEDGE_UNAVAILABLE  STOP
  5  API         Save Message (accepted); open SSE
  6  API         Event `status` { accepted, knowledgeHealth }
- 7  API         Load chat context from Mongo only (not the repo):
-                  recent turns, summary, pinned facts, prior evidence snapshots
+ 7  API         Load chat context from Mongo only (not the repo) via
+                  conversation `buildConversationContext`: recent turns,
+                  summary, pinned facts, prior evidence snapshots
  8  LangGraph   Start/resume the workflow in this same Node process
  9–16           See §6.2; stream `delta` / `clarification` / `evidence` / `done`
 ```

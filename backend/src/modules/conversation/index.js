@@ -34,6 +34,18 @@ export {
   prepareModelInput,
 } from './contextBudgeter.js';
 export { assertLlmAvailable } from './llm.js';
+export {
+  PINNED_FACTS_MAX_COUNT,
+  RECENT_TURNS_MAX_COUNT,
+  SUMMARY_TEXT_MAX_CHARS,
+  applySummaryFromCompaction,
+  buildConversationContext,
+  conversationContextRoutes,
+  persistMessageContextMetrics,
+  pinFact,
+  unpinFact,
+  updateConversationSummary,
+} from './conversationContext.js';
 export { Message } from '../../models/messages.model.js';
 
 import { Conversation } from '../../models/conversations.model.js';

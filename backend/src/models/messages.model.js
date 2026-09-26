@@ -30,7 +30,7 @@ const messageSchema = createBaseSchema({
   evidence: { type: mongoose.Schema.Types.Mixed, default: null },
   // Token / model-usage numbers for this turn
   usage: { type: mongoose.Schema.Types.Mixed, default: null },
-  // How much context was retrieved; used to debug grounding, not shown to Alice
+  // Measured Phase 43 budget for this assistant turn (shown as subtle UI metadata)
   contextMetrics: { type: mongoose.Schema.Types.Mixed, default: null },
 });
 

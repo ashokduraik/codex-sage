@@ -10,7 +10,7 @@ import {
   knowledgeBrowseRoutes,
   searchRoutes,
 } from '../modules/knowledge/index.js';
-import { conversationRoutes } from '../modules/conversation/index.js';
+import { conversationContextRoutes, conversationRoutes } from '../modules/conversation/index.js';
 
 /**
  * Fastify plugin that registers every domain route module.
@@ -35,6 +35,7 @@ export async function registerRoutes(app) {
   await app.register(knowledgeBrowseRoutes);
   await app.register(searchRoutes);
   await app.register(conversationRoutes);
+  await app.register(conversationContextRoutes);
   await app.register(notificationRoutes);
   await app.register(usageRoutes);
 }
