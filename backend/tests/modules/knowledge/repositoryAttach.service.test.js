@@ -13,7 +13,6 @@ import { insertSourceVersion } from '../../../src/modules/knowledge/sources.js';
 import { EXCLUSION_RULESET_ID } from '../../../src/modules/knowledge/uploads.js';
 import { includeDeleted, ROW_STATUS_DELETED } from '../../../src/platform/data/index.js';
 import { RepositoryConnection } from '../../../src/models/repositoryConnection.model.js';
-import { RepositoryCredential } from '../../../src/models/repositoryCredential.model.js';
 import { insertConnection } from '../../../src/modules/knowledge/repositories.js';
 import { REPO_BRANCH_LIST_LIMIT } from '../../../src/modules/knowledge/repositories.helper.js';
 import {
@@ -29,7 +28,7 @@ import {
 const TOKEN_FIXTURE = 'ghp_probe_token_fixture_never_log';
 
 const harness = createMongoHarness({
-  models: [Project, RepositoryConnection, RepositoryCredential, ...AUDIT_MODELS, ...SOURCE_MODELS],
+  models: [Project, RepositoryConnection, ...AUDIT_MODELS, ...SOURCE_MODELS],
   uri: TEST_APP_CONFIG.mongo.uri,
 });
 
@@ -115,12 +114,20 @@ describe('repositoryAttach.service', () => {
       selectedBranch: 'main',
       defaultBranchAtAttach: 'main',
       connectionStatus: 'connected',
-      credentialId: new mongoose.Types.ObjectId(),
+      credential: {
+        ciphertext: 'cipher',
+        iv: 'iv',
+        authTag: 'tag',
+        keyId: 'k1',
+        credentialKind: 'pat',
+      },
     });
     expect(dto.lastSuccessfulProbeAt).toBeNull();
     expect(dto.attachedAt).toBeNull();
+    expect(dto).not.toHaveProperty('credential');
     expect(dto).not.toHaveProperty('credentialId');
     expect(dto).not.toHaveProperty('accessToken');
+    expect(dto).not.toHaveProperty('ciphertext');
     expect(dto.lastSyncedCommitSha).toBeNull();
     expect(dto.lastSyncedAt).toBeNull();
 
@@ -162,13 +169,13 @@ describe('repositoryAttach.service', () => {
     expect(JSON.stringify(result)).not.toContain(TOKEN_FIXTURE);
     expect(JSON.stringify(log.calls)).not.toContain(TOKEN_FIXTURE);
 
-    const stored = await RepositoryCredential.findOne({
+    const stored = await RepositoryConnection.findOne({
       orgId,
       projectId: project._id,
     })
       .lean()
       .exec();
-    expect(stored?.ciphertext).toBeTruthy();
+    expect(stored?.credential?.ciphertext).toBeTruthy();
     expect(JSON.stringify(stored)).not.toContain(TOKEN_FIXTURE);
 
     const audits = await listAuditEvents(orgId, { action: 'repository.connected' });
@@ -225,7 +232,8 @@ describe('repositoryAttach.service', () => {
       probeRepository: async () => connectedProbe({ tokenUsed: false }),
     });
     expect(result.project.lifecycleStatus).toBe('source_received');
-    expect(await RepositoryCredential.countDocuments({ orgId })).toBe(0);
+    const stored = await RepositoryConnection.findOne({ orgId }).lean().exec();
+    expect(stored?.credential).toBeNull();
   });
 
   it('rejects a branch that is not in the probe result', async () => {
@@ -439,7 +447,8 @@ describe('repositoryAttach.service', () => {
       accessToken: TOKEN_FIXTURE,
       probeRepository: async () => connectedProbe(),
     });
-    const firstId = (await RepositoryCredential.findOne({ orgId }).lean().exec())._id;
+    const first = await RepositoryConnection.findOne({ orgId }).lean().exec();
+    const firstCiphertext = first.credential.ciphertext;
     const replaced = await replaceRepositoryCredential({
       orgId: String(orgId),
       projectId: String(project._id),
@@ -448,10 +457,8 @@ describe('repositoryAttach.service', () => {
       probeRepository: async () => connectedProbe(),
     });
     expect(replaced.connectionStatus).toBe('connected');
-    const oldRow = await includeDeleted(RepositoryCredential.findOne({ _id: firstId }))
-      .lean()
-      .exec();
-    expect(oldRow?.status).toBe(ROW_STATUS_DELETED);
+    const after = await RepositoryConnection.findOne({ orgId }).lean().exec();
+    expect(after.credential.ciphertext).not.toBe(firstCiphertext);
     expect(JSON.stringify(replaced)).not.toContain('ghp_new_token_value');
   });
 
@@ -507,7 +514,8 @@ describe('repositoryAttach.service', () => {
       probeRepository: async () => connectedProbe(),
     });
     expect(replaced.connectionStatus).toBe('connected');
-    expect(await RepositoryCredential.countDocuments({ orgId })).toBe(1);
+    const stored = await RepositoryConnection.findOne({ orgId }).lean().exec();
+    expect(stored?.credential?.ciphertext).toBeTruthy();
   });
 
   it('revokes the connection and returns to connecting_repository when no versions exist', async () => {
@@ -526,6 +534,11 @@ describe('repositoryAttach.service', () => {
       projectId: String(project._id),
       actorUserId: String(actor),
     });
+    const tombstone = await includeDeleted(RepositoryConnection.findOne({ orgId }))
+      .lean()
+      .exec();
+    expect(tombstone?.status).toBe(ROW_STATUS_DELETED);
+    expect(tombstone?.credential?.ciphertext).toBeTruthy();
     await expect(
       getRepositoryConnection(String(orgId), String(project._id)),
     ).rejects.toMatchObject({ code: 'NOT_FOUND' });
@@ -609,9 +622,10 @@ describe('repositoryAttach.service', () => {
       accessToken: TOKEN_FIXTURE,
       probeRepository: async () => connectedProbe(),
     });
-    await RepositoryCredential.updateMany(
+    const tamperedCiphertext = Buffer.from('tampered-ciphertext-bytes').toString('base64');
+    await RepositoryConnection.updateMany(
       { orgId },
-      { $set: { ciphertext: Buffer.from('tampered-ciphertext-bytes').toString('base64') } },
+      { $set: { 'credential.ciphertext': tamperedCiphertext } },
     ).exec();
     await expect(
       retestRepositoryConnection({

@@ -138,7 +138,13 @@ function connectionDoc() {
     baseUrl: null,
     repositoryFullName: 'acme/payments',
     selectedBranch: 'main',
-    credentialId: new mongoose.Types.ObjectId(),
+    credential: {
+      ciphertext: 'cipher',
+      iv: 'iv',
+      authTag: 'tag',
+      keyId: 'k1',
+      credentialKind: 'pat',
+    },
     lastSyncedCommitSha: 'oldsha',
   };
 }
@@ -271,7 +277,7 @@ describe('runRepoSyncJob', () => {
 
   it('syncs a public repository without decrypting a credential', async () => {
     const connection = connectionDoc();
-    connection.credentialId = null;
+    connection.credential = null;
     connection.lastSyncedCommitSha = null;
     findActiveConnection.mockResolvedValue(connection);
     outboundGet

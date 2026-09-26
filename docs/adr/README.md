@@ -31,6 +31,7 @@
 | [0026](./0026-repository-sync-archive-adapter.md) | Repository sync uses the provider archive API | Accepted |
 | [0027](./0027-conversation-owner-privacy.md) | Conversations are private to the owner until explicit share | Accepted |
 | [0028](./0028-roles-on-users.md) | Org roles and project access mode live on users | Accepted |
+| [0029](./0029-embed-repository-credential.md) | Repository credential lives on the connection | Accepted |
 
 One decision = one ADR. Accepted ADRs are immutable; supersede with a new number rather
 than rewriting history.

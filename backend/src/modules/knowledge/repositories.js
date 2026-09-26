@@ -3,7 +3,6 @@
  */
 import { requireProjectPermission } from '../../http/preHandlers/requireProjectPermission.js';
 import { RepositoryConnection } from '../../models/repositoryConnection.model.js';
-import { RepositoryCredential } from '../../models/repositoryCredential.model.js';
 import { resolveRepositoryCrypto } from '../../platform/config.js';
 import { assertOrgId, ROW_STATUS_ACTIVE, ROW_STATUS_DELETED } from '../../platform/data/index.js';
 import { ApiError } from '../../platform/errors.js';
@@ -61,30 +60,6 @@ export async function findActiveConnection(orgId, projectId) {
 }
 
 /**
- * Finds an active credential by id.
- * @param {{
- *   orgId: string | import('mongoose').Types.ObjectId,
- *   projectId: string | import('mongoose').Types.ObjectId,
- *   credentialId: string | import('mongoose').Types.ObjectId,
- * }} input Scope.
- * @returns {Promise<object | null>}
- */
-export async function findActiveCredential(input) {
-  assertOrgId(input.orgId);
-  if (!mongoose.isValidObjectId(String(input.credentialId))) {
-    return null;
-  }
-  return RepositoryCredential.findOne({
-    _id: input.credentialId,
-    orgId: input.orgId,
-    projectId: input.projectId,
-    status: ROW_STATUS_ACTIVE,
-  })
-    .lean()
-    .exec();
-}
-
-/**
  * Inserts a connection row.
  * @param {object} fields Connection fields.
  * @param {{ session?: import('mongoose').ClientSession }} [options] Session.
@@ -93,23 +68,6 @@ export async function findActiveCredential(input) {
 export async function insertConnection(fields, options = {}) {
   assertOrgId(fields.orgId);
   const doc = new RepositoryConnection(fields);
-  if (options.session) {
-    await doc.save({ session: options.session });
-  } else {
-    await doc.save();
-  }
-  return doc;
-}
-
-/**
- * Inserts a credential row.
- * @param {object} fields Credential fields.
- * @param {{ session?: import('mongoose').ClientSession }} [options] Session.
- * @returns {Promise<import('mongoose').Document>}
- */
-export async function insertCredential(fields, options = {}) {
-  assertOrgId(fields.orgId);
-  const doc = new RepositoryCredential(fields);
   if (options.session) {
     await doc.save({ session: options.session });
   } else {
@@ -142,7 +100,7 @@ export async function updateConnection(input, options = {}) {
 }
 
 /**
- * Soft-deletes the active connection and its active credentials.
+ * Soft-deletes the active connection. Nested credential is left as-is.
  * @param {{
  *   orgId: string | import('mongoose').Types.ObjectId,
  *   projectId: string | import('mongoose').Types.ObjectId,
@@ -150,7 +108,7 @@ export async function updateConnection(input, options = {}) {
  * }} input Scope.
  * @returns {Promise<void>}
  */
-export async function softDeleteConnectionAndCredentials(input) {
+export async function softDeleteConnection(input) {
   assertOrgId(input.orgId);
   const now = new Date();
   await RepositoryConnection.updateOne(
@@ -162,101 +120,81 @@ export async function softDeleteConnectionAndCredentials(input) {
     },
     { $set: { status: ROW_STATUS_DELETED, updatedAt: now } },
   ).exec();
-  await RepositoryCredential.updateMany(
-    {
-      orgId: input.orgId,
-      projectId: input.projectId,
-      connectionId: input.connectionId,
-      status: ROW_STATUS_ACTIVE,
-    },
-    { $set: { status: ROW_STATUS_DELETED, revokedAt: now, updatedAt: now } },
-  ).exec();
-}
-
-/**
- * Soft-deletes one credential row.
- * @param {{
- *   orgId: string | import('mongoose').Types.ObjectId,
- *   credentialId: string | import('mongoose').Types.ObjectId,
- * }} input Scope.
- * @returns {Promise<void>}
- */
-export async function softDeleteCredential(input) {
-  assertOrgId(input.orgId);
-  await RepositoryCredential.updateOne(
-    {
-      _id: input.credentialId,
-      orgId: input.orgId,
-      status: ROW_STATUS_ACTIVE,
-    },
-    {
-      $set: {
-        status: ROW_STATUS_DELETED,
-        revokedAt: new Date(),
-        updatedAt: new Date(),
-      },
-    },
-  ).exec();
 }
 
 // --- from repositories/repositoryCredential.service.js ---
 /**
- * Encrypt / decrypt / rotate repository credentials. Decrypt only in memory.
+ * Encrypt / decrypt / replace repository credentials. Decrypt only in memory.
  */
-export const REPO_CREDENTIAL_MAX_ACTIVE_PER_CONNECTION = 1;
+/**
+ * Encrypts a PAT into the nested credential shape. Never logs plaintext.
+ * @param {string} accessToken Raw PAT.
+ * @returns {{
+ *   ciphertext: string,
+ *   iv: string,
+ *   authTag: string,
+ *   keyId: string,
+ *   credentialKind: string,
+ *   lastValidatedAt: Date,
+ *   revokedAt: null,
+ * }}
+ */
+function buildEncryptedCredential(accessToken) {
+  const crypto = resolveRepositoryCrypto();
+  const sealed = encryptSecret(accessToken, crypto.encryptionKey, crypto.keyId);
+  return {
+    ciphertext: sealed.ciphertext,
+    iv: sealed.iv,
+    authTag: sealed.authTag,
+    keyId: sealed.keyId,
+    credentialKind: 'pat',
+    lastValidatedAt: new Date(),
+    revokedAt: null,
+  };
+}
 
 /**
- * Encrypts a PAT and inserts a new active credential row.
+ * Encrypts a PAT and overwrites `connection.credential`.
  * @param {{
  *   orgId: string,
- *   projectId: string,
  *   connectionId: string,
  *   accessToken: string,
  *   createdBy: string,
  * }} input Fields.
  * @param {{ session?: import('mongoose').ClientSession }} [options] Session.
- * @returns {Promise<{ credentialId: string }>}
+ * @returns {Promise<object | null>}
  */
 export async function storeEncryptedCredential(input, options = {}) {
-  const crypto = resolveRepositoryCrypto();
-  const sealed = encryptSecret(input.accessToken, crypto.encryptionKey, crypto.keyId);
-  const doc = await insertCredential(
+  return updateConnection(
     {
       orgId: input.orgId,
-      projectId: input.projectId,
       connectionId: input.connectionId,
-      ciphertext: sealed.ciphertext,
-      iv: sealed.iv,
-      authTag: sealed.authTag,
-      keyId: sealed.keyId,
-      credentialKind: 'pat',
-      lastValidatedAt: new Date(),
-      createdBy: input.createdBy,
-      updatedBy: input.createdBy,
+      set: {
+        credential: buildEncryptedCredential(input.accessToken),
+        updatedBy: input.createdBy,
+      },
     },
     options,
   );
-  return { credentialId: String(doc._id) };
 }
 
 /**
- * Decrypts the active credential for a connection. Never logs the plaintext.
- * @param {{
- *   orgId: string,
- *   projectId: string,
- *   credentialId: string,
- * }} input Scope.
+ * Decrypts a nested credential. Never logs the plaintext.
+ * @param {object | null | undefined} credential Nested credential on a connection.
  * @returns {Promise<string>}
  */
-export async function decryptConnectionToken(input) {
-  const row = await findActiveCredential(input);
-  if (!row) {
+export async function decryptConnectionToken(credential) {
+  if (!credential) {
     throw ApiError.fromCode('NOT_FOUND');
   }
   try {
     const crypto = resolveRepositoryCrypto();
     return decryptSecret(
-      { ciphertext: row.ciphertext, iv: row.iv, authTag: row.authTag },
+      {
+        ciphertext: credential.ciphertext,
+        iv: credential.iv,
+        authTag: credential.authTag,
+      },
       crypto.encryptionKey,
     );
   } catch {
@@ -265,37 +203,22 @@ export async function decryptConnectionToken(input) {
 }
 
 /**
- * Soft-deletes the prior credential and inserts a replacement.
+ * Overwrites the nested credential on an existing connection.
  * @param {{
  *   orgId: string,
- *   projectId: string,
  *   connectionId: string,
- *   previousCredentialId: string | null,
  *   accessToken: string,
  *   actorUserId: string,
- * }} input Rotate fields.
- * @returns {Promise<{ credentialId: string }>}
+ * }} input Replace fields.
+ * @returns {Promise<object | null>}
  */
 export async function replaceEncryptedCredential(input) {
-  if (input.previousCredentialId) {
-    await softDeleteCredential({
-      orgId: input.orgId,
-      credentialId: input.previousCredentialId,
-    });
-  }
-  const stored = await storeEncryptedCredential({
+  return storeEncryptedCredential({
     orgId: input.orgId,
-    projectId: input.projectId,
     connectionId: input.connectionId,
     accessToken: input.accessToken,
     createdBy: input.actorUserId,
   });
-  await updateConnection({
-    orgId: input.orgId,
-    connectionId: input.connectionId,
-    set: { credentialId: stored.credentialId, updatedBy: input.actorUserId },
-  });
-  return stored;
 }
 
 // --- from repositories/repositoryAttach.service.js ---
@@ -406,6 +329,7 @@ export async function attachRepository(input) {
       lastSyncedAt: null,
       lastSyncJobId: null,
       lastSyncErrorCode: null,
+      credential: input.accessToken ? buildEncryptedCredential(input.accessToken) : null,
       createdBy: input.actorUserId,
       updatedBy: input.actorUserId,
     });
@@ -414,22 +338,6 @@ export async function attachRepository(input) {
       throw ApiError.fromCode('CONFLICT');
     }
     throw err;
-  }
-
-  if (input.accessToken) {
-    const stored = await storeEncryptedCredential({
-      orgId: input.orgId,
-      projectId: input.projectId,
-      connectionId: String(connectionId),
-      accessToken: input.accessToken,
-      createdBy: input.actorUserId,
-    });
-    await updateConnection({
-      orgId: input.orgId,
-      connectionId: String(connectionId),
-      set: { credentialId: stored.credentialId },
-    });
-    connection.credentialId = stored.credentialId;
   }
 
   await updateProjectSourceConfig(input.orgId, input.projectId, {
@@ -506,12 +414,8 @@ export async function getRepositoryConnection(orgId, projectId) {
  */
 export async function patchRepositoryBranch(input) {
   const connection = await requireActiveConnection(input.orgId, input.projectId);
-  const token = connection.credentialId
-    ? await decryptConnectionToken({
-        orgId: input.orgId,
-        projectId: input.projectId,
-        credentialId: String(connection.credentialId),
-      })
+  const token = connection.credential
+    ? await decryptConnectionToken(connection.credential)
     : null;
   const probe = await (input.probeRepository ?? probeRepository)({
     repositoryUrl: connection.repositoryWebUrl,
@@ -589,11 +493,7 @@ export async function replaceRepositoryCredential(input) {
   });
   await replaceEncryptedCredential({
     orgId: input.orgId,
-    projectId: input.projectId,
     connectionId: String(connection._id),
-    previousCredentialId: connection.credentialId
-      ? String(connection.credentialId)
-      : null,
     accessToken: input.accessToken,
     actorUserId: input.actorUserId,
   });
@@ -644,7 +544,7 @@ export async function replaceRepositoryCredential(input) {
  */
 export async function revokeRepositoryCredential(input) {
   const connection = await requireActiveConnection(input.orgId, input.projectId);
-  await softDeleteConnectionAndCredentials({
+  await softDeleteConnection({
     orgId: input.orgId,
     projectId: input.projectId,
     connectionId: String(connection._id),
@@ -694,12 +594,8 @@ export async function revokeRepositoryCredential(input) {
  */
 export async function retestRepositoryConnection(input) {
   const connection = await requireActiveConnection(input.orgId, input.projectId);
-  const token = connection.credentialId
-    ? await decryptConnectionToken({
-        orgId: input.orgId,
-        projectId: input.projectId,
-        credentialId: String(connection.credentialId),
-      })
+  const token = connection.credential
+    ? await decryptConnectionToken(connection.credential)
     : null;
   const probe = await (input.probeRepository ?? probeRepository)({
     repositoryUrl: connection.repositoryWebUrl,
@@ -984,11 +880,8 @@ export async function repositoryRoutes(app) {
   );
 }
 
-export { RepositoryConnection, RepositoryCredential };
-export const REPOSITORY_MODELS = Object.freeze([
-  RepositoryConnection,
-  RepositoryCredential,
-]);
+export { RepositoryConnection };
+export const REPOSITORY_MODELS = Object.freeze([RepositoryConnection]);
 
 export {
   probeRepository,

@@ -451,7 +451,7 @@ Mechanisms below match the accepted stack ADRs
 | Fastify | LangGraph | in-process library | Chat state machine; the route handler still owns SSE |
 | Fastify | CodeGraph | in-process, **read lease** | Explore / `buildContext` on the current workspace |
 | Fastify | Ollama | HTTP `/v1` via `ai` SDK | Budgeted generate / stream |
-| Fastify | GitHub/GitLab | HTTPS REST (probe + persist connection/credential rows) | Identity, branches, default branch, encrypted PAT |
+| Fastify | GitHub/GitLab | HTTPS REST (probe + persist the connection; encrypted PAT nested) | Identity, branches, default branch, encrypted PAT |
 | Fastify | Worker | **only** by inserting a `Job` row | `202 { jobId }` — no RPC |
 | Worker | MongoDB | atomic claim | Jobs, source/knowledge metadata |
 | Worker | GridFS | read | Rebuild the tree from accepted bytes |

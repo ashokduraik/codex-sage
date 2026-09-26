@@ -7,20 +7,16 @@ import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
 import { includeDeleted, ROW_STATUS_DELETED } from '../../../src/platform/data/index.js';
 import { RepositoryConnection } from '../../../src/models/repositoryConnection.model.js';
-import { RepositoryCredential } from '../../../src/models/repositoryCredential.model.js';
 import {
   findActiveConnection,
-  findActiveCredential,
   listDueConnections,
   insertConnection,
-  insertCredential,
-  softDeleteConnectionAndCredentials,
-  softDeleteCredential,
+  softDeleteConnection,
   updateConnection,
 } from '../../../src/modules/knowledge/repositories.js';
 
 const harness = createMongoHarness({
-  models: [RepositoryConnection, RepositoryCredential],
+  models: [RepositoryConnection],
   uri: TEST_APP_CONFIG.mongo.uri,
 });
 
@@ -129,7 +125,7 @@ describe('repositories.repository', () => {
     ).rejects.toMatchObject({ code: 11000 });
   });
 
-  it('updates connection fields and stores a credential', async () => {
+  it('updates connection fields and stores a nested credential', async () => {
     const { orgId, projectId } = ids();
     const connection = await insertConnection({
       orgId,
@@ -142,40 +138,26 @@ describe('repositories.repository', () => {
       defaultBranchAtAttach: 'main',
       connectionStatus: 'connected',
     });
-    const credential = await insertCredential({
-      orgId,
-      projectId,
-      connectionId: connection._id,
-      ciphertext: 'cipher',
-      iv: 'iv',
-      authTag: 'tag',
-      keyId: 'k1',
-      credentialKind: 'pat',
-    });
     const updated = await updateConnection({
       orgId,
       connectionId: connection._id,
-      set: { credentialId: credential._id, selectedBranch: 'develop' },
+      set: {
+        selectedBranch: 'develop',
+        credential: {
+          ciphertext: 'cipher',
+          iv: 'iv',
+          authTag: 'tag',
+          keyId: 'k1',
+          credentialKind: 'pat',
+        },
+      },
     });
     expect(updated?.selectedBranch).toBe('develop');
-    expect(String(updated?.credentialId)).toBe(String(credential._id));
-
-    const found = await findActiveCredential({
-      orgId,
-      projectId,
-      credentialId: credential._id,
-    });
-    expect(found?.keyId).toBe('k1');
-    expect(
-      await findActiveCredential({
-        orgId,
-        projectId,
-        credentialId: 'not-an-id',
-      }),
-    ).toBeNull();
+    expect(updated?.credential?.keyId).toBe('k1');
+    expect(updated?.credential?.ciphertext).toBe('cipher');
   });
 
-  it('soft-deletes the connection and credentials so get no longer returns them', async () => {
+  it('soft-deletes the connection and leaves nested credential on the tombstone', async () => {
     const { orgId, projectId } = ids();
     const connection = await insertConnection({
       orgId,
@@ -187,35 +169,27 @@ describe('repositories.repository', () => {
       selectedBranch: 'main',
       defaultBranchAtAttach: 'main',
       connectionStatus: 'connected',
-    });
-    const credential = await insertCredential({
-      orgId,
-      projectId,
-      connectionId: connection._id,
-      ciphertext: 'cipher',
-      iv: 'iv',
-      authTag: 'tag',
-      keyId: 'k1',
+      credential: {
+        ciphertext: 'cipher',
+        iv: 'iv',
+        authTag: 'tag',
+        keyId: 'k1',
+        credentialKind: 'pat',
+      },
     });
 
-    await softDeleteConnectionAndCredentials({
+    await softDeleteConnection({
       orgId,
       projectId,
       connectionId: connection._id,
     });
     expect(await findActiveConnection(orgId, projectId)).toBeNull();
-    expect(
-      await findActiveCredential({
-        orgId,
-        projectId,
-        credentialId: credential._id,
-      }),
-    ).toBeNull();
 
     const hidden = await includeDeleted(RepositoryConnection.findOne({ _id: connection._id }))
       .lean()
       .exec();
     expect(hidden?.status).toBe(ROW_STATUS_DELETED);
+    expect(hidden?.credential?.ciphertext).toBe('cipher');
   });
 
   it('saves and updates inside a Mongo session', async () => {
@@ -239,23 +213,20 @@ describe('repositories.repository', () => {
           { session },
         );
         connectionId = connection._id;
-        await insertCredential(
-          {
-            orgId,
-            projectId,
-            connectionId: connection._id,
-            ciphertext: 'cipher',
-            iv: 'iv',
-            authTag: 'tag',
-            keyId: 'k1',
-          },
-          { session },
-        );
         await updateConnection(
           {
             orgId,
             connectionId: connection._id,
-            set: { selectedBranch: 'release' },
+            set: {
+              selectedBranch: 'release',
+              credential: {
+                ciphertext: 'cipher',
+                iv: 'iv',
+                authTag: 'tag',
+                keyId: 'k1',
+                credentialKind: 'pat',
+              },
+            },
           },
           { session },
         );
@@ -265,38 +236,7 @@ describe('repositories.repository', () => {
     }
     const found = await findActiveConnection(orgId, projectId);
     expect(found?.selectedBranch).toBe('release');
+    expect(found?.credential?.keyId).toBe('k1');
     expect(String(found?._id)).toBe(String(connectionId));
-  });
-
-  it('soft-deletes a single credential row', async () => {
-    const { orgId, projectId } = ids();
-    const connection = await insertConnection({
-      orgId,
-      projectId,
-      provider: 'github',
-      hostKind: 'github',
-      repositoryFullName: 'acme/rotate',
-      repositoryWebUrl: 'https://github.com/acme/rotate',
-      selectedBranch: 'main',
-      defaultBranchAtAttach: 'main',
-      connectionStatus: 'connected',
-    });
-    const credential = await insertCredential({
-      orgId,
-      projectId,
-      connectionId: connection._id,
-      ciphertext: 'cipher',
-      iv: 'iv',
-      authTag: 'tag',
-      keyId: 'k1',
-    });
-    await softDeleteCredential({ orgId, credentialId: credential._id });
-    expect(
-      await findActiveCredential({
-        orgId,
-        projectId,
-        credentialId: credential._id,
-      }),
-    ).toBeNull();
   });
 });

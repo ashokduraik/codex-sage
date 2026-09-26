@@ -109,7 +109,6 @@ export {
   REPO_README_MAX_BYTES,
 } from './repositories.js';
 export { RepositoryConnection } from '../../models/repositoryConnection.model.js';
-export { RepositoryCredential } from '../../models/repositoryCredential.model.js';
 export {
   repoSyncHandlerRegistration,
   enqueueDueRepositorySyncs,
@@ -230,7 +229,6 @@ export {
 import { DocumentSection } from '../../models/documentSection.model.js';
 import { KnowledgeVersion } from '../../models/knowledgeVersion.model.js';
 import { RepositoryConnection } from '../../models/repositoryConnection.model.js';
-import { RepositoryCredential } from '../../models/repositoryCredential.model.js';
 import { SourceChangeSummary } from '../../models/sourceChangeSummary.model.js';
 import { SourceFile } from '../../models/sourceFile.model.js';
 import { SourceVersion } from '../../models/sourceVersion.model.js';
@@ -242,7 +240,4 @@ export const SOURCE_MODELS = Object.freeze([
 ]);
 export const DOCUMENT_MODELS = Object.freeze([DocumentSection]);
 export const KNOWLEDGE_MODELS = Object.freeze([KnowledgeVersion]);
-export const REPOSITORY_MODELS = Object.freeze([
-  RepositoryConnection,
-  RepositoryCredential,
-]);
+export const REPOSITORY_MODELS = Object.freeze([RepositoryConnection]);

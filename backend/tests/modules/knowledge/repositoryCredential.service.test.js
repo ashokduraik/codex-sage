@@ -1,13 +1,11 @@
 /**
- * Encrypt / decrypt / rotate repository credentials.
+ * Encrypt / decrypt / replace nested repository credentials.
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import mongoose from 'mongoose';
 import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
-import { includeDeleted, ROW_STATUS_DELETED } from '../../../src/platform/data/index.js';
 import { RepositoryConnection } from '../../../src/models/repositoryConnection.model.js';
-import { RepositoryCredential } from '../../../src/models/repositoryCredential.model.js';
 import { insertConnection } from '../../../src/modules/knowledge/repositories.js';
 import {
   decryptConnectionToken,
@@ -18,7 +16,7 @@ import {
 const TOKEN_FIXTURE = 'ghp_probe_token_fixture_never_log';
 
 const harness = createMongoHarness({
-  models: [RepositoryConnection, RepositoryCredential],
+  models: [RepositoryConnection],
   uri: TEST_APP_CONFIG.mongo.uri,
 });
 
@@ -70,88 +68,65 @@ describe('repositoryCredential.service', () => {
     const seeded = await seedConnection();
     const stored = await storeEncryptedCredential({
       orgId: String(seeded.orgId),
-      projectId: String(seeded.projectId),
       connectionId: seeded.connectionId,
       accessToken: TOKEN_FIXTURE,
       createdBy: String(seeded.actor),
     });
 
-    const row = await RepositoryCredential.findById(stored.credentialId).lean().exec();
-    expect(row.ciphertext).toBeTruthy();
-    expect(JSON.stringify(row)).not.toContain(TOKEN_FIXTURE);
+    expect(stored?.credential?.ciphertext).toBeTruthy();
+    expect(JSON.stringify(stored)).not.toContain(TOKEN_FIXTURE);
 
-    const plain = await decryptConnectionToken({
-      orgId: String(seeded.orgId),
-      projectId: String(seeded.projectId),
-      credentialId: stored.credentialId,
-    });
+    const plain = await decryptConnectionToken(stored.credential);
     expect(plain).toBe(TOKEN_FIXTURE);
   });
 
   it('throws NOT_FOUND when the credential is missing', async () => {
-    await expect(
-      decryptConnectionToken({
-        orgId: String(new mongoose.Types.ObjectId()),
-        projectId: String(new mongoose.Types.ObjectId()),
-        credentialId: String(new mongoose.Types.ObjectId()),
-      }),
-    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    await expect(decryptConnectionToken(null)).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+    });
   });
 
   it('throws CREDENTIAL_DECRYPT_FAILED when ciphertext is tampered', async () => {
     const seeded = await seedConnection();
     const stored = await storeEncryptedCredential({
       orgId: String(seeded.orgId),
-      projectId: String(seeded.projectId),
       connectionId: seeded.connectionId,
       accessToken: TOKEN_FIXTURE,
       createdBy: String(seeded.actor),
     });
-    await RepositoryCredential.updateOne(
-      { _id: stored.credentialId },
-      { $set: { ciphertext: Buffer.from('tampered-ciphertext-bytes').toString('base64') } },
+    const tamperedCiphertext = Buffer.from('tampered-ciphertext-bytes').toString('base64');
+    await RepositoryConnection.updateOne(
+      { _id: seeded.connectionId },
+      { $set: { 'credential.ciphertext': tamperedCiphertext } },
     ).exec();
 
-    await expect(
-      decryptConnectionToken({
-        orgId: String(seeded.orgId),
-        projectId: String(seeded.projectId),
-        credentialId: stored.credentialId,
-      }),
-    ).rejects.toMatchObject({ code: 'CREDENTIAL_DECRYPT_FAILED' });
+    const tampered = await RepositoryConnection.findById(seeded.connectionId).lean().exec();
+    await expect(decryptConnectionToken(tampered.credential)).rejects.toMatchObject({
+      code: 'CREDENTIAL_DECRYPT_FAILED',
+    });
+    expect(stored.credential.ciphertext).toBeTruthy();
   });
 
-  it('soft-deletes the previous credential and points the connection at the new row', async () => {
+  it('overwrites the nested credential on replace', async () => {
     const seeded = await seedConnection();
     const first = await storeEncryptedCredential({
       orgId: String(seeded.orgId),
-      projectId: String(seeded.projectId),
       connectionId: seeded.connectionId,
       accessToken: TOKEN_FIXTURE,
       createdBy: String(seeded.actor),
     });
     const rotated = await replaceEncryptedCredential({
       orgId: String(seeded.orgId),
-      projectId: String(seeded.projectId),
       connectionId: seeded.connectionId,
-      previousCredentialId: first.credentialId,
       accessToken: 'ghp_replacement_token_value',
       actorUserId: String(seeded.actor),
     });
-    expect(rotated.credentialId).not.toBe(first.credentialId);
+    expect(rotated?.credential?.ciphertext).not.toBe(first.credential.ciphertext);
 
-    const oldRow = await includeDeleted(
-      RepositoryCredential.findOne({ _id: first.credentialId }),
-    )
-      .lean()
-      .exec();
-    expect(oldRow?.status).toBe(ROW_STATUS_DELETED);
+    const row = await RepositoryConnection.findById(seeded.connectionId).lean().exec();
+    expect(row.credential.ciphertext).toBe(rotated.credential.ciphertext);
 
-    const nextPlain = await decryptConnectionToken({
-      orgId: String(seeded.orgId),
-      projectId: String(seeded.projectId),
-      credentialId: rotated.credentialId,
-    });
+    const nextPlain = await decryptConnectionToken(rotated.credential);
     expect(nextPlain).toBe('ghp_replacement_token_value');
   });
 });

@@ -876,12 +876,8 @@ export async function runRepoSyncJob(workerContext) {
 
   let token = null;
   try {
-    if (connection.credentialId) {
-      token = await decryptConnectionToken({
-        orgId,
-        projectId,
-        credentialId: String(connection.credentialId),
-      });
+    if (connection.credential) {
+      token = await decryptConnectionToken(connection.credential);
     }
 
     const head = await resolveRemoteHead({

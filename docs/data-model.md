@@ -261,11 +261,18 @@ One **active** attached repository per project (Phase 31). Fields: `projectId`,
 `repositoryFullName`, `repositoryWebUrl`, `visibility`, `selectedBranch`,
 `defaultBranchAtAttach`, `connectionStatus` (`connected` \|
 `authentication_required` \| `access_denied` \| `not_found` \| `unreachable`),
-`connectionStatusReasonCode`, `credentialId` (active `repositoryCredentials` row),
+`connectionStatusReasonCode`, `credential` (nested encrypted PAT or null),
 `attachedBy`, `attachedAt`, `lastSuccessfulProbeAt`, `branchChangedAt`,
 `lastSyncedCommitSha`, `lastSyncedAt`, `nextDueAt` (defaults to attach time so
 the first sync is due immediately), `lastSyncJobId`, `lastSyncErrorCode`, plus
 base fields. Domain `connectionStatus` is not row `status`.
+
+`credential` is a nested object (`ciphertext`, `iv`, `authTag`, `keyId`,
+`credentialKind` (`pat` only), `lastValidatedAt`, `revokedAt`) or null when
+attach stored no token (ADR 0029). Never joined into list or connection
+DTOs. Decrypt only in memory. Replace overwrites the nested object (no
+historical ciphertext). Revoke soft-deletes the connection and leaves
+`credential` as-is on the tombstone.
 
 Unique index (partial `status: 'A'`): `{ orgId, projectId }`.
 List index (partial `status: 'A'`): `{ orgId, projectId, status }`.
@@ -274,19 +281,6 @@ Due-scan index (partial `status: 'A'`): `{ nextDueAt }`.
 Soft-delete (revoke) sets `status: 'D'` and clears
 `projects.sourceConfig.repositoryConnectionId`. Worker `repo_sync` reads this
 row, downloads a provider archive (ADR 0026), and enqueues `ingest`.
-
-### `repositoryCredentials`
-
-Encrypted PAT storage for a connection (Phase 31). Fields: `projectId`,
-`connectionId`, `ciphertext`, `iv`, `authTag`, `keyId`, `credentialKind`
-(`pat` only), `lastValidatedAt`, `revokedAt`, plus base fields. Never joined
-into list or connection DTOs. Decrypt only in memory inside the credential
-service.
-
-Replace soft-deletes the prior row and inserts a new one. Revoke soft-deletes
-the credential with the connection.
-
-Index (partial `status: 'A'`): `{ orgId, projectId, connectionId, status }`.
 
 ### `conversations`
 

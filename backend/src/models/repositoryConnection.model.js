@@ -25,6 +25,33 @@ export const REPOSITORY_HOST_KIND_VALUES = Object.freeze([
   'gitlab_self_hosted',
 ]);
 
+export const CREDENTIAL_KIND_VALUES = Object.freeze(['pat']);
+
+const repositoryCredentialSubSchema = new mongoose.Schema(
+  {
+    // Encrypted token (never the raw token)
+    ciphertext: { type: String, required: true },
+    // Random value used when encrypting; needed to decrypt
+    iv: { type: String, required: true },
+    // Check that the ciphertext was not tampered with
+    authTag: { type: String, required: true },
+    // Which encryption key was used, so keys can be rotated
+    keyId: { type: String, required: true, trim: true },
+    // What kind of secret this is (currently a personal access token)
+    credentialKind: {
+      type: String,
+      enum: CREDENTIAL_KIND_VALUES,
+      required: true,
+      default: 'pat',
+    },
+    // Last time the token still worked against GitHub/GitLab
+    lastValidatedAt: { type: Date, default: null },
+    // Unused today: revoke leaves this nested object as-is
+    revokedAt: { type: Date, default: null },
+  },
+  { _id: false },
+);
+
 const repositoryConnectionSchema = createBaseSchema({
   // Project this repo is attached to (Payments API)
   projectId: { type: ObjectId, ref: 'Project', required: true },
@@ -48,8 +75,8 @@ const repositoryConnectionSchema = createBaseSchema({
   connectionStatus: { type: String, enum: CONNECTION_STATUS_VALUES, required: true, default: 'connected' },
   // Machine reason the connection is unhealthy
   connectionStatusReasonCode: { type: String, default: null },
-  // Encrypted token used to call the host (see repositoryCredentials)
-  credentialId: { type: ObjectId, ref: 'RepositoryCredential', default: null },
+  // Encrypted PAT for this connection; null when attach had no token
+  credential: { type: repositoryCredentialSubSchema, default: null },
   // User who attached this repository
   attachedBy: { type: ObjectId, ref: 'User', default: null },
   // When the repository was attached
