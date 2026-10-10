@@ -47,6 +47,18 @@ export const SOURCE_PREVIEW_BINARY_EXTENSIONS = Object.freeze([
   'bin',
 ]);
 
+// --- from sources/sourcePreview.routes.js ---
+/**
+ * Source file metadata and slice HTTP routes.
+ */
+const metadataQuerySchema = z.object({
+  path: z.string().min(1),
+});
+const sliceQuerySchema = metadataQuerySchema.extend({
+  startLine: z.coerce.number().int(),
+  endLine: z.coerce.number().int(),
+});
+
 /**
  * Builds the configured preview byte/line caps (optional overrides for pure helper tests).
  * @param {{ maxBytes?: number, maxLines?: number }} [overrides] Cap overrides.
@@ -179,32 +191,6 @@ export function graphCoverageFromFile(file) {
 }
 
 /**
- * Loads the current source version id for a project (shared by metadata + slice).
- * @param {string} orgId Tenant id.
- * @param {string} projectId Project id.
- * @returns {Promise<{ project: object, knowledgeVersion: object | null, sourceVersionId: string, knowledgeVersionId: string | null }>}
- */
-async function loadCurrentSourceScope(orgId, projectId) {
-  const project = await findProjectById(orgId, projectId);
-  if (!project || project.status !== ROW_STATUS_ACTIVE) {
-    throw ApiError.fromCode('PROJECT_NOT_FOUND');
-  }
-  const knowledgeVersionId = project.currentKnowledgeVersionId ? String(project.currentKnowledgeVersionId) : null;
-  const knowledgeVersion = knowledgeVersionId
-    ? await findKnowledgeVersionById({
-        orgId,
-        projectId,
-        knowledgeVersionId,
-      })
-    : null;
-  const sourceVersionId = knowledgeVersion?.sourceVersionId ? String(knowledgeVersion.sourceVersionId) : null;
-  if (!sourceVersionId) {
-    throw ApiError.fromCode('SOURCE_NOT_FOUND');
-  }
-  return { project, knowledgeVersion, sourceVersionId, knowledgeVersionId };
-}
-
-/**
  * Loads metadata for a current-version file.
  * @param {{ orgId: string, projectId: string, path: unknown }} input Request.
  * @returns {Promise<object>}
@@ -307,36 +293,6 @@ export async function loadSourceFileSlice(input) {
   };
 }
 
-// --- from sources/sourcePreview.routes.js ---
-/**
- * Source file metadata and slice HTTP routes.
- */
-/**
- * Maps zod issues to VALIDATION_ERROR details.
- * @param {import('zod').ZodError} error Zod error.
- * @returns {{ path: string, message: string }[]}
- */
-function zodDetails(error) {
-  /** @type {{ path: string, message: string }[]} */
-  const details = [];
-  for (const issue of error.issues) {
-    details.push({
-      path: issue.path.join('.') || 'query',
-      message: issue.message,
-    });
-  }
-  return details;
-}
-
-const metadataQuerySchema = z.object({
-  path: z.string().min(1),
-});
-
-const sliceQuerySchema = metadataQuerySchema.extend({
-  startLine: z.coerce.number().int(),
-  endLine: z.coerce.number().int(),
-});
-
 /**
  * Registers preview routes under `/api/v1`.
  * @param {import('fastify').FastifyInstance} app Fastify app.
@@ -370,4 +326,47 @@ export async function sourcePreviewRoutes(app) {
       path: parsed.data.path,
     });
   });
+}
+
+/**
+ * Maps zod issues to VALIDATION_ERROR details.
+ * @param {import('zod').ZodError} error Zod error.
+ * @returns {{ path: string, message: string }[]}
+ */
+function zodDetails(error) {
+  /** @type {{ path: string, message: string }[]} */
+  const details = [];
+  for (const issue of error.issues) {
+    details.push({
+      path: issue.path.join('.') || 'query',
+      message: issue.message,
+    });
+  }
+  return details;
+}
+
+/**
+ * Loads the current source version id for a project (shared by metadata + slice).
+ * @param {string} orgId Tenant id.
+ * @param {string} projectId Project id.
+ * @returns {Promise<{ project: object, knowledgeVersion: object | null, sourceVersionId: string, knowledgeVersionId: string | null }>}
+ */
+async function loadCurrentSourceScope(orgId, projectId) {
+  const project = await findProjectById(orgId, projectId);
+  if (!project || project.status !== ROW_STATUS_ACTIVE) {
+    throw ApiError.fromCode('PROJECT_NOT_FOUND');
+  }
+  const knowledgeVersionId = project.currentKnowledgeVersionId ? String(project.currentKnowledgeVersionId) : null;
+  const knowledgeVersion = knowledgeVersionId
+    ? await findKnowledgeVersionById({
+        orgId,
+        projectId,
+        knowledgeVersionId,
+      })
+    : null;
+  const sourceVersionId = knowledgeVersion?.sourceVersionId ? String(knowledgeVersion.sourceVersionId) : null;
+  if (!sourceVersionId) {
+    throw ApiError.fromCode('SOURCE_NOT_FOUND');
+  }
+  return { project, knowledgeVersion, sourceVersionId, knowledgeVersionId };
 }

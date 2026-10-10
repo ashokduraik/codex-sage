@@ -42,6 +42,32 @@ const jobIdParamsSchema = z.object({
   jobId: z.string().min(1),
 });
 
+// --- from jobs/jobControl.routes.js ---
+/**
+ * Job control HTTP routes — retry and cancel under `/api/v1`.
+ */
+// --- from jobs/jobs.service.js ---
+/**
+ * Jobs service — enqueue helper and project-scoped read use cases.
+ */
+// --- from jobs/jobControl.service.js ---
+/**
+ * Job control service — user-initiated retry and cancel with ACL and audit.
+ */
+/**
+ * Allowed next statuses for each current jobStatus.
+ * @type {Readonly<Record<string, readonly string[]>>}
+ */
+export const ALLOWED_JOB_TRANSITIONS = Object.freeze({
+  pending: Object.freeze(['running', 'cancelled']),
+  running: Object.freeze(['completed', 'completed_with_warnings', 'failed', 'cancelled', 'pending']),
+  failed: Object.freeze(['retrying']),
+  retrying: Object.freeze(['pending', 'running', 'cancelled']),
+  cancelled: Object.freeze(['retrying']),
+  completed: Object.freeze([]),
+  completed_with_warnings: Object.freeze([]),
+});
+
 /**
  * Maps zod issues to VALIDATION_ERROR details.
  * @param {import('zod').ZodError} error Zod error.
@@ -101,11 +127,6 @@ export async function jobRoutes(app) {
   });
 }
 
-// --- from jobs/jobControl.routes.js ---
-/**
- * Job control HTTP routes — retry and cancel under `/api/v1`.
- */
-
 /**
  * Parses and validates `:jobId` route params.
  * @param {unknown} params Fastify request.params.
@@ -118,23 +139,6 @@ export function parseJobControlParams(params) {
     throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error, 'params') });
   }
   return parsed.data;
-}
-
-/**
- * Builds shared service context from the Fastify request.
- * @param {import('fastify').FastifyRequest} request Request.
- * @returns {object}
- */
-function controlContext(request) {
-  return {
-    orgId: /** @type {string} */ (request.principal.orgId),
-    userId: /** @type {string} */ (request.principal.userId),
-    correlationId: request.id,
-    ip: request.ip,
-    userAgent: request.headers['user-agent'] ?? null,
-    log: request.log,
-    requestMemo: request.projectAclMemo,
-  };
 }
 
 /**
@@ -184,23 +188,21 @@ export async function jobControlRoutes(app) {
   );
 }
 
-// --- from jobs/jobs.service.js ---
 /**
- * Jobs service — enqueue helper and project-scoped read use cases.
+ * Builds shared service context from the Fastify request.
+ * @param {import('fastify').FastifyRequest} request Request.
+ * @returns {object}
  */
-/**
- * Formats a date as ISO-8601, or null when missing.
- * @param {unknown} value Date or string.
- * @returns {string | null}
- */
-function toIsoOrNull(value) {
-  if (value instanceof Date) {
-    return value.toISOString();
-  }
-  if (value == null || value === '') {
-    return null;
-  }
-  return String(value);
+function controlContext(request) {
+  return {
+    orgId: /** @type {string} */ (request.principal.orgId),
+    userId: /** @type {string} */ (request.principal.userId),
+    correlationId: request.id,
+    ip: request.ip,
+    userAgent: request.headers['user-agent'] ?? null,
+    log: request.log,
+    requestMemo: request.projectAclMemo,
+  };
 }
 
 /**
@@ -372,24 +374,6 @@ export async function getJobById(orgId, userId, jobId, options = {}) {
   return mapJobToDetailDto(job, job.events ?? []);
 }
 
-// --- from jobs/jobControl.service.js ---
-/**
- * Job control service — user-initiated retry and cancel with ACL and audit.
- */
-/**
- * Allowed next statuses for each current jobStatus.
- * @type {Readonly<Record<string, readonly string[]>>}
- */
-export const ALLOWED_JOB_TRANSITIONS = Object.freeze({
-  pending: Object.freeze(['running', 'cancelled']),
-  running: Object.freeze(['completed', 'completed_with_warnings', 'failed', 'cancelled', 'pending']),
-  failed: Object.freeze(['retrying']),
-  retrying: Object.freeze(['pending', 'running', 'cancelled']),
-  cancelled: Object.freeze(['retrying']),
-  completed: Object.freeze([]),
-  completed_with_warnings: Object.freeze([]),
-});
-
 /**
  * Returns whether `from` → `to` is an allowed jobStatus transition.
  * @param {string} from Current status.
@@ -414,55 +398,6 @@ export function assertJobTransition(from, to) {
   throw ApiError.fromCode('INVALID_JOB_TRANSITION', {
     details: { currentStatus: from, attemptedStatus: to },
   });
-}
-
-/**
- * Loads a job and enforces knowledge.trigger on its project.
- * Cross-tenant / no access → JOB_NOT_FOUND (enumeration-safe).
- * @param {string} orgId Tenant id.
- * @param {string} userId Actor user id.
- * @param {string} jobId Job id.
- * @param {{ requestMemo?: Map<string, unknown> }} [options] Optional ACL memo.
- * @returns {Promise<import('mongoose').Document>}
- */
-async function loadJobForControl(orgId, userId, jobId, options = {}) {
-  const job = await findJobById(orgId, jobId);
-  if (!job) {
-    throw ApiError.fromCode('JOB_NOT_FOUND');
-  }
-
-  const projectId = String(job.projectId);
-  const resolved = await resolveProjectPermissions(orgId, userId, projectId, {
-    requestMemo: options.requestMemo,
-  });
-
-  if (resolved.kind === 'NO_ACCESS') {
-    throw ApiError.fromCode('JOB_NOT_FOUND');
-  }
-
-  if (!hasRequiredPermissions(resolved.permissions, ['knowledge.trigger'], 'all')) {
-    throw ApiError.fromCode('FORBIDDEN');
-  }
-
-  return job;
-}
-
-/**
- * Builds the retry/cancel control response body.
- * @param {import('mongoose').Document} job Job document.
- * @param {{
- *   alreadyActive?: boolean,
- *   retry?: { mode: string, fromStage: string | null, reason: string | null },
- *   cancellation?: { requested: boolean, requestedAt: string | null },
- * }} extra Extra fields.
- * @returns {object}
- */
-function toControlResponse(job, extra = {}) {
-  return {
-    jobId: String(job._id),
-    jobStatus: job.jobStatus,
-    ...extra,
-  };
 }
 
 /**
@@ -794,6 +729,70 @@ export async function cancelJob(input) {
   throw ApiError.fromCode('INVALID_JOB_TRANSITION', {
     details: { currentStatus: job.jobStatus, attemptedStatus: 'cancelled' },
   });
+}
+
+/**
+ * Formats a date as ISO-8601, or null when missing.
+ * @param {unknown} value Date or string.
+ * @returns {string | null}
+ */
+function toIsoOrNull(value) {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  if (value == null || value === '') {
+    return null;
+  }
+  return String(value);
+}
+
+/**
+ * Loads a job and enforces knowledge.trigger on its project.
+ * Cross-tenant / no access → JOB_NOT_FOUND (enumeration-safe).
+ * @param {string} orgId Tenant id.
+ * @param {string} userId Actor user id.
+ * @param {string} jobId Job id.
+ * @param {{ requestMemo?: Map<string, unknown> }} [options] Optional ACL memo.
+ * @returns {Promise<import('mongoose').Document>}
+ */
+async function loadJobForControl(orgId, userId, jobId, options = {}) {
+  const job = await findJobById(orgId, jobId);
+  if (!job) {
+    throw ApiError.fromCode('JOB_NOT_FOUND');
+  }
+
+  const projectId = String(job.projectId);
+  const resolved = await resolveProjectPermissions(orgId, userId, projectId, {
+    requestMemo: options.requestMemo,
+  });
+
+  if (resolved.kind === 'NO_ACCESS') {
+    throw ApiError.fromCode('JOB_NOT_FOUND');
+  }
+
+  if (!hasRequiredPermissions(resolved.permissions, ['knowledge.trigger'], 'all')) {
+    throw ApiError.fromCode('FORBIDDEN');
+  }
+
+  return job;
+}
+
+/**
+ * Builds the retry/cancel control response body.
+ * @param {import('mongoose').Document} job Job document.
+ * @param {{
+ *   alreadyActive?: boolean,
+ *   retry?: { mode: string, fromStage: string | null, reason: string | null },
+ *   cancellation?: { requested: boolean, requestedAt: string | null },
+ * }} extra Extra fields.
+ * @returns {object}
+ */
+function toControlResponse(job, extra = {}) {
+  return {
+    jobId: String(job._id),
+    jobStatus: job.jobStatus,
+    ...extra,
+  };
 }
 
 export {

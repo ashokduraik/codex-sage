@@ -27,27 +27,6 @@ const conversationParamsSchema = z.object({
 });
 
 /**
- * Reads the nested context bag, treating missing documents as empty.
- * Shared by several conversation-context writers and readers.
- * @param {object | null | undefined} conversation Conversation row.
- * @returns {{
- *   summaryText: string,
- *   summaryUpdatedAt: Date | null,
- *   summaryCoversThroughMessageId: import('mongoose').Types.ObjectId | null,
- *   pinnedFacts: object[],
- * }}
- */
-function readConversationContext(conversation) {
-  const stored = conversation?.context;
-  return {
-    summaryText: typeof stored?.summaryText === 'string' ? stored.summaryText : '',
-    summaryUpdatedAt: stored?.summaryUpdatedAt instanceof Date ? stored.summaryUpdatedAt : (stored?.summaryUpdatedAt ?? null),
-    summaryCoversThroughMessageId: stored?.summaryCoversThroughMessageId ?? null,
-    pinnedFacts: Array.isArray(stored?.pinnedFacts) ? stored.pinnedFacts : [],
-  };
-}
-
-/**
  * Assembles summary + pins + recent turns for `prepareModelInput`.
  * @param {string} orgId Tenant id.
  * @param {string} projectId Project id.
@@ -465,4 +444,25 @@ export async function conversationContextRoutes(app) {
     }
     return parsed.data;
   }
+}
+
+/**
+ * Reads the nested context bag, treating missing documents as empty.
+ * Shared by several conversation-context writers and readers.
+ * @param {object | null | undefined} conversation Conversation row.
+ * @returns {{
+ *   summaryText: string,
+ *   summaryUpdatedAt: Date | null,
+ *   summaryCoversThroughMessageId: import('mongoose').Types.ObjectId | null,
+ *   pinnedFacts: object[],
+ * }}
+ */
+function readConversationContext(conversation) {
+  const stored = conversation?.context;
+  return {
+    summaryText: typeof stored?.summaryText === 'string' ? stored.summaryText : '',
+    summaryUpdatedAt: stored?.summaryUpdatedAt instanceof Date ? stored.summaryUpdatedAt : (stored?.summaryUpdatedAt ?? null),
+    summaryCoversThroughMessageId: stored?.summaryCoversThroughMessageId ?? null,
+    pinnedFacts: Array.isArray(stored?.pinnedFacts) ? stored.pinnedFacts : [],
+  };
 }

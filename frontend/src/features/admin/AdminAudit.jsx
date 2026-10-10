@@ -82,6 +82,30 @@ const AUDIT_LIST_PAGE_SIZE = 20;
 export const AUDIT_LIST_MAX_RANGE_DAYS = 31;
 
 /**
+ * Context keys the UI knows how to present (identity / authz writers today).
+ * Extend only when a known backend writer adds a safe scalar key.
+ */
+export const AUDIT_CONTEXT_ALLOWLIST = Object.freeze([
+  'previousStatus',
+  'nextStatus',
+  'previousEmail',
+  'nextEmail',
+  'roleIds',
+  'addedRoleIds',
+  'removedRoleIds',
+  'permissionKey',
+  'route',
+  'method',
+  'contextTruncated',
+]);
+const ALLOWLIST_SET = new Set(AUDIT_CONTEXT_ALLOWLIST);
+/**
+ * Secret-shaped key substrings (case-insensitive). Aligns with the backend sanitizer;
+ * bare "key" is matched as a whole token so `permissionKey` is not false-positive.
+ */
+const SECRET_KEY_SUBSTRINGS = Object.freeze(['password', 'token', 'secret', 'credential', 'authorization', 'apikey', 'privatekey', 'cookie', 'hash']);
+
+/**
  * Shifts a YYYY-MM-DD calendar day by a signed day count.
  * @param calendarDate Day key, or empty.
  * @param deltaDays Days to add (negative to subtract).
@@ -131,32 +155,6 @@ export function auditDateDraftErrorKey(fromDate, toDate) {
   }
   return null;
 }
-
-/**
- * Context keys the UI knows how to present (identity / authz writers today).
- * Extend only when a known backend writer adds a safe scalar key.
- */
-export const AUDIT_CONTEXT_ALLOWLIST = Object.freeze([
-  'previousStatus',
-  'nextStatus',
-  'previousEmail',
-  'nextEmail',
-  'roleIds',
-  'addedRoleIds',
-  'removedRoleIds',
-  'permissionKey',
-  'route',
-  'method',
-  'contextTruncated',
-]);
-
-const ALLOWLIST_SET = new Set(AUDIT_CONTEXT_ALLOWLIST);
-
-/**
- * Secret-shaped key substrings (case-insensitive). Aligns with the backend sanitizer;
- * bare "key" is matched as a whole token so `permissionKey` is not false-positive.
- */
-const SECRET_KEY_SUBSTRINGS = Object.freeze(['password', 'token', 'secret', 'credential', 'authorization', 'apikey', 'privatekey', 'cookie', 'hash']);
 
 /**
  * Returns whether a context key looks secret-shaped and must never be rendered.
@@ -217,51 +215,6 @@ export function selectRenderableAuditContext(context) {
 }
 
 /**
- * Actor label for list and detail rows.
- * @param {{ id?: string, email?: string | null } | null | undefined} actor Actor DTO.
- * @param {(key: string) => string} t Translator.
- * @returns {string}
- */
-function actorLabel(actor, t) {
-  if (!actor) {
-    return t('admin.auditSystemActor');
-  }
-  if (typeof actor.email === 'string' && actor.email) {
-    return actor.email;
-  }
-  if (typeof actor.id === 'string' && actor.id) {
-    return actor.id;
-  }
-  return t('admin.auditSystemActor');
-}
-
-/**
- * Localized action label, falling back to the raw action string.
- * @param {string | undefined} action Action key.
- * @param {(key: string, options?: object) => string} t Translator.
- * @returns {string}
- */
-function actionLabel(action, t) {
-  if (!action) {
-    return t('admin.auditNotRecorded');
-  }
-  return t(`admin.auditActions.${action}`, { defaultValue: action });
-}
-
-/**
- * Localized resource-type label.
- * @param {string | undefined} resourceType Resource type.
- * @param {(key: string, options?: object) => string} t Translator.
- * @returns {string}
- */
-function resourceTypeLabel(resourceType, t) {
-  if (!resourceType) {
-    return t('admin.auditNotRecorded');
-  }
-  return t(`admin.auditResourceTypes.${resourceType}`, { defaultValue: resourceType });
-}
-
-/**
  * Target resource display string.
  * @param {object} event Audit event.
  * @param {(key: string, options?: object) => string} t Translator.
@@ -275,28 +228,6 @@ export function targetLabel(event, t) {
   }
   if (event.resourceType) {
     return typePart;
-  }
-  return t('admin.auditNotRecorded');
-}
-
-/**
- * Localized result label.
- * @param {string | undefined} result Result value.
- * @param {(key: string, options?: object) => string} t Translator.
- * @returns {string}
- */
-function resultLabel(result, t) {
-  if (result === 'success') {
-    return t('admin.auditResultSuccess');
-  }
-  if (result === 'denied') {
-    return t('admin.auditResultDenied');
-  }
-  if (result === 'failed') {
-    return t('admin.auditResultFailed');
-  }
-  if (typeof result === 'string' && result) {
-    return result;
   }
   return t('admin.auditNotRecorded');
 }
@@ -708,4 +639,71 @@ export default function AdminAudit() {
     }
     return 'text-muted-foreground bg-muted';
   }
+}
+
+/**
+ * Actor label for list and detail rows.
+ * @param {{ id?: string, email?: string | null } | null | undefined} actor Actor DTO.
+ * @param {(key: string) => string} t Translator.
+ * @returns {string}
+ */
+function actorLabel(actor, t) {
+  if (!actor) {
+    return t('admin.auditSystemActor');
+  }
+  if (typeof actor.email === 'string' && actor.email) {
+    return actor.email;
+  }
+  if (typeof actor.id === 'string' && actor.id) {
+    return actor.id;
+  }
+  return t('admin.auditSystemActor');
+}
+
+/**
+ * Localized action label, falling back to the raw action string.
+ * @param {string | undefined} action Action key.
+ * @param {(key: string, options?: object) => string} t Translator.
+ * @returns {string}
+ */
+function actionLabel(action, t) {
+  if (!action) {
+    return t('admin.auditNotRecorded');
+  }
+  return t(`admin.auditActions.${action}`, { defaultValue: action });
+}
+
+/**
+ * Localized result label.
+ * @param {string | undefined} result Result value.
+ * @param {(key: string, options?: object) => string} t Translator.
+ * @returns {string}
+ */
+function resultLabel(result, t) {
+  if (result === 'success') {
+    return t('admin.auditResultSuccess');
+  }
+  if (result === 'denied') {
+    return t('admin.auditResultDenied');
+  }
+  if (result === 'failed') {
+    return t('admin.auditResultFailed');
+  }
+  if (typeof result === 'string' && result) {
+    return result;
+  }
+  return t('admin.auditNotRecorded');
+}
+
+/**
+ * Localized resource-type label.
+ * @param {string | undefined} resourceType Resource type.
+ * @param {(key: string, options?: object) => string} t Translator.
+ * @returns {string}
+ */
+function resourceTypeLabel(resourceType, t) {
+  if (!resourceType) {
+    return t('admin.auditNotRecorded');
+  }
+  return t(`admin.auditResourceTypes.${resourceType}`, { defaultValue: resourceType });
 }

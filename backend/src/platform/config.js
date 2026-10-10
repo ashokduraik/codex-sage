@@ -74,34 +74,6 @@ export function resolveRepositoryCrypto(env = process.env) {
 }
 
 /**
- * @param {NodeJS.ProcessEnv} env Env overlay.
- * @param {string} nodeEnv Resolved NODE_ENV.
- * @returns {{ encryptionKey: Buffer | null, keyId: string, error?: string }}
- */
-function parseRepositoryCrypto(env, nodeEnv) {
-  const rawKey = typeof env.REPO_CREDENTIAL_ENCRYPTION_KEY === 'string' ? env.REPO_CREDENTIAL_ENCRYPTION_KEY : '';
-  const keyCandidate = rawKey.trim() || (nodeEnv === 'test' ? TEST_DEFAULT_REPO_ENCRYPTION_KEY_B64 : '');
-  const keyIdRaw = typeof env.REPO_CREDENTIAL_KEY_ID === 'string' ? env.REPO_CREDENTIAL_KEY_ID.trim() : '';
-  const keyId = keyIdRaw || 'k1';
-  if (!keyCandidate) {
-    return {
-      encryptionKey: null,
-      keyId,
-      error: 'REPO_CREDENTIAL_ENCRYPTION_KEY: required 32-byte base64 value',
-    };
-  }
-  try {
-    return { encryptionKey: parseEncryptionKey(keyCandidate), keyId };
-  } catch {
-    return {
-      encryptionKey: null,
-      keyId,
-      error: 'REPO_CREDENTIAL_ENCRYPTION_KEY: must be 32-byte base64',
-    };
-  }
-}
-
-/**
  * Parses `APP_RUNNING_PLATFORM` into a known platform value.
  * Unknown values fall back to standalone (the default for local runs).
  * @param {string | undefined} raw Raw env value.
@@ -134,20 +106,6 @@ export function parsePort(raw) {
     throw new Error('API_PORT: expected integer 1–65535');
   }
   return result.data;
-}
-
-/**
- * Appends a field validation failure using a fixed message (never the raw value).
- * @param {string[]} errors Accumulator of `VARIABLE: message` lines.
- * @param {string} variable Env variable name.
- * @param {{ success: boolean, error?: { issues: Array<{ message?: string }> } }} result Zod result.
- */
-function collectFieldError(errors, variable, result) {
-  if (result.success) {
-    return;
-  }
-  const message = result.error.issues[0]?.message ?? 'invalid';
-  errors.push(`${variable}: ${message}`);
 }
 
 /**
@@ -257,5 +215,47 @@ export function loadConfig(env = process.env) {
       return null;
     }
     return path.resolve(candidate);
+  }
+}
+
+/**
+ * Appends a field validation failure using a fixed message (never the raw value).
+ * @param {string[]} errors Accumulator of `VARIABLE: message` lines.
+ * @param {string} variable Env variable name.
+ * @param {{ success: boolean, error?: { issues: Array<{ message?: string }> } }} result Zod result.
+ */
+function collectFieldError(errors, variable, result) {
+  if (result.success) {
+    return;
+  }
+  const message = result.error.issues[0]?.message ?? 'invalid';
+  errors.push(`${variable}: ${message}`);
+}
+
+/**
+ * @param {NodeJS.ProcessEnv} env Env overlay.
+ * @param {string} nodeEnv Resolved NODE_ENV.
+ * @returns {{ encryptionKey: Buffer | null, keyId: string, error?: string }}
+ */
+function parseRepositoryCrypto(env, nodeEnv) {
+  const rawKey = typeof env.REPO_CREDENTIAL_ENCRYPTION_KEY === 'string' ? env.REPO_CREDENTIAL_ENCRYPTION_KEY : '';
+  const keyCandidate = rawKey.trim() || (nodeEnv === 'test' ? TEST_DEFAULT_REPO_ENCRYPTION_KEY_B64 : '');
+  const keyIdRaw = typeof env.REPO_CREDENTIAL_KEY_ID === 'string' ? env.REPO_CREDENTIAL_KEY_ID.trim() : '';
+  const keyId = keyIdRaw || 'k1';
+  if (!keyCandidate) {
+    return {
+      encryptionKey: null,
+      keyId,
+      error: 'REPO_CREDENTIAL_ENCRYPTION_KEY: required 32-byte base64 value',
+    };
+  }
+  try {
+    return { encryptionKey: parseEncryptionKey(keyCandidate), keyId };
+  } catch {
+    return {
+      encryptionKey: null,
+      keyId,
+      error: 'REPO_CREDENTIAL_ENCRYPTION_KEY: must be 32-byte base64',
+    };
   }
 }

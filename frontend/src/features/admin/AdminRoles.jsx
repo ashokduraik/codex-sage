@@ -22,14 +22,6 @@ const ROLE_SEARCH_DEBOUNCE_MS = 300;
 const ROLE_SUMMARY_GRID = 'md:grid-cols-[3.5rem_7rem_1.2fr_1.4fr_8rem_4.5rem]';
 
 /**
- * Empty create/edit form.
- * @returns {{ code: string, name: string, description: string, permissionKeys: string[] }}
- */
-function emptyRoleForm() {
-  return { code: '', name: '', description: '', permissionKeys: [] };
-}
-
-/**
  * Roles summary: search, paginated table, and create / edit / delete dialogs.
  *
  * @returns Admin roles page.
@@ -546,6 +538,14 @@ export default function AdminRoles() {
     }
     return parsed;
   }
+}
+
+/**
+ * Empty create/edit form.
+ * @returns {{ code: string, name: string, description: string, permissionKeys: string[] }}
+ */
+function emptyRoleForm() {
+  return { code: '', name: '', description: '', permissionKeys: [] };
 }
 
 /**

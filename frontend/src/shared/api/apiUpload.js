@@ -88,70 +88,70 @@ async function executeApiUpload(path, options, hasRetriedAfterRefresh) {
 
     xhr.send(options.body);
   });
-}
 
-/**
- * Interprets an XHR completion, including a single 401 refresh retry.
- * @param {XMLHttpRequest} xhr Completed request.
- * @param {string} path API path.
- * @param {ApiUploadOptions} options Original options.
- * @param {boolean} hasRetriedAfterRefresh Refresh flag.
- * @returns {Promise<unknown>}
- */
-async function settleXhr(xhr, path, options, hasRetriedAfterRefresh) {
-  const responseLike = {
-    status: xhr.status,
-    ok: xhr.status >= 200 && xhr.status < 300,
-    headers: {
-      /**
-       * @param {string} name Header name.
-       * @returns {string | null}
-       */
-      get(name) {
-        return xhr.getResponseHeader(name);
+  /**
+   * Interprets an XHR completion, including a single 401 refresh retry.
+   * @param {XMLHttpRequest} xhr Completed request.
+   * @param {string} path API path.
+   * @param {ApiUploadOptions} options Original options.
+   * @param {boolean} hasRetriedAfterRefresh Refresh flag.
+   * @returns {Promise<unknown>}
+   */
+  async function settleXhr(xhr, path, options, hasRetriedAfterRefresh) {
+    const responseLike = {
+      status: xhr.status,
+      ok: xhr.status >= 200 && xhr.status < 300,
+      headers: {
+        /**
+         * @param {string} name Header name.
+         * @returns {string | null}
+         */
+        get(name) {
+          return xhr.getResponseHeader(name);
+        },
       },
-    },
-  };
-  let parsedBody;
-  if (xhr.responseText) {
-    try {
-      parsedBody = JSON.parse(xhr.responseText);
-    } catch {
-      parsedBody = undefined;
-    }
-  }
-
-  if (xhr.status === 401 && !options.skipAuthRefresh && !hasRetriedAfterRefresh) {
-    try {
-      await refreshAccessToken();
-    } catch (refreshError) {
-      if (isRequestAbortedError(refreshError)) {
-        throw refreshError;
+    };
+    let parsedBody;
+    if (xhr.responseText) {
+      try {
+        parsedBody = JSON.parse(xhr.responseText);
+      } catch {
+        parsedBody = undefined;
       }
+    }
+
+    if (xhr.status === 401 && !options.skipAuthRefresh && !hasRetriedAfterRefresh) {
+      try {
+        await refreshAccessToken();
+      } catch (refreshError) {
+        if (isRequestAbortedError(refreshError)) {
+          throw refreshError;
+        }
+        throw apiErrorFromResponse(responseLike, parsedBody);
+      }
+      return executeApiUpload(path, options, true);
+    }
+
+    if (xhr.status === 401 && !options.skipAuthRefresh && hasRetriedAfterRefresh) {
+      clearSession();
       throw apiErrorFromResponse(responseLike, parsedBody);
     }
-    return executeApiUpload(path, options, true);
-  }
 
-  if (xhr.status === 401 && !options.skipAuthRefresh && hasRetriedAfterRefresh) {
-    clearSession();
-    throw apiErrorFromResponse(responseLike, parsedBody);
-  }
+    if (xhr.status < 200 || xhr.status >= 300) {
+      throw apiErrorFromResponse(responseLike, parsedBody);
+    }
 
-  if (xhr.status < 200 || xhr.status >= 300) {
-    throw apiErrorFromResponse(responseLike, parsedBody);
+    if (xhr.status === 204 || !xhr.responseText) {
+      return undefined;
+    }
+    if (parsedBody === undefined) {
+      throw new ApiError({
+        status: xhr.status,
+        code: 'UNEXPECTED',
+        message: i18n.t('errors.unexpected'),
+        correlationId: xhr.getResponseHeader('X-Correlation-Id') ?? undefined,
+      });
+    }
+    return parsedBody;
   }
-
-  if (xhr.status === 204 || !xhr.responseText) {
-    return undefined;
-  }
-  if (parsedBody === undefined) {
-    throw new ApiError({
-      status: xhr.status,
-      code: 'UNEXPECTED',
-      message: i18n.t('errors.unexpected'),
-      correlationId: xhr.getResponseHeader('X-Correlation-Id') ?? undefined,
-    });
-  }
-  return parsedBody;
 }

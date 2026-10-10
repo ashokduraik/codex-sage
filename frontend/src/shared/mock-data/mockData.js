@@ -1,6 +1,112 @@
 /** Knowledge readiness labels used across badges and filters. */
 export const KNOWLEDGE_STATES = ['Ready', 'Updating', 'Needs attention', 'Outdated', 'Partially available'];
 let nextIdCounter = 0;
+
+const ANSWERS = {
+  auth: {
+    content: `## How authentication works
+This project uses a **JWT-based session** with refresh-token rotation, plus Google OAuth as a social provider.
+### Flow
+1. The user submits credentials (email + password) or initiates Google OAuth.
+2. On success, the server issues an **access token** (short-lived, 15m) and a **refresh token** (httpOnly cookie, 7d).
+3. A middleware validates the access token on protected routes.
+4. When the access token expires, the client silently refreshes it using the refresh cookie; the refresh token is **rotated** on each use.
+### Key files
+- \`src/auth/login.ts\` — credential + OAuth login handlers
+- \`src/auth/session.ts\` — token signing, verification, refresh rotation
+- \`src/auth/rbac.ts\` — role-based access control (\`admin\`, \`user\`)
+- \`src/auth/reset.ts\` — password reset via emailed OTP
+> Roles are checked in \`requireRole('admin')\` middleware. Passwords are hashed with bcrypt (cost 12).`,
+    evidence: [
+      {
+        file: 'src/auth/session.ts',
+        location: 'L24–58',
+        snippet:
+          "export function issueTokens(user) {\n  const access = sign({ sub: user.id, role: user.role }, SECRET, { expiresIn: '15m' });\n  const refresh = randomToken();\n  storeRefresh(user.id, hash(refresh));\n  return { access, refresh };\n}",
+      },
+      {
+        file: 'src/auth/rbac.ts',
+        location: 'L11–19',
+        snippet:
+          'export const requireRole = (role) => (req, res, next) => {\n  if (req.user?.role !== role) return res.status(403).end();\n  next();\n};',
+      },
+    ],
+  },
+  checkout: {
+    content: `## The checkout flow
+Checkout moves the user from **cart → payment → confirmation** in three stages.
+### Stages
+1. **Cart review** — \`src/checkout/cart.ts\` renders the active cart and computes totals (subtotal, tax, shipping).
+2. **Payment intent** — \`src/payments/stripe.ts\` creates a Stripe PaymentIntent for the cart total and returns the client secret.
+3. **Confirmation** — on successful payment webhook, \`src/checkout/confirm.ts\` creates an \`Order\`, decrements inventory, and enqueues a receipt email.
+### Notable detail
+The Stripe webhook (\`src/webhooks/stripe.ts\`) is the source of truth for payment status — the client confirmation only updates the UI; the order is finalized server-side on \`payment_intent.succeeded\`.`,
+    evidence: [
+      {
+        file: 'src/payments/stripe.ts',
+        location: 'L40–67',
+        snippet:
+          "export async function createPaymentIntent(cart) {\n  const total = computeTotal(cart);\n  const intent = await stripe.paymentIntents.create({ amount: total, currency: 'usd' });\n  return { clientSecret: intent.client_secret };\n}",
+      },
+      {
+        file: 'src/checkout/confirm.ts',
+        location: 'L18–44',
+        snippet:
+          'export async function confirmOrder(userId, cart, paymentId) {\n  const order = await db.order.create({ data: { userId, items: cart.items, paymentId } });\n  await decrementInventory(cart);\n  await enqueueReceipt(order);\n  return order;\n}',
+      },
+    ],
+  },
+  payment: {
+    content: `## Where payment is implemented
+Payments are handled by the **Stripe integration** in \`src/payments/\`.
+- \`src/payments/stripe.ts\` — creates PaymentIntents and confirms them.
+- \`src/payments/refund.ts\` — issues full and partial refunds.
+- \`src/webhooks/stripe.ts\` — receives \`payment_intent.succeeded\` / \`payment_intent.payment_failed\` and finalizes the order.
+The client never finalizes the order directly; it only collects the payment method. Order creation happens on the webhook to stay idempotent against Stripe retries.`,
+    evidence: [
+      {
+        file: 'src/payments/stripe.ts',
+        location: 'L40–67',
+        snippet:
+          "export async function createPaymentIntent(cart) {\n  const total = computeTotal(cart);\n  const intent = await stripe.paymentIntents.create({ amount: total, currency: 'usd' });\n  return { clientSecret: intent.client_secret };\n}",
+      },
+      {
+        file: 'src/webhooks/stripe.ts',
+        location: 'L12–33',
+        snippet: "case 'payment_intent.succeeded':\n  await confirmOrder(intent.metadata.userId, intent.metadata.cartId, intent.id);\n  break;",
+      },
+    ],
+  },
+  changes: {
+    content: `## What changed recently
+The most recent knowledge update (v3) captured changes from the last repository sync.
+### Functional impact
+- **Added:** \`src/payments/refund.ts\` — new partial-refund support.
+- **Modified:** \`src/checkout/confirm.ts\` — now enqueues the receipt via the new email queue instead of sending inline.
+- **Removed:** \`src/legacy/manual-invoicing.ts\` — deprecated manual invoicing path.
+### APIs / workflows affected
+- New endpoint \`POST /api/refunds\` exposed in \`src/server/routes.ts\`.
+- The checkout confirmation workflow now depends on the email queue service.
+> Open the **Changes** tab to inspect each item with file-level evidence.`,
+    evidence: [
+      {
+        file: 'src/payments/refund.ts',
+        location: 'L1–30',
+        snippet:
+          'export async function issueRefund(paymentId, amount?) {\n  const refund = await stripe.refunds.create({ payment_intent: paymentId, amount });\n  await db.refund.create({ data: { paymentId, amount: refund.amount } });\n  return refund;\n}',
+      },
+    ],
+  },
+};
+const DEFAULT_ABSTAIN = {
+  abstain: true,
+  content: 'The project does not currently contain enough information to answer this question confidently.',
+  missing: [
+    'A matching capability, workflow, or service was not found in the current knowledge map.',
+    "The question may refer to code paths excluded from this project's source (e.g. generated files, or files over the size limit).",
+  ],
+};
+
 /**
  * Generate a unique mock identifier with an optional prefix.
  * @param prefix - Leading token for the id (default `id`).
@@ -9,6 +115,32 @@ let nextIdCounter = 0;
 export function uid(prefix = 'id') {
   return `${prefix}_${Date.now().toString(36)}_${(nextIdCounter++).toString(36)}`;
 }
+
+/**
+ * Return a mock grounded answer (or abstain) for a user question.
+ * @param question - Natural-language question about a project.
+ * @returns Grounded answer with evidence, or an abstain payload.
+ */
+export function mockAnswerFor(question) {
+  const answer = pickAnswer(question);
+  if (!answer) return { ...DEFAULT_ABSTAIN };
+  return { ...answer, abstain: false, knowledgeVersion: 'v3' };
+
+  /**
+   * Pick a canned answer topic from free-text question keywords.
+   * @param text - User question text.
+   * @returns Matching canned answer or null when none match.
+   */
+  function pickAnswer(text) {
+    const normalized = text.toLowerCase();
+    if (/(auth|login|session|token|password|rbac|role)/.test(normalized)) return ANSWERS.auth;
+    if (/(checkout|cart)/.test(normalized)) return ANSWERS.checkout;
+    if (/(payment|stripe|pay|refund)/.test(normalized)) return ANSWERS.payment;
+    if (/(change|recent|update|new|diff)/.test(normalized)) return ANSWERS.changes;
+    return null;
+  }
+}
+
 /**
  * Build the Atlas Commerce knowledge tree used by seed data.
  * @returns Root knowledge nodes for Atlas.
@@ -72,148 +204,7 @@ function knowledgeTreeAtlas() {
   };
   return [auth, checkout, catalog, services, data, integrations];
 }
-const ANSWERS = {
-  auth: {
-    content: `## How authentication works
 
-This project uses a **JWT-based session** with refresh-token rotation, plus Google OAuth as a social provider.
-
-### Flow
-1. The user submits credentials (email + password) or initiates Google OAuth.
-2. On success, the server issues an **access token** (short-lived, 15m) and a **refresh token** (httpOnly cookie, 7d).
-3. A middleware validates the access token on protected routes.
-4. When the access token expires, the client silently refreshes it using the refresh cookie; the refresh token is **rotated** on each use.
-
-### Key files
-- \`src/auth/login.ts\` — credential + OAuth login handlers
-- \`src/auth/session.ts\` — token signing, verification, refresh rotation
-- \`src/auth/rbac.ts\` — role-based access control (\`admin\`, \`user\`)
-- \`src/auth/reset.ts\` — password reset via emailed OTP
-
-> Roles are checked in \`requireRole('admin')\` middleware. Passwords are hashed with bcrypt (cost 12).`,
-    evidence: [
-      {
-        file: 'src/auth/session.ts',
-        location: 'L24–58',
-        snippet:
-          "export function issueTokens(user) {\n  const access = sign({ sub: user.id, role: user.role }, SECRET, { expiresIn: '15m' });\n  const refresh = randomToken();\n  storeRefresh(user.id, hash(refresh));\n  return { access, refresh };\n}",
-      },
-      {
-        file: 'src/auth/rbac.ts',
-        location: 'L11–19',
-        snippet:
-          'export const requireRole = (role) => (req, res, next) => {\n  if (req.user?.role !== role) return res.status(403).end();\n  next();\n};',
-      },
-    ],
-  },
-  checkout: {
-    content: `## The checkout flow
-
-Checkout moves the user from **cart → payment → confirmation** in three stages.
-
-### Stages
-1. **Cart review** — \`src/checkout/cart.ts\` renders the active cart and computes totals (subtotal, tax, shipping).
-2. **Payment intent** — \`src/payments/stripe.ts\` creates a Stripe PaymentIntent for the cart total and returns the client secret.
-3. **Confirmation** — on successful payment webhook, \`src/checkout/confirm.ts\` creates an \`Order\`, decrements inventory, and enqueues a receipt email.
-
-### Notable detail
-The Stripe webhook (\`src/webhooks/stripe.ts\`) is the source of truth for payment status — the client confirmation only updates the UI; the order is finalized server-side on \`payment_intent.succeeded\`.`,
-    evidence: [
-      {
-        file: 'src/payments/stripe.ts',
-        location: 'L40–67',
-        snippet:
-          "export async function createPaymentIntent(cart) {\n  const total = computeTotal(cart);\n  const intent = await stripe.paymentIntents.create({ amount: total, currency: 'usd' });\n  return { clientSecret: intent.client_secret };\n}",
-      },
-      {
-        file: 'src/checkout/confirm.ts',
-        location: 'L18–44',
-        snippet:
-          'export async function confirmOrder(userId, cart, paymentId) {\n  const order = await db.order.create({ data: { userId, items: cart.items, paymentId } });\n  await decrementInventory(cart);\n  await enqueueReceipt(order);\n  return order;\n}',
-      },
-    ],
-  },
-  payment: {
-    content: `## Where payment is implemented
-
-Payments are handled by the **Stripe integration** in \`src/payments/\`.
-
-- \`src/payments/stripe.ts\` — creates PaymentIntents and confirms them.
-- \`src/payments/refund.ts\` — issues full and partial refunds.
-- \`src/webhooks/stripe.ts\` — receives \`payment_intent.succeeded\` / \`payment_intent.payment_failed\` and finalizes the order.
-
-The client never finalizes the order directly; it only collects the payment method. Order creation happens on the webhook to stay idempotent against Stripe retries.`,
-    evidence: [
-      {
-        file: 'src/payments/stripe.ts',
-        location: 'L40–67',
-        snippet:
-          "export async function createPaymentIntent(cart) {\n  const total = computeTotal(cart);\n  const intent = await stripe.paymentIntents.create({ amount: total, currency: 'usd' });\n  return { clientSecret: intent.client_secret };\n}",
-      },
-      {
-        file: 'src/webhooks/stripe.ts',
-        location: 'L12–33',
-        snippet: "case 'payment_intent.succeeded':\n  await confirmOrder(intent.metadata.userId, intent.metadata.cartId, intent.id);\n  break;",
-      },
-    ],
-  },
-  changes: {
-    content: `## What changed recently
-
-The most recent knowledge update (v3) captured changes from the last repository sync.
-
-### Functional impact
-- **Added:** \`src/payments/refund.ts\` — new partial-refund support.
-- **Modified:** \`src/checkout/confirm.ts\` — now enqueues the receipt via the new email queue instead of sending inline.
-- **Removed:** \`src/legacy/manual-invoicing.ts\` — deprecated manual invoicing path.
-
-### APIs / workflows affected
-- New endpoint \`POST /api/refunds\` exposed in \`src/server/routes.ts\`.
-- The checkout confirmation workflow now depends on the email queue service.
-
-> Open the **Changes** tab to inspect each item with file-level evidence.`,
-    evidence: [
-      {
-        file: 'src/payments/refund.ts',
-        location: 'L1–30',
-        snippet:
-          'export async function issueRefund(paymentId, amount?) {\n  const refund = await stripe.refunds.create({ payment_intent: paymentId, amount });\n  await db.refund.create({ data: { paymentId, amount: refund.amount } });\n  return refund;\n}',
-      },
-    ],
-  },
-};
-const DEFAULT_ABSTAIN = {
-  abstain: true,
-  content: 'The project does not currently contain enough information to answer this question confidently.',
-  missing: [
-    'A matching capability, workflow, or service was not found in the current knowledge map.',
-    "The question may refer to code paths excluded from this project's source (e.g. generated files, or files over the size limit).",
-  ],
-};
-/**
- * Return a mock grounded answer (or abstain) for a user question.
- * @param question - Natural-language question about a project.
- * @returns Grounded answer with evidence, or an abstain payload.
- */
-export function mockAnswerFor(question) {
-  const answer = pickAnswer(question);
-  if (!answer) return { ...DEFAULT_ABSTAIN };
-  return { ...answer, abstain: false, knowledgeVersion: 'v3' };
-
-  /**
-   * Pick a canned answer topic from free-text question keywords.
-   * @param text - User question text.
-   * @returns Matching canned answer or null when none match.
-   */
-  function pickAnswer(text) {
-    const normalized = text.toLowerCase();
-    if (/(auth|login|session|token|password|rbac|role)/.test(normalized)) return ANSWERS.auth;
-    if (/(checkout|cart)/.test(normalized)) return ANSWERS.checkout;
-    if (/(payment|stripe|pay|refund)/.test(normalized)) return ANSWERS.payment;
-    if (/(change|recent|update|new|diff)/.test(normalized)) return ANSWERS.changes;
-    return null;
-  }
-}
 const seedProjects = [
   {
     id: 'prj_atlas',

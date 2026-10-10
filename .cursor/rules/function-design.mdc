@@ -1,9 +1,12 @@
 ---
-description: Function design — product-intent names, nest single-caller, soft export split, no test deps
+description: Function design — product-intent names, export orchestration inline, module-level runners, nest exclusive private helpers, no test deps
 alwaysApply: true
 ---
 
 # Function & variable design
+
+Canonical shape: [`backend/src/modules/conversation/agentTools.js`](backend/src/modules/conversation/agentTools.js)
+(`listToolDefinitionsForSchema` / `executeTool` and its private runners).
 
 ## Meaningful names
 
@@ -66,68 +69,142 @@ fs.readFile(path, (err, data) => { /* ... */ });
 const data = await fs.promises.readFile(path);
 ```
 
-## Nest single-caller helpers; inline tiny wrappers
+## Export orchestration stays in the export
 
-- Do **not** create a function for one or two lines used in a single place.
-- A one-call-site helper that is a small wrapper (roughly ≤15 lines, no multi-branch domain
-  logic) **must** be inlined.
-- A non-exported function with **exactly one** production caller is declared **inside** that
-  caller as a `function` declaration at the **end** of the parent body (after the main logic;
-  declarations hoist within the parent scope). Prefer nesting over a module-level one-call
-  helper.
-- Extract a **module-level** named function when the same logic is used in **two or more**
-  places.
-- **Exported** functions stay module-level even when only one caller (HTTP / service / repo
-  public surface). Keep overflow files required by the 1000-line file cap
-  (`file-colocation.mdc`).
-- An extracted module-level function lives in the resource file unless `file-colocation.mdc`
-  allows a `.helper.js` / `.util.js` overflow file.
+The **exported** entry owns its main flow in its own body. Do **not** extract a separate
+function whose only job is a rename or a thin hand-off of that orchestration.
+
+Inline in the export:
+
+- Validation and early returns
+- Tenant / scope / precondition gates
+- Dispatch (`if` / `else if` on a name or kind that calls private runners)
+- Post-steps that finish the public result (e.g. budget fit, DTO assembly)
 
 ```js
-// ❌ BAD — one-liner helper used once
-function toStatusCode(ok) {
-  return ok ? 200 : 400;
-}
-res.status(toStatusCode(valid)).json(body);
+// ❌ BAD — orchestration wrappers that only forward
+async function resolveLiveToolTenantScope(input) { /* … */ }
+async function dispatchAgentTool(name, args, scope) { /* … */ }
+function fitEvidenceToContextBudget(records, rejected, budget, stop) { /* … */ }
 
-// ✅ GOOD — inline at the single call site
-res.status(valid ? 200 : 400).json(body);
-
-// ✅ GOOD — single-caller helper nested at end of parent
-export async function loadLatestChangeSummary(input) {
-  const project = await findProjectById(input.orgId, input.projectId);
-  // ...
-  return mapChangeSummaryDto(row, publishedAt);
-
-  function mapChangeSummaryDto(row, publishedAt) { /* ... */ }
-}
-
-// ✅ GOOD — shared logic used in multiple handlers
-function mapProjectToDto(project) { /* ... */ }
-```
-
-## Soft ~200 code-line guideline for exports
-
-- Not a hard CI/lint gate. Count code lines like `file-colocation.mdc` (exclude blanks and
-  comments; nested functions inside the export count).
-- Prefer nesting single-caller helpers inside the export.
-- **When** an export becomes hard to follow or clearly oversized (~200+ as a signal), split
-  into **2** top-level functions along a cohesive product boundary; if a piece is still too
-  large, split again (3, then 4, …). Keep the public entry thin when you split; siblings stay
-  module-private unless they must be exported.
-- Do **not** split clear code just to stay under 200.
-
-```js
-// When nesting makes an export unwieldy, split as needed:
 export async function executeTool(input) {
-  const scope = await resolveLiveToolTenantScope(input.scope);
-  const raw = await dispatchAgentTool(input.name, input.args, scope);
+  const scoped = await resolveLiveToolTenantScope(input.scope);
+  const raw = await dispatchAgentTool(input.name, input.args, scoped.scope);
   return fitEvidenceToContextBudget(raw, input.budgetState);
 }
 
-async function dispatchAgentTool(name, args, scope) { /* ... */ }
-async function resolveLiveToolTenantScope(scopeInput) { /* ... */ }
-function fitEvidenceToContextBudget(raw, budgetState) { /* ... */ }
+// ✅ GOOD — gate + dispatch + finish live in the export; runners are module-private
+export async function executeTool(input) {
+  // … validate, resolve scope with early returns …
+  let raw;
+  if (input.name === 'explore_code') {
+    raw = await runExploreCodeTool(args, scope);
+  } else if (/* … */) {
+    /* … */
+  } else {
+    raw = { /* abstain */ };
+  }
+  // … fit evidence to budget inline; return result …
+}
+
+async function runExploreCodeTool(args, scope) { /* … */ }
+```
+
+Do **not** create a function for one or two lines used in a single place. A one-call-site
+helper that is a small wrapper (roughly ≤15 lines, no multi-branch domain logic) **must** be
+inlined at the call site.
+
+## Module-level private runners (exclusive to one export)
+
+Cohesive private work that the export **dispatches to** (tool runners, stage runners, large
+mappers used from the export) lives as **module-level** `async function` / `function`
+declarations **immediately after** that export — not nested inside the export.
+
+- Name them in product language (`runExploreCodeTool`, `runReadDocumentSliceTool`).
+- They return data or throw; they do not own HTTP responses.
+- **Exported** functions stay module-level even when only one caller (HTTP / service / repo
+  public surface). Keep overflow files required by the 1000-line file cap
+  (`file-colocation.mdc`).
+
+## Nest private helpers inside their sole private owner
+
+A helper used by **exactly one** module-level private function is declared **inside** that
+function as a `function` / `async function` at the **end** of its body (after the main
+logic; declarations hoist within the parent scope).
+
+Examples from `agentTools.js`:
+
+- `mapCodegraphHitToEvidence` nested in `mapCodegraphExploreToEvidence`
+- `resolveDocumentHeadingRange` nested in `runReadDocumentSliceTool`
+
+```js
+async function runReadDocumentSliceTool(toolArgs, toolScope) {
+  const range = await resolveDocumentHeadingRange(toolArgs, toolScope);
+  // …
+  return readVersionFileSliceAsEvidence(/* … */);
+
+  async function resolveDocumentHeadingRange(sliceArgs, sliceScope) { /* … */ }
+}
+```
+
+**Nesting depth:** at most **one** level under a module-level private function. A nested
+helper must not declare another nested function inside it.
+
+## Shared module-level helpers
+
+Extract a **module-level** named function when the same logic is used in **two or more**
+places (e.g. `toolRejection`, `allocateRunEvidenceId`, `readVersionFileSliceAsEvidence`).
+Place shared helpers **after** the export’s exclusive runners.
+
+An extracted module-level function lives in the resource file unless `file-colocation.mdc`
+allows a `.helper.js` / `.util.js` overflow file.
+
+## Soft ~500 code-line guideline for exports
+
+- Not a hard CI/lint gate. Count code lines like `file-colocation.mdc` (exclude blanks and
+  comments; nested functions inside a function count toward that function).
+- Keep the export’s own body as the orchestration path. Prefer module-level exclusive runners
+  over stuffing every branch into one giant nested tree.
+- **When** an export becomes hard to follow or clearly oversized (~500+ as a signal), split
+  along a cohesive product boundary into module-level private siblings after the export.
+- Do **not** split clear code just to stay under 500, and do **not** invent thin wrappers
+  only to shorten the export.
+
+## Function ordering
+
+Top-level layout in a module:
+
+1. File JSDoc → imports → module constants / schemas
+2. Exports in public-surface order — each export’s body holds its orchestration (gates,
+   dispatch, finish)
+3. That export’s **exclusive** module-level private runners / mappers (immediately after it)
+4. **Shared** private helpers last (two or more callers across the file)
+
+Do not pile private helpers **above** the export that owns them.
+
+```js
+// ❌ BAD — exclusive runners before the export
+async function runExploreCodeTool(args, scope) { /* … */ }
+export async function executeTool(input) { /* … */ }
+
+// ✅ GOOD
+export function listToolDefinitionsForSchema() { /* … */ }
+
+export async function executeTool(input) {
+  /* gates + dispatch + budget fit */
+}
+
+async function runExploreCodeTool(args, scope) { /* … */ }
+function mapCodegraphExploreToEvidence(/* … */) {
+  /* … */
+  function mapCodegraphHitToEvidence(/* … */) { /* … */ }
+}
+
+async function runSearchDocumentsTool(args, scope) { /* … */ }
+/* … more exclusive runners … */
+
+function toolRejection(code, message) { /* shared */ }
+function allocateRunEvidenceId(scope) { /* shared */ }
 ```
 
 ## No product test-seam `deps` bags

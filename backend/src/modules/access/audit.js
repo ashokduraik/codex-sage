@@ -73,6 +73,65 @@ export const AUDIT_ACTIONS = Object.freeze(Object.keys(AUDIT_ACTION_RESOURCE_TYP
 /** Set for O(1) membership checks. */
 const AUDIT_ACTION_SET = new Set(AUDIT_ACTIONS);
 
+// --- from audit/audit.sanitizer.js ---
+/**
+ * Allowlist sanitizer for audit `context` and `userAgent` (backend §87, §148).
+ */
+/** Cap on JSON-serialized context bytes. */
+export const AUDIT_CONTEXT_MAX_BYTES = 4096;
+/** Cap on a single context string value (characters). */
+export const AUDIT_CONTEXT_MAX_VALUE_CHARS = 512;
+/** Truncation length for User-Agent headers. */
+export const AUDIT_USER_AGENT_MAX_CHARS = 256;
+/**
+ * Forbidden key substrings (case-insensitive). Matching keys become `'[redacted]'`.
+ */
+const FORBIDDEN_KEY_SUBSTRINGS = Object.freeze([
+  'password',
+  'token',
+  'secret',
+  'credential',
+  'authorization',
+  'apikey',
+  'privatekey',
+  'cookie',
+  'hash',
+]);
+// --- from audit/audit.repository.js ---
+/**
+ * AuditEvent repository — insert and org-scoped keyset list only.
+ */
+/** Default page size for GET /audit-events. */
+export const AUDIT_LIST_PAGE_SIZE_DEFAULT = 50;
+/** Hard cap on `limit` query parameter. */
+export const AUDIT_LIST_PAGE_SIZE_MAX = 200;
+/** Inclusive max window when both `from` and `to` are sent on the list path. */
+export const AUDIT_LIST_MAX_RANGE_DAYS = 31;
+// --- from audit/audit.service.js ---
+/**
+ * Audit service — best-effort writer and org-scoped list/detail.
+ */
+/** Permission keys whose 403 denials are audited (admin/security surface). */
+export const AUDITED_DENIAL_PERMISSION_KEYS = Object.freeze(['users.manage', 'roles.manage', 'settings.manage', 'audit.view']);
+// --- from audit/audit.routes.js ---
+/**
+ * Audit event HTTP routes — list and detail (append-only; no writes).
+ */
+const listQuerySchema = z
+  .object({
+    from: z.string().min(1).optional(),
+    to: z.string().min(1).optional(),
+    actor: z.string().min(1).optional(),
+    action: z.string().min(1).optional(),
+    resourceType: z.string().min(1).optional(),
+    cursor: z.string().min(1).optional(),
+    limit: z.coerce.number().int().optional(),
+  })
+  .strict();
+const idParamsSchema = z.object({
+  auditEventId: z.string().min(1),
+});
+
 /**
  * Returns whether `action` is a known catalog entry.
  * @param {string} action Candidate action.
@@ -89,48 +148,6 @@ export function isKnownAuditAction(action) {
  */
 export function resourceTypeForAction(action) {
   return AUDIT_ACTION_RESOURCE_TYPES[action];
-}
-
-// --- from audit/audit.sanitizer.js ---
-/**
- * Allowlist sanitizer for audit `context` and `userAgent` (backend §87, §148).
- */
-
-/** Cap on JSON-serialized context bytes. */
-export const AUDIT_CONTEXT_MAX_BYTES = 4096;
-
-/** Cap on a single context string value (characters). */
-export const AUDIT_CONTEXT_MAX_VALUE_CHARS = 512;
-
-/** Truncation length for User-Agent headers. */
-export const AUDIT_USER_AGENT_MAX_CHARS = 256;
-
-/**
- * Forbidden key substrings (case-insensitive). Matching keys become `'[redacted]'`.
- */
-const FORBIDDEN_KEY_SUBSTRINGS = Object.freeze([
-  'password',
-  'token',
-  'secret',
-  'credential',
-  'authorization',
-  'apikey',
-  'privatekey',
-  'cookie',
-  'hash',
-]);
-
-/**
- * Truncates a string to max characters.
- * @param {string} value Source string.
- * @param {number} maxChars Max length.
- * @returns {{ value: string, truncated: boolean }}
- */
-function truncateString(value, maxChars) {
-  if (value.length <= maxChars) {
-    return { value, truncated: false };
-  }
-  return { value: value.slice(0, maxChars), truncated: true };
 }
 
 /**
@@ -231,19 +248,6 @@ export function sanitizeAuditContext(context) {
 
   return Object.keys(out).length > 0 ? out : undefined;
 }
-
-// --- from audit/audit.repository.js ---
-/**
- * AuditEvent repository — insert and org-scoped keyset list only.
- */
-/** Default page size for GET /audit-events. */
-export const AUDIT_LIST_PAGE_SIZE_DEFAULT = 50;
-
-/** Hard cap on `limit` query parameter. */
-export const AUDIT_LIST_PAGE_SIZE_MAX = 200;
-
-/** Inclusive max window when both `from` and `to` are sent on the list path. */
-export const AUDIT_LIST_MAX_RANGE_DAYS = 31;
 
 /**
  * Inserts one audit event document.
@@ -424,13 +428,6 @@ export async function findAuditEventById(orgId, auditEventId) {
   return AuditEvent.findOne({ _id: auditEventId, orgId }).exec();
 }
 
-// --- from audit/audit.service.js ---
-/**
- * Audit service — best-effort writer and org-scoped list/detail.
- */
-/** Permission keys whose 403 denials are audited (admin/security surface). */
-export const AUDITED_DENIAL_PERMISSION_KEYS = Object.freeze(['users.manage', 'roles.manage', 'settings.manage', 'audit.view']);
-
 /**
  * Extracts org/actor/correlation/ip/ua from an authenticated Fastify request.
  * Returns data only — never writes to `reply`.
@@ -531,6 +528,174 @@ export async function recordAuditEvent(input, options = {}) {
       console.error(JSON.stringify({ level: 'error', msg: 'audit write failed', ...payload }));
     }
   }
+}
+
+/**
+ * Lists audit events for the caller's organization with actor and resource enrichment.
+ * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
+ * @param {object} filters Repository filters.
+ * @returns {Promise<{ items: object[], pageInfo: { nextCursor: string | null, hasMore: boolean } }>}
+ */
+export async function listAuditEventsForOrg(orgId, filters = {}) {
+  const { items, pageInfo } = await listAuditEvents(orgId, filters);
+  const actorIds = items.map((doc) => (doc.actorUserId ? String(doc.actorUserId) : null)).filter(Boolean);
+  const [actors, resourceNames] = await Promise.all([loadActorsById(orgId, /** @type {string[]} */ (actorIds)), loadResourceNames(orgId, items)]);
+  return {
+    items: items.map((doc) => toAuditEventDto(doc, actors, resourceNames)),
+    pageInfo,
+  };
+}
+
+/**
+ * Loads one audit event for the caller's organization.
+ * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
+ * @param {string} auditEventId Event id.
+ * @returns {Promise<object>}
+ * @throws {ApiError} NOT_FOUND when missing or cross-tenant.
+ */
+export async function getAuditEventForOrg(orgId, auditEventId) {
+  const doc = await findAuditEventById(orgId, auditEventId);
+  if (!doc) {
+    throw ApiError.fromCode('NOT_FOUND');
+  }
+  const actorIds = doc.actorUserId ? [String(doc.actorUserId)] : [];
+  const [actors, resourceNames] = await Promise.all([loadActorsById(orgId, actorIds), loadResourceNames(orgId, [doc])]);
+  return toAuditEventDto(doc, actors, resourceNames);
+}
+
+/**
+ * Rejects a list window longer than {@link AUDIT_LIST_MAX_RANGE_DAYS} when both bounds are set.
+ * @param {Date | undefined} from Inclusive start instant.
+ * @param {Date | undefined} to Exclusive end instant.
+ * @throws {ApiError} VALIDATION_ERROR when `to` is before `from` or the span is too long.
+ */
+export function assertAuditListDateRange(from, to) {
+  if (!(from instanceof Date) || !(to instanceof Date)) {
+    return;
+  }
+  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
+    return;
+  }
+  if (to.getTime() < from.getTime()) {
+    throw ApiError.fromCode('VALIDATION_ERROR', {
+      details: [{ path: 'to', message: 'to must be after from' }],
+    });
+  }
+  const maxMs = AUDIT_LIST_MAX_RANGE_DAYS * 24 * 60 * 60 * 1000;
+  if (to.getTime() - from.getTime() > maxMs) {
+    throw ApiError.fromCode('VALIDATION_ERROR', {
+      details: [
+        { path: 'from', message: `from and to must be within ${AUDIT_LIST_MAX_RANGE_DAYS} days` },
+        { path: 'to', message: `from and to must be within ${AUDIT_LIST_MAX_RANGE_DAYS} days` },
+      ],
+    });
+  }
+}
+
+/**
+ * Registers `GET /audit-events` and `GET /audit-events/:auditEventId`.
+ * @param {import('fastify').FastifyInstance} app Fastify app.
+ */
+export async function auditRoutes(app) {
+  app.get(
+    '/audit-events',
+    {
+      config: {
+        requiredPermissions: ['audit.view'],
+      },
+    },
+    async (request) => {
+      const parsed = listQuerySchema.safeParse(request.query ?? {});
+      if (!parsed.success) {
+        throw ApiError.fromCode('VALIDATION_ERROR', {
+          details: parsed.error.issues.map((issue) => ({
+            path: issue.path.join('.') || 'query',
+            message: issue.message,
+          })),
+        });
+      }
+
+      if (parsed.data.action && !isKnownAuditAction(parsed.data.action)) {
+        throw ApiError.fromCode('VALIDATION_ERROR', {
+          details: [{ path: 'action', message: 'unknown audit action' }],
+        });
+      }
+      if (parsed.data.actor && !mongoose.isValidObjectId(parsed.data.actor)) {
+        throw ApiError.fromCode('VALIDATION_ERROR', {
+          details: [{ path: 'actor', message: 'actor must be a valid ObjectId' }],
+        });
+      }
+
+      const from = parseOptionalInstant(parsed.data.from, 'from');
+      const to = parseOptionalInstant(parsed.data.to, 'to');
+      assertAuditListDateRange(from, to);
+
+      const principal = request.principal;
+      return listAuditEventsForOrg(principal.orgId, {
+        from,
+        to,
+        actor: parsed.data.actor,
+        action: parsed.data.action,
+        resourceType: parsed.data.resourceType,
+        cursor: parsed.data.cursor,
+        limit: parsed.data.limit,
+      });
+    },
+  );
+
+  app.get(
+    '/audit-events/:auditEventId',
+    {
+      config: {
+        requiredPermissions: ['audit.view'],
+      },
+    },
+    async (request) => {
+      const params = idParamsSchema.safeParse(request.params ?? {});
+      if (!params.success) {
+        throw ApiError.fromCode('VALIDATION_ERROR', {
+          details: params.error.issues.map((issue) => ({
+            path: issue.path.join('.') || 'auditEventId',
+            message: issue.message,
+          })),
+        });
+      }
+      const principal = request.principal;
+      return getAuditEventForOrg(principal.orgId, params.data.auditEventId);
+    },
+  );
+}
+
+/**
+ * Parses an optional ISO-8601 UTC instant.
+ * @param {string | undefined} value Raw query value.
+ * @param {string} path Field path for errors.
+ * @returns {Date | undefined}
+ */
+function parseOptionalInstant(value, path) {
+  if (value === undefined) {
+    return undefined;
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    throw ApiError.fromCode('VALIDATION_ERROR', {
+      details: [{ path, message: `${path} must be a valid ISO-8601 instant` }],
+    });
+  }
+  return date;
+}
+
+/**
+ * Truncates a string to max characters.
+ * @param {string} value Source string.
+ * @param {number} maxChars Max length.
+ * @returns {{ value: string, truncated: boolean }}
+ */
+function truncateString(value, maxChars) {
+  if (value.length <= maxChars) {
+    return { value, truncated: false };
+  }
+  return { value: value.slice(0, maxChars), truncated: true };
 }
 
 /**
@@ -735,181 +900,6 @@ function toAuditEventDto(doc, actors, resourceNames) {
     context: doc.context ?? null,
     createdAt: doc.createdAt instanceof Date ? doc.createdAt.toISOString() : doc.createdAt,
   };
-}
-
-/**
- * Lists audit events for the caller's organization with actor and resource enrichment.
- * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
- * @param {object} filters Repository filters.
- * @returns {Promise<{ items: object[], pageInfo: { nextCursor: string | null, hasMore: boolean } }>}
- */
-export async function listAuditEventsForOrg(orgId, filters = {}) {
-  const { items, pageInfo } = await listAuditEvents(orgId, filters);
-  const actorIds = items.map((doc) => (doc.actorUserId ? String(doc.actorUserId) : null)).filter(Boolean);
-  const [actors, resourceNames] = await Promise.all([loadActorsById(orgId, /** @type {string[]} */ (actorIds)), loadResourceNames(orgId, items)]);
-  return {
-    items: items.map((doc) => toAuditEventDto(doc, actors, resourceNames)),
-    pageInfo,
-  };
-}
-
-/**
- * Loads one audit event for the caller's organization.
- * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
- * @param {string} auditEventId Event id.
- * @returns {Promise<object>}
- * @throws {ApiError} NOT_FOUND when missing or cross-tenant.
- */
-export async function getAuditEventForOrg(orgId, auditEventId) {
-  const doc = await findAuditEventById(orgId, auditEventId);
-  if (!doc) {
-    throw ApiError.fromCode('NOT_FOUND');
-  }
-  const actorIds = doc.actorUserId ? [String(doc.actorUserId)] : [];
-  const [actors, resourceNames] = await Promise.all([loadActorsById(orgId, actorIds), loadResourceNames(orgId, [doc])]);
-  return toAuditEventDto(doc, actors, resourceNames);
-}
-
-// --- from audit/audit.routes.js ---
-/**
- * Audit event HTTP routes — list and detail (append-only; no writes).
- */
-const listQuerySchema = z
-  .object({
-    from: z.string().min(1).optional(),
-    to: z.string().min(1).optional(),
-    actor: z.string().min(1).optional(),
-    action: z.string().min(1).optional(),
-    resourceType: z.string().min(1).optional(),
-    cursor: z.string().min(1).optional(),
-    limit: z.coerce.number().int().optional(),
-  })
-  .strict();
-
-const idParamsSchema = z.object({
-  auditEventId: z.string().min(1),
-});
-
-/**
- * Rejects a list window longer than {@link AUDIT_LIST_MAX_RANGE_DAYS} when both bounds are set.
- * @param {Date | undefined} from Inclusive start instant.
- * @param {Date | undefined} to Exclusive end instant.
- * @throws {ApiError} VALIDATION_ERROR when `to` is before `from` or the span is too long.
- */
-export function assertAuditListDateRange(from, to) {
-  if (!(from instanceof Date) || !(to instanceof Date)) {
-    return;
-  }
-  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
-    return;
-  }
-  if (to.getTime() < from.getTime()) {
-    throw ApiError.fromCode('VALIDATION_ERROR', {
-      details: [{ path: 'to', message: 'to must be after from' }],
-    });
-  }
-  const maxMs = AUDIT_LIST_MAX_RANGE_DAYS * 24 * 60 * 60 * 1000;
-  if (to.getTime() - from.getTime() > maxMs) {
-    throw ApiError.fromCode('VALIDATION_ERROR', {
-      details: [
-        { path: 'from', message: `from and to must be within ${AUDIT_LIST_MAX_RANGE_DAYS} days` },
-        { path: 'to', message: `from and to must be within ${AUDIT_LIST_MAX_RANGE_DAYS} days` },
-      ],
-    });
-  }
-}
-
-/**
- * Parses an optional ISO-8601 UTC instant.
- * @param {string | undefined} value Raw query value.
- * @param {string} path Field path for errors.
- * @returns {Date | undefined}
- */
-function parseOptionalInstant(value, path) {
-  if (value === undefined) {
-    return undefined;
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    throw ApiError.fromCode('VALIDATION_ERROR', {
-      details: [{ path, message: `${path} must be a valid ISO-8601 instant` }],
-    });
-  }
-  return date;
-}
-
-/**
- * Registers `GET /audit-events` and `GET /audit-events/:auditEventId`.
- * @param {import('fastify').FastifyInstance} app Fastify app.
- */
-export async function auditRoutes(app) {
-  app.get(
-    '/audit-events',
-    {
-      config: {
-        requiredPermissions: ['audit.view'],
-      },
-    },
-    async (request) => {
-      const parsed = listQuerySchema.safeParse(request.query ?? {});
-      if (!parsed.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', {
-          details: parsed.error.issues.map((issue) => ({
-            path: issue.path.join('.') || 'query',
-            message: issue.message,
-          })),
-        });
-      }
-
-      if (parsed.data.action && !isKnownAuditAction(parsed.data.action)) {
-        throw ApiError.fromCode('VALIDATION_ERROR', {
-          details: [{ path: 'action', message: 'unknown audit action' }],
-        });
-      }
-      if (parsed.data.actor && !mongoose.isValidObjectId(parsed.data.actor)) {
-        throw ApiError.fromCode('VALIDATION_ERROR', {
-          details: [{ path: 'actor', message: 'actor must be a valid ObjectId' }],
-        });
-      }
-
-      const from = parseOptionalInstant(parsed.data.from, 'from');
-      const to = parseOptionalInstant(parsed.data.to, 'to');
-      assertAuditListDateRange(from, to);
-
-      const principal = request.principal;
-      return listAuditEventsForOrg(principal.orgId, {
-        from,
-        to,
-        actor: parsed.data.actor,
-        action: parsed.data.action,
-        resourceType: parsed.data.resourceType,
-        cursor: parsed.data.cursor,
-        limit: parsed.data.limit,
-      });
-    },
-  );
-
-  app.get(
-    '/audit-events/:auditEventId',
-    {
-      config: {
-        requiredPermissions: ['audit.view'],
-      },
-    },
-    async (request) => {
-      const params = idParamsSchema.safeParse(request.params ?? {});
-      if (!params.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', {
-          details: params.error.issues.map((issue) => ({
-            path: issue.path.join('.') || 'auditEventId',
-            message: issue.message,
-          })),
-        });
-      }
-      const principal = request.principal;
-      return getAuditEventForOrg(principal.orgId, params.data.auditEventId);
-    },
-  );
 }
 
 export { AuditEvent } from '../../models/audit.model.js';

@@ -54,33 +54,6 @@ function applyTenantOrgIdPlugin(schema) {
 }
 
 /**
- * Returns whether an update payload only soft-deletes via status 'D'.
- * @param {object | null | undefined} update Mongoose update document.
- * @returns {boolean}
- */
-function isRetentionSoftDeleteOnly(update) {
-  if (!update || typeof update !== 'object') {
-    return false;
-  }
-  const set = update.$set ?? {};
-  const topLevelKeys = Object.keys(update).filter((key) => !key.startsWith('$'));
-  const setKeys = Object.keys(set);
-  if (topLevelKeys.length > 0) {
-    return false;
-  }
-  const allowedOps = new Set(['$set']);
-  for (const key of Object.keys(update)) {
-    if (key.startsWith('$') && !allowedOps.has(key)) {
-      return false;
-    }
-  }
-  if (setKeys.length !== 1 || setKeys[0] !== 'status') {
-    return false;
-  }
-  return set.status === ROW_STATUS_DELETED;
-}
-
-/**
  * Throws when a mutation is not an authorized retention soft-delete.
  * @param {import('mongoose').Query} query Active query.
  * @param {'update' | 'delete'} kind Mutation kind.
@@ -97,6 +70,33 @@ function assertAppendOnly(query, kind) {
     return;
   }
   throw new Error('AuditEvent is append-only; updates and deletes require retentionJob');
+
+  /**
+   * Returns whether an update payload only soft-deletes via status 'D'.
+   * @param {object | null | undefined} update Mongoose update document.
+   * @returns {boolean}
+   */
+  function isRetentionSoftDeleteOnly(update) {
+    if (!update || typeof update !== 'object') {
+      return false;
+    }
+    const set = update.$set ?? {};
+    const topLevelKeys = Object.keys(update).filter((key) => !key.startsWith('$'));
+    const setKeys = Object.keys(set);
+    if (topLevelKeys.length > 0) {
+      return false;
+    }
+    const allowedOps = new Set(['$set']);
+    for (const key of Object.keys(update)) {
+      if (key.startsWith('$') && !allowedOps.has(key)) {
+        return false;
+      }
+    }
+    if (setKeys.length !== 1 || setKeys[0] !== 'status') {
+      return false;
+    }
+    return set.status === ROW_STATUS_DELETED;
+  }
 }
 
 const auditEventSchema = new Schema(

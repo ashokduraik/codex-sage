@@ -44,25 +44,6 @@ export function toCalendarDateString(date) {
 }
 
 /**
- * First day of the month that contains `date`.
- * @param date Any local date in the target month.
- * @returns Local midnight on day 1.
- */
-function startOfMonth(date) {
-  return new Date(date.getFullYear(), date.getMonth(), 1);
-}
-
-/**
- * Shifts a month by `delta` months without carrying the day-of-month.
- * @param date Month to shift.
- * @param delta Signed month offset.
- * @returns First day of the resulting month.
- */
-function addMonths(date, delta) {
-  return new Date(date.getFullYear(), date.getMonth() + delta, 1);
-}
-
-/**
  * Calendar-day picker. `value` / `onChange` use YYYY-MM-DD or empty string.
  *
  * @param props Control identity, current day, and optional inclusive bounds.
@@ -265,4 +246,23 @@ export function DatePicker({ id, label, value, onChange, minDate = '', maxDate =
     }
     return false;
   }
+}
+
+/**
+ * First day of the month that contains `date`.
+ * @param date Any local date in the target month.
+ * @returns Local midnight on day 1.
+ */
+function startOfMonth(date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+/**
+ * Shifts a month by `delta` months without carrying the day-of-month.
+ * @param date Month to shift.
+ * @param delta Signed month offset.
+ * @returns First day of the resulting month.
+ */
+function addMonths(date, delta) {
+  return new Date(date.getFullYear(), date.getMonth() + delta, 1);
 }

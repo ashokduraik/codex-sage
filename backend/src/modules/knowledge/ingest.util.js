@@ -39,24 +39,6 @@ import path from 'node:path';
 /**
  * Post-S0 source diff hook — incremental carry for new-upload ingest only.
  */
-/**
- * Applies a persisted summary onto ingest carry.
- * @param {object} ctx IngestStageContext.
- * @param {object} summary Stored summary.
- */
-function applySummaryToCarry(ctx, summary) {
-  const carry = carryFromSourceDiff({
-    added: summary.paths?.added ?? [],
-    removed: summary.paths?.removed ?? [],
-    changed: summary.paths?.changed ?? [],
-    unchanged: summary.paths?.unchanged ?? [],
-    baseSourceVersionId: summary.previousSourceVersionId ? String(summary.previousSourceVersionId) : null,
-  });
-  ctx.carry.skipPaths = carry.skipPaths;
-  ctx.carry.changedPaths = carry.changedPaths;
-  ctx.carry.removedPaths = carry.removedPaths;
-  ctx.carry.baseSourceVersionId = carry.baseSourceVersionId;
-}
 
 /**
  * Restores skip/changed/removed carry from a persisted summary when resuming.
@@ -147,52 +129,6 @@ export async function applySourceDiffAfterValidate(ctx, job) {
  */
 /** Files processed between intra-stage cursor flushes. */
 export const WORKSPACE_MATERIALIZE_BATCH_SIZE = 50;
-
-/**
- * Resolves WORKSPACE_ROOT from carry override or validated application config.
- * @param {object} ctx IngestStageContext.
- * @returns {string} Absolute workspace root.
- */
-function resolveWorkspaceRoot(ctx) {
-  if (typeof ctx.carry?.workspaceRoot === 'string' && path.isAbsolute(ctx.carry.workspaceRoot)) {
-    return path.resolve(ctx.carry.workspaceRoot);
-  }
-  return loadConfig().workspace.root;
-}
-
-/**
- * Maps a thrown value to a temporary workspace IO failure when appropriate.
- * @param {unknown} err Thrown value.
- * @returns {Error & { failureClass: string, code: string } | null}
- */
-function temporaryIoFailureOrNull(err) {
-  const code = err && typeof err === 'object' && 'code' in err ? String(/** @type {{ code?: unknown }} */ (err).code) : '';
-  if (code === 'ENOSPC' || code === 'EACCES' || code === 'EROFS' || code === 'EPERM') {
-    return createJobFailureError({
-      failureClass: 'temporary',
-      code: 'WORKSPACE_IO_ERROR',
-      message: 'The workspace volume is not writable or is out of space.',
-    });
-  }
-  return null;
-}
-
-/**
- * Flushes the path cursor when the batch window is full.
- * @param {object} ctx IngestStageContext.
- * @param {string | null} lastPath Last fully written path.
- * @param {number} sinceBatch Files since last cursor flush.
- * @returns {Promise<number>} Reset or unchanged batch counter.
- */
-async function maybeFlushCursor(ctx, lastPath, sinceBatch) {
-  if (lastPath && sinceBatch >= WORKSPACE_MATERIALIZE_BATCH_SIZE) {
-    await ctx.saveInProgressCursor({ path: lastPath }, 'materialize_docs');
-    await ctx.saveProgress(false);
-    return 0;
-  }
-  await ctx.saveProgress(false);
-  return sinceBatch;
-}
 
 /**
  * Runs S3 materialize_docs with path-ordered cursor resume.
@@ -454,10 +390,45 @@ export async function runMaterializeDocsStage(ctx) {
   };
 }
 
+/**
+ * Maps a thrown value to a temporary workspace IO failure when appropriate.
+ * @param {unknown} err Thrown value.
+ * @returns {Error & { failureClass: string, code: string } | null}
+ */
+function temporaryIoFailureOrNull(err) {
+  const code = err && typeof err === 'object' && 'code' in err ? String(/** @type {{ code?: unknown }} */ (err).code) : '';
+  if (code === 'ENOSPC' || code === 'EACCES' || code === 'EROFS' || code === 'EPERM') {
+    return createJobFailureError({
+      failureClass: 'temporary',
+      code: 'WORKSPACE_IO_ERROR',
+      message: 'The workspace volume is not writable or is out of space.',
+    });
+  }
+  return null;
+}
+
+/**
+ * Flushes the path cursor when the batch window is full.
+ * @param {object} ctx IngestStageContext.
+ * @param {string | null} lastPath Last fully written path.
+ * @param {number} sinceBatch Files since last cursor flush.
+ * @returns {Promise<number>} Reset or unchanged batch counter.
+ */
+async function maybeFlushCursor(ctx, lastPath, sinceBatch) {
+  if (lastPath && sinceBatch >= WORKSPACE_MATERIALIZE_BATCH_SIZE) {
+    await ctx.saveInProgressCursor({ path: lastPath }, 'materialize_docs');
+    await ctx.saveProgress(false);
+    return 0;
+  }
+  await ctx.saveProgress(false);
+  return sinceBatch;
+}
+
 // --- from ingest/stages/s4CodegraphUpdate.js ---
 /**
  * S4 codegraph_update — index or sync the materialized tree via the CodeGraph adapter.
  */
+
 /**
  * Runs the S4 CodeGraph index/sync stage.
  * @param {object} ctx IngestStageContext.
@@ -644,4 +615,35 @@ export async function runCodegraphUpdateStage(ctx) {
     }
     adapter.releaseWriter(release);
   }
+}
+
+/**
+ * Applies a persisted summary onto ingest carry.
+ * @param {object} ctx IngestStageContext.
+ * @param {object} summary Stored summary.
+ */
+function applySummaryToCarry(ctx, summary) {
+  const carry = carryFromSourceDiff({
+    added: summary.paths?.added ?? [],
+    removed: summary.paths?.removed ?? [],
+    changed: summary.paths?.changed ?? [],
+    unchanged: summary.paths?.unchanged ?? [],
+    baseSourceVersionId: summary.previousSourceVersionId ? String(summary.previousSourceVersionId) : null,
+  });
+  ctx.carry.skipPaths = carry.skipPaths;
+  ctx.carry.changedPaths = carry.changedPaths;
+  ctx.carry.removedPaths = carry.removedPaths;
+  ctx.carry.baseSourceVersionId = carry.baseSourceVersionId;
+}
+
+/**
+ * Resolves WORKSPACE_ROOT from carry override or validated application config.
+ * @param {object} ctx IngestStageContext.
+ * @returns {string} Absolute workspace root.
+ */
+function resolveWorkspaceRoot(ctx) {
+  if (typeof ctx.carry?.workspaceRoot === 'string' && path.isAbsolute(ctx.carry.workspaceRoot)) {
+    return path.resolve(ctx.carry.workspaceRoot);
+  }
+  return loadConfig().workspace.root;
 }

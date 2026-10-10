@@ -118,64 +118,6 @@ export async function releaseOwnedIdempotencyClaim(request) {
  */
 
 /**
- * Waits for a processing twin to complete, then returns a replay or throws in-flight.
- * @param {{
- *   orgId: string,
- *   userId: string,
- *   route: string,
- *   key: string,
- *   requestHash: string,
- * }} query Wait scope.
- * @returns {Promise<never>}
- * @throws {IdempotencyReplay|ApiError}
- */
-async function waitForIdempotencyTwin(query) {
-  const deadline = Date.now() + IDEMPOTENCY_WAIT_MS;
-  while (Date.now() < deadline) {
-    await new Promise((resolve) => {
-      setTimeout(resolve, IDEMPOTENCY_POLL_INTERVAL_MS);
-    });
-    const record = await findActiveIdempotencyRecord(query);
-    if (!record) {
-      break;
-    }
-    if (record.requestHash !== query.requestHash) {
-      throw ApiError.fromCode('IDEMPOTENCY_KEY_REUSE');
-    }
-    if (record.recordState === 'completed') {
-      throw new IdempotencyReplay(record.responseStatus, record.responseBody);
-    }
-  }
-  throw ApiError.fromCode('IDEMPOTENCY_IN_FLIGHT');
-}
-
-/**
- * Parses an onSend payload into a JSON value when possible.
- * @param {unknown} payload Fastify onSend payload.
- * @returns {unknown}
- */
-function parseOnSendPayload(payload) {
-  if (payload === undefined || payload === null || payload === '') {
-    return null;
-  }
-  if (typeof payload === 'string') {
-    try {
-      return JSON.parse(payload);
-    } catch {
-      return payload;
-    }
-  }
-  if (Buffer.isBuffer(payload)) {
-    try {
-      return JSON.parse(payload.toString('utf8'));
-    } catch {
-      return payload.toString('utf8');
-    }
-  }
-  return payload;
-}
-
-/**
  * preHandler: claim or replay for routes with `requireIdempotencyKey: true`.
  * @param {import('fastify').FastifyRequest} request Incoming request.
  * @returns {Promise<void>}
@@ -232,6 +174,38 @@ export async function idempotencyPreHandler(request) {
     key,
     requestHash,
   });
+
+  /**
+   * Waits for a processing twin to complete, then returns a replay or throws in-flight.
+   * @param {{
+   *   orgId: string,
+   *   userId: string,
+   *   route: string,
+   *   key: string,
+   *   requestHash: string,
+   * }} query Wait scope.
+   * @returns {Promise<never>}
+   * @throws {IdempotencyReplay|ApiError}
+   */
+  async function waitForIdempotencyTwin(query) {
+    const deadline = Date.now() + IDEMPOTENCY_WAIT_MS;
+    while (Date.now() < deadline) {
+      await new Promise((resolve) => {
+        setTimeout(resolve, IDEMPOTENCY_POLL_INTERVAL_MS);
+      });
+      const record = await findActiveIdempotencyRecord(query);
+      if (!record) {
+        break;
+      }
+      if (record.requestHash !== query.requestHash) {
+        throw ApiError.fromCode('IDEMPOTENCY_KEY_REUSE');
+      }
+      if (record.recordState === 'completed') {
+        throw new IdempotencyReplay(record.responseStatus, record.responseBody);
+      }
+    }
+    throw ApiError.fromCode('IDEMPOTENCY_IN_FLIGHT');
+  }
 }
 
 /**
@@ -275,6 +249,32 @@ export async function idempotencyOnSend(request, reply, payload) {
   });
   ctx.isOwner = false;
   return payload;
+
+  /**
+   * Parses an onSend payload into a JSON value when possible.
+   * @param {unknown} payload Fastify onSend payload.
+   * @returns {unknown}
+   */
+  function parseOnSendPayload(payload) {
+    if (payload === undefined || payload === null || payload === '') {
+      return null;
+    }
+    if (typeof payload === 'string') {
+      try {
+        return JSON.parse(payload);
+      } catch {
+        return payload;
+      }
+    }
+    if (Buffer.isBuffer(payload)) {
+      try {
+        return JSON.parse(payload.toString('utf8'));
+      } catch {
+        return payload.toString('utf8');
+      }
+    }
+    return payload;
+  }
 }
 
 /**

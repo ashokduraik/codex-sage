@@ -27,6 +27,14 @@ const USAGE_SUMMARY_TOTALS = Object.freeze({
   },
 });
 
+const orgQuerySchema = z.object({
+  from: z.string().min(1).optional(),
+  to: z.string().min(1).optional(),
+});
+const projectParamsSchema = z.object({
+  projectId: z.string().min(1),
+});
+
 /**
  * Records one observed project activity. Best-effort: never throws to the caller.
  * @param {{
@@ -239,44 +247,6 @@ export async function loadUsageSummary(input) {
 }
 
 /**
- * Resolves the default lookback window.
- * @returns {{ from: Date, to: Date }}
- */
-function defaultUsageWindow() {
-  const to = new Date();
-  const from = new Date(to.getTime() - USAGE_DEFAULT_LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
-  return { from, to };
-}
-
-const orgQuerySchema = z.object({
-  from: z.string().min(1).optional(),
-  to: z.string().min(1).optional(),
-});
-
-const projectParamsSchema = z.object({
-  projectId: z.string().min(1),
-});
-
-/**
- * Parses optional ISO instants.
- * @param {string | undefined} value Raw.
- * @param {string} path Field name.
- * @returns {Date | undefined}
- */
-function parseOptionalInstant(value, path) {
-  if (value == null) {
-    return undefined;
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    throw ApiError.fromCode('VALIDATION_ERROR', {
-      details: [{ path, message: `${path} must be a valid ISO-8601 instant` }],
-    });
-  }
-  return date;
-}
-
-/**
  * Registers usage HTTP routes.
  * @param {import('fastify').FastifyInstance} app Fastify app.
  */
@@ -340,6 +310,35 @@ export async function usageRoutes(app) {
       });
     },
   );
+}
+
+/**
+ * Resolves the default lookback window.
+ * @returns {{ from: Date, to: Date }}
+ */
+function defaultUsageWindow() {
+  const to = new Date();
+  const from = new Date(to.getTime() - USAGE_DEFAULT_LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
+  return { from, to };
+}
+
+/**
+ * Parses optional ISO instants.
+ * @param {string | undefined} value Raw.
+ * @param {string} path Field name.
+ * @returns {Date | undefined}
+ */
+function parseOptionalInstant(value, path) {
+  if (value == null) {
+    return undefined;
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    throw ApiError.fromCode('VALIDATION_ERROR', {
+      details: [{ path, message: `${path} must be a valid ISO-8601 instant` }],
+    });
+  }
+  return date;
 }
 
 export const PROJECT_ACTIVITY_MODELS = Object.freeze([ProjectActivity]);

@@ -69,45 +69,6 @@ async function softDeleteMany(model, filter) {
 }
 
 /**
- * Soft-deletes older ready source versions beyond the keep count.
- * @param {string} orgId Tenant id.
- * @param {object} project Project document.
- * @returns {Promise<number>}
- */
-async function retainReadySourceVersions(orgId, project) {
-  const projectId = project._id;
-  const ready = await KnowledgeVersion.find({
-    orgId,
-    projectId,
-    publishedHealth: 'ready',
-    status: ROW_STATUS_ACTIVE,
-  })
-    .sort({ publishedAt: -1, _id: -1 })
-    .select({ _id: 1, sourceVersionId: 1 })
-    .lean()
-    .exec();
-  const keepIds = new Set();
-  if (project.currentKnowledgeVersionId) {
-    keepIds.add(String(project.currentKnowledgeVersionId));
-  }
-  for (const row of ready.slice(0, RETENTION_READY_SOURCE_VERSIONS_KEEP)) {
-    keepIds.add(String(row._id));
-  }
-  const stale = ready.filter((row) => !keepIds.has(String(row._id)));
-  if (stale.length === 0) {
-    return 0;
-  }
-  const knowledgeIds = stale.map((row) => row._id);
-  const sourceVersionIds = stale.map((row) => row.sourceVersionId).filter(Boolean);
-  await softDeleteMany(KnowledgeVersion, { orgId, _id: { $in: knowledgeIds } });
-  if (sourceVersionIds.length > 0) {
-    await softDeleteMany(SourceVersion, { orgId, _id: { $in: sourceVersionIds } });
-    await softDeleteMany(SourceFile, { orgId, sourceVersionId: { $in: sourceVersionIds } });
-  }
-  return stale.length;
-}
-
-/**
  * Applies org retention rules.
  * @param {string} orgId Tenant id.
  * @param {Date} now Instant.
@@ -168,6 +129,45 @@ export async function runRetentionForOrg(orgId, now = new Date()) {
     conversations: conversationIds.length,
     audit: auditResult.modifiedCount ?? 0,
   };
+
+  /**
+   * Soft-deletes older ready source versions beyond the keep count.
+   * @param {string} orgId Tenant id.
+   * @param {object} project Project document.
+   * @returns {Promise<number>}
+   */
+  async function retainReadySourceVersions(orgId, project) {
+    const projectId = project._id;
+    const ready = await KnowledgeVersion.find({
+      orgId,
+      projectId,
+      publishedHealth: 'ready',
+      status: ROW_STATUS_ACTIVE,
+    })
+      .sort({ publishedAt: -1, _id: -1 })
+      .select({ _id: 1, sourceVersionId: 1 })
+      .lean()
+      .exec();
+    const keepIds = new Set();
+    if (project.currentKnowledgeVersionId) {
+      keepIds.add(String(project.currentKnowledgeVersionId));
+    }
+    for (const row of ready.slice(0, RETENTION_READY_SOURCE_VERSIONS_KEEP)) {
+      keepIds.add(String(row._id));
+    }
+    const stale = ready.filter((row) => !keepIds.has(String(row._id)));
+    if (stale.length === 0) {
+      return 0;
+    }
+    const knowledgeIds = stale.map((row) => row._id);
+    const sourceVersionIds = stale.map((row) => row.sourceVersionId).filter(Boolean);
+    await softDeleteMany(KnowledgeVersion, { orgId, _id: { $in: knowledgeIds } });
+    if (sourceVersionIds.length > 0) {
+      await softDeleteMany(SourceVersion, { orgId, _id: { $in: sourceVersionIds } });
+      await softDeleteMany(SourceFile, { orgId, sourceVersionId: { $in: sourceVersionIds } });
+    }
+    return stale.length;
+  }
 }
 
 /**

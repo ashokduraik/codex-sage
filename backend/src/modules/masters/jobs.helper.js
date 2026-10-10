@@ -80,26 +80,6 @@ export const JOB_STAGE_CATALOG = Object.freeze({
   retention: Object.freeze([Object.freeze({ stage: 'apply_policy', label: 'Applying retention' })]),
 });
 
-/**
- * Returns the ordered stage definitions for a job type (empty when unknown).
- * @param {string} jobType Job type.
- * @returns {readonly JobStageDefinition[]}
- */
-export function listStagesForJobType(jobType) {
-  return JOB_STAGE_CATALOG[jobType] ?? Object.freeze([]);
-}
-
-/**
- * Returns the label for a stage within a job type, or the stage id as fallback.
- * @param {string} jobType Job type.
- * @param {string} stage Stage id.
- * @returns {string}
- */
-export function labelForJobStage(jobType, stage) {
-  const found = listStagesForJobType(jobType).find((entry) => entry.stage === stage);
-  return found?.label ?? stage;
-}
-
 // --- from jobs/jobEventCatalog.js ---
 /**
  * Stable JobEvent codes mapped to human-readable English messages.
@@ -126,6 +106,49 @@ export const JOB_EVENT_MESSAGES = Object.freeze({
   'repo.sync.deferred': 'Sync deferred because the project is busy.',
   'repo.sync.source_enqueued': 'Source queued for processing.',
 });
+// --- from jobs/jobRetryMode.js ---
+/**
+ * Resolves user-facing retry mode from stored failure state (never from client input).
+ */
+/** Stages whose bytes are wrong — user must upload again (solution §4.6 S0). */
+const USER_ACTION_UPLOAD_STAGES = new Set(['validate_upload', 'store_files']);
+/** Stages that require a full pipeline rebuild when they fail permanently. */
+const FULL_REBUILD_STAGES = new Set(['codegraph_update', 'knowledge_publish']);
+/**
+ * @typedef {{
+ *   mode: 'resume' | 'full' | 'not_retryable',
+ *   fromStage: string | null,
+ *   reason: string | null,
+ * }} JobRetryResolution
+ */
+// --- from jobs/jobProgress.js ---
+/**
+ * Derived progress projection for job detail (never stored twice).
+ */
+// --- from jobs/jobs.repository.js ---
+/**
+ * Jobs repository — tenant + project scoped job and event persistence.
+ */
+
+/**
+ * Returns the ordered stage definitions for a job type (empty when unknown).
+ * @param {string} jobType Job type.
+ * @returns {readonly JobStageDefinition[]}
+ */
+export function listStagesForJobType(jobType) {
+  return JOB_STAGE_CATALOG[jobType] ?? Object.freeze([]);
+}
+
+/**
+ * Returns the label for a stage within a job type, or the stage id as fallback.
+ * @param {string} jobType Job type.
+ * @param {string} stage Stage id.
+ * @returns {string}
+ */
+export function labelForJobStage(jobType, stage) {
+  const found = listStagesForJobType(jobType).find((entry) => entry.stage === stage);
+  return found?.label ?? stage;
+}
 
 /**
  * Renders a catalogue message for an event code.
@@ -210,25 +233,6 @@ export function renderJobEventMessage(eventCode, context = {}) {
   }
 }
 
-// --- from jobs/jobRetryMode.js ---
-/**
- * Resolves user-facing retry mode from stored failure state (never from client input).
- */
-
-/** Stages whose bytes are wrong — user must upload again (solution §4.6 S0). */
-const USER_ACTION_UPLOAD_STAGES = new Set(['validate_upload', 'store_files']);
-
-/** Stages that require a full pipeline rebuild when they fail permanently. */
-const FULL_REBUILD_STAGES = new Set(['codegraph_update', 'knowledge_publish']);
-
-/**
- * @typedef {{
- *   mode: 'resume' | 'full' | 'not_retryable',
- *   fromStage: string | null,
- *   reason: string | null,
- * }} JobRetryResolution
- */
-
 /**
  * Resolves retry mode for a failed or cancelled job.
  * @param {{
@@ -310,25 +314,6 @@ export function describeRetryAvailability(job, maxUserRetries) {
     mode: resolved.mode,
     reason: resolved.reason,
   };
-}
-
-// --- from jobs/jobProgress.js ---
-/**
- * Derived progress projection for job detail (never stored twice).
- */
-/**
- * Formats a date as ISO-8601, or null when missing.
- * @param {unknown} value Date or string.
- * @returns {string | null}
- */
-function toIsoOrNull(value) {
-  if (value instanceof Date) {
-    return value.toISOString();
-  }
-  if (value == null || value === '') {
-    return null;
-  }
-  return String(value);
 }
 
 /**
@@ -515,10 +500,21 @@ export function projectJobProgress(job, events = [], options = {}) {
   }
 }
 
-// --- from jobs/jobs.repository.js ---
 /**
- * Jobs repository — tenant + project scoped job and event persistence.
+ * Formats a date as ISO-8601, or null when missing.
+ * @param {unknown} value Date or string.
+ * @returns {string | null}
  */
+function toIsoOrNull(value) {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  if (value == null || value === '') {
+    return null;
+  }
+  return String(value);
+}
+
 /**
  * Clamps a requested page size into the allowed range.
  * @param {unknown} limit Raw limit.
@@ -560,30 +556,6 @@ export function assertJobEventMessageLength(message) {
       ],
     });
   }
-}
-
-/**
- * Builds one timeline line to $push onto a job.
- * @param {{
- *   eventCode: string,
- *   severity: string,
- *   message: string,
- *   data?: object,
- *   correlationId?: string | null,
- *   createdAt?: Date,
- * }} input Event fields.
- * @returns {object}
- */
-function buildJobEventSubdoc(input) {
-  return {
-    _id: new mongoose.Types.ObjectId(),
-    eventCode: input.eventCode,
-    severity: input.severity,
-    message: input.message,
-    data: input.data && typeof input.data === 'object' ? input.data : {},
-    correlationId: input.correlationId ?? null,
-    createdAt: input.createdAt instanceof Date ? input.createdAt : new Date(),
-  };
 }
 
 /**
@@ -1026,4 +998,28 @@ export async function beginUserRetry(input) {
     },
     { returnDocument: 'after' },
   ).exec();
+}
+
+/**
+ * Builds one timeline line to $push onto a job.
+ * @param {{
+ *   eventCode: string,
+ *   severity: string,
+ *   message: string,
+ *   data?: object,
+ *   correlationId?: string | null,
+ *   createdAt?: Date,
+ * }} input Event fields.
+ * @returns {object}
+ */
+function buildJobEventSubdoc(input) {
+  return {
+    _id: new mongoose.Types.ObjectId(),
+    eventCode: input.eventCode,
+    severity: input.severity,
+    message: input.message,
+    data: input.data && typeof input.data === 'object' ? input.data : {},
+    correlationId: input.correlationId ?? null,
+    createdAt: input.createdAt instanceof Date ? input.createdAt : new Date(),
+  };
 }

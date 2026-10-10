@@ -27,6 +27,60 @@ export const REPO_PROBE_MAX_RESPONSE_BYTES = 1_048_576;
  * }} OutboundResponse
  */
 
+// --- from repositories/providers/probeErrorMap.js ---
+/**
+ * Maps provider HTTP / transport failures to probeStatus + reason codes.
+ */
+const USER_MESSAGES = Object.freeze({
+  token_missing: 'This repository looks private or requires authentication.',
+  token_invalid: 'The access token was rejected. Check the token and try again.',
+  insufficient_scope: 'This token does not have access to the repository.',
+  repository_not_found: 'The repository could not be found.',
+  network_unreachable: 'The repository host could not be reached.',
+  provider_unavailable: 'The repository provider is temporarily unavailable.',
+  provider_rate_limited: 'The repository provider rate-limited this request. Try again later.',
+  provider_not_supported: 'This host does not look like a supported GitLab instance.',
+  host_not_allowed: 'This repository host is not allowed.',
+});
+/**
+ * @typedef {{
+ *   probeStatus: 'authentication_required' | 'access_denied' | 'not_found' | 'unreachable',
+ *   reason: { code: string, message: string },
+ * }} MappedProbeError
+ */
+// --- from repositories/providers/providerResolver.js ---
+/**
+ * Infer GitHub / GitLab identity from a repository URL (no provider picker).
+ */
+const GITHUB_HOSTS = new Set(['github.com', 'www.github.com']);
+const GITLAB_SAAS_HOSTS = new Set(['gitlab.com', 'www.gitlab.com']);
+/**
+ * @typedef {{
+ *   provider: 'github' | 'gitlab',
+ *   hostKind: 'github' | 'gitlab_saas' | 'gitlab_self_hosted',
+ *   baseUrl: string | null,
+ *   ownerPath: string,
+ *   repoSlug: string,
+ *   fullName: string,
+ *   webUrl: string,
+ * }} ResolvedRepository
+ */
+// --- from repositories/providers/githubProbe.js ---
+/**
+ * GitHub REST calls for repository probe (lookup, branches, optional README).
+ */
+export const REPO_BRANCH_LIST_LIMIT = 200;
+export const REPO_README_MAX_BYTES = 65_536;
+const BRANCH_PAGE_SIZE = 100;
+// --- from repositories/providers/gitlabProbe.js ---
+/**
+ * GitLab REST calls for SaaS and self-hosted repository probes.
+ */
+// --- from repositories/repositoryProbe.service.js ---
+/**
+ * Stateless repository probe orchestration (Phase 30).
+ */
+
 /**
  * Performs a GET with timeout, same-host redirect limit, size cap, and host guards.
  * @param {{
@@ -198,30 +252,6 @@ export function assertHostAllowed(rawUrl, allowPrivateHosts) {
   }
 }
 
-// --- from repositories/providers/probeErrorMap.js ---
-/**
- * Maps provider HTTP / transport failures to probeStatus + reason codes.
- */
-
-const USER_MESSAGES = Object.freeze({
-  token_missing: 'This repository looks private or requires authentication.',
-  token_invalid: 'The access token was rejected. Check the token and try again.',
-  insufficient_scope: 'This token does not have access to the repository.',
-  repository_not_found: 'The repository could not be found.',
-  network_unreachable: 'The repository host could not be reached.',
-  provider_unavailable: 'The repository provider is temporarily unavailable.',
-  provider_rate_limited: 'The repository provider rate-limited this request. Try again later.',
-  provider_not_supported: 'This host does not look like a supported GitLab instance.',
-  host_not_allowed: 'This repository host is not allowed.',
-});
-
-/**
- * @typedef {{
- *   probeStatus: 'authentication_required' | 'access_denied' | 'not_found' | 'unreachable',
- *   reason: { code: string, message: string },
- * }} MappedProbeError
- */
-
 /**
  * Maps an anonymous lookup failure.
  * @param {number} status Provider HTTP status.
@@ -285,41 +315,6 @@ export function mapTransportOrUnexpected(status) {
   }
   return mapped('unreachable', 'provider_unavailable');
 }
-
-/**
- * @param {MappedProbeError['probeStatus']} probeStatus Status.
- * @param {string} reasonCode Reason code.
- * @returns {MappedProbeError}
- */
-function mapped(probeStatus, reasonCode) {
-  return {
-    probeStatus,
-    reason: {
-      code: reasonCode,
-      message: USER_MESSAGES[reasonCode] ?? USER_MESSAGES.provider_unavailable,
-    },
-  };
-}
-
-// --- from repositories/providers/providerResolver.js ---
-/**
- * Infer GitHub / GitLab identity from a repository URL (no provider picker).
- */
-
-const GITHUB_HOSTS = new Set(['github.com', 'www.github.com']);
-const GITLAB_SAAS_HOSTS = new Set(['gitlab.com', 'www.gitlab.com']);
-
-/**
- * @typedef {{
- *   provider: 'github' | 'gitlab',
- *   hostKind: 'github' | 'gitlab_saas' | 'gitlab_self_hosted',
- *   baseUrl: string | null,
- *   ownerPath: string,
- *   repoSlug: string,
- *   fullName: string,
- *   webUrl: string,
- * }} ResolvedRepository
- */
 
 /**
  * Normalizes a user-supplied repository URL into provider + path parts.
@@ -443,14 +438,6 @@ export function resolveRepositoryUrl(rawUrl) {
     return segments.join('/');
   }
 }
-
-// --- from repositories/providers/githubProbe.js ---
-/**
- * GitHub REST calls for repository probe (lookup, branches, optional README).
- */
-export const REPO_BRANCH_LIST_LIMIT = 200;
-export const REPO_README_MAX_BYTES = 65_536;
-const BRANCH_PAGE_SIZE = 100;
 
 /**
  * Looks up a GitHub repository.
@@ -594,11 +581,6 @@ export function firstReadmeParagraph(markdown) {
   }
   return null;
 }
-
-// --- from repositories/providers/gitlabProbe.js ---
-/**
- * GitLab REST calls for SaaS and self-hosted repository probes.
- */
 
 /**
  * Looks up a GitLab project (SaaS or self-hosted).
@@ -747,10 +729,6 @@ export function gitlabHeaders(accessToken) {
   return headers;
 }
 
-// --- from repositories/repositoryProbe.service.js ---
-/**
- * Stateless repository probe orchestration (Phase 30).
- */
 /**
  * Probes a repository URL (anonymous first, then token when supplied).
  * @param {{
@@ -946,4 +924,19 @@ export async function probeRepository(input) {
       return null;
     }
   }
+}
+
+/**
+ * @param {MappedProbeError['probeStatus']} probeStatus Status.
+ * @param {string} reasonCode Reason code.
+ * @returns {MappedProbeError}
+ */
+function mapped(probeStatus, reasonCode) {
+  return {
+    probeStatus,
+    reason: {
+      code: reasonCode,
+      message: USER_MESSAGES[reasonCode] ?? USER_MESSAGES.provider_unavailable,
+    },
+  };
 }

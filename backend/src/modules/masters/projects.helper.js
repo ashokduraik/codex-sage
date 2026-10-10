@@ -30,6 +30,17 @@ export const WORKER_ONLY_LIFECYCLE_STATUSES = Object.freeze(['knowledge_ready', 
 /** Lifecycle states that cannot have knowledgeHealth ready. */
 export const PRE_KNOWLEDGE_LIFECYCLE_STATUSES = Object.freeze(['creating', 'awaiting_source', 'connecting_repository', 'source_received']);
 
+// --- from projects/projects.repository.js ---
+/**
+ * Project repository — org-scoped queries and conditional lifecycle updates.
+ */
+/** Default page size for GET /projects. */
+export const PROJECTS_LIST_DEFAULT_LIMIT = 20;
+/** Hard cap on `limit` query parameter. */
+export const PROJECTS_LIST_MAX_LIMIT = 100;
+/** Epoch used when encoding a null lastAccessedAt into a keyset cursor. */
+const NULL_LAST_ACCESSED_CURSOR_ISO = '1970-01-01T00:00:00.000Z';
+
 /**
  * Returns whether `status` is a known lifecycle code.
  * @param {string} status Candidate.
@@ -112,19 +123,6 @@ export function assertKnowledgeHealthAllowed(input) {
   }
 }
 
-// --- from projects/projects.repository.js ---
-/**
- * Project repository — org-scoped queries and conditional lifecycle updates.
- */
-/** Default page size for GET /projects. */
-export const PROJECTS_LIST_DEFAULT_LIMIT = 20;
-
-/** Hard cap on `limit` query parameter. */
-export const PROJECTS_LIST_MAX_LIMIT = 100;
-
-/** Epoch used when encoding a null lastAccessedAt into a keyset cursor. */
-const NULL_LAST_ACCESSED_CURSOR_ISO = '1970-01-01T00:00:00.000Z';
-
 /**
  * Clamps a requested page size into the allowed range.
  * @param {unknown} limit Raw limit.
@@ -151,41 +149,6 @@ export function resolveProjectsListSort(sort) {
     return 'lastAccessedAt';
   }
   return 'updatedAt';
-}
-
-/**
- * Builds a keyset filter for a timestamp/_id descending page.
- * @param {{ t: string, i: string }} cursor Decoded cursor.
- * @param {'updatedAt' | 'lastAccessedAt'} sortField Sort field.
- * @returns {object}
- */
-function keysetAfterFilter(cursor, sortField) {
-  const stamp = new Date(cursor.t);
-  if (Number.isNaN(stamp.getTime())) {
-    throw ApiError.fromCode('VALIDATION_ERROR', {
-      details: [{ path: 'cursor', message: 'cursor timestamp is invalid' }],
-    });
-  }
-  if (!mongoose.isValidObjectId(cursor.i)) {
-    throw ApiError.fromCode('VALIDATION_ERROR', {
-      details: [{ path: 'cursor', message: 'cursor id is invalid' }],
-    });
-  }
-  const id = new mongoose.Types.ObjectId(cursor.i);
-  if (sortField === 'lastAccessedAt') {
-    // Null lastAccessedAt sorts last under descending order.
-    if (cursor.t === NULL_LAST_ACCESSED_CURSOR_ISO) {
-      return {
-        $and: [{ lastAccessedAt: null }, { _id: { $lt: id } }],
-      };
-    }
-    return {
-      $or: [{ lastAccessedAt: { $lt: stamp, $ne: null } }, { lastAccessedAt: stamp, _id: { $lt: id } }, { lastAccessedAt: null }],
-    };
-  }
-  return {
-    $or: [{ updatedAt: { $lt: stamp } }, { updatedAt: stamp, _id: { $lt: id } }],
-  };
 }
 
 /**
@@ -337,6 +300,41 @@ export async function listProjects(orgId, filters = {}) {
     }
     return row.updatedAt.toISOString();
   }
+}
+
+/**
+ * Builds a keyset filter for a timestamp/_id descending page.
+ * @param {{ t: string, i: string }} cursor Decoded cursor.
+ * @param {'updatedAt' | 'lastAccessedAt'} sortField Sort field.
+ * @returns {object}
+ */
+function keysetAfterFilter(cursor, sortField) {
+  const stamp = new Date(cursor.t);
+  if (Number.isNaN(stamp.getTime())) {
+    throw ApiError.fromCode('VALIDATION_ERROR', {
+      details: [{ path: 'cursor', message: 'cursor timestamp is invalid' }],
+    });
+  }
+  if (!mongoose.isValidObjectId(cursor.i)) {
+    throw ApiError.fromCode('VALIDATION_ERROR', {
+      details: [{ path: 'cursor', message: 'cursor id is invalid' }],
+    });
+  }
+  const id = new mongoose.Types.ObjectId(cursor.i);
+  if (sortField === 'lastAccessedAt') {
+    // Null lastAccessedAt sorts last under descending order.
+    if (cursor.t === NULL_LAST_ACCESSED_CURSOR_ISO) {
+      return {
+        $and: [{ lastAccessedAt: null }, { _id: { $lt: id } }],
+      };
+    }
+    return {
+      $or: [{ lastAccessedAt: { $lt: stamp, $ne: null } }, { lastAccessedAt: stamp, _id: { $lt: id } }, { lastAccessedAt: null }],
+    };
+  }
+  return {
+    $or: [{ updatedAt: { $lt: stamp } }, { updatedAt: stamp, _id: { $lt: id } }],
+  };
 }
 
 /**

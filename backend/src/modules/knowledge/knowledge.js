@@ -25,6 +25,50 @@ import { z } from 'zod';
 /**
  * Tenant-scoped KnowledgeVersion reads and writes.
  */
+
+// --- from knowledge/knowledge.gate.js ---
+/**
+ * Internal Q&A / browse gate — allow, queue, or deny without taking a CodeGraph read lease.
+ */
+// --- from knowledge/knowledge.publish.js ---
+/**
+ * S5 knowledge publish — insert KnowledgeVersion and audit completion.
+ */
+/** Relative graph directory name stored on KnowledgeVersion (never an absolute path). */
+export const KNOWLEDGE_GRAPH_DIR_NAME = '.codegraph';
+// --- from knowledge/knowledge.recovery.js ---
+/**
+ * Same-job S4 recovery — rematerialize this source version and full indexAll.
+ */
+/** Bounded rematerialize + indexAll attempts before knowledge fails permanently. */
+export const KNOWLEDGE_RECOVERY_MAX_ATTEMPTS = 3;
+// --- from knowledge/knowledge.browse.service.js ---
+/**
+ * Knowledge browse orchestration: gate → read lease → bounded queries.
+ */
+/** Default page size for list browse routes. */
+export const KNOWLEDGE_BROWSE_PAGE_SIZE = 50;
+/** Hard cap on browse `limit`. */
+export const KNOWLEDGE_BROWSE_MAX_LIMIT = 100;
+/** Minimum `q` length for symbol lookup. */
+export const KNOWLEDGE_SYMBOL_QUERY_MIN_LEN = 2;
+/** Cap on extractive summary text. */
+export const KNOWLEDGE_SUMMARY_MAX_CHARS = 4000;
+// --- from knowledge/knowledge.routes.js ---
+/**
+ * Knowledge browse HTTP routes under `/api/v1/projects/:projectId/knowledge`.
+ */
+const listQuerySchema = z.object({
+  cursor: z.string().min(1).optional(),
+  limit: z.coerce.number().int().optional(),
+});
+const symbolsQuerySchema = listQuerySchema.extend({
+  q: z.string().min(KNOWLEDGE_SYMBOL_QUERY_MIN_LEN),
+});
+const browsePreHandler = requireProjectPermission(['knowledge.browse', 'knowledge.view'], {
+  mode: 'any',
+});
+
 /**
  * Counts stored SourceFile rows excluded from the graph for a version.
  * @param {{
@@ -126,10 +170,6 @@ export async function insertKnowledgeVersion(input) {
   return doc.toObject();
 }
 
-// --- from knowledge/knowledge.gate.js ---
-/**
- * Internal Q&A / browse gate — allow, queue, or deny without taking a CodeGraph read lease.
- */
 /**
  * Decides whether project knowledge may be read for chat/search/browse.
  * @param {{ orgId: string, projectId: string }} scope Tenant + project.
@@ -203,13 +243,6 @@ export async function assertKnowledgeReadable(scope) {
     };
   }
 }
-
-// --- from knowledge/knowledge.publish.js ---
-/**
- * S5 knowledge publish — insert KnowledgeVersion and audit completion.
- */
-/** Relative graph directory name stored on KnowledgeVersion (never an absolute path). */
-export const KNOWLEDGE_GRAPH_DIR_NAME = '.codegraph';
 
 /**
  * Builds a persistable graphIdentity without absolute filesystem paths.
@@ -326,13 +359,6 @@ export async function publishKnowledgeVersion(input) {
   };
 }
 
-// --- from knowledge/knowledge.recovery.js ---
-/**
- * Same-job S4 recovery — rematerialize this source version and full indexAll.
- */
-/** Bounded rematerialize + indexAll attempts before knowledge fails permanently. */
-export const KNOWLEDGE_RECOVERY_MAX_ATTEMPTS = 3;
-
 /**
  * Deletes the on-disk `.codegraph` directory so the next S4 takes indexAll.
  * @param {string} workspacePath Absolute project workspace.
@@ -418,22 +444,6 @@ export async function runCodegraphUpdateWithRecovery(ctx) {
     return runCodegraphUpdateStage(ctx);
   }
 }
-
-// --- from knowledge/knowledge.browse.service.js ---
-/**
- * Knowledge browse orchestration: gate → read lease → bounded queries.
- */
-/** Default page size for list browse routes. */
-export const KNOWLEDGE_BROWSE_PAGE_SIZE = 50;
-
-/** Hard cap on browse `limit`. */
-export const KNOWLEDGE_BROWSE_MAX_LIMIT = 100;
-
-/** Minimum `q` length for symbol lookup. */
-export const KNOWLEDGE_SYMBOL_QUERY_MIN_LEN = 2;
-
-/** Cap on extractive summary text. */
-export const KNOWLEDGE_SUMMARY_MAX_CHARS = 4000;
 
 /**
  * Builds the shared browse envelope.
@@ -894,57 +904,6 @@ export async function loadKnowledgeBrowse(input) {
   }
 }
 
-// --- from knowledge/knowledge.routes.js ---
-/**
- * Knowledge browse HTTP routes under `/api/v1/projects/:projectId/knowledge`.
- */
-const listQuerySchema = z.object({
-  cursor: z.string().min(1).optional(),
-  limit: z.coerce.number().int().optional(),
-});
-
-const symbolsQuerySchema = listQuerySchema.extend({
-  q: z.string().min(KNOWLEDGE_SYMBOL_QUERY_MIN_LEN),
-});
-
-/**
- * Maps zod issues to VALIDATION_ERROR details.
- * @param {import('zod').ZodError} error Zod error.
- * @returns {{ path: string, message: string }[]}
- */
-function zodDetails(error) {
-  /** @type {{ path: string, message: string }[]} */
-  const details = [];
-  for (const issue of error.issues) {
-    details.push({
-      path: issue.path.join('.') || 'query',
-      message: issue.message,
-    });
-  }
-  return details;
-}
-
-const browsePreHandler = requireProjectPermission(['knowledge.browse', 'knowledge.view'], {
-  mode: 'any',
-});
-
-/**
- * Shared GET handler after ACL.
- * @param {import('fastify').FastifyRequest} request Request.
- * @param {'index' | 'summary' | 'workflows' | 'apis' | 'symbols' | 'health'} kind Browse kind.
- * @param {object} query Parsed query.
- * @returns {Promise<object>}
- */
-async function handleBrowse(request, kind, query) {
-  return loadKnowledgeBrowse({
-    orgId: request.projectScope.orgId,
-    projectId: request.projectScope.projectId,
-    kind,
-    workspaceRoot: request.server.config.workspace.root,
-    query,
-  });
-}
-
 /**
  * Registers knowledge browse routes under `/api/v1`.
  * @param {import('fastify').FastifyInstance} app Fastify app.
@@ -988,6 +947,40 @@ export async function knowledgeBrowseRoutes(app) {
       throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
     }
     return handleBrowse(request, 'index', parsed.data);
+  });
+}
+
+/**
+ * Maps zod issues to VALIDATION_ERROR details.
+ * @param {import('zod').ZodError} error Zod error.
+ * @returns {{ path: string, message: string }[]}
+ */
+function zodDetails(error) {
+  /** @type {{ path: string, message: string }[]} */
+  const details = [];
+  for (const issue of error.issues) {
+    details.push({
+      path: issue.path.join('.') || 'query',
+      message: issue.message,
+    });
+  }
+  return details;
+}
+
+/**
+ * Shared GET handler after ACL.
+ * @param {import('fastify').FastifyRequest} request Request.
+ * @param {'index' | 'summary' | 'workflows' | 'apis' | 'symbols' | 'health'} kind Browse kind.
+ * @param {object} query Parsed query.
+ * @returns {Promise<object>}
+ */
+async function handleBrowse(request, kind, query) {
+  return loadKnowledgeBrowse({
+    orgId: request.projectScope.orgId,
+    projectId: request.projectScope.projectId,
+    kind,
+    workspaceRoot: request.server.config.workspace.root,
+    query,
   });
 }
 

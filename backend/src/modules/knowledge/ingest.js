@@ -38,6 +38,51 @@ import mongoose from 'mongoose';
 export { SOURCE_FILE_STATE_CORRUPT, SOURCE_FILE_STATE_MISSING, SOURCE_FILE_STATE_STORED, findSourceGridFsFileById, listSourceGridFsFilesForVersion };
 
 /**
+ * Builds the expected GridFS filename for a SourceFile path (tests / diagnostics).
+ * @param {{
+ *   orgId: string,
+ *   projectId: string,
+ *   sourceVersionId: string,
+ *   path: string,
+ * }} input Scope + path.
+ * @returns {string}
+ */
+// --- from ingest/ingest.context.js ---
+/**
+ * IngestStageContext — single argument every ingest stage receives.
+ */
+// --- from ingest/ingest.stages.js ---
+/**
+ * Ordered ingest stage list, resume resolution, and S0–S6 runners.
+ */
+/**
+ * @typedef {{
+ *   name: string,
+ *   run: (ctx: object) => Promise<{
+ *     outcome: 'completed' | 'completed_with_warnings',
+ *     cursor?: unknown,
+ *     warnings?: object[],
+ *   }>,
+ * }} IngestStageDefinition
+ */
+/** Full S0–S6 pipeline. */
+export const INGEST_STAGES = Object.freeze([
+  Object.freeze({ name: 'validate_upload', run: runValidateUploadStage }),
+  Object.freeze({ name: 'store_files', run: runStoreFilesStage }),
+  Object.freeze({ name: 'exclude_apply', run: runExcludeApplyStage }),
+  Object.freeze({ name: 'materialize_docs', run: runMaterializeDocsStage }),
+  Object.freeze({ name: 'codegraph_update', run: runCodegraphUpdateWithRecovery }),
+  Object.freeze({ name: 'knowledge_publish', run: runKnowledgePublishStage }),
+  Object.freeze({ name: 'finalize', run: runFinalizeStage }),
+]);
+// --- from ingest/ingest.handler.js ---
+/**
+ * Ingest job handler — stage runner over S0–S6 with checkpoint resume.
+ */
+/** Per-stage wall-clock budget before aborting as temporary. */
+export const INGEST_STAGE_TIMEOUT_MS = 900_000;
+
+/**
  * Loads an active SourceVersion scoped to the job's org and project.
  * @param {{
  *   orgId: string | import('mongoose').Types.ObjectId,
@@ -207,20 +252,6 @@ export async function markOrphanGridFsObjects(input) {
 }
 
 /**
- * Builds the expected GridFS filename for a SourceFile path (tests / diagnostics).
- * @param {{
- *   orgId: string,
- *   projectId: string,
- *   sourceVersionId: string,
- *   path: string,
- * }} input Scope + path.
- * @returns {string}
- */
-// --- from ingest/ingest.context.js ---
-/**
- * IngestStageContext — single argument every ingest stage receives.
- */
-/**
  * Builds the stage context from a claimed worker context and SourceVersion.
  * Scope is taken from the job row only — never re-derived from user input.
  * @param {{
@@ -351,32 +382,6 @@ export function buildIngestStageContext(input) {
   };
 }
 
-// --- from ingest/ingest.stages.js ---
-/**
- * Ordered ingest stage list, resume resolution, and S0–S6 runners.
- */
-/**
- * @typedef {{
- *   name: string,
- *   run: (ctx: object) => Promise<{
- *     outcome: 'completed' | 'completed_with_warnings',
- *     cursor?: unknown,
- *     warnings?: object[],
- *   }>,
- * }} IngestStageDefinition
- */
-
-/** Full S0–S6 pipeline. */
-export const INGEST_STAGES = Object.freeze([
-  Object.freeze({ name: 'validate_upload', run: runValidateUploadStage }),
-  Object.freeze({ name: 'store_files', run: runStoreFilesStage }),
-  Object.freeze({ name: 'exclude_apply', run: runExcludeApplyStage }),
-  Object.freeze({ name: 'materialize_docs', run: runMaterializeDocsStage }),
-  Object.freeze({ name: 'codegraph_update', run: runCodegraphUpdateWithRecovery }),
-  Object.freeze({ name: 'knowledge_publish', run: runKnowledgePublishStage }),
-  Object.freeze({ name: 'finalize', run: runFinalizeStage }),
-]);
-
 /**
  * Resolves which stages remain after the last completed checkpoint.
  * @param {string | null | undefined} lastCompletedStage Checkpoint stage id.
@@ -398,13 +403,6 @@ export function resolveStagesAfter(lastCompletedStage, stages = INGEST_STAGES) {
   }
   return stages.slice(index + 1);
 }
-
-// --- from ingest/ingest.handler.js ---
-/**
- * Ingest job handler — stage runner over S0–S6 with checkpoint resume.
- */
-/** Per-stage wall-clock budget before aborting as temporary. */
-export const INGEST_STAGE_TIMEOUT_MS = 900_000;
 
 /**
  * Enters processing or updating at job start so S6 publish is a legal transition.
@@ -540,51 +538,6 @@ export async function markProjectKnowledgeFailed(input) {
 }
 
 /**
- * Runs one stage with a wall-clock timeout and cancel/abort awareness.
- * @param {{
- *   stage: { name: string, run: (ctx: object) => Promise<object> },
- *   context: object,
- *   timeoutMs?: number,
- * }} input Stage run inputs.
- * @returns {Promise<object>}
- */
-async function runStageWithTimeout(input) {
-  const timeoutMs = input.timeoutMs ?? INGEST_STAGE_TIMEOUT_MS;
-  const { stage, context } = input;
-
-  if (context.signal?.aborted || (await context.isCancelRequested())) {
-    throw createJobFailureError({
-      failureClass: 'temporary',
-      code: 'INGEST_ABORTED',
-      message: 'Ingest was cancelled or the worker lost its lease.',
-    });
-  }
-
-  let timeoutId;
-  try {
-    const result = await Promise.race([
-      stage.run(context),
-      new Promise((_, reject) => {
-        timeoutId = setTimeout(() => {
-          reject(
-            createJobFailureError({
-              failureClass: 'temporary',
-              code: 'INGEST_STAGE_TIMEOUT',
-              message: 'An ingest stage exceeded its time budget.',
-            }),
-          );
-        }, timeoutMs);
-      }),
-    ]);
-    return result;
-  } finally {
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-    }
-  }
-}
-
-/**
  * Executes the ingest pipeline for a claimed job.
  * @param {object} workerContext Handler context from the worker runtime.
  * @returns {Promise<{ result: 'completed' | 'completed_with_warnings', summary: object }>}
@@ -682,6 +635,51 @@ export async function runIngestJob(workerContext) {
       });
     }
     throw err;
+  }
+
+  /**
+   * Runs one stage with a wall-clock timeout and cancel/abort awareness.
+   * @param {{
+   *   stage: { name: string, run: (ctx: object) => Promise<object> },
+   *   context: object,
+   *   timeoutMs?: number,
+   * }} input Stage run inputs.
+   * @returns {Promise<object>}
+   */
+  async function runStageWithTimeout(input) {
+    const timeoutMs = input.timeoutMs ?? INGEST_STAGE_TIMEOUT_MS;
+    const { stage, context } = input;
+
+    if (context.signal?.aborted || (await context.isCancelRequested())) {
+      throw createJobFailureError({
+        failureClass: 'temporary',
+        code: 'INGEST_ABORTED',
+        message: 'Ingest was cancelled or the worker lost its lease.',
+      });
+    }
+
+    let timeoutId;
+    try {
+      const result = await Promise.race([
+        stage.run(context),
+        new Promise((_, reject) => {
+          timeoutId = setTimeout(() => {
+            reject(
+              createJobFailureError({
+                failureClass: 'temporary',
+                code: 'INGEST_STAGE_TIMEOUT',
+                message: 'An ingest stage exceeded its time budget.',
+              }),
+            );
+          }, timeoutMs);
+        }),
+      ]);
+      return result;
+    } finally {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    }
   }
 }
 

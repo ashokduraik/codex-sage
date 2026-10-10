@@ -67,6 +67,7 @@ export const CONVERSATION_TRUNCATED_TITLE_MAX_CHARS = 60;
 /**
  * Conversation and message repository — org + project + owner scoped.
  */
+
 /**
  * Builds the tenant + owner filter used by every conversation read.
  * `conversations.view` does not expand this set.
@@ -114,55 +115,6 @@ export function clampMessagesListLimit(limit) {
  */
 export function clampConversationSearchLimit(limit) {
   return clampLimit(limit, CONVERSATION_SEARCH_DEFAULT_LIMIT, CONVERSATION_SEARCH_MAX_LIMIT);
-}
-
-/**
- * Clamps a requested page size into a range.
- * @param {unknown} limit Raw limit.
- * @param {number} defaultLimit Default when missing or invalid.
- * @param {number} maxLimit Upper bound.
- * @returns {number}
- */
-function clampLimit(limit, defaultLimit, maxLimit) {
-  if (limit === undefined || limit === null || limit === '') {
-    return defaultLimit;
-  }
-  const parsed = typeof limit === 'number' ? limit : Number(limit);
-  if (!Number.isFinite(parsed) || parsed < 1) {
-    return defaultLimit;
-  }
-  return Math.min(Math.floor(parsed), maxLimit);
-}
-
-/**
- * Builds a descending keyset filter on a timestamp field plus `_id`.
- * @param {{ t: string, i: string }} cursor Decoded cursor.
- * @param {string} stampField Timestamp field name.
- * @returns {object}
- */
-function keysetAfterDescending(cursor, stampField) {
-  const stamp = new Date(cursor.t);
-  if (Number.isNaN(stamp.getTime()) || !mongoose.isValidObjectId(cursor.i)) {
-    throw ApiError.fromCode('INVALID_CURSOR');
-  }
-  const id = new mongoose.Types.ObjectId(cursor.i);
-  return {
-    $or: [{ [stampField]: { $lt: stamp } }, { [stampField]: stamp, _id: { $lt: id } }],
-  };
-}
-
-/**
- * Encodes the next-page cursor from a row timestamp.
- * @param {object} row Document with timestamp and `_id`.
- * @param {string} stampField Timestamp field name.
- * @returns {string}
- */
-function encodeRowCursor(row, stampField) {
-  const stamp = row[stampField];
-  return encodeCursor({
-    t: stamp instanceof Date ? stamp.toISOString() : String(stamp),
-    i: String(row._id),
-  });
 }
 
 /**
@@ -580,4 +532,53 @@ export async function searchOwnConversations(input) {
   const items = hasMore ? rows.slice(0, limit) : rows;
   const nextCursor = hasMore && items.length > 0 ? encodeRowCursor(items[items.length - 1], 'updatedAt') : null;
   return { items, nextCursor };
+}
+
+/**
+ * Clamps a requested page size into a range.
+ * @param {unknown} limit Raw limit.
+ * @param {number} defaultLimit Default when missing or invalid.
+ * @param {number} maxLimit Upper bound.
+ * @returns {number}
+ */
+function clampLimit(limit, defaultLimit, maxLimit) {
+  if (limit === undefined || limit === null || limit === '') {
+    return defaultLimit;
+  }
+  const parsed = typeof limit === 'number' ? limit : Number(limit);
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    return defaultLimit;
+  }
+  return Math.min(Math.floor(parsed), maxLimit);
+}
+
+/**
+ * Builds a descending keyset filter on a timestamp field plus `_id`.
+ * @param {{ t: string, i: string }} cursor Decoded cursor.
+ * @param {string} stampField Timestamp field name.
+ * @returns {object}
+ */
+function keysetAfterDescending(cursor, stampField) {
+  const stamp = new Date(cursor.t);
+  if (Number.isNaN(stamp.getTime()) || !mongoose.isValidObjectId(cursor.i)) {
+    throw ApiError.fromCode('INVALID_CURSOR');
+  }
+  const id = new mongoose.Types.ObjectId(cursor.i);
+  return {
+    $or: [{ [stampField]: { $lt: stamp } }, { [stampField]: stamp, _id: { $lt: id } }],
+  };
+}
+
+/**
+ * Encodes the next-page cursor from a row timestamp.
+ * @param {object} row Document with timestamp and `_id`.
+ * @param {string} stampField Timestamp field name.
+ * @returns {string}
+ */
+function encodeRowCursor(row, stampField) {
+  const stamp = row[stampField];
+  return encodeCursor({
+    t: stamp instanceof Date ? stamp.toISOString() : String(stamp),
+    i: String(row._id),
+  });
 }

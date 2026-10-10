@@ -58,6 +58,39 @@ const MAX_REDIRECTS = 5;
  * }} OutboundDownloadResponse
  */
 
+// --- from repositories/sync/archiveSyncAdapter.js ---
+/**
+ * Provider API archive adapter — resolve HEAD SHA, then download zip bytes.
+ */
+/**
+ * @typedef {{
+ *   provider: 'github' | 'gitlab',
+ *   baseUrl: string | null,
+ *   fullName: string,
+ *   branch: string,
+ *   token?: string | null,
+ *   signal?: AbortSignal,
+ *   outboundGet?: typeof outboundGet,
+ *   outboundDownload?: typeof outboundDownload,
+ * }} RemoteFetchInput
+ */
+// --- from repositories/sync/repoSync.scheduler.js ---
+/**
+ * Worker-only scan that enqueues due `repo_sync` jobs.
+ */
+// --- from repositories/sync/repoSync.service.js ---
+/**
+ * Repository sync orchestration: enqueue, persist archive, and connection updates.
+ */
+/**
+ * @param {object} job Job document.
+ * @returns {{ id: string, jobType: string, jobStatus: string, scheduledAt: string }}
+ */
+// --- from repositories/sync/repoSync.handler.js ---
+/**
+ * Worker handler for `repo_sync` — fetch HEAD, persist on new SHA, enqueue ingest.
+ */
+
 /**
  * Downloads a binary body with host guards and an archive size cap.
  * GitHub zipball may redirect to `codeload.github.com`; auth headers are dropped
@@ -188,23 +221,6 @@ export function isAllowedArchiveRedirect(startHost, currentHost, nextHost) {
   return startHost === 'api.github.com' && GITHUB_ARCHIVE_REDIRECT_HOSTS.includes(nextHost);
 }
 
-// --- from repositories/sync/archiveSyncAdapter.js ---
-/**
- * Provider API archive adapter — resolve HEAD SHA, then download zip bytes.
- */
-/**
- * @typedef {{
- *   provider: 'github' | 'gitlab',
- *   baseUrl: string | null,
- *   fullName: string,
- *   branch: string,
- *   token?: string | null,
- *   signal?: AbortSignal,
- *   outboundGet?: typeof outboundGet,
- *   outboundDownload?: typeof outboundDownload,
- * }} RemoteFetchInput
- */
-
 /**
  * Resolves the current commit SHA for the selected branch.
  * @param {RemoteFetchInput} input Fetch inputs.
@@ -334,35 +350,6 @@ export function splitGithubFullName(fullName) {
 }
 
 /**
- * @param {unknown} err Thrown value.
- * @returns {boolean}
- */
-function isMappedSyncError(err) {
-  return Boolean(err && typeof err === 'object' && 'failureClass' in err && 'probeStatus' in err && 'code' in err);
-}
-
-/**
- * @param {{ probeStatus: string, reason: { code: string, message: string } }} mapped
- *   Probe mapping.
- * @param {string | null | undefined} token Token presence for class.
- * @returns {never}
- */
-function throwMapped(mapped, token) {
-  const temporaryCodes = new Set(['network_unreachable', 'provider_unavailable', 'provider_rate_limited']);
-  const failureClass = temporaryCodes.has(mapped.reason.code) ? 'temporary' : 'user_action_required';
-  void token;
-  throw Object.assign(new Error(mapped.reason.message), {
-    failureClass,
-    code: mapped.reason.code,
-    probeStatus: mapped.probeStatus,
-  });
-}
-
-// --- from repositories/sync/repoSync.scheduler.js ---
-/**
- * Worker-only scan that enqueues due `repo_sync` jobs.
- */
-/**
  * Enqueues `repo_sync` for each due active connection that is not overlapping.
  * @param {{
  *   log?: { error?: Function, info?: Function },
@@ -424,10 +411,6 @@ export async function enqueueDueRepositorySyncs(input = {}) {
   return { enqueued, skipped };
 }
 
-// --- from repositories/sync/repoSync.service.js ---
-/**
- * Repository sync orchestration: enqueue, persist archive, and connection updates.
- */
 /**
  * Builds a rewriter that drops a shared first path segment when every entry
  * lives under that folder (e.g. `repo-sha/src/a.js` → `src/a.js`).
@@ -760,15 +743,6 @@ export async function deferRepoSyncJob(input) {
 }
 
 /**
- * @param {object} job Job document.
- * @returns {{ id: string, jobType: string, jobStatus: string, scheduledAt: string }}
- */
-
-// --- from repositories/sync/repoSync.handler.js ---
-/**
- * Worker handler for `repo_sync` — fetch HEAD, persist on new SHA, enqueue ingest.
- */
-/**
  * Runs one claimed `repo_sync` job.
  * @param {object} workerContext Worker-provided context.
  * @returns {Promise<{ result: 'completed' | 'deferred', summary?: object }>}
@@ -907,6 +881,31 @@ export async function runRepoSyncJob(workerContext) {
     });
     throw err;
   }
+}
+
+/**
+ * @param {unknown} err Thrown value.
+ * @returns {boolean}
+ */
+function isMappedSyncError(err) {
+  return Boolean(err && typeof err === 'object' && 'failureClass' in err && 'probeStatus' in err && 'code' in err);
+}
+
+/**
+ * @param {{ probeStatus: string, reason: { code: string, message: string } }} mapped
+ *   Probe mapping.
+ * @param {string | null | undefined} token Token presence for class.
+ * @returns {never}
+ */
+function throwMapped(mapped, token) {
+  const temporaryCodes = new Set(['network_unreachable', 'provider_unavailable', 'provider_rate_limited']);
+  const failureClass = temporaryCodes.has(mapped.reason.code) ? 'temporary' : 'user_action_required';
+  void token;
+  throw Object.assign(new Error(mapped.reason.message), {
+    failureClass,
+    code: mapped.reason.code,
+    probeStatus: mapped.probeStatus,
+  });
 }
 
 /**

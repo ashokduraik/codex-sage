@@ -103,39 +103,6 @@ export function canSendJsonError(reply) {
 }
 
 /**
- * Resolves a thrown value to a catalog code and whether the code was unknown.
- * @param {unknown} error Thrown value.
- * @returns {{ code: string, unknownCode: boolean }}
- */
-function resolveErrorCode(error) {
-  if (error instanceof ApiError) {
-    if (isKnownErrorCode(error.code)) {
-      return { code: error.code, unknownCode: false };
-    }
-    return { code: 'INTERNAL_ERROR', unknownCode: true };
-  }
-
-  // Missing/invalid double-submit → treat as expired session (re-login), not validation.
-  const thrownCode = typeof error === 'object' && error !== null ? /** @type {{ code?: unknown }} */ (error).code : undefined;
-  if (thrownCode === 'FST_CSRF_MISSING_SECRET' || thrownCode === 'FST_CSRF_INVALID_TOKEN') {
-    return { code: 'SESSION_EXPIRED', unknownCode: false };
-  }
-
-  const statusFromError =
-    typeof error === 'object' && error !== null && typeof (/** @type {{ statusCode?: unknown }} */ (error).statusCode) === 'number'
-      ? /** @type {{ statusCode: number }} */ (error).statusCode
-      : undefined;
-
-  if (statusFromError === 404) {
-    return { code: 'NOT_FOUND', unknownCode: false };
-  }
-  if (statusFromError !== undefined && statusFromError >= 400 && statusFromError < 500) {
-    return { code: 'VALIDATION_ERROR', unknownCode: false };
-  }
-  return { code: 'INTERNAL_ERROR', unknownCode: false };
-}
-
-/**
  * Maps a thrown value to a catalog-backed client error body.
  *
  * @param {unknown} error Thrown value.
@@ -182,6 +149,39 @@ export function buildErrorEnvelope(error, reference) {
     unknownCode,
     isServerError: statusCode >= 500,
   };
+
+  /**
+   * Resolves a thrown value to a catalog code and whether the code was unknown.
+   * @param {unknown} error Thrown value.
+   * @returns {{ code: string, unknownCode: boolean }}
+   */
+  function resolveErrorCode(error) {
+    if (error instanceof ApiError) {
+      if (isKnownErrorCode(error.code)) {
+        return { code: error.code, unknownCode: false };
+      }
+      return { code: 'INTERNAL_ERROR', unknownCode: true };
+    }
+
+    // Missing/invalid double-submit → treat as expired session (re-login), not validation.
+    const thrownCode = typeof error === 'object' && error !== null ? /** @type {{ code?: unknown }} */ (error).code : undefined;
+    if (thrownCode === 'FST_CSRF_MISSING_SECRET' || thrownCode === 'FST_CSRF_INVALID_TOKEN') {
+      return { code: 'SESSION_EXPIRED', unknownCode: false };
+    }
+
+    const statusFromError =
+      typeof error === 'object' && error !== null && typeof (/** @type {{ statusCode?: unknown }} */ (error).statusCode) === 'number'
+        ? /** @type {{ statusCode: number }} */ (error).statusCode
+        : undefined;
+
+    if (statusFromError === 404) {
+      return { code: 'NOT_FOUND', unknownCode: false };
+    }
+    if (statusFromError !== undefined && statusFromError >= 400 && statusFromError < 500) {
+      return { code: 'VALIDATION_ERROR', unknownCode: false };
+    }
+    return { code: 'INTERNAL_ERROR', unknownCode: false };
+  }
 }
 
 /**

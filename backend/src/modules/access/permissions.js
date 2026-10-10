@@ -204,6 +204,49 @@ export const ALL_PERMISSION_KEYS = Object.freeze(PERMISSION_GROUPS.flatMap((grou
 /** Set for O(1) membership checks. */
 export const PERMISSION_KEY_SET = Object.freeze(new Set(ALL_PERMISSION_KEYS));
 
+// --- from authorization/roleCache.js ---
+/**
+ * In-process TTL cache for role id → permission array.
+ * Cross-process edits converge within RBAC_ROLE_CACHE_TTL_SECONDS.
+ */
+/** Worst-case staleness after a role edit on another API process (seconds). */
+export const RBAC_ROLE_CACHE_TTL_SECONDS = 30;
+/** Upper bound on cached role entries. */
+export const RBAC_ROLE_CACHE_MAX_ENTRIES = 500;
+/**
+ * @typedef {object} RoleCacheEntry
+ * @property {ReadonlyArray<string>} permissions
+ * @property {number} expiresAtMs
+ */
+/** Process-wide default cache used by the permission resolver. */
+export const roleCache = createRoleCache();
+// --- from authorization/permissionResolver.js ---
+/**
+ * Resolves role ids to an effective permission set for one organization.
+ */
+// --- from authorization/routeDeclarationAudit.js ---
+/**
+ * Boot-time route declaration audit and public allowlist.
+ * Every registered route must declare routeAccess or requiredPermissions.
+ */
+/** Paths that need no authentication (relative to their mount prefix). */
+export const PUBLIC_ROUTE_PATHS = Object.freeze(['/health', '/readiness', '/auth/login', '/auth/refresh', '/auth/logout']);
+/**
+ * @typedef {object} RouteAccessConfig
+ * @property {'public' | 'authenticated'} [routeAccess]
+ * @property {string[]} [requiredPermissions]
+ * @property {'all' | 'any'} [permissionMode]
+ * @property {unknown} [file] Set by `@fastify/static` for served asset routes.
+ */
+// --- from authorization/authorize.preHandler.js ---
+/**
+ * Global authorization preHandler: classify route → authenticate → permission check.
+ */
+// --- from authorization/permissions.routes.js ---
+/**
+ * Permission catalog HTTP routes.
+ */
+
 /**
  * Returns whether `key` is a known catalog permission.
  * @param {string} key Candidate permission key.
@@ -254,24 +297,6 @@ export async function assertRolePermissionsInCatalog() {
     throw new Error(`Role permission catalog drift: unknown keys ${unknown.slice(0, 20).join(', ')}`);
   }
 }
-
-// --- from authorization/roleCache.js ---
-/**
- * In-process TTL cache for role id → permission array.
- * Cross-process edits converge within RBAC_ROLE_CACHE_TTL_SECONDS.
- */
-
-/** Worst-case staleness after a role edit on another API process (seconds). */
-export const RBAC_ROLE_CACHE_TTL_SECONDS = 30;
-
-/** Upper bound on cached role entries. */
-export const RBAC_ROLE_CACHE_MAX_ENTRIES = 500;
-
-/**
- * @typedef {object} RoleCacheEntry
- * @property {ReadonlyArray<string>} permissions
- * @property {number} expiresAtMs
- */
 
 /**
  * Creates a role-permission cache.
@@ -409,9 +434,6 @@ export function createRoleCache(options = {}) {
   };
 }
 
-/** Process-wide default cache used by the permission resolver. */
-export const roleCache = createRoleCache();
-
 /**
  * Invalidates one cached role (Phase 11 calls after role writes).
  * @param {string} orgId Tenant id.
@@ -429,10 +451,6 @@ export function invalidateOrganization(orgId) {
   roleCache.invalidateOrganization(orgId);
 }
 
-// --- from authorization/permissionResolver.js ---
-/**
- * Resolves role ids to an effective permission set for one organization.
- */
 /**
  * Resolves effective permissions for role ids scoped to an organization.
  * Role ids that do not match an active role in the org contribute nothing.
@@ -504,23 +522,6 @@ export function hasRequiredPermissions(effective, required, mode = 'all') {
   return required.every((key) => set.has(key));
 }
 
-// --- from authorization/routeDeclarationAudit.js ---
-/**
- * Boot-time route declaration audit and public allowlist.
- * Every registered route must declare routeAccess or requiredPermissions.
- */
-
-/** Paths that need no authentication (relative to their mount prefix). */
-export const PUBLIC_ROUTE_PATHS = Object.freeze(['/health', '/readiness', '/auth/login', '/auth/refresh', '/auth/logout']);
-
-/**
- * @typedef {object} RouteAccessConfig
- * @property {'public' | 'authenticated'} [routeAccess]
- * @property {string[]} [requiredPermissions]
- * @property {'all' | 'any'} [permissionMode]
- * @property {unknown} [file] Set by `@fastify/static` for served asset routes.
- */
-
 /**
  * Normalizes a Fastify route path for allowlist comparison.
  * @param {string} path Route path (may include prefix).
@@ -573,30 +574,6 @@ export function classifyRouteAccess(config, normalizedPath) {
 }
 
 /**
- * Audits one route entry.
- * @param {{ method: string | string[], url: string, config?: RouteAccessConfig }} entry Route.
- * @param {Array<{ method: string, url: string, reason: string }>} failures Failure sink.
- */
-function auditOneRoute(entry, failures) {
-  const methods = Array.isArray(entry.method) ? entry.method : [entry.method];
-  const normalized = normalizeRoutePath(entry.url);
-  for (const method of methods) {
-    const upper = String(method).toUpperCase();
-    if (upper === 'HEAD' || upper === 'OPTIONS') {
-      continue;
-    }
-    const classification = classifyRouteAccess(entry.config, normalized);
-    if (classification === 'undeclared') {
-      failures.push({
-        method: upper,
-        url: entry.url,
-        reason: 'missing routeAccess or requiredPermissions',
-      });
-    }
-  }
-}
-
-/**
  * Asserts every collected route declares an access class.
  * @param {import('fastify').FastifyInstance} app Fastify instance after routes are registered.
  * @throws {Error} When any route is undeclared or has conflicting config.
@@ -617,6 +594,30 @@ export function assertAllRoutesDeclareAccess(app) {
     const detail = failures.map((item) => `${item.method} ${item.url}: ${item.reason}`).join('; ');
     throw new Error(`Route declaration audit failed: ${detail}`);
   }
+
+  /**
+   * Audits one route entry.
+   * @param {{ method: string | string[], url: string, config?: RouteAccessConfig }} entry Route.
+   * @param {Array<{ method: string, url: string, reason: string }>} failures Failure sink.
+   */
+  function auditOneRoute(entry, failures) {
+    const methods = Array.isArray(entry.method) ? entry.method : [entry.method];
+    const normalized = normalizeRoutePath(entry.url);
+    for (const method of methods) {
+      const upper = String(method).toUpperCase();
+      if (upper === 'HEAD' || upper === 'OPTIONS') {
+        continue;
+      }
+      const classification = classifyRouteAccess(entry.config, normalized);
+      if (classification === 'undeclared') {
+        failures.push({
+          method: upper,
+          url: entry.url,
+          reason: 'missing routeAccess or requiredPermissions',
+        });
+      }
+    }
+  }
 }
 
 /**
@@ -636,10 +637,6 @@ export function installRouteDeclarationCollector(app) {
   });
 }
 
-// --- from authorization/authorize.preHandler.js ---
-/**
- * Global authorization preHandler: classify route → authenticate → permission check.
- */
 /**
  * Builds the app-level authorize preHandler bound to authenticate.
  * @param {(request: import('fastify').FastifyRequest, reply: import('fastify').FastifyReply) => Promise<void>} authenticate AuthN preHandler.
@@ -722,10 +719,6 @@ export function createAuthorizePreHandler(authenticate) {
   };
 }
 
-// --- from authorization/permissions.routes.js ---
-/**
- * Permission catalog HTTP routes.
- */
 /**
  * Registers `GET /permissions`.
  * @param {import('fastify').FastifyInstance} app Fastify app.

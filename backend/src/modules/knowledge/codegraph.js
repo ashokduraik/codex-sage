@@ -366,41 +366,6 @@ export function inspectQuerySurface(graph) {
 }
 
 /**
- * Loads the CodeGraph library after forcing telemetry off.
- * @returns {Promise<{
- *   CodeGraph: {
- *     init: (root: string, options?: object) => Promise<object>,
- *     open: (root: string, options?: object) => Promise<object>,
- *     isInitialized: (root: string) => boolean,
- *     recreate: (root: string) => Promise<object>,
- *   },
- *   getDatabasePath: (root: string) => string,
- * }>}
- */
-async function defaultLoadLibrary() {
-  configureCodegraphTelemetryOff();
-  const mod = await import('@colbymchenry/codegraph');
-  const namespace = mod.default && typeof mod.default === 'object' ? mod.default : mod;
-  const CodeGraph =
-    typeof namespace.CodeGraph === 'function'
-      ? namespace.CodeGraph
-      : typeof namespace.init === 'function'
-        ? namespace
-        : typeof mod.CodeGraph === 'function'
-          ? mod.CodeGraph
-          : null;
-  if (!CodeGraph) {
-    throw Object.assign(new Error('CodeGraph export missing from package.'), {
-      code: 'CODEGRAPH_LIBRARY_UNAVAILABLE',
-    });
-  }
-  return {
-    CodeGraph,
-    getDatabasePath: namespace.getDatabasePath ?? mod.getDatabasePath,
-  };
-}
-
-/**
  * True when the npm package can be imported in this environment.
  * @returns {Promise<boolean>}
  */
@@ -951,4 +916,39 @@ export function createCodegraphAdapter(config = {}) {
       };
     },
   };
+
+  /**
+   * Loads the CodeGraph library after forcing telemetry off.
+   * @returns {Promise<{
+   *   CodeGraph: {
+   *     init: (root: string, options?: object) => Promise<object>,
+   *     open: (root: string, options?: object) => Promise<object>,
+   *     isInitialized: (root: string) => boolean,
+   *     recreate: (root: string) => Promise<object>,
+   *   },
+   *   getDatabasePath: (root: string) => string,
+   * }>}
+   */
+  async function defaultLoadLibrary() {
+    configureCodegraphTelemetryOff();
+    const mod = await import('@colbymchenry/codegraph');
+    const namespace = mod.default && typeof mod.default === 'object' ? mod.default : mod;
+    const CodeGraph =
+      typeof namespace.CodeGraph === 'function'
+        ? namespace.CodeGraph
+        : typeof namespace.init === 'function'
+          ? namespace
+          : typeof mod.CodeGraph === 'function'
+            ? mod.CodeGraph
+            : null;
+    if (!CodeGraph) {
+      throw Object.assign(new Error('CodeGraph export missing from package.'), {
+        code: 'CODEGRAPH_LIBRARY_UNAVAILABLE',
+      });
+    }
+    return {
+      CodeGraph,
+      getDatabasePath: namespace.getDatabasePath ?? mod.getDatabasePath,
+    };
+  }
 }

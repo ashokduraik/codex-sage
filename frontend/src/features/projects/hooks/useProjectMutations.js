@@ -13,23 +13,6 @@ import {
 } from '@/features/projects/api/projectsApi.js';
 
 /**
- * Invalidates project list caches.
- * @param {import('@tanstack/react-query').QueryClient} queryClient Query client.
- */
-function invalidateProjectLists(queryClient) {
-  return queryClient.invalidateQueries({ queryKey: PROJECTS_LIST_QUERY_ROOT });
-}
-
-/**
- * Invalidates one project detail cache.
- * @param {import('@tanstack/react-query').QueryClient} queryClient Query client.
- * @param {string} projectId Project id.
- */
-function invalidateProjectDetail(queryClient, projectId) {
-  return queryClient.invalidateQueries({ queryKey: projectDetailQueryKey(projectId) });
-}
-
-/**
  * Create-project mutation.
  * @returns Create mutation.
  */
@@ -47,40 +30,6 @@ export function useCreateProject() {
     mutationFn: (input) => createProject(input),
     onSuccess: () => invalidateProjectLists(queryClient),
   });
-}
-
-/**
- * Optimistically marks a project archived inside infinite list caches.
- * @param {import('@tanstack/react-query').QueryClient} queryClient Query client.
- * @param {string} projectId Project id.
- * @returns {Array<[unknown, unknown]>} Previous cache entries for rollback.
- */
-function optimisticallyArchiveInLists(queryClient, projectId) {
-  const previous = queryClient.getQueriesData({ queryKey: PROJECTS_LIST_QUERY_ROOT });
-  for (const [key, data] of previous) {
-    if (!data?.pages) {
-      continue;
-    }
-    const filters = Array.isArray(key) ? key[2] : null;
-    const includeArchived = Boolean(filters?.includeArchived);
-    queryClient.setQueryData(key, {
-      ...data,
-      pages: data.pages.map((page) => {
-        const items = Array.isArray(page.items) ? page.items : [];
-        if (includeArchived) {
-          return {
-            ...page,
-            items: items.map((project) => (String(project.id) === String(projectId) ? { ...project, lifecycleStatus: 'archived' } : project)),
-          };
-        }
-        return {
-          ...page,
-          items: items.filter((project) => String(project.id) !== String(projectId)),
-        };
-      }),
-    });
-  }
-  return previous;
 }
 
 /**
@@ -126,6 +75,40 @@ export function useArchiveProject() {
       queryClient.setQueryData(key, data);
     }
   }
+
+  /**
+   * Optimistically marks a project archived inside infinite list caches.
+   * @param {import('@tanstack/react-query').QueryClient} queryClient Query client.
+   * @param {string} projectId Project id.
+   * @returns {Array<[unknown, unknown]>} Previous cache entries for rollback.
+   */
+  function optimisticallyArchiveInLists(queryClient, projectId) {
+    const previous = queryClient.getQueriesData({ queryKey: PROJECTS_LIST_QUERY_ROOT });
+    for (const [key, data] of previous) {
+      if (!data?.pages) {
+        continue;
+      }
+      const filters = Array.isArray(key) ? key[2] : null;
+      const includeArchived = Boolean(filters?.includeArchived);
+      queryClient.setQueryData(key, {
+        ...data,
+        pages: data.pages.map((page) => {
+          const items = Array.isArray(page.items) ? page.items : [];
+          if (includeArchived) {
+            return {
+              ...page,
+              items: items.map((project) => (String(project.id) === String(projectId) ? { ...project, lifecycleStatus: 'archived' } : project)),
+            };
+          }
+          return {
+            ...page,
+            items: items.filter((project) => String(project.id) !== String(projectId)),
+          };
+        }),
+      });
+    }
+    return previous;
+  }
 }
 
 /**
@@ -159,4 +142,21 @@ export function useDeleteProject() {
       queryClient.invalidateQueries({ queryKey: PROJECTS_DETAIL_QUERY_ROOT });
     },
   });
+}
+
+/**
+ * Invalidates project list caches.
+ * @param {import('@tanstack/react-query').QueryClient} queryClient Query client.
+ */
+function invalidateProjectLists(queryClient) {
+  return queryClient.invalidateQueries({ queryKey: PROJECTS_LIST_QUERY_ROOT });
+}
+
+/**
+ * Invalidates one project detail cache.
+ * @param {import('@tanstack/react-query').QueryClient} queryClient Query client.
+ * @param {string} projectId Project id.
+ */
+function invalidateProjectDetail(queryClient, projectId) {
+  return queryClient.invalidateQueries({ queryKey: projectDetailQueryKey(projectId) });
 }

@@ -83,59 +83,6 @@ export function tokenPageUrl(identity) {
 }
 
 /**
- * Provider-specific token creation help. Scope text stays administrator-defined.
- * @param {{
- *   provider?: string,
- *   hostKind?: string,
- *   baseUrl?: string | null,
- * }} props Probe identity.
- * @returns {import('react').ReactElement}
- */
-function TokenHelp({ provider, hostKind, baseUrl }) {
-  const { t } = useTranslation();
-  const isGitLab = provider === 'gitlab';
-  const isSelfHosted = isGitLab && hostKind === 'gitlab_self_hosted';
-  const href = tokenPageUrl({ provider, hostKind, baseUrl });
-  return (
-    <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm">
-      <div className="font-medium text-foreground">
-        {isSelfHosted
-          ? t('sources.gitlabSelfHostedTokenHelpTitle')
-          : isGitLab
-            ? t('sources.gitlabTokenHelpTitle')
-            : t('sources.githubTokenHelpTitle')}
-      </div>
-      <ol className="mt-1.5 list-decimal space-y-1 pl-5 text-muted-foreground">
-        <li>{isSelfHosted ? t('sources.gitlabSelfHostedTokenHelp1') : isGitLab ? t('sources.gitlabTokenHelp1') : t('sources.githubTokenHelp1')}</li>
-        <li>{isGitLab ? t('sources.gitlabTokenHelp2') : t('sources.githubTokenHelp2')}</li>
-        <li>{isGitLab ? t('sources.gitlabTokenHelp3') : t('sources.githubTokenHelp3')}</li>
-        {!isGitLab ? <li>{t('sources.githubTokenHelp4')}</li> : null}
-      </ol>
-      <a href={href} target="_blank" rel="noreferrer" className="mt-2 inline-flex flex-wrap items-center gap-1 text-brand hover:underline">
-        {t('sources.openTokenPage')} <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-      </a>
-    </div>
-  );
-}
-
-/**
- * Error panel shared across dialog steps.
- * @param {{ text: string, reference?: string }} props Alert content.
- * @returns {import('react').ReactElement}
- */
-function StepAlert({ text, reference }) {
-  return (
-    <div role="alert" className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-2.5 text-sm text-destructive">
-      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-      <div>
-        <p>{text}</p>
-        {reference ? <p className="mt-1 text-xs text-muted-foreground">{reference}</p> : null}
-      </div>
-    </div>
-  );
-}
-
-/**
  * Multi-step dialog to probe and attach a GitHub/GitLab repository.
  * @param {{
  *   open: boolean,
@@ -441,6 +388,59 @@ export function ConnectRepositoryDialog({ open, onOpenChange, projectId, onConne
     }
     return null;
   }
+}
+
+/**
+ * Provider-specific token creation help. Scope text stays administrator-defined.
+ * @param {{
+ *   provider?: string,
+ *   hostKind?: string,
+ *   baseUrl?: string | null,
+ * }} props Probe identity.
+ * @returns {import('react').ReactElement}
+ */
+function TokenHelp({ provider, hostKind, baseUrl }) {
+  const { t } = useTranslation();
+  const isGitLab = provider === 'gitlab';
+  const isSelfHosted = isGitLab && hostKind === 'gitlab_self_hosted';
+  const href = tokenPageUrl({ provider, hostKind, baseUrl });
+  return (
+    <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm">
+      <div className="font-medium text-foreground">
+        {isSelfHosted
+          ? t('sources.gitlabSelfHostedTokenHelpTitle')
+          : isGitLab
+            ? t('sources.gitlabTokenHelpTitle')
+            : t('sources.githubTokenHelpTitle')}
+      </div>
+      <ol className="mt-1.5 list-decimal space-y-1 pl-5 text-muted-foreground">
+        <li>{isSelfHosted ? t('sources.gitlabSelfHostedTokenHelp1') : isGitLab ? t('sources.gitlabTokenHelp1') : t('sources.githubTokenHelp1')}</li>
+        <li>{isGitLab ? t('sources.gitlabTokenHelp2') : t('sources.githubTokenHelp2')}</li>
+        <li>{isGitLab ? t('sources.gitlabTokenHelp3') : t('sources.githubTokenHelp3')}</li>
+        {!isGitLab ? <li>{t('sources.githubTokenHelp4')}</li> : null}
+      </ol>
+      <a href={href} target="_blank" rel="noreferrer" className="mt-2 inline-flex flex-wrap items-center gap-1 text-brand hover:underline">
+        {t('sources.openTokenPage')} <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+      </a>
+    </div>
+  );
+}
+
+/**
+ * Error panel shared across dialog steps.
+ * @param {{ text: string, reference?: string }} props Alert content.
+ * @returns {import('react').ReactElement}
+ */
+function StepAlert({ text, reference }) {
+  return (
+    <div role="alert" className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-2.5 text-sm text-destructive">
+      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+      <div>
+        <p>{text}</p>
+        {reference ? <p className="mt-1 text-xs text-muted-foreground">{reference}</p> : null}
+      </div>
+    </div>
+  );
 }
 
 export default ConnectRepositoryDialog;

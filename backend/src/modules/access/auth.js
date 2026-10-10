@@ -577,45 +577,6 @@ async function loadRoleIds(orgId, userId) {
 }
 
 /**
- * Issues access + refresh tokens and persists the refresh session.
- * @param {object} deps
- * @param {(claims: object) => string} deps.signAccessToken
- * @param {import('mongoose').Document} deps.user
- * @param {string[]} deps.roleIds
- * @param {import('mongoose').ClientSession} [deps.session] Optional Mongo session.
- * @returns {Promise<AuthSuccessPayload>}
- */
-async function issueAuthSuccess({ signAccessToken, user, roleIds, session }) {
-  const refreshToken = mintRefreshToken();
-  const loginSession = await createLoginSession(
-    {
-      orgId: user.orgId,
-      userId: user._id,
-      refreshTokenHash: hashRefreshToken(refreshToken),
-    },
-    session ? { session } : {},
-  );
-  const tokenEntry = loginSession.tokens.find((entry) => !entry.rotatedAt);
-  if (!tokenEntry) {
-    throw new Error('Login session missing current refresh token');
-  }
-  const accessToken = signAccessToken({
-    sub: String(user._id),
-    org: String(user.orgId),
-    rls: roleIds,
-    sid: String(loginSession._id),
-    tid: String(tokenEntry._id),
-  });
-  return {
-    outcome: 'authenticated',
-    accessToken,
-    accessTokenExpiresInSeconds: JWT_ACCESS_TOKEN_TTL_SECONDS,
-    refreshToken,
-    user: toUserSummary(user, roleIds),
-  };
-}
-
-/**
  * Creates an auth service bound to a JWT signing secret.
  * @param {string} jwtSecret Access-token signing secret.
  */
@@ -772,6 +733,45 @@ export function createAuthService(jwtSecret) {
     verifyAccessToken,
     signAccessToken,
   };
+
+  /**
+   * Issues access + refresh tokens and persists the refresh session.
+   * @param {object} deps
+   * @param {(claims: object) => string} deps.signAccessToken
+   * @param {import('mongoose').Document} deps.user
+   * @param {string[]} deps.roleIds
+   * @param {import('mongoose').ClientSession} [deps.session] Optional Mongo session.
+   * @returns {Promise<AuthSuccessPayload>}
+   */
+  async function issueAuthSuccess({ signAccessToken, user, roleIds, session }) {
+    const refreshToken = mintRefreshToken();
+    const loginSession = await createLoginSession(
+      {
+        orgId: user.orgId,
+        userId: user._id,
+        refreshTokenHash: hashRefreshToken(refreshToken),
+      },
+      session ? { session } : {},
+    );
+    const tokenEntry = loginSession.tokens.find((entry) => !entry.rotatedAt);
+    if (!tokenEntry) {
+      throw new Error('Login session missing current refresh token');
+    }
+    const accessToken = signAccessToken({
+      sub: String(user._id),
+      org: String(user.orgId),
+      rls: roleIds,
+      sid: String(loginSession._id),
+      tid: String(tokenEntry._id),
+    });
+    return {
+      outcome: 'authenticated',
+      accessToken,
+      accessTokenExpiresInSeconds: JWT_ACCESS_TOKEN_TTL_SECONDS,
+      refreshToken,
+      user: toUserSummary(user, roleIds),
+    };
+  }
 }
 
 // --- from auth/auth.routes.js ---

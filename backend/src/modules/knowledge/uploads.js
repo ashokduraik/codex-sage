@@ -31,26 +31,12 @@ import { fromBufferPromise } from 'yauzl';
 /** Recorded on SourceVersion so S2 can replay the same rules. */
 export const EXCLUSION_RULESET_ID = 'exclusions.v1';
 
-/**
- * Ensures a recorded ruleset id is known to this process.
- * @param {string} rulesetId Value persisted on SourceVersion.
- * @returns {void}
- */
-export function assertKnownExclusionRulesetId(rulesetId) {
-  if (rulesetId !== EXCLUSION_RULESET_ID) {
-    throw ApiError.fromCode('SOURCE_UNKNOWN_EXCLUSION_RULESET');
-  }
-}
-
 /** Files larger than this are stored but excluded from the code graph (1 MiB). */
 export const GRAPH_FILE_MAX_BYTES = 1_048_576;
-
 /** Maximum accepted archive size before listing (500 MiB). */
 export const UPLOAD_MAX_ARCHIVE_BYTES = 524_288_000;
-
 /** Maximum number of zip entries to list before failing closed. */
 export const UPLOAD_MAX_ENTRY_COUNT = 100_000;
-
 /**
  * Runtime archive caps. Production reads the defaults; tests may override
  * and must restore. Exported constants stay the documented defaults.
@@ -59,25 +45,18 @@ export const uploadArchiveLimits = {
   maxArchiveBytes: UPLOAD_MAX_ARCHIVE_BYTES,
   maxEntryCount: UPLOAD_MAX_ENTRY_COUNT,
 };
-
 /** Directory prefixes skipped before GridFS (solution §4.2). */
 export const IGNORED_PATH_PREFIXES = Object.freeze(['node_modules/', '.git/', 'dist/', 'build/', 'coverage/']);
-
 /** Image extensions skipped entirely (not stored). */
 export const IGNORED_IMAGE_EXTENSIONS = Object.freeze(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.ico', '.bmp', '.svg']);
-
 /** Exact basenames always skipped. */
 export const IGNORED_BASENAMES = Object.freeze(['.DS_Store']);
-
 /** Suffixes for minified assets skipped as junk. */
 export const IGNORED_FILE_SUFFIXES = Object.freeze(['.min.js', '.min.css']);
-
 /** Code extensions accepted for storage and (when under size) graph indexing. */
 export const ACCEPTED_CODE_EXTENSIONS = Object.freeze(['.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs']);
-
 /** Documentation extensions accepted for storage / FTS. */
 export const ACCEPTED_DOC_EXTENSIONS = Object.freeze(['.md', '.mdx', '.txt']);
-
 /** Config extensions accepted for bounded reads (not assumed graph nodes). */
 export const ACCEPTED_CONFIG_EXTENSIONS = Object.freeze([
   '.json',
@@ -91,14 +70,44 @@ export const ACCEPTED_CONFIG_EXTENSIONS = Object.freeze([
   '.gitignore',
   '.npmrc',
 ]);
-
 /** Exact config basenames (may carry compound extensions). */
 export const ACCEPTED_CONFIG_BASENAMES = Object.freeze(['.prettierrc', '.eslintrc', '.eslintrc.js', '.eslintrc.cjs', '.eslintrc.json']);
-
 // --- from sources/exclusions/pathSafety.js ---
 /**
  * Path normalization and zip-slip / duplicate-path safety checks.
  */
+// --- from sources/exclusions/pathDecision.js ---
+/**
+ * Per-entry accept / skip / exclude-from-graph decisions for upload paths.
+ */
+// --- from sources/exclusions/zipInspect.js ---
+/**
+ * Zip metadata inspection: integrity, zip-slip, entry listing (no file bytes retained).
+ */
+// --- from sources/consumeSourceArchive.js ---
+/**
+ * Reads the multipart `archive` part before idempotency hashing.
+ */
+// --- from sources/upload.service.js ---
+/**
+ * Upload persistence: validate zip, store accepted bytes in GridFS, enqueue ingest.
+ */
+// --- from sources/upload.routes.js ---
+/**
+ * Source upload HTTP routes under `/api/v1`.
+ */
+
+/**
+ * Ensures a recorded ruleset id is known to this process.
+ * @param {string} rulesetId Value persisted on SourceVersion.
+ * @returns {void}
+ */
+export function assertKnownExclusionRulesetId(rulesetId) {
+  if (rulesetId !== EXCLUSION_RULESET_ID) {
+    throw ApiError.fromCode('SOURCE_UNKNOWN_EXCLUSION_RULESET');
+  }
+}
+
 /**
  * Normalizes an archive entry path: backslashes to `/`, strip leading `./`,
  * collapse duplicate slashes, and drop a trailing slash for file comparisons.
@@ -169,33 +178,6 @@ export function createDuplicatePathGuard() {
       seen.add(normalizedPath);
     },
   };
-}
-
-// --- from sources/exclusions/pathDecision.js ---
-/**
- * Per-entry accept / skip / exclude-from-graph decisions for upload paths.
- */
-/**
- * Returns the final path segment of a normalized path.
- * @param {string} normalizedPath
- * @returns {string}
- */
-function basenameOf(normalizedPath) {
-  const slash = normalizedPath.lastIndexOf('/');
-  return slash === -1 ? normalizedPath : normalizedPath.slice(slash + 1);
-}
-
-/**
- * Lowercased extension including the leading dot, or empty string.
- * @param {string} basename
- * @returns {string}
- */
-function extensionOf(basename) {
-  const dot = basename.lastIndexOf('.');
-  if (dot <= 0) {
-    return '';
-  }
-  return basename.slice(dot).toLowerCase();
 }
 
 /**
@@ -329,10 +311,6 @@ export function summarizeInspection(entries) {
   };
 }
 
-// --- from sources/exclusions/zipInspect.js ---
-/**
- * Zip metadata inspection: integrity, zip-slip, entry listing (no file bytes retained).
- */
 /**
  * Lists zip entry paths and uncompressed sizes without retaining file bytes.
  * Rejects zip-slip, duplicates, encryption, truncated archives, and size/count caps.
@@ -455,10 +433,6 @@ export async function inspectZip(input) {
   }
 }
 
-// --- from sources/consumeSourceArchive.js ---
-/**
- * Reads the multipart `archive` part before idempotency hashing.
- */
 /**
  * Consumes the zip archive part and sets request.body for idempotency hashing.
  * Opt-in via route `config.consumeSourceArchive: true`.
@@ -523,10 +497,6 @@ export async function consumeSourceArchivePreHandler(request) {
   }
 }
 
-// --- from sources/upload.service.js ---
-/**
- * Upload persistence: validate zip, store accepted bytes in GridFS, enqueue ingest.
- */
 /**
  * Classifies an accepted path as code, config, or doc.
  * @param {string} normalizedPath Relative archive path.
@@ -833,10 +803,6 @@ export async function persistSourceUpload(input) {
   }
 }
 
-// --- from sources/upload.routes.js ---
-/**
- * Source upload HTTP routes under `/api/v1`.
- */
 /**
  * Registers source upload routes under `/api/v1`.
  * @param {import('fastify').FastifyInstance} app Fastify app.
@@ -870,4 +836,27 @@ export async function sourceUploadRoutes(app) {
       return reply.code(202).send(result);
     },
   );
+}
+
+/**
+ * Returns the final path segment of a normalized path.
+ * @param {string} normalizedPath
+ * @returns {string}
+ */
+function basenameOf(normalizedPath) {
+  const slash = normalizedPath.lastIndexOf('/');
+  return slash === -1 ? normalizedPath : normalizedPath.slice(slash + 1);
+}
+
+/**
+ * Lowercased extension including the leading dot, or empty string.
+ * @param {string} basename
+ * @returns {string}
+ */
+function extensionOf(basename) {
+  const dot = basename.lastIndexOf('.');
+  if (dot <= 0) {
+    return '';
+  }
+  return basename.slice(dot).toLowerCase();
 }
