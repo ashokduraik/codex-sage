@@ -458,24 +458,17 @@ export async function runMaterializeDocsStage(ctx) {
 /**
  * S4 codegraph_update — index or sync the materialized tree via the CodeGraph adapter.
  */
-/** @type {ReturnType<typeof createCodegraphAdapter> | null} */
-let defaultAdapter = null;
-
 /**
  * Runs the S4 CodeGraph index/sync stage.
  * @param {object} ctx IngestStageContext.
- * @param {{ adapter?: ReturnType<typeof createCodegraphAdapter> }} [deps] Test seams.
  * @returns {Promise<{
  *   outcome: 'completed' | 'completed_with_warnings',
  *   cursor: { graphIdentity: object },
  *   warnings: object[],
  * }>}
  */
-export async function runCodegraphUpdateStage(ctx, deps = {}) {
-  if (!deps.adapter && !defaultAdapter) {
-    defaultAdapter = createCodegraphAdapter();
-  }
-  const adapter = deps.adapter ?? defaultAdapter;
+export async function runCodegraphUpdateStage(ctx) {
+  const adapter = createCodegraphAdapter();
 
   if (ctx.signal?.aborted || (await ctx.isCancelRequested())) {
     throw createJobFailureError({

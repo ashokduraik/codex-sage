@@ -165,10 +165,11 @@ describe('projectActivities.service', () => {
       },
     });
     expect(await ProjectActivity.countDocuments({ orgId })).toBe(2);
+    // Terminal recording stamps occurredAt as now — window must include wall-clock time.
     const summary = await loadUsageSummary({
       orgId,
-      from: new Date('2026-09-01T00:00:00.000Z'),
-      to: new Date('2026-09-30T23:59:59.000Z'),
+      from: new Date(Date.now() - 24 * 60 * 60 * 1000),
+      to: new Date(Date.now() + 24 * 60 * 60 * 1000),
     });
     expect(summary.totals.ingestJobsCompleted).toBe(1);
     expect(summary.totals.sourceBytesAccepted).toBe(100);

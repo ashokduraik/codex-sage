@@ -34,14 +34,12 @@ export const REPO_PROBE_MAX_RESPONSE_BYTES = 1_048_576;
  *   headers?: Record<string, string>,
  *   timeoutMs?: number,
  *   allowPrivateHosts?: boolean,
- *   fetchImpl?: typeof fetch,
  * }} input Request.
  * @returns {Promise<OutboundResponse>}
  */
 export async function outboundGet(input) {
   const timeoutMs = input.timeoutMs ?? REPO_PROBE_TIMEOUT_MS;
   const allowPrivateHosts = input.allowPrivateHosts ?? loadConfig().repositories.allowPrivateHosts;
-  const fetchImpl = input.fetchImpl ?? fetch;
   let currentUrl = input.url;
   let redirects = 0;
 
@@ -51,7 +49,7 @@ export async function outboundGet(input) {
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     let response;
     try {
-      response = await fetchImpl(currentUrl, {
+      response = await fetch(currentUrl, {
         method: 'GET',
         headers: input.headers,
         redirect: 'manual',
@@ -106,35 +104,35 @@ export async function outboundGet(input) {
       json,
     };
   }
-}
 
-/**
- * Reads a response body up to the size cap.
- * @param {Response} response Fetch response.
- * @returns {Promise<string>}
- */
-async function readBodyCapped(response) {
-  if (!response.body) {
-    return '';
-  }
-  const reader = response.body.getReader();
-  const chunks = [];
-  let received = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) {
-      break;
+  /**
+   * Reads a response body up to the size cap.
+   * @param {Response} response Fetch response.
+   * @returns {Promise<string>}
+   */
+  async function readBodyCapped(response) {
+    if (!response.body) {
+      return '';
     }
-    received += value.byteLength;
-    if (received > REPO_PROBE_MAX_RESPONSE_BYTES) {
-      await reader.cancel();
-      throw Object.assign(new Error('Repository probe response exceeded the size cap.'), {
-        code: 'PROBE_SIZE',
-      });
+    const reader = response.body.getReader();
+    const chunks = [];
+    let received = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      received += value.byteLength;
+      if (received > REPO_PROBE_MAX_RESPONSE_BYTES) {
+        await reader.cancel();
+        throw Object.assign(new Error('Repository probe response exceeded the size cap.'), {
+          code: 'PROBE_SIZE',
+        });
+      }
+      chunks.push(value);
     }
-    chunks.push(value);
+    return Buffer.concat(chunks.map((part) => Buffer.from(part))).toString('utf8');
   }
-  return Buffer.concat(chunks.map((part) => Buffer.from(part))).toString('utf8');
 }
 
 /**
@@ -166,38 +164,38 @@ export function assertHostAllowed(rawUrl, allowPrivateHosts) {
       code: 'PROBE_HOST_NOT_ALLOWED',
     });
   }
-}
 
-/**
- * @param {string} ip Literal IPv4 or IPv6 address.
- * @returns {boolean}
- */
-function isPrivateOrLocalIp(ip) {
-  if (ip === '::1' || ip.startsWith('fe80:') || ip.startsWith('fc') || ip.startsWith('fd')) {
-    return true;
-  }
-  const ipv4 = ip.includes('.') ? ip : '';
-  if (!ipv4) {
+  /**
+   * @param {string} ip Literal IPv4 or IPv6 address.
+   * @returns {boolean}
+   */
+  function isPrivateOrLocalIp(ip) {
+    if (ip === '::1' || ip.startsWith('fe80:') || ip.startsWith('fc') || ip.startsWith('fd')) {
+      return true;
+    }
+    const ipv4 = ip.includes('.') ? ip : '';
+    if (!ipv4) {
+      return false;
+    }
+    const parts = ipv4.split('.').map((part) => Number(part));
+    if (parts.length !== 4 || parts.some((part) => Number.isNaN(part))) {
+      return false;
+    }
+    const [a, b] = parts;
+    if (a === 10 || a === 127) {
+      return true;
+    }
+    if (a === 169 && b === 254) {
+      return true;
+    }
+    if (a === 172 && b >= 16 && b <= 31) {
+      return true;
+    }
+    if (a === 192 && b === 168) {
+      return true;
+    }
     return false;
   }
-  const parts = ipv4.split('.').map((part) => Number(part));
-  if (parts.length !== 4 || parts.some((part) => Number.isNaN(part))) {
-    return false;
-  }
-  const [a, b] = parts;
-  if (a === 10 || a === 127) {
-    return true;
-  }
-  if (a === 169 && b === 254) {
-    return true;
-  }
-  if (a === 172 && b >= 16 && b <= 31) {
-    return true;
-  }
-  if (a === 192 && b === 168) {
-    return true;
-  }
-  return false;
 }
 
 // --- from repositories/providers/probeErrorMap.js ---
@@ -402,48 +400,48 @@ export function resolveRepositoryUrl(rawUrl) {
     fullName,
     webUrl: `https://${host}${parsed.port ? `:${parsed.port}` : ''}/${fullName}`,
   };
-}
 
-/**
- * Parses HTTPS or SSH-style git URLs into a WHATWG URL.
- * @param {string} raw Trimmed input.
- * @returns {URL}
- */
-function parseRepositoryInput(raw) {
-  const sshMatch = raw.match(/^git@([^:]+):(.+)$/i);
-  if (sshMatch) {
-    const host = sshMatch[1];
-    const pathPart = sshMatch[2].replace(/\.git$/i, '');
-    return new URL(`https://${host}/${pathPart}`);
+  /**
+   * Parses HTTPS or SSH-style git URLs into a WHATWG URL.
+   * @param {string} raw Trimmed input.
+   * @returns {URL}
+   */
+  function parseRepositoryInput(raw) {
+    const sshMatch = raw.match(/^git@([^:]+):(.+)$/i);
+    if (sshMatch) {
+      const host = sshMatch[1];
+      const pathPart = sshMatch[2].replace(/\.git$/i, '');
+      return new URL(`https://${host}/${pathPart}`);
+    }
+
+    const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`;
+    const url = new URL(withScheme);
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+      throw new Error('unsupported scheme');
+    }
+    return url;
   }
 
-  const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`;
-  const url = new URL(withScheme);
-  if (url.protocol !== 'https:' && url.protocol !== 'http:') {
-    throw new Error('unsupported scheme');
+  /**
+   * Strips .git / trailing slashes and returns owner[/group]/repo.
+   * @param {string} pathname URL pathname.
+   * @returns {string}
+   */
+  function normalizeOwnerRepoPath(pathname) {
+    const cleaned = pathname
+      .replace(/\/+/g, '/')
+      .replace(/^\/+/, '')
+      .replace(/\/+$/, '')
+      .replace(/\.git$/i, '');
+    if (!cleaned || cleaned.includes('..')) {
+      return '';
+    }
+    const segments = cleaned.split('/').filter(Boolean);
+    if (segments.length < 2) {
+      return '';
+    }
+    return segments.join('/');
   }
-  return url;
-}
-
-/**
- * Strips .git / trailing slashes and returns owner[/group]/repo.
- * @param {string} pathname URL pathname.
- * @returns {string}
- */
-function normalizeOwnerRepoPath(pathname) {
-  const cleaned = pathname
-    .replace(/\/+/g, '/')
-    .replace(/^\/+/, '')
-    .replace(/\/+$/, '')
-    .replace(/\.git$/i, '');
-  if (!cleaned || cleaned.includes('..')) {
-    return '';
-  }
-  const segments = cleaned.split('/').filter(Boolean);
-  if (segments.length < 2) {
-    return '';
-  }
-  return segments.join('/');
 }
 
 // --- from repositories/providers/githubProbe.js ---
@@ -758,14 +756,6 @@ export function gitlabHeaders(accessToken) {
  * @param {{
  *   repositoryUrl: string,
  *   accessToken?: string | null,
- *   deps?: {
- *     lookupGithub?: typeof lookupGithubRepository,
- *     lookupGitlab?: typeof lookupGitlabProject,
- *     listGithubBranches?: typeof listGithubBranches,
- *     listGitlabBranches?: typeof listGitlabBranches,
- *     readGithubDescription?: typeof readGithubDescription,
- *     readGitlabDescription?: typeof readGitlabDescription,
- *   },
  * }} input Probe inputs.
  * @returns {Promise<object>} Probe DTO (always a determined probeStatus).
  */
@@ -780,7 +770,6 @@ export async function probeRepository(input) {
   }
 
   const token = typeof input.accessToken === 'string' && input.accessToken.trim() ? input.accessToken.trim() : null;
-  const deps = input.deps ?? {};
 
   const identity = {
     provider: resolved.provider,
@@ -791,7 +780,7 @@ export async function probeRepository(input) {
 
   let lookup;
   try {
-    lookup = await lookupRepository(resolved, null, deps);
+    lookup = await lookupRepository(resolved, null);
   } catch (err) {
     return { ...identity, ...mapOutboundThrown(err), tokenUsed: false };
   }
@@ -809,7 +798,7 @@ export async function probeRepository(input) {
   }
 
   if (lookup.status === 200 && lookup.json && typeof lookup.json === 'object') {
-    return finishConnected(resolved, lookup.json, token, deps, false);
+    return finishConnected(resolved, lookup.json, token, false);
   }
 
   if (!token) {
@@ -818,7 +807,7 @@ export async function probeRepository(input) {
 
   let authenticated;
   try {
-    authenticated = await lookupRepository(resolved, token, deps);
+    authenticated = await lookupRepository(resolved, token);
   } catch (err) {
     return { ...identity, ...mapOutboundThrown(err), tokenUsed: true };
   }
@@ -836,7 +825,7 @@ export async function probeRepository(input) {
   }
 
   if (authenticated.status === 200 && authenticated.json && typeof authenticated.json === 'object') {
-    return finishConnected(resolved, authenticated.json, token, deps, true);
+    return finishConnected(resolved, authenticated.json, token, true);
   }
 
   return {
@@ -844,119 +833,117 @@ export async function probeRepository(input) {
     ...mapAuthenticatedLookupStatus(authenticated.status),
     tokenUsed: true,
   };
-}
 
-/**
- * @param {import('./providers/providerResolver.js').ResolvedRepository} resolved
- * @param {string | null} accessToken
- * @param {object} deps
- */
-async function lookupRepository(resolved, accessToken, deps) {
-  if (resolved.provider === 'github') {
-    const lookup = deps.lookupGithub ?? lookupGithubRepository;
-    return lookup({
-      ownerPath: resolved.ownerPath,
-      repoSlug: resolved.repoSlug,
+  /**
+   * Calls the provider lookup for the resolved identity.
+   * @param {ReturnType<typeof resolveRepositoryUrl>} resolvedUrl Parsed repository identity.
+   * @param {string | null} accessToken PAT when authenticating; null for anonymous.
+   * @returns {Promise<OutboundResponse>}
+   */
+  async function lookupRepository(resolvedUrl, accessToken) {
+    if (resolvedUrl.provider === 'github') {
+      return lookupGithubRepository({
+        ownerPath: resolvedUrl.ownerPath,
+        repoSlug: resolvedUrl.repoSlug,
+        accessToken,
+      });
+    }
+    return lookupGitlabProject({
+      baseUrl: resolvedUrl.baseUrl,
+      fullName: resolvedUrl.fullName,
       accessToken,
     });
   }
-  const lookup = deps.lookupGitlab ?? lookupGitlabProject;
-  return lookup({
-    baseUrl: resolved.baseUrl,
-    fullName: resolved.fullName,
-    accessToken,
-  });
-}
 
-/**
- * @param {import('./providers/providerResolver.js').ResolvedRepository} resolved
- * @param {object} payload
- * @param {string | null} accessToken
- * @param {object} deps
- * @param {boolean} tokenUsed
- */
-async function finishConnected(resolved, payload, accessToken, deps, tokenUsed) {
-  const visibility = readVisibility(payload);
-  const webUrl = typeof payload.html_url === 'string' ? payload.html_url : typeof payload.web_url === 'string' ? payload.web_url : resolved.webUrl;
-  const defaultBranch = (typeof payload.default_branch === 'string' && payload.default_branch) || 'main';
-  const providerDescription = typeof payload.description === 'string' ? payload.description : null;
+  /**
+   * Builds the connected probe DTO after a successful identity lookup.
+   * @param {ReturnType<typeof resolveRepositoryUrl>} resolvedUrl Parsed repository identity.
+   * @param {object} payload Provider JSON body from a 200 lookup.
+   * @param {string | null} accessToken Token used for follow-up branch/README calls.
+   * @param {boolean} tokenUsed Whether the successful lookup used a token.
+   * @returns {Promise<object>}
+   */
+  async function finishConnected(resolvedUrl, payload, accessToken, tokenUsed) {
+    const visibility = readVisibility(payload);
+    const webUrl =
+      typeof payload.html_url === 'string' ? payload.html_url : typeof payload.web_url === 'string' ? payload.web_url : resolvedUrl.webUrl;
+    const defaultBranch = (typeof payload.default_branch === 'string' && payload.default_branch) || 'main';
+    const providerDescription = typeof payload.description === 'string' ? payload.description : null;
 
-  let branches = [defaultBranch];
-  let branchesTruncated = false;
-  let description = providerDescription && providerDescription.trim() ? providerDescription.trim() : null;
+    let branches = [defaultBranch];
+    let branchesTruncated = false;
+    let description = providerDescription && providerDescription.trim() ? providerDescription.trim() : null;
 
-  try {
-    if (resolved.provider === 'github') {
-      const list = deps.listGithubBranches ?? listGithubBranches;
-      const listed = await list({
-        ownerPath: resolved.ownerPath,
-        repoSlug: resolved.repoSlug,
-        defaultBranch,
-        accessToken,
-      });
-      branches = listed.branches;
-      branchesTruncated = listed.branchesTruncated;
-      const readDescription = deps.readGithubDescription ?? readGithubDescription;
-      description = await readDescription({
-        ownerPath: resolved.ownerPath,
-        repoSlug: resolved.repoSlug,
-        accessToken,
-        providerDescription,
-      });
-    } else {
-      const list = deps.listGitlabBranches ?? listGitlabBranches;
-      const listed = await list({
-        baseUrl: resolved.baseUrl,
-        fullName: resolved.fullName,
-        defaultBranch,
-        accessToken,
-      });
-      branches = listed.branches;
-      branchesTruncated = listed.branchesTruncated;
-      const readDescription = deps.readGitlabDescription ?? readGitlabDescription;
-      description = await readDescription({
-        baseUrl: resolved.baseUrl,
-        fullName: resolved.fullName,
-        defaultBranch,
-        accessToken,
-        providerDescription,
-      });
+    try {
+      if (resolvedUrl.provider === 'github') {
+        const listed = await listGithubBranches({
+          ownerPath: resolvedUrl.ownerPath,
+          repoSlug: resolvedUrl.repoSlug,
+          defaultBranch,
+          accessToken,
+        });
+        branches = listed.branches;
+        branchesTruncated = listed.branchesTruncated;
+        description = await readGithubDescription({
+          ownerPath: resolvedUrl.ownerPath,
+          repoSlug: resolvedUrl.repoSlug,
+          accessToken,
+          providerDescription,
+        });
+      } else {
+        const listed = await listGitlabBranches({
+          baseUrl: resolvedUrl.baseUrl,
+          fullName: resolvedUrl.fullName,
+          defaultBranch,
+          accessToken,
+        });
+        branches = listed.branches;
+        branchesTruncated = listed.branchesTruncated;
+        description = await readGitlabDescription({
+          baseUrl: resolvedUrl.baseUrl,
+          fullName: resolvedUrl.fullName,
+          defaultBranch,
+          accessToken,
+          providerDescription,
+        });
+      }
+    } catch {
+      // Branch/README failures must not fail a successful identity lookup.
     }
-  } catch {
-    // Branch/README failures must not fail a successful identity lookup.
-  }
 
-  return {
-    probeStatus: 'connected',
-    provider: resolved.provider,
-    hostKind: resolved.hostKind,
-    baseUrl: resolved.baseUrl,
-    repository: {
-      fullName: resolved.fullName,
-      webUrl,
-      visibility,
-      description,
-    },
-    defaultBranch,
-    branches,
-    branchesTruncated,
-    tokenUsed,
-  };
-}
+    return {
+      probeStatus: 'connected',
+      provider: resolvedUrl.provider,
+      hostKind: resolvedUrl.hostKind,
+      baseUrl: resolvedUrl.baseUrl,
+      repository: {
+        fullName: resolvedUrl.fullName,
+        webUrl,
+        visibility,
+        description,
+      },
+      defaultBranch,
+      branches,
+      branchesTruncated,
+      tokenUsed,
+    };
 
-/**
- * @param {object} payload Provider JSON.
- * @returns {string | null}
- */
-function readVisibility(payload) {
-  if (payload.private === true) {
-    return 'private';
+    /**
+     * Maps provider private/visibility fields into the probe DTO value.
+     * @param {object} providerPayload Provider JSON.
+     * @returns {string | null}
+     */
+    function readVisibility(providerPayload) {
+      if (providerPayload.private === true) {
+        return 'private';
+      }
+      if (providerPayload.private === false) {
+        return 'public';
+      }
+      if (typeof providerPayload.visibility === 'string') {
+        return providerPayload.visibility;
+      }
+      return null;
+    }
   }
-  if (payload.private === false) {
-    return 'public';
-  }
-  if (typeof payload.visibility === 'string') {
-    return payload.visibility;
-  }
-  return null;
 }

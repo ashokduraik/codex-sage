@@ -191,19 +191,6 @@ const DEFAULT_ABSTAIN = {
   ],
 };
 /**
- * Pick a canned answer topic from free-text question keywords.
- * @param text - User question text.
- * @returns Matching canned answer or null when none match.
- */
-function pickAnswer(text) {
-  const normalized = text.toLowerCase();
-  if (/(auth|login|session|token|password|rbac|role)/.test(normalized)) return ANSWERS.auth;
-  if (/(checkout|cart)/.test(normalized)) return ANSWERS.checkout;
-  if (/(payment|stripe|pay|refund)/.test(normalized)) return ANSWERS.payment;
-  if (/(change|recent|update|new|diff)/.test(normalized)) return ANSWERS.changes;
-  return null;
-}
-/**
  * Return a mock grounded answer (or abstain) for a user question.
  * @param question - Natural-language question about a project.
  * @returns Grounded answer with evidence, or an abstain payload.
@@ -212,6 +199,20 @@ export function mockAnswerFor(question) {
   const answer = pickAnswer(question);
   if (!answer) return { ...DEFAULT_ABSTAIN };
   return { ...answer, abstain: false, knowledgeVersion: 'v3' };
+
+  /**
+   * Pick a canned answer topic from free-text question keywords.
+   * @param text - User question text.
+   * @returns Matching canned answer or null when none match.
+   */
+  function pickAnswer(text) {
+    const normalized = text.toLowerCase();
+    if (/(auth|login|session|token|password|rbac|role)/.test(normalized)) return ANSWERS.auth;
+    if (/(checkout|cart)/.test(normalized)) return ANSWERS.checkout;
+    if (/(payment|stripe|pay|refund)/.test(normalized)) return ANSWERS.payment;
+    if (/(change|recent|update|new|diff)/.test(normalized)) return ANSWERS.changes;
+    return null;
+  }
 }
 const seedProjects = [
   {

@@ -18,7 +18,7 @@ import {
   runFinalizeStage,
   derivePartialSuccess,
 } from './ingest.helper.js';
-import { runMaterializeDocsStage, runCodegraphUpdateStage, applySourceDiffAfterValidate, hydrateSourceDiffCarry } from './ingest.util.js';
+import { runMaterializeDocsStage, applySourceDiffAfterValidate, hydrateSourceDiffCarry } from './ingest.util.js';
 import { runCodegraphUpdateWithRecovery } from './knowledge.js';
 import {
   SOURCE_FILE_STATE_CORRUPT,
@@ -366,24 +366,13 @@ export function buildIngestStageContext(input) {
  * }} IngestStageDefinition
  */
 
-/**
- * S4 wrapper that applies same-job recovery on temporary CodeGraph failures.
- * @param {object} ctx IngestStageContext.
- * @returns {Promise<object>}
- */
-async function runCodegraphUpdateStageWithRecovery(ctx) {
-  return runCodegraphUpdateWithRecovery(ctx, {
-    runS4: runCodegraphUpdateStage,
-  });
-}
-
 /** Full S0–S6 pipeline. */
 export const INGEST_STAGES = Object.freeze([
   Object.freeze({ name: 'validate_upload', run: runValidateUploadStage }),
   Object.freeze({ name: 'store_files', run: runStoreFilesStage }),
   Object.freeze({ name: 'exclude_apply', run: runExcludeApplyStage }),
   Object.freeze({ name: 'materialize_docs', run: runMaterializeDocsStage }),
-  Object.freeze({ name: 'codegraph_update', run: runCodegraphUpdateStageWithRecovery }),
+  Object.freeze({ name: 'codegraph_update', run: runCodegraphUpdateWithRecovery }),
   Object.freeze({ name: 'knowledge_publish', run: runKnowledgePublishStage }),
   Object.freeze({ name: 'finalize', run: runFinalizeStage }),
 ]);

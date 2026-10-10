@@ -30,19 +30,6 @@ function emptyRoleForm() {
 }
 
 /**
- * Parses a non-negative serial offset from the URL.
- * @param {string} raw Raw query value.
- * @returns {number}
- */
-function parseSerialOffset(raw) {
-  const parsed = Number.parseInt(raw, 10);
-  if (!Number.isFinite(parsed) || parsed < 0) {
-    return 0;
-  }
-  return parsed;
-}
-
-/**
  * Roles summary: search, paginated table, and create / edit / delete dialogs.
  *
  * @returns Admin roles page.
@@ -546,6 +533,19 @@ export default function AdminRoles() {
       </Dialog>
     </div>
   );
+
+  /**
+   * Parses a non-negative serial offset from the URL.
+   * @param {string} raw Raw query value.
+   * @returns {number}
+   */
+  function parseSerialOffset(raw) {
+    const parsed = Number.parseInt(raw, 10);
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      return 0;
+    }
+    return parsed;
+  }
 }
 
 /**

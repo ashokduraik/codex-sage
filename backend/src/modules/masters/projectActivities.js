@@ -28,15 +28,6 @@ const USAGE_SUMMARY_TOTALS = Object.freeze({
 });
 
 /**
- * Returns whether `kind` is one of the persisted project-activity kinds.
- * @param {string} kind Candidate kind.
- * @returns {boolean}
- */
-function isPersistedActivityKind(kind) {
-  return PROJECT_ACTIVITY_KIND_VALUES.includes(kind);
-}
-
-/**
  * Records one observed project activity. Best-effort: never throws to the caller.
  * @param {{
  *   orgId: string,
@@ -58,7 +49,7 @@ export async function recordProjectActivity(input) {
     if (!input.projectId) {
       return false;
     }
-    if (!isPersistedActivityKind(input.kind)) {
+    if (!PROJECT_ACTIVITY_KIND_VALUES.includes(input.kind)) {
       return false;
     }
     const occurredAt = input.occurredAt instanceof Date ? input.occurredAt : new Date();

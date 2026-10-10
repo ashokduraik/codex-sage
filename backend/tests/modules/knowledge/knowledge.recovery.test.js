@@ -1,11 +1,40 @@
 /**
  * Unit tests for same-job CodeGraph recovery.
  */
-import { describe, expect, it, vi } from 'vitest';
-import { isRecoverableCodegraphFailure, runCodegraphUpdateWithRecovery } from '../../../src/modules/knowledge/knowledge.js';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createJobFailureError } from '../../../src/worker/retryPolicy.js';
 
+const { runMaterializeDocsStage, runCodegraphUpdateStage, fsRm, fsMkdir } = vi.hoisted(() => ({
+  runMaterializeDocsStage: vi.fn(),
+  runCodegraphUpdateStage: vi.fn(),
+  fsRm: vi.fn(),
+  fsMkdir: vi.fn(),
+}));
+
+vi.mock('../../../src/modules/knowledge/ingest.util.js', () => ({
+  runMaterializeDocsStage,
+  runCodegraphUpdateStage,
+}));
+
+vi.mock('node:fs/promises', () => ({
+  default: {
+    rm: (...args) => fsRm(...args),
+    mkdir: (...args) => fsMkdir(...args),
+  },
+  rm: (...args) => fsRm(...args),
+  mkdir: (...args) => fsMkdir(...args),
+}));
+
+import { isRecoverableCodegraphFailure, runCodegraphUpdateWithRecovery } from '../../../src/modules/knowledge/knowledge.js';
+
 describe('knowledge.recovery', () => {
+  beforeEach(() => {
+    runMaterializeDocsStage.mockReset();
+    runCodegraphUpdateStage.mockReset();
+    fsRm.mockReset().mockResolvedValue(undefined);
+    fsMkdir.mockReset().mockResolvedValue(undefined);
+  });
+
   it('classifies temporary CODEGRAPH_ failures as recoverable', () => {
     expect(
       isRecoverableCodegraphFailure(
@@ -28,11 +57,8 @@ describe('knowledge.recovery', () => {
   });
 
   it('calls S3 then S4 after a recoverable S4 failure and stops at max attempts', async () => {
-    const runS3 = vi.fn().mockResolvedValue({ outcome: 'completed' });
-    const wipeIndex = vi.fn().mockResolvedValue(undefined);
-    const saveCheckpoint = vi.fn().mockResolvedValue(undefined);
-    const runS4 = vi
-      .fn()
+    runMaterializeDocsStage.mockResolvedValue({ outcome: 'completed' });
+    runCodegraphUpdateStage
       .mockRejectedValueOnce(
         createJobFailureError({
           failureClass: 'temporary',
@@ -45,6 +71,7 @@ describe('knowledge.recovery', () => {
         cursor: { graphIdentity: { graphHash: 'h' } },
       });
 
+    const saveCheckpoint = vi.fn().mockResolvedValue(undefined);
     const ctx = {
       checkpoint: { lastCompletedStage: 'materialize_docs', cursor: {} },
       carry: { workspacePath: '/tmp/ws' },
@@ -52,22 +79,17 @@ describe('knowledge.recovery', () => {
       logger: { warn: vi.fn() },
     };
 
-    const result = await runCodegraphUpdateWithRecovery(ctx, {
-      runS3,
-      runS4,
-      wipeIndex,
-      maxAttempts: 3,
-    });
+    const result = await runCodegraphUpdateWithRecovery(ctx);
 
-    expect(runS3).toHaveBeenCalledOnce();
-    expect(wipeIndex).toHaveBeenCalledWith('/tmp/ws');
-    expect(runS4).toHaveBeenCalledTimes(2);
+    expect(runMaterializeDocsStage).toHaveBeenCalledOnce();
+    expect(fsRm).toHaveBeenCalled();
+    expect(runCodegraphUpdateStage).toHaveBeenCalledTimes(2);
     expect(result.cursor.graphIdentity.graphHash).toBe('h');
     expect(saveCheckpoint).toHaveBeenCalled();
   });
 
   it('throws CODEGRAPH_RECOVERY_EXHAUSTED when attempts are used up', async () => {
-    const runS4 = vi.fn().mockRejectedValue(
+    runCodegraphUpdateStage.mockRejectedValue(
       createJobFailureError({
         failureClass: 'temporary',
         code: 'CODEGRAPH_SQLITE_BUSY',
@@ -76,15 +98,12 @@ describe('knowledge.recovery', () => {
     );
 
     await expect(
-      runCodegraphUpdateWithRecovery(
-        {
-          checkpoint: { lastCompletedStage: 'materialize_docs', cursor: { recoveryAttempts: 3 } },
-          carry: {},
-          saveCheckpoint: vi.fn(),
-          logger: { warn: vi.fn() },
-        },
-        { runS4, runS3: vi.fn(), wipeIndex: vi.fn(), maxAttempts: 3 },
-      ),
+      runCodegraphUpdateWithRecovery({
+        checkpoint: { lastCompletedStage: 'materialize_docs', cursor: { recoveryAttempts: 3 } },
+        carry: {},
+        saveCheckpoint: vi.fn(),
+        logger: { warn: vi.fn() },
+      }),
     ).rejects.toMatchObject({
       code: 'CODEGRAPH_RECOVERY_EXHAUSTED',
       failureClass: 'permanent',

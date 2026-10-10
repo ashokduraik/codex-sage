@@ -168,31 +168,22 @@ export function mapChangeSummaryDto(row, publishedAt) {
 /**
  * Loads the latest computed change summary for a project.
  * @param {{ orgId: string, projectId: string }} input Scope.
- * @param {{
- *   findProject?: typeof findProjectById,
- *   findLatest?: typeof findLatestComputedChangeSummary,
- *   findKnowledgeVersion?: typeof findKnowledgeVersionById,
- * }} [deps] Test seams.
  * @returns {Promise<object>}
  */
-export async function loadLatestChangeSummary(input, deps = {}) {
-  const findProject = deps.findProject ?? findProjectById;
-  const findLatest = deps.findLatest ?? findLatestComputedChangeSummary;
-  const findKnowledgeVersion = deps.findKnowledgeVersion ?? findKnowledgeVersionById;
-
-  const project = await findProject(input.orgId, input.projectId);
+export async function loadLatestChangeSummary(input) {
+  const project = await findProjectById(input.orgId, input.projectId);
   if (!project || project.status !== ROW_STATUS_ACTIVE) {
     throw ApiError.fromCode('PROJECT_NOT_FOUND');
   }
 
-  const row = await findLatest({ orgId: input.orgId, projectId: input.projectId });
+  const row = await findLatestComputedChangeSummary({ orgId: input.orgId, projectId: input.projectId });
   if (!row) {
     throw ApiError.fromCode('CHANGE_SUMMARY_NOT_FOUND');
   }
 
   let publishedAt = null;
   if (row.knowledgeVersionId) {
-    const version = await findKnowledgeVersion({
+    const version = await findKnowledgeVersionById({
       orgId: input.orgId,
       projectId: input.projectId,
       knowledgeVersionId: String(row.knowledgeVersionId),

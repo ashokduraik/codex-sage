@@ -48,8 +48,8 @@ export const SOURCE_PREVIEW_BINARY_EXTENSIONS = Object.freeze([
 ]);
 
 /**
- * Builds preview caps, allowing tests to inject smaller limits.
- * @param {{ maxBytes?: number, maxLines?: number }} [overrides] Test caps.
+ * Builds the configured preview byte/line caps (optional overrides for pure helper tests).
+ * @param {{ maxBytes?: number, maxLines?: number }} [overrides] Cap overrides.
  * @returns {{ maxBytes: number, maxLines: number }}
  */
 export function createPreviewCaps(overrides = {}) {
@@ -179,20 +179,19 @@ export function graphCoverageFromFile(file) {
 }
 
 /**
- * Loads the current source version id for a project.
+ * Loads the current source version id for a project (shared by metadata + slice).
  * @param {string} orgId Tenant id.
  * @param {string} projectId Project id.
- * @param {object} deps Finders.
  * @returns {Promise<{ project: object, knowledgeVersion: object | null, sourceVersionId: string, knowledgeVersionId: string | null }>}
  */
-async function loadCurrentSourceScope(orgId, projectId, deps) {
-  const project = await deps.findProject(orgId, projectId);
+async function loadCurrentSourceScope(orgId, projectId) {
+  const project = await findProjectById(orgId, projectId);
   if (!project || project.status !== ROW_STATUS_ACTIVE) {
     throw ApiError.fromCode('PROJECT_NOT_FOUND');
   }
   const knowledgeVersionId = project.currentKnowledgeVersionId ? String(project.currentKnowledgeVersionId) : null;
   const knowledgeVersion = knowledgeVersionId
-    ? await deps.findKnowledgeVersion({
+    ? await findKnowledgeVersionById({
         orgId,
         projectId,
         knowledgeVersionId,
@@ -208,25 +207,12 @@ async function loadCurrentSourceScope(orgId, projectId, deps) {
 /**
  * Loads metadata for a current-version file.
  * @param {{ orgId: string, projectId: string, path: unknown }} input Request.
- * @param {{
- *   findProject?: typeof findProjectById,
- *   findKnowledgeVersion?: typeof findKnowledgeVersionById,
- *   findFile?: typeof findSourceFileByPath,
- *   readBytes?: typeof readSourceGridFsBytes,
- * }} [deps] Test seams.
  * @returns {Promise<object>}
  */
-export async function loadSourceFileMetadata(input, deps = {}) {
-  const findProject = deps.findProject ?? findProjectById;
-  const findKnowledgeVersion = deps.findKnowledgeVersion ?? findKnowledgeVersionById;
-  const findFile = deps.findFile ?? findSourceFileByPath;
-  const readBytes = deps.readBytes ?? readSourceGridFsBytes;
+export async function loadSourceFileMetadata(input) {
   const path = normalizePreviewPath(input.path);
-  const scope = await loadCurrentSourceScope(input.orgId, input.projectId, {
-    findProject,
-    findKnowledgeVersion,
-  });
-  const file = await findFile({
+  const scope = await loadCurrentSourceScope(input.orgId, input.projectId);
+  const file = await findSourceFileByPath({
     orgId: input.orgId,
     projectId: input.projectId,
     sourceVersionId: scope.sourceVersionId,
@@ -235,7 +221,7 @@ export async function loadSourceFileMetadata(input, deps = {}) {
   if (!file) {
     throw ApiError.fromCode('SOURCE_NOT_FOUND');
   }
-  const bytes = await readBytes(file.gridFsId);
+  const bytes = await readSourceGridFsBytes(file.gridFsId);
   const binary = isBinaryPreview(path, bytes);
   const coverage = graphCoverageFromFile(file);
   return {
@@ -260,21 +246,10 @@ export async function loadSourceFileMetadata(input, deps = {}) {
  *   startLine: unknown,
  *   endLine: unknown,
  * }} input Request.
- * @param {{
- *   findProject?: typeof findProjectById,
- *   findKnowledgeVersion?: typeof findKnowledgeVersionById,
- *   findFile?: typeof findSourceFileByPath,
- *   readBytes?: typeof readSourceGridFsBytes,
- *   caps?: { maxBytes?: number, maxLines?: number },
- * }} [deps] Test seams.
  * @returns {Promise<object>}
  */
-export async function loadSourceFileSlice(input, deps = {}) {
-  const findProject = deps.findProject ?? findProjectById;
-  const findKnowledgeVersion = deps.findKnowledgeVersion ?? findKnowledgeVersionById;
-  const findFile = deps.findFile ?? findSourceFileByPath;
-  const readBytes = deps.readBytes ?? readSourceGridFsBytes;
-  const caps = createPreviewCaps(deps.caps);
+export async function loadSourceFileSlice(input) {
+  const caps = createPreviewCaps();
   const path = normalizePreviewPath(input.path);
   const startLine = Number(input.startLine);
   const endLine = Number(input.endLine);
@@ -284,11 +259,8 @@ export async function loadSourceFileSlice(input, deps = {}) {
     });
   }
 
-  const scope = await loadCurrentSourceScope(input.orgId, input.projectId, {
-    findProject,
-    findKnowledgeVersion,
-  });
-  const file = await findFile({
+  const scope = await loadCurrentSourceScope(input.orgId, input.projectId);
+  const file = await findSourceFileByPath({
     orgId: input.orgId,
     projectId: input.projectId,
     sourceVersionId: scope.sourceVersionId,
@@ -297,7 +269,7 @@ export async function loadSourceFileSlice(input, deps = {}) {
   if (!file) {
     throw ApiError.fromCode('SOURCE_NOT_FOUND');
   }
-  const bytes = await readBytes(file.gridFsId);
+  const bytes = await readSourceGridFsBytes(file.gridFsId);
   if (isBinaryPreview(path, bytes)) {
     throw ApiError.fromCode('UNSUPPORTED_MEDIA_TYPE');
   }

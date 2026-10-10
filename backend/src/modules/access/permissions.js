@@ -434,16 +434,6 @@ export function invalidateOrganization(orgId) {
  * Resolves role ids to an effective permission set for one organization.
  */
 /**
- * Loads permission keys stored on one role document.
- * @param {{ permissions?: string[] }} role Role doc.
- * @returns {string[]}
- */
-function permissionsForRoleDocument(role) {
-  const stored = Array.isArray(role.permissions) ? role.permissions : [];
-  return stored.filter((key) => typeof key === 'string' && isKnownPermissionKey(key));
-}
-
-/**
  * Resolves effective permissions for role ids scoped to an organization.
  * Role ids that do not match an active role in the org contribute nothing.
  * @param {string} orgId Tenant id from the principal (never from the client).
@@ -480,7 +470,8 @@ export async function resolveEffectivePermissions(orgId, roleIds, options = {}) 
 
     const foundIds = new Set(roles.map((role) => String(role._id)));
     for (const role of roles) {
-      const permissions = permissionsForRoleDocument(role);
+      const stored = Array.isArray(role.permissions) ? role.permissions : [];
+      const permissions = stored.filter((key) => typeof key === 'string' && isKnownPermissionKey(key));
       cache.set(orgId, String(role._id), permissions);
       collected.push(...permissions);
     }

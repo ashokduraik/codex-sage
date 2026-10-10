@@ -2,99 +2,110 @@
  * Unit tests for assertKnowledgeReadable.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const { findProjectById, hasActiveProjectWriterLock } = vi.hoisted(() => ({
+  findProjectById: vi.fn(),
+  hasActiveProjectWriterLock: vi.fn(),
+}));
+
+vi.mock('../../../src/modules/masters/index.js', () => ({
+  findProjectById,
+}));
+
+vi.mock('../../../src/worker/projectJobLock.js', () => ({
+  hasActiveProjectWriterLock,
+}));
+
 import { assertKnowledgeReadable } from '../../../src/modules/knowledge/knowledge.js';
 
 describe('assertKnowledgeReadable', () => {
-  const findProject = vi.fn();
-  const hasWriterLock = vi.fn();
-
   beforeEach(() => {
-    findProject.mockReset();
-    hasWriterLock.mockReset();
+    findProjectById.mockReset();
+    hasActiveProjectWriterLock.mockReset();
   });
 
   it('denies when the project is missing', async () => {
-    findProject.mockResolvedValue(null);
-    const result = await assertKnowledgeReadable({ orgId: 'o1', projectId: 'p1' }, { findProject, hasWriterLock });
+    findProjectById.mockResolvedValue(null);
+    const result = await assertKnowledgeReadable({ orgId: 'o1', projectId: 'p1' });
     expect(result).toMatchObject({ action: 'deny', code: 'KNOWLEDGE_UNAVAILABLE' });
   });
 
   it('denies when knowledgeHealth is failed or there is no pointer', async () => {
-    findProject.mockResolvedValue({
+    findProjectById.mockResolvedValue({
       lifecycleStatus: 'failed',
       knowledgeHealth: 'failed',
       currentKnowledgeVersionId: 'kv1',
     });
-    expect(await assertKnowledgeReadable({ orgId: 'o1', projectId: 'p1' }, { findProject, hasWriterLock })).toMatchObject({
+    expect(await assertKnowledgeReadable({ orgId: 'o1', projectId: 'p1' })).toMatchObject({
       action: 'deny',
       code: 'KNOWLEDGE_UNAVAILABLE',
     });
 
-    findProject.mockResolvedValue({
+    findProjectById.mockResolvedValue({
       lifecycleStatus: 'processing',
       knowledgeHealth: 'none',
       currentKnowledgeVersionId: null,
     });
-    expect(await assertKnowledgeReadable({ orgId: 'o1', projectId: 'p1' }, { findProject, hasWriterLock })).toMatchObject({
+    expect(await assertKnowledgeReadable({ orgId: 'o1', projectId: 'p1' })).toMatchObject({
       action: 'deny',
       code: 'KNOWLEDGE_UNAVAILABLE',
     });
   });
 
   it('queues when updating or a writer lock is held', async () => {
-    findProject.mockResolvedValue({
+    findProjectById.mockResolvedValue({
       lifecycleStatus: 'updating',
       knowledgeHealth: 'updating',
       currentKnowledgeVersionId: 'kv1',
     });
-    hasWriterLock.mockResolvedValue(false);
-    expect(await assertKnowledgeReadable({ orgId: 'o1', projectId: 'p1' }, { findProject, hasWriterLock })).toMatchObject({
+    hasActiveProjectWriterLock.mockResolvedValue(false);
+    expect(await assertKnowledgeReadable({ orgId: 'o1', projectId: 'p1' })).toMatchObject({
       action: 'queue',
       code: 'KNOWLEDGE_UPDATING',
     });
 
-    findProject.mockResolvedValue({
+    findProjectById.mockResolvedValue({
       lifecycleStatus: 'knowledge_ready',
       knowledgeHealth: 'ready',
       currentKnowledgeVersionId: 'kv1',
     });
-    hasWriterLock.mockResolvedValue(true);
-    expect(await assertKnowledgeReadable({ orgId: 'o1', projectId: 'p1' }, { findProject, hasWriterLock })).toMatchObject({
+    hasActiveProjectWriterLock.mockResolvedValue(true);
+    expect(await assertKnowledgeReadable({ orgId: 'o1', projectId: 'p1' })).toMatchObject({
       action: 'queue',
       code: 'KNOWLEDGE_UPDATING',
     });
   });
 
   it('allows ready and partially_available when no writer is active', async () => {
-    hasWriterLock.mockResolvedValue(false);
-    findProject.mockResolvedValue({
+    hasActiveProjectWriterLock.mockResolvedValue(false);
+    findProjectById.mockResolvedValue({
       lifecycleStatus: 'knowledge_ready',
       knowledgeHealth: 'ready',
       currentKnowledgeVersionId: 'kv1',
     });
-    expect(await assertKnowledgeReadable({ orgId: 'o1', projectId: 'p1' }, { findProject, hasWriterLock })).toEqual({
+    expect(await assertKnowledgeReadable({ orgId: 'o1', projectId: 'p1' })).toEqual({
       action: 'allow',
       knowledgeVersionId: 'kv1',
     });
 
-    findProject.mockResolvedValue({
+    findProjectById.mockResolvedValue({
       lifecycleStatus: 'partially_available',
       knowledgeHealth: 'partially_available',
       currentKnowledgeVersionId: 'kv2',
     });
-    expect(await assertKnowledgeReadable({ orgId: 'o1', projectId: 'p1' }, { findProject, hasWriterLock })).toEqual({
+    expect(await assertKnowledgeReadable({ orgId: 'o1', projectId: 'p1' })).toEqual({
       action: 'allow',
       knowledgeVersionId: 'kv2',
     });
   });
 
   it('denies archived projects', async () => {
-    findProject.mockResolvedValue({
+    findProjectById.mockResolvedValue({
       lifecycleStatus: 'archived',
       knowledgeHealth: 'ready',
       currentKnowledgeVersionId: 'kv1',
     });
-    expect(await assertKnowledgeReadable({ orgId: 'o1', projectId: 'p1' }, { findProject, hasWriterLock })).toMatchObject({
+    expect(await assertKnowledgeReadable({ orgId: 'o1', projectId: 'p1' })).toMatchObject({
       action: 'deny',
       code: 'KNOWLEDGE_UNAVAILABLE',
     });

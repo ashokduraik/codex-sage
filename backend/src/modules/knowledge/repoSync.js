@@ -68,7 +68,6 @@ const MAX_REDIRECTS = 5;
  *   timeoutMs?: number,
  *   maxBytes?: number,
  *   allowPrivateHosts?: boolean,
- *   fetchImpl?: typeof fetch,
  * }} input Request.
  * @returns {Promise<OutboundDownloadResponse>}
  */
@@ -76,7 +75,6 @@ export async function outboundDownload(input) {
   const timeoutMs = input.timeoutMs ?? REPO_SYNC_FETCH_TIMEOUT_MS;
   const maxBytes = input.maxBytes ?? UPLOAD_MAX_ARCHIVE_BYTES;
   const allowPrivateHosts = input.allowPrivateHosts ?? loadConfig().repositories.allowPrivateHosts;
-  const fetchImpl = input.fetchImpl ?? globalThis.fetch;
   const startHost = new URL(input.url).host;
   let currentUrl = input.url;
   /** @type {Record<string, string> | undefined} */
@@ -89,7 +87,7 @@ export async function outboundDownload(input) {
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     let response;
     try {
-      response = await fetchImpl(currentUrl, {
+      response = await globalThis.fetch(currentUrl, {
         method: 'GET',
         headers: currentHeaders,
         redirect: 'manual',
@@ -145,6 +143,36 @@ export async function outboundDownload(input) {
       buffer,
     };
   }
+
+  /**
+   * Reads a response body up to maxBytes.
+   * @param {Response} response Fetch response.
+   * @param {number} maxBytes Size cap.
+   * @returns {Promise<Buffer>}
+   */
+  async function readBinaryCapped(response, maxBytes) {
+    if (!response.body) {
+      return Buffer.alloc(0);
+    }
+    const reader = response.body.getReader();
+    const chunks = [];
+    let received = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      received += value.byteLength;
+      if (received > maxBytes) {
+        await reader.cancel();
+        throw Object.assign(new Error('Repository archive exceeded the size cap.'), {
+          code: 'PROBE_SIZE',
+        });
+      }
+      chunks.push(value);
+    }
+    return Buffer.concat(chunks.map((part) => Buffer.from(part)));
+  }
 }
 
 /**
@@ -158,36 +186,6 @@ export function isAllowedArchiveRedirect(startHost, currentHost, nextHost) {
     return true;
   }
   return startHost === 'api.github.com' && GITHUB_ARCHIVE_REDIRECT_HOSTS.includes(nextHost);
-}
-
-/**
- * Reads a response body up to maxBytes.
- * @param {Response} response Fetch response.
- * @param {number} maxBytes Size cap.
- * @returns {Promise<Buffer>}
- */
-async function readBinaryCapped(response, maxBytes) {
-  if (!response.body) {
-    return Buffer.alloc(0);
-  }
-  const reader = response.body.getReader();
-  const chunks = [];
-  let received = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) {
-      break;
-    }
-    received += value.byteLength;
-    if (received > maxBytes) {
-      await reader.cancel();
-      throw Object.assign(new Error('Repository archive exceeded the size cap.'), {
-        code: 'PROBE_SIZE',
-      });
-    }
-    chunks.push(value);
-  }
-  return Buffer.concat(chunks.map((part) => Buffer.from(part)));
 }
 
 // --- from repositories/sync/archiveSyncAdapter.js ---
@@ -224,6 +222,44 @@ export async function resolveRemoteHead(input) {
     }
     throwMapped(mapOutboundThrown(err), input.token);
   }
+
+  /**
+   * @param {RemoteFetchInput} input Inputs.
+   * @returns {Promise<{ commitSha: string, commitMessage: string | null }>}
+   */
+  async function resolveGithubHead(input) {
+    const { owner, repo } = splitGithubFullName(input.fullName);
+    const get = input.outboundGet ?? outboundGet;
+    const response = await get({
+      url: `https://api.github.com/repos/${encodeURIComponent(owner)}/` + `${encodeURIComponent(repo)}/commits/${encodeURIComponent(input.branch)}`,
+      headers: githubHeaders(input.token),
+      timeoutMs: REPO_SYNC_FETCH_TIMEOUT_MS,
+    });
+    if (response.status !== 200 || !response.json || typeof response.json.sha !== 'string') {
+      throwMapped(input.token ? mapAuthenticatedLookupStatus(response.status) : mapAnonymousLookupStatus(response.status), input.token);
+    }
+    const message = typeof response.json.commit?.message === 'string' ? response.json.commit.message : null;
+    return { commitSha: response.json.sha, commitMessage: message };
+  }
+
+  /**
+   * @param {RemoteFetchInput} input Inputs.
+   * @returns {Promise<{ commitSha: string, commitMessage: string | null }>}
+   */
+  async function resolveGitlabHead(input) {
+    const get = input.outboundGet ?? outboundGet;
+    const encoded = encodeURIComponent(input.fullName);
+    const response = await get({
+      url: `${gitlabApiBase(input.baseUrl)}/projects/${encoded}/repository/commits/` + `${encodeURIComponent(input.branch)}`,
+      headers: gitlabHeaders(input.token),
+      timeoutMs: REPO_SYNC_FETCH_TIMEOUT_MS,
+    });
+    if (response.status !== 200 || !response.json || typeof response.json.id !== 'string') {
+      throwMapped(input.token ? mapAuthenticatedLookupStatus(response.status) : mapAnonymousLookupStatus(response.status), input.token);
+    }
+    const message = typeof response.json.message === 'string' ? response.json.message : null;
+    return { commitSha: response.json.id, commitMessage: message };
+  }
 }
 
 /**
@@ -243,80 +279,43 @@ export async function downloadRepositoryArchive(input) {
     }
     throwMapped(mapOutboundThrown(err), input.token);
   }
-}
 
-/**
- * @param {RemoteFetchInput} input Inputs.
- * @returns {Promise<{ commitSha: string, commitMessage: string | null }>}
- */
-async function resolveGithubHead(input) {
-  const { owner, repo } = splitGithubFullName(input.fullName);
-  const get = input.outboundGet ?? outboundGet;
-  const response = await get({
-    url: `https://api.github.com/repos/${encodeURIComponent(owner)}/` + `${encodeURIComponent(repo)}/commits/${encodeURIComponent(input.branch)}`,
-    headers: githubHeaders(input.token),
-    timeoutMs: REPO_SYNC_FETCH_TIMEOUT_MS,
-  });
-  if (response.status !== 200 || !response.json || typeof response.json.sha !== 'string') {
-    throwMapped(input.token ? mapAuthenticatedLookupStatus(response.status) : mapAnonymousLookupStatus(response.status), input.token);
+  /**
+   * @param {RemoteFetchInput & { commitSha: string }} input Inputs.
+   * @returns {Promise<{ archiveBuffer: Buffer }>}
+   */
+  async function downloadGithubArchive(input) {
+    const { owner, repo } = splitGithubFullName(input.fullName);
+    const download = input.outboundDownload ?? outboundDownload;
+    const response = await download({
+      url:
+        `https://api.github.com/repos/${encodeURIComponent(owner)}/` + `${encodeURIComponent(repo)}/zipball/${encodeURIComponent(input.commitSha)}`,
+      headers: githubHeaders(input.token),
+      timeoutMs: REPO_SYNC_FETCH_TIMEOUT_MS,
+    });
+    if (response.status !== 200 || !response.buffer.length) {
+      throwMapped(input.token ? mapAuthenticatedLookupStatus(response.status) : mapAnonymousLookupStatus(response.status), input.token);
+    }
+    return { archiveBuffer: response.buffer };
   }
-  const message = typeof response.json.commit?.message === 'string' ? response.json.commit.message : null;
-  return { commitSha: response.json.sha, commitMessage: message };
-}
 
-/**
- * @param {RemoteFetchInput} input Inputs.
- * @returns {Promise<{ commitSha: string, commitMessage: string | null }>}
- */
-async function resolveGitlabHead(input) {
-  const get = input.outboundGet ?? outboundGet;
-  const encoded = encodeURIComponent(input.fullName);
-  const response = await get({
-    url: `${gitlabApiBase(input.baseUrl)}/projects/${encoded}/repository/commits/` + `${encodeURIComponent(input.branch)}`,
-    headers: gitlabHeaders(input.token),
-    timeoutMs: REPO_SYNC_FETCH_TIMEOUT_MS,
-  });
-  if (response.status !== 200 || !response.json || typeof response.json.id !== 'string') {
-    throwMapped(input.token ? mapAuthenticatedLookupStatus(response.status) : mapAnonymousLookupStatus(response.status), input.token);
+  /**
+   * @param {RemoteFetchInput & { commitSha: string }} input Inputs.
+   * @returns {Promise<{ archiveBuffer: Buffer }>}
+   */
+  async function downloadGitlabArchive(input) {
+    const download = input.outboundDownload ?? outboundDownload;
+    const encoded = encodeURIComponent(input.fullName);
+    const response = await download({
+      url: `${gitlabApiBase(input.baseUrl)}/projects/${encoded}/repository/archive.zip` + `?sha=${encodeURIComponent(input.commitSha)}`,
+      headers: gitlabHeaders(input.token),
+      timeoutMs: REPO_SYNC_FETCH_TIMEOUT_MS,
+    });
+    if (response.status !== 200 || !response.buffer.length) {
+      throwMapped(input.token ? mapAuthenticatedLookupStatus(response.status) : mapAnonymousLookupStatus(response.status), input.token);
+    }
+    return { archiveBuffer: response.buffer };
   }
-  const message = typeof response.json.message === 'string' ? response.json.message : null;
-  return { commitSha: response.json.id, commitMessage: message };
-}
-
-/**
- * @param {RemoteFetchInput & { commitSha: string }} input Inputs.
- * @returns {Promise<{ archiveBuffer: Buffer }>}
- */
-async function downloadGithubArchive(input) {
-  const { owner, repo } = splitGithubFullName(input.fullName);
-  const download = input.outboundDownload ?? outboundDownload;
-  const response = await download({
-    url: `https://api.github.com/repos/${encodeURIComponent(owner)}/` + `${encodeURIComponent(repo)}/zipball/${encodeURIComponent(input.commitSha)}`,
-    headers: githubHeaders(input.token),
-    timeoutMs: REPO_SYNC_FETCH_TIMEOUT_MS,
-  });
-  if (response.status !== 200 || !response.buffer.length) {
-    throwMapped(input.token ? mapAuthenticatedLookupStatus(response.status) : mapAnonymousLookupStatus(response.status), input.token);
-  }
-  return { archiveBuffer: response.buffer };
-}
-
-/**
- * @param {RemoteFetchInput & { commitSha: string }} input Inputs.
- * @returns {Promise<{ archiveBuffer: Buffer }>}
- */
-async function downloadGitlabArchive(input) {
-  const download = input.outboundDownload ?? outboundDownload;
-  const encoded = encodeURIComponent(input.fullName);
-  const response = await download({
-    url: `${gitlabApiBase(input.baseUrl)}/projects/${encoded}/repository/archive.zip` + `?sha=${encodeURIComponent(input.commitSha)}`,
-    headers: gitlabHeaders(input.token),
-    timeoutMs: REPO_SYNC_FETCH_TIMEOUT_MS,
-  });
-  if (response.status !== 200 || !response.buffer.length) {
-    throwMapped(input.token ? mapAuthenticatedLookupStatus(response.status) : mapAnonymousLookupStatus(response.status), input.token);
-  }
-  return { archiveBuffer: response.buffer };
 }
 
 /**
@@ -366,16 +365,13 @@ function throwMapped(mapped, token) {
 /**
  * Enqueues `repo_sync` for each due active connection that is not overlapping.
  * @param {{
- *   now?: Date,
  *   log?: { error?: Function, info?: Function },
- *   listDue?: typeof listDueConnections,
- * }} [input] Optional seams.
+ * }} [input] Optional logger for scheduler tick diagnostics.
  * @returns {Promise<{ enqueued: number, skipped: number }>}
  */
 export async function enqueueDueRepositorySyncs(input = {}) {
-  const now = input.now ?? new Date();
-  const listDue = input.listDue ?? listDueConnections;
-  const due = await listDue(now);
+  const now = new Date();
+  const due = await listDueConnections(now);
   let enqueued = 0;
   let skipped = 0;
 
@@ -560,6 +556,21 @@ export async function enqueueManualRepositorySync(input) {
   );
 
   return { job: mapSyncJob(job) };
+
+  /**
+   * Maps a sync job document to the enqueue response shape.
+   * @param {object} job Job document.
+   * @returns {{ id: string, jobType: string, jobStatus: string, scheduledAt: string }}
+   */
+  function mapSyncJob(job) {
+    const scheduledAt = job.scheduledAt instanceof Date ? job.scheduledAt.toISOString() : String(job.scheduledAt ?? '');
+    return {
+      id: String(job._id),
+      jobType: job.jobType,
+      jobStatus: job.jobStatus,
+      scheduledAt,
+    };
+  }
 }
 
 /**
@@ -752,15 +763,6 @@ export async function deferRepoSyncJob(input) {
  * @param {object} job Job document.
  * @returns {{ id: string, jobType: string, jobStatus: string, scheduledAt: string }}
  */
-function mapSyncJob(job) {
-  const scheduledAt = job.scheduledAt instanceof Date ? job.scheduledAt.toISOString() : String(job.scheduledAt ?? '');
-  return {
-    id: String(job._id),
-    jobType: job.jobType,
-    jobStatus: job.jobStatus,
-    scheduledAt,
-  };
-}
 
 // --- from repositories/sync/repoSync.handler.js ---
 /**

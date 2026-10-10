@@ -121,16 +121,6 @@ const FORBIDDEN_KEY_SUBSTRINGS = Object.freeze([
 ]);
 
 /**
- * Returns whether a value is an allowed scalar for audit context.
- * @param {unknown} value Candidate value.
- * @returns {boolean}
- */
-function isAllowedScalar(value) {
-  const type = typeof value;
-  return type === 'string' || type === 'number' || type === 'boolean';
-}
-
-/**
  * Truncates a string to max characters.
  * @param {string} value Source string.
  * @param {number} maxChars Max length.
@@ -185,7 +175,7 @@ export function sanitizeAuditContext(context) {
       /** @type {Array<string | number | boolean>} */
       const items = [];
       for (const item of raw) {
-        if (!isAllowedScalar(item)) {
+        if (!(typeof item === 'string' || typeof item === 'number' || typeof item === 'boolean')) {
           truncated = true;
           continue;
         }
@@ -202,7 +192,7 @@ export function sanitizeAuditContext(context) {
       out[key] = items;
       continue;
     }
-    if (!isAllowedScalar(raw)) {
+    if (!(typeof raw === 'string' || typeof raw === 'number' || typeof raw === 'boolean')) {
       // Nested objects, functions, null, symbols — drop (do not store).
       truncated = true;
       continue;
@@ -307,29 +297,6 @@ export function clampAuditListLimit(limit) {
 }
 
 /**
- * Builds a keyset filter for createdAt/_id descending pages.
- * @param {{ t: string, i: string }} cursor Decoded cursor.
- * @returns {object}
- */
-function keysetAfterFilter(cursor) {
-  const createdAt = new Date(cursor.t);
-  if (Number.isNaN(createdAt.getTime())) {
-    throw ApiError.fromCode('VALIDATION_ERROR', {
-      details: [{ path: 'cursor', message: 'cursor timestamp is invalid' }],
-    });
-  }
-  if (!mongoose.isValidObjectId(cursor.i)) {
-    throw ApiError.fromCode('VALIDATION_ERROR', {
-      details: [{ path: 'cursor', message: 'cursor id is invalid' }],
-    });
-  }
-  const id = new mongoose.Types.ObjectId(cursor.i);
-  return {
-    $or: [{ createdAt: { $lt: createdAt } }, { createdAt, _id: { $lt: id } }],
-  };
-}
-
-/**
  * Lists audit events for an organization with optional filters and keyset pagination.
  * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id (always injected).
  * @param {{
@@ -418,6 +385,29 @@ export async function listAuditEvents(orgId, filters = {}) {
     items,
     pageInfo: { nextCursor, hasMore },
   };
+
+  /**
+   * Builds a keyset filter for createdAt/_id descending pages.
+   * @param {{ t: string, i: string }} cursor Decoded cursor.
+   * @returns {object}
+   */
+  function keysetAfterFilter(cursor) {
+    const createdAt = new Date(cursor.t);
+    if (Number.isNaN(createdAt.getTime())) {
+      throw ApiError.fromCode('VALIDATION_ERROR', {
+        details: [{ path: 'cursor', message: 'cursor timestamp is invalid' }],
+      });
+    }
+    if (!mongoose.isValidObjectId(cursor.i)) {
+      throw ApiError.fromCode('VALIDATION_ERROR', {
+        details: [{ path: 'cursor', message: 'cursor id is invalid' }],
+      });
+    }
+    const id = new mongoose.Types.ObjectId(cursor.i);
+    return {
+      $or: [{ createdAt: { $lt: createdAt } }, { createdAt, _id: { $lt: id } }],
+    };
+  }
 }
 
 /**
@@ -440,24 +430,6 @@ export async function findAuditEventById(orgId, auditEventId) {
  */
 /** Permission keys whose 403 denials are audited (admin/security surface). */
 export const AUDITED_DENIAL_PERMISSION_KEYS = Object.freeze(['users.manage', 'roles.manage', 'settings.manage', 'audit.view']);
-
-/**
- * Logs an audit insert failure without throwing.
- * @param {{ error?: Function } | undefined} log Optional logger.
- * @param {string | undefined} correlationId Request/job correlation id.
- * @param {unknown} err Failure.
- */
-function logAuditWriteFailure(log, correlationId, err) {
-  const payload = {
-    correlationId,
-    err: err instanceof Error ? { name: err.name, message: err.message } : { message: String(err) },
-  };
-  if (typeof log?.error === 'function') {
-    log.error(payload, 'audit write failed');
-    return;
-  }
-  console.error(JSON.stringify({ level: 'error', msg: 'audit write failed', ...payload }));
-}
 
 /**
  * Extracts org/actor/correlation/ip/ua from an authenticated Fastify request.
@@ -549,7 +521,15 @@ export async function recordAuditEvent(input, options = {}) {
       context: sanitizeAuditContext(input.context ?? undefined),
     });
   } catch (err) {
-    logAuditWriteFailure(options.log, input?.correlationId, err);
+    const payload = {
+      correlationId: input?.correlationId,
+      err: err instanceof Error ? { name: err.name, message: err.message } : { message: String(err) },
+    };
+    if (typeof options.log?.error === 'function') {
+      options.log.error(payload, 'audit write failed');
+    } else {
+      console.error(JSON.stringify({ level: 'error', msg: 'audit write failed', ...payload }));
+    }
   }
 }
 
@@ -598,27 +578,6 @@ async function findOrgDocsById(model, orgId, ids, select) {
   const query = model.find({ orgId, _id: { $in: unique } }).select(select);
   includeDeleted(query);
   return query.exec();
-}
-
-/**
- * Groups list items by resourceType so names can be batch-loaded.
- * @param {Array<{ resourceType?: string, resourceId?: string | null }>} items Audit rows.
- * @returns {Map<string, Set<string>>}
- */
-function groupResourceIdsByType(items) {
-  /** @type {Map<string, Set<string>>} */
-  const byType = new Map();
-  for (const item of items) {
-    const resourceType = item.resourceType;
-    const resourceId = item.resourceId;
-    if (!resourceType || !resourceId) {
-      continue;
-    }
-    const bucket = byType.get(resourceType) ?? new Set();
-    bucket.add(String(resourceId));
-    byType.set(resourceType, bucket);
-  }
-  return byType;
 }
 
 /**
@@ -727,6 +686,27 @@ async function loadResourceNames(orgId, items) {
   }
 
   return names;
+
+  /**
+   * Groups list items by resourceType so names can be batch-loaded.
+   * @param {Array<{ resourceType?: string, resourceId?: string | null }>} items Audit rows.
+   * @returns {Map<string, Set<string>>}
+   */
+  function groupResourceIdsByType(items) {
+    /** @type {Map<string, Set<string>>} */
+    const byType = new Map();
+    for (const item of items) {
+      const resourceType = item.resourceType;
+      const resourceId = item.resourceId;
+      if (!resourceType || !resourceId) {
+        continue;
+      }
+      const bucket = byType.get(resourceType) ?? new Set();
+      bucket.add(String(resourceId));
+      byType.set(resourceType, bucket);
+    }
+    return byType;
+  }
 }
 
 /**

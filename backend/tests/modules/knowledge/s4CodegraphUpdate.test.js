@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const listSourceFilesOrdered = vi.fn();
 const codegraphIndexExists = vi.fn();
+const createCodegraphAdapter = vi.fn();
 const resolveProjectWorkspacePath = vi.fn();
 const loadConfig = vi.fn();
 
@@ -21,6 +22,7 @@ vi.mock('../../../src/modules/knowledge/codegraph.js', async () => {
   return {
     ...actual,
     codegraphIndexExists: (...args) => codegraphIndexExists(...args),
+    createCodegraphAdapter: (...args) => createCodegraphAdapter(...args),
   };
 });
 
@@ -48,9 +50,11 @@ describe('runCodegraphUpdateStage', () => {
     resolveProjectWorkspacePath.mockReset().mockReturnValue('/ws/org/proj');
     loadConfig.mockReset().mockReturnValue({ workspace: { root: '/ws' } });
     adapter = createMockAdapter();
+    createCodegraphAdapter.mockReset().mockReturnValue(adapter);
   });
 
   /**
+   * Builds a CodeGraph adapter double for stage assertions.
    * @returns {object}
    */
   function createMockAdapter() {
@@ -108,6 +112,7 @@ describe('runCodegraphUpdateStage', () => {
   }
 
   /**
+   * Minimal ingest stage context for S4.
    * @returns {object}
    */
   function buildCtx() {
@@ -128,8 +133,9 @@ describe('runCodegraphUpdateStage', () => {
       { path: 'missing.js', fileState: 'missing', excludedFromGraph: false },
     ]);
     const ctx = buildCtx();
-    const result = await runCodegraphUpdateStage(ctx, { adapter });
+    const result = await runCodegraphUpdateStage(ctx);
 
+    expect(createCodegraphAdapter).toHaveBeenCalled();
     expect(adapter.configureTelemetryOff).toHaveBeenCalled();
     expect(adapter.indexAll).toHaveBeenCalledWith(
       '/ws/org/proj',
@@ -150,7 +156,7 @@ describe('runCodegraphUpdateStage', () => {
     listSourceFilesOrdered.mockResolvedValue([{ path: 'a.js', fileState: 'stored', excludedFromGraph: false }]);
     const ctx = buildCtx();
     ctx.carry.changedPaths = ['a.js'];
-    await runCodegraphUpdateStage(ctx, { adapter });
+    await runCodegraphUpdateStage(ctx);
     expect(adapter.sync).toHaveBeenCalledWith('/ws/org/proj', expect.objectContaining({ changedPaths: ['a.js'] }));
   });
 
@@ -159,7 +165,7 @@ describe('runCodegraphUpdateStage', () => {
       throw Object.assign(new Error('unsafe'), { code: 'WORKSPACE_PATH_UNSAFE' });
     });
     listSourceFilesOrdered.mockResolvedValue([]);
-    await expect(runCodegraphUpdateStage(buildCtx(), { adapter })).rejects.toMatchObject({
+    await expect(runCodegraphUpdateStage(buildCtx())).rejects.toMatchObject({
       code: 'WORKSPACE_PATH_UNSAFE',
       failureClass: 'permanent',
     });
@@ -173,7 +179,7 @@ describe('runCodegraphUpdateStage', () => {
       identity: {},
       probes: [{ name: 'index_state_healthy', passed: false }],
     });
-    await expect(runCodegraphUpdateStage(buildCtx(), { adapter })).rejects.toMatchObject({
+    await expect(runCodegraphUpdateStage(buildCtx())).rejects.toMatchObject({
       code: 'CODEGRAPH_VALIDATION_FAILED',
       failureClass: 'temporary',
     });
@@ -183,7 +189,7 @@ describe('runCodegraphUpdateStage', () => {
   it('maps library throw to CODEGRAPH_LIBRARY_ERROR when unclassified', async () => {
     listSourceFilesOrdered.mockResolvedValue([{ path: 'a.js', fileState: 'stored', excludedFromGraph: false }]);
     adapter.indexAll.mockRejectedValue(new Error('boom'));
-    await expect(runCodegraphUpdateStage(buildCtx(), { adapter })).rejects.toMatchObject({
+    await expect(runCodegraphUpdateStage(buildCtx())).rejects.toMatchObject({
       code: 'CODEGRAPH_LIBRARY_ERROR',
       failureClass: 'temporary',
     });
@@ -197,7 +203,7 @@ describe('runCodegraphUpdateStage', () => {
         code: 'CODEGRAPH_SQLITE_BUSY',
       }),
     );
-    await expect(runCodegraphUpdateStage(buildCtx(), { adapter })).rejects.toMatchObject({
+    await expect(runCodegraphUpdateStage(buildCtx())).rejects.toMatchObject({
       code: 'CODEGRAPH_SQLITE_BUSY',
       failureClass: 'temporary',
     });
@@ -215,7 +221,7 @@ describe('runCodegraphUpdateStage', () => {
       graphHash: 'hash',
       graph: { close: vi.fn(), unwatch: vi.fn(), isWatching: vi.fn(() => false) },
     });
-    const result = await runCodegraphUpdateStage(buildCtx(), { adapter });
+    const result = await runCodegraphUpdateStage(buildCtx());
     expect(result.outcome).toBe('completed_with_warnings');
     expect(result.warnings[0].code).toBe('CODEGRAPH_FILE_ERRORS');
   });
@@ -223,7 +229,7 @@ describe('runCodegraphUpdateStage', () => {
   it('maps validate throw to CODEGRAPH_VALIDATION_FAILED', async () => {
     listSourceFilesOrdered.mockResolvedValue([{ path: 'a.js', fileState: 'stored', excludedFromGraph: false }]);
     adapter.validate.mockRejectedValue(new Error('probe crash'));
-    await expect(runCodegraphUpdateStage(buildCtx(), { adapter })).rejects.toMatchObject({
+    await expect(runCodegraphUpdateStage(buildCtx())).rejects.toMatchObject({
       code: 'CODEGRAPH_VALIDATION_FAILED',
     });
   });
@@ -234,7 +240,7 @@ describe('runCodegraphUpdateStage', () => {
     const ctx = buildCtx();
     ctx.carry.changedPaths = ['a.js'];
     ctx.carry.removedPaths = ['gone.js'];
-    await runCodegraphUpdateStage(ctx, { adapter });
+    await runCodegraphUpdateStage(ctx);
     expect(adapter.sync).toHaveBeenCalledWith('/ws/org/proj', expect.objectContaining({ changedPaths: undefined }));
   });
 
@@ -243,7 +249,7 @@ describe('runCodegraphUpdateStage', () => {
     listSourceFilesOrdered.mockResolvedValue([{ path: 'a.js', fileState: 'stored', excludedFromGraph: false }]);
     const ctx = buildCtx();
     ctx.carry.changedPaths = new Set(['a.js']);
-    await runCodegraphUpdateStage(ctx, { adapter });
+    await runCodegraphUpdateStage(ctx);
     expect(adapter.sync).toHaveBeenCalledWith('/ws/org/proj', expect.objectContaining({ changedPaths: ['a.js'] }));
   });
 
@@ -255,7 +261,7 @@ describe('runCodegraphUpdateStage', () => {
       calls += 1;
       return calls > 1;
     });
-    await expect(runCodegraphUpdateStage(ctx, { adapter })).rejects.toMatchObject({
+    await expect(runCodegraphUpdateStage(ctx)).rejects.toMatchObject({
       code: 'INGEST_ABORTED',
     });
     expect(adapter.releaseWriter).toHaveBeenCalled();
@@ -265,7 +271,7 @@ describe('runCodegraphUpdateStage', () => {
     listSourceFilesOrdered.mockResolvedValue([{ path: 'a.js', fileState: 'stored', excludedFromGraph: false }]);
     const ctx = buildCtx();
     ctx.carry.workspaceRoot = '/custom-root';
-    await runCodegraphUpdateStage(ctx, { adapter });
+    await runCodegraphUpdateStage(ctx);
     expect(resolveProjectWorkspacePath).toHaveBeenCalledWith('/custom-root', 'o', 'p');
     expect(loadConfig).not.toHaveBeenCalled();
   });

@@ -27,25 +27,8 @@ const conversationParamsSchema = z.object({
 });
 
 /**
- * Parses conversation params or throws VALIDATION_ERROR.
- * @param {unknown} params Route params.
- * @returns {{ projectId: string, conversationId: string }}
- */
-function parseConversationParams(params) {
-  const parsed = conversationParamsSchema.safeParse(params ?? {});
-  if (!parsed.success) {
-    throw ApiError.fromCode('VALIDATION_ERROR', {
-      details: parsed.error.issues.map((issue) => ({
-        path: issue.path.join('.') || 'body',
-        message: issue.message,
-      })),
-    });
-  }
-  return parsed.data;
-}
-
-/**
  * Reads the nested context bag, treating missing documents as empty.
+ * Shared by several conversation-context writers and readers.
  * @param {object | null | undefined} conversation Conversation row.
  * @returns {{
  *   summaryText: string,
@@ -62,41 +45,6 @@ function readConversationContext(conversation) {
     summaryCoversThroughMessageId: stored?.summaryCoversThroughMessageId ?? null,
     pinnedFacts: Array.isArray(stored?.pinnedFacts) ? stored.pinnedFacts : [],
   };
-}
-
-/**
- * Builds a summary segment when extractive text exists.
- * @param {string} summaryText Stored summary.
- * @returns {{ id: string, kind: string, content: string } | undefined}
- */
-function buildSummarySegment(summaryText) {
-  if (!summaryText) {
-    return undefined;
-  }
-  return { id: 'summary', kind: 'summary', content: summaryText };
-}
-
-/**
- * Builds protected pinned-fact segments for the budgeter.
- * @param {object[]} pinnedFacts Stored pins.
- * @returns {{ id: string, kind: string, content: string, protected: true }[]}
- */
-function buildPinnedSegments(pinnedFacts) {
-  /** @type {{ id: string, kind: string, content: string, protected: true }[]} */
-  const segments = [];
-  for (const fact of pinnedFacts) {
-    const factId = typeof fact?.id === 'string' ? fact.id : '';
-    if (!factId) {
-      continue;
-    }
-    segments.push({
-      id: `pin:${factId}`,
-      kind: 'pinned_fact',
-      content: typeof fact.text === 'string' ? fact.text : '',
-      protected: true,
-    });
-  }
-  return segments;
 }
 
 /**
@@ -119,7 +67,7 @@ export async function buildConversationContext(orgId, projectId, conversationId,
   const turnLimit =
     Number.isFinite(options.budgetHint) && options.budgetHint > 0 ? Math.min(options.budgetHint, RECENT_TURNS_MAX_COUNT) : RECENT_TURNS_MAX_COUNT;
   const recent = await listRecentMessages(orgId, projectId, conversationId, turnLimit);
-  const summarySegment = buildSummarySegment(stored.summaryText);
+  const summarySegment = stored.summaryText ? { id: 'summary', kind: 'summary', content: stored.summaryText } : undefined;
   const pinnedSegments = buildPinnedSegments(stored.pinnedFacts);
   /** @type {object[]} */
   const segments = [];
@@ -140,73 +88,29 @@ export async function buildConversationContext(orgId, projectId, conversationId,
     });
   }
   return { segments, summarySegment, pinnedSegments, recentMessageIds };
-}
 
-/**
- * Concatenates user-question text through `throughMessageId` and truncates.
- * @param {object[]} messages Chronological active messages through the cover id.
- * @returns {string}
- */
-function buildExtractiveSummaryText(messages) {
-  /** @type {string[]} */
-  const pieces = [];
-  for (const message of messages) {
-    if (message.role !== 'user') {
-      continue;
+  /**
+   * Builds protected pinned-fact segments for the budgeter.
+   * @param {object[]} pinnedFacts Stored pins.
+   * @returns {{ id: string, kind: string, content: string, protected: true }[]}
+   */
+  function buildPinnedSegments(pinnedFacts) {
+    /** @type {{ id: string, kind: string, content: string, protected: true }[]} */
+    const pinSegments = [];
+    for (const fact of pinnedFacts) {
+      const factId = typeof fact?.id === 'string' ? fact.id : '';
+      if (!factId) {
+        continue;
+      }
+      pinSegments.push({
+        id: `pin:${factId}`,
+        kind: 'pinned_fact',
+        content: typeof fact.text === 'string' ? fact.text : '',
+        protected: true,
+      });
     }
-    const content = typeof message.content === 'string' ? message.content.trim() : '';
-    if (content) {
-      pieces.push(content);
-    }
+    return pinSegments;
   }
-  const joined = pieces.join('\n');
-  if (joined.length <= SUMMARY_TEXT_MAX_CHARS) {
-    return joined;
-  }
-  return joined.slice(0, SUMMARY_TEXT_MAX_CHARS);
-}
-
-/**
- * Loads active messages up to and including `throughMessageId`.
- * @param {string} orgId Tenant id.
- * @param {string} projectId Project id.
- * @param {string} conversationId Conversation id.
- * @param {string} throughMessageId Last covered message id.
- * @returns {Promise<object[]>}
- * @throws {import('../../platform/errors.js').ApiError} VALIDATION_ERROR
- */
-async function loadMessagesThroughId(orgId, projectId, conversationId, throughMessageId) {
-  if (!mongoose.isValidObjectId(throughMessageId)) {
-    throw ApiError.fromCode('VALIDATION_ERROR', {
-      details: [{ path: 'throughMessageId', message: 'throughMessageId must be a valid ObjectId' }],
-    });
-  }
-  const throughId = new mongoose.Types.ObjectId(String(throughMessageId));
-  const through = await Message.findOne({
-    _id: throughId,
-    orgId,
-    projectId: new mongoose.Types.ObjectId(String(projectId)),
-    conversationId: new mongoose.Types.ObjectId(String(conversationId)),
-    status: ROW_STATUS_ACTIVE,
-  })
-    .lean()
-    .exec();
-  if (!through) {
-    throw ApiError.fromCode('VALIDATION_ERROR', {
-      details: [{ path: 'throughMessageId', message: 'throughMessageId is not in this conversation' }],
-    });
-  }
-  return Message.find({
-    orgId,
-    projectId: new mongoose.Types.ObjectId(String(projectId)),
-    conversationId: new mongoose.Types.ObjectId(String(conversationId)),
-    status: ROW_STATUS_ACTIVE,
-    $or: [{ createdAt: { $lt: through.createdAt } }, { createdAt: through.createdAt, _id: { $lte: throughId } }],
-  })
-    .sort({ createdAt: 1, _id: 1 })
-    .select({ role: 1, content: 1 })
-    .lean()
-    .exec();
 }
 
 /**
@@ -229,6 +133,73 @@ export async function updateConversationSummary(orgId, projectId, conversationId
   conversation.set('context.summaryCoversThroughMessageId', new mongoose.Types.ObjectId(String(input.throughMessageId)));
   conversation.updatedBy = actorUserId;
   await conversation.save();
+
+  /**
+   * Concatenates user-question text through `throughMessageId` and truncates.
+   * @param {object[]} messages Chronological active messages through the cover id.
+   * @returns {string}
+   */
+  function buildExtractiveSummaryText(messages) {
+    /** @type {string[]} */
+    const pieces = [];
+    for (const message of messages) {
+      if (message.role !== 'user') {
+        continue;
+      }
+      const content = typeof message.content === 'string' ? message.content.trim() : '';
+      if (content) {
+        pieces.push(content);
+      }
+    }
+    const joined = pieces.join('\n');
+    if (joined.length <= SUMMARY_TEXT_MAX_CHARS) {
+      return joined;
+    }
+    return joined.slice(0, SUMMARY_TEXT_MAX_CHARS);
+  }
+
+  /**
+   * Loads active messages up to and including `throughMessageId`.
+   * @param {string} tenantOrgId Tenant id.
+   * @param {string} tenantProjectId Project id.
+   * @param {string} tenantConversationId Conversation id.
+   * @param {string} throughMessageId Last covered message id.
+   * @returns {Promise<object[]>}
+   * @throws {import('../../platform/errors.js').ApiError} VALIDATION_ERROR
+   */
+  async function loadMessagesThroughId(tenantOrgId, tenantProjectId, tenantConversationId, throughMessageId) {
+    if (!mongoose.isValidObjectId(throughMessageId)) {
+      throw ApiError.fromCode('VALIDATION_ERROR', {
+        details: [{ path: 'throughMessageId', message: 'throughMessageId must be a valid ObjectId' }],
+      });
+    }
+    const throughId = new mongoose.Types.ObjectId(String(throughMessageId));
+    const through = await Message.findOne({
+      _id: throughId,
+      orgId: tenantOrgId,
+      projectId: new mongoose.Types.ObjectId(String(tenantProjectId)),
+      conversationId: new mongoose.Types.ObjectId(String(tenantConversationId)),
+      status: ROW_STATUS_ACTIVE,
+    })
+      .lean()
+      .exec();
+    if (!through) {
+      throw ApiError.fromCode('VALIDATION_ERROR', {
+        details: [{ path: 'throughMessageId', message: 'throughMessageId is not in this conversation' }],
+      });
+    }
+    return Message.find({
+      orgId: tenantOrgId,
+      projectId: new mongoose.Types.ObjectId(String(tenantProjectId)),
+      conversationId: new mongoose.Types.ObjectId(String(tenantConversationId)),
+      status: ROW_STATUS_ACTIVE,
+      $or: [{ createdAt: { $lt: through.createdAt } }, { createdAt: through.createdAt, _id: { $lte: throughId } }],
+    })
+      .sort({ createdAt: 1, _id: 1 })
+      .select({ role: 1, content: 1 })
+      .lean()
+      .exec();
+  }
 }
 
 /**
@@ -336,35 +307,6 @@ export async function unpinFact(orgId, projectId, conversationId, actorUserId, f
 }
 
 /**
- * Builds a persistable metrics object from a successful `prepareModelInput` result.
- * @param {object | null | undefined} budgeterOutput Phase 43 return value.
- * @returns {object | null}
- */
-function buildContextMetricsFromBudgeter(budgeterOutput) {
-  if (!Number.isFinite(budgeterOutput?.measuredInputTokens) || !Number.isFinite(budgeterOutput?.validatedContextCapacity)) {
-    return null;
-  }
-  /** @type {Record<string, unknown>} */
-  const metrics = {
-    validatedContextCapacity: budgeterOutput.validatedContextCapacity,
-    measuredInputTokens: budgeterOutput.measuredInputTokens,
-  };
-  if (Number.isFinite(budgeterOutput.maximumInputBudget)) {
-    metrics.maximumInputBudget = budgeterOutput.maximumInputBudget;
-  }
-  if (Number.isFinite(budgeterOutput.reservedOutputTokens)) {
-    metrics.reservedOutputTokens = budgeterOutput.reservedOutputTokens;
-  }
-  if (Array.isArray(budgeterOutput.compactionActions)) {
-    metrics.compactionActions = budgeterOutput.compactionActions;
-  }
-  if (Number.isFinite(budgeterOutput.maximumInputBudget) && budgeterOutput.maximumInputBudget > 0) {
-    metrics.contextPercentUsed = budgeterOutput.measuredInputTokens / budgeterOutput.maximumInputBudget;
-  }
-  return metrics;
-}
-
-/**
  * Writes measured budgeter counts onto an assistant message. No-ops when
  * accounting failed so the UI never sees a partial or guessed object.
  * @param {string} messageId Assistant message id.
@@ -393,26 +335,35 @@ export async function persistMessageContextMetrics(messageId, prepareModelInputO
   if (updated.matchedCount === 0) {
     throw ApiError.fromCode('CONVERSATION_NOT_FOUND');
   }
-}
 
-/**
- * Copies last-run metrics for GET context, omitting unavailable keys.
- * @param {object} storedMetrics Persisted `contextMetrics`.
- * @returns {object | undefined}
- */
-function mapLastRunMetrics(storedMetrics) {
-  /** @type {Record<string, number>} */
-  const lastRunMetrics = {};
-  if (Number.isFinite(storedMetrics.measuredInputTokens)) {
-    lastRunMetrics.measuredInputTokens = storedMetrics.measuredInputTokens;
+  /**
+   * Builds a persistable metrics object from a successful `prepareModelInput` result.
+   * @param {object | null | undefined} budgeterOutput Phase 43 return value.
+   * @returns {object | null}
+   */
+  function buildContextMetricsFromBudgeter(budgeterOutput) {
+    if (!Number.isFinite(budgeterOutput?.measuredInputTokens) || !Number.isFinite(budgeterOutput?.validatedContextCapacity)) {
+      return null;
+    }
+    /** @type {Record<string, unknown>} */
+    const nextMetrics = {
+      validatedContextCapacity: budgeterOutput.validatedContextCapacity,
+      measuredInputTokens: budgeterOutput.measuredInputTokens,
+    };
+    if (Number.isFinite(budgeterOutput.maximumInputBudget)) {
+      nextMetrics.maximumInputBudget = budgeterOutput.maximumInputBudget;
+    }
+    if (Number.isFinite(budgeterOutput.reservedOutputTokens)) {
+      nextMetrics.reservedOutputTokens = budgeterOutput.reservedOutputTokens;
+    }
+    if (Array.isArray(budgeterOutput.compactionActions)) {
+      nextMetrics.compactionActions = budgeterOutput.compactionActions;
+    }
+    if (Number.isFinite(budgeterOutput.maximumInputBudget) && budgeterOutput.maximumInputBudget > 0) {
+      nextMetrics.contextPercentUsed = budgeterOutput.measuredInputTokens / budgeterOutput.maximumInputBudget;
+    }
+    return nextMetrics;
   }
-  if (Number.isFinite(storedMetrics.maximumInputBudget)) {
-    lastRunMetrics.maximumInputBudget = storedMetrics.maximumInputBudget;
-  }
-  if (Number.isFinite(storedMetrics.contextPercentUsed)) {
-    lastRunMetrics.contextPercentUsed = storedMetrics.contextPercentUsed;
-  }
-  return Object.keys(lastRunMetrics).length > 0 ? lastRunMetrics : undefined;
 }
 
 /**
@@ -455,6 +406,26 @@ export async function getConversationContextView(orgId, projectId, conversationI
     }
   }
   return body;
+
+  /**
+   * Copies last-run metrics for GET context, omitting unavailable keys.
+   * @param {object} storedMetrics Persisted `contextMetrics`.
+   * @returns {object | undefined}
+   */
+  function mapLastRunMetrics(storedMetrics) {
+    /** @type {Record<string, number>} */
+    const lastRunMetrics = {};
+    if (Number.isFinite(storedMetrics.measuredInputTokens)) {
+      lastRunMetrics.measuredInputTokens = storedMetrics.measuredInputTokens;
+    }
+    if (Number.isFinite(storedMetrics.maximumInputBudget)) {
+      lastRunMetrics.maximumInputBudget = storedMetrics.maximumInputBudget;
+    }
+    if (Number.isFinite(storedMetrics.contextPercentUsed)) {
+      lastRunMetrics.contextPercentUsed = storedMetrics.contextPercentUsed;
+    }
+    return Object.keys(lastRunMetrics).length > 0 ? lastRunMetrics : undefined;
+  }
 }
 
 /**
@@ -476,4 +447,22 @@ export async function conversationContextRoutes(app) {
       return reply.send(body);
     },
   );
+
+  /**
+   * Parses conversation params or throws VALIDATION_ERROR.
+   * @param {unknown} params Route params.
+   * @returns {{ projectId: string, conversationId: string }}
+   */
+  function parseConversationParams(params) {
+    const parsed = conversationParamsSchema.safeParse(params ?? {});
+    if (!parsed.success) {
+      throw ApiError.fromCode('VALIDATION_ERROR', {
+        details: parsed.error.issues.map((issue) => ({
+          path: issue.path.join('.') || 'body',
+          message: issue.message,
+        })),
+      });
+    }
+    return parsed.data;
+  }
 }

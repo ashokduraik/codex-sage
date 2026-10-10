@@ -10,21 +10,6 @@ import { usePasswordChange } from '@/features/auth/api/usePasswordChange.js';
 const AuthContext = createContext(null);
 
 /**
- * Builds a safe returnTo path from the current location (path + search).
- * @returns {string}
- */
-function currentReturnTo() {
-  const path = `${window.location.pathname}${window.location.search}`;
-  if (!path.startsWith('/') || path.startsWith('//') || path.includes('\\')) {
-    return '/';
-  }
-  if (path.startsWith('/login')) {
-    return '/';
-  }
-  return path;
-}
-
-/**
  * Provides real backend auth: boot refresh, current-user query, session-loss handling.
  * @param props - Provider props.
  * @returns Auth context provider.
@@ -158,6 +143,21 @@ export function AuthProvider({ children }) {
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+
+  /**
+   * Builds a safe returnTo path from the current location (path + search).
+   * @returns {string}
+   */
+  function currentReturnTo() {
+    const path = `${window.location.pathname}${window.location.search}`;
+    if (!path.startsWith('/') || path.startsWith('//') || path.includes('\\')) {
+      return '/';
+    }
+    if (path.startsWith('/login')) {
+      return '/';
+    }
+    return path;
+  }
 }
 
 /**

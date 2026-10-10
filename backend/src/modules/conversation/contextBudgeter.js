@@ -81,6 +81,8 @@ function throwAccountingUnavailable(reason) {
 export function createTokenizerAdapter(config = {}) {
   const expectedArtifactId = typeof config.expectedArtifactId === 'string' ? config.expectedArtifactId.trim() : '';
 
+  return { countTokens, countMessage, assertArtifactMatch };
+
   /**
    * @param {string} text Raw segment or message text.
    * @returns {number}
@@ -113,16 +115,6 @@ export function createTokenizerAdapter(config = {}) {
       throwAccountingUnavailable('tokenizer_artifact_mismatch');
     }
   }
-
-  return { countTokens, countMessage, assertArtifactMatch };
-}
-
-/**
- * @param {object} segment Prompt block.
- * @returns {boolean}
- */
-function isProtectedSegment(segment) {
-  return segment.protected === true;
 }
 
 /**
@@ -131,53 +123,6 @@ function isProtectedSegment(segment) {
  */
 function isSchemaSegment(segment) {
   return SCHEMA_KINDS.has(segment.kind);
-}
-
-/**
- * @param {object} segment Prompt block.
- * @returns {boolean}
- */
-function isUnprotectedTurn(segment) {
-  return segment.kind === TURN_KIND && !isProtectedSegment(segment);
-}
-
-/**
- * Source-id stub kept when a tool body is dropped (solution §1.2 step 3).
- * @param {object} segment Tool result segment.
- * @returns {string}
- */
-function buildToolSourceStub(segment) {
-  const path = segment.path ?? '';
-  const sourceId = segment.sourceId ?? '';
-  return `[source: ${path} ${sourceId}]`.trim();
-}
-
-/**
- * @param {object} segment Tool result.
- * @returns {boolean}
- */
-function isDroppableToolBody(segment) {
-  return segment.kind === TOOL_RESULT_KIND && !isProtectedSegment(segment) && segment.stubbed !== true;
-}
-
-/**
- * @param {object} segment Candidate excerpt.
- * @returns {boolean}
- */
-function isShrinkableExcerpt(segment) {
-  if (isProtectedSegment(segment) || isSchemaSegment(segment) || isUnprotectedTurn(segment)) {
-    return false;
-  }
-  return segment.kind === TOOL_RESULT_KIND || segment.kind === 'excerpt' || segment.shrinkable === true;
-}
-
-/**
- * Copies segments so compaction never mutates the caller’s array.
- * @param {object[]} segments Input blocks.
- * @returns {object[]}
- */
-function cloneSegments(segments) {
-  return (segments ?? []).map((segment) => ({ ...segment, content: segment.content ?? '' }));
 }
 
 /**
@@ -197,159 +142,8 @@ function measureCompetingInput(segments, countTokens) {
 }
 
 /**
- * Tokens already reserved as system rules and tool-schema overhead.
- * @param {object[]} segments Working set.
- * @param {(text: string) => number} countTokens Adapter.
- * @param {number} toolSchemaTokenOverhead Caller-measured extra schema tokens.
- * @returns {number}
- */
-function measureSystemAndToolSchema(segments, countTokens, toolSchemaTokenOverhead) {
-  let total = Number.isFinite(toolSchemaTokenOverhead) ? toolSchemaTokenOverhead : 0;
-  for (const segment of segments) {
-    if (isSchemaSegment(segment)) {
-      total += countTokens(segment.content ?? '');
-    }
-  }
-  return total;
-}
-
-/**
- * Collapses the oldest unprotected turn (and its following turn mate when present)
- * into the caller-supplied summary. Returns whether an action ran.
- * @param {object[]} working Mutated working set.
- * @param {object | undefined} summarySegment Caller summary.
- * @param {object[]} compactionActions Audit log.
- * @param {(text: string) => number} countTokens Adapter.
- * @returns {boolean}
- */
-function replaceOldestTurnsWithSummary(working, summarySegment, compactionActions, countTokens) {
-  const firstTurnIndex = working.findIndex(isUnprotectedTurn);
-  if (firstTurnIndex < 0) {
-    return false;
-  }
-  const removed = [working[firstTurnIndex]];
-  working.splice(firstTurnIndex, 1);
-  if (working[firstTurnIndex] && isUnprotectedTurn(working[firstTurnIndex])) {
-    removed.push(working[firstTurnIndex]);
-    working.splice(firstTurnIndex, 1);
-  }
-  const beforeTokens = removed.reduce((sum, segment) => sum + countTokens(segment.content ?? ''), 0);
-  const summaryAlreadyPresent = working.some((segment) => segment.kind === SUMMARY_KIND);
-  let afterTokens = 0;
-  if (summarySegment && !summaryAlreadyPresent) {
-    const summaryCopy = { ...summarySegment, kind: SUMMARY_KIND, content: summarySegment.content ?? '' };
-    const insertAt = working.findIndex((segment) => !isSchemaSegment(segment));
-    working.splice(insertAt < 0 ? working.length : insertAt, 0, summaryCopy);
-    afterTokens = countTokens(summaryCopy.content);
-  }
-  compactionActions.push({
-    action: summarySegment && !summaryAlreadyPresent ? 'replace_with_summary' : 'drop_turn',
-    segmentId: removed[0].id,
-    beforeTokens,
-    afterTokens,
-  });
-  return true;
-}
-
-/**
- * Drops the lowest-ranked unprotected tool body and keeps a source stub.
- * @param {object[]} working Mutated working set.
- * @param {object[]} compactionActions Audit log.
- * @param {(text: string) => number} countTokens Adapter.
- * @returns {boolean}
- */
-function dropLowestRankedToolBody(working, compactionActions, countTokens) {
-  const candidates = working.filter(isDroppableToolBody);
-  if (candidates.length === 0) {
-    return false;
-  }
-  candidates.sort((left, right) => (left.rank ?? 0) - (right.rank ?? 0));
-  const target = candidates[0];
-  const beforeTokens = countTokens(target.content ?? '');
-  target.content = buildToolSourceStub(target);
-  target.stubbed = true;
-  const afterTokens = countTokens(target.content);
-  compactionActions.push({
-    action: 'drop_tool_body',
-    segmentId: target.id,
-    beforeTokens,
-    afterTokens,
-  });
-  return true;
-}
-
-/**
- * Shrinks one excerpt at a paragraph, then sentence, then word boundary.
- * @param {object[]} working Mutated working set.
- * @param {number} excerptMinTokens Floor.
- * @param {object[]} compactionActions Audit log.
- * @param {(text: string) => number} countTokens Adapter.
- * @returns {boolean}
- */
-function shrinkOneExcerpt(working, excerptMinTokens, compactionActions, countTokens) {
-  const target = working.find((segment) => isShrinkableExcerpt(segment) && countTokens(segment.content ?? '') > excerptMinTokens);
-  if (!target) {
-    return false;
-  }
-  const beforeTokens = countTokens(target.content ?? '');
-  const nextContent = shrinkExcerptContent(target.content, excerptMinTokens, countTokens);
-  if (nextContent === target.content) {
-    return false;
-  }
-  target.content = nextContent;
-  const afterTokens = countTokens(target.content);
-  if (afterTokens >= beforeTokens) {
-    return false;
-  }
-  compactionActions.push({
-    action: 'shrink_excerpt',
-    segmentId: target.id,
-    beforeTokens,
-    afterTokens,
-  });
-  return true;
-}
-
-/**
- * Reduces excerpt text at natural boundaries down toward the token floor.
- * @param {string} content Current excerpt.
- * @param {number} excerptMinTokens Floor.
- * @param {(text: string) => number} countTokens Adapter.
- * @returns {string}
- */
-function shrinkExcerptContent(content, excerptMinTokens, countTokens) {
-  const paragraphs = content.split(/\n\n+/);
-  if (paragraphs.length > 1) {
-    paragraphs.pop();
-    return paragraphs.join('\n\n').trim();
-  }
-  const sentences = content.split(/(?<=[.!?])\s+/);
-  if (sentences.length > 1) {
-    sentences.pop();
-    return sentences.join(' ').trim();
-  }
-  const words = content.trim().split(/\s+/).filter(Boolean);
-  if (words.length <= 1) {
-    return content;
-  }
-  let low = 1;
-  let high = words.length - 1;
-  let chosen = words.slice(0, high).join(' ');
-  while (low <= high) {
-    const mid = Math.floor((low + high) / 2);
-    const candidate = words.slice(0, mid).join(' ');
-    if (countTokens(candidate) >= excerptMinTokens) {
-      chosen = candidate;
-      high = mid - 1;
-    } else {
-      low = mid + 1;
-    }
-  }
-  return chosen;
-}
-
-/**
  * Compacts in solution §1.2 order until the competing input fits or we must fail.
+ * Kept module-level so `prepareModelInput` stays readable (soft ~200 split).
  * @param {object} args Compaction args.
  * @returns {object[]}
  */
@@ -357,13 +151,6 @@ function compactSegments(args) {
   const { working, summarySegment, countTokens, inputBudget, excerptMinTokens, compactionMaxPasses } = args;
   const compactionActions = [];
   let passes = 0;
-
-  /**
-   * @returns {boolean}
-   */
-  function isOverBudget() {
-    return measureCompetingInput(working, countTokens) > inputBudget;
-  }
 
   while (isOverBudget() && passes < compactionMaxPasses) {
     if (replaceOldestTurnsWithSummary(working, summarySegment, compactionActions, countTokens)) {
@@ -391,21 +178,177 @@ function compactSegments(args) {
     });
   }
   return compactionActions;
-}
 
-/**
- * Maps remaining segments to `ai` SDK-style message parts.
- * @param {object} segment Working segment.
- * @returns {{ role: string, content: string }}
- */
-function mapSegmentToMessage(segment) {
-  if (isSchemaSegment(segment)) {
-    return { role: 'system', content: segment.content ?? '' };
+  /**
+   * @returns {boolean}
+   */
+  function isOverBudget() {
+    return measureCompetingInput(working, countTokens) > inputBudget;
   }
-  if (segment.kind === TURN_KIND && segment.role) {
-    return { role: segment.role, content: segment.content ?? '' };
+
+  /**
+   * Collapses the oldest unprotected turn (and its following turn mate when present)
+   * into the caller-supplied summary. Returns whether an action ran.
+   * @param {object[]} workingSet Mutated working set.
+   * @param {object | undefined} summary Caller summary.
+   * @param {object[]} actions Audit log.
+   * @param {(text: string) => number} count Adapter.
+   * @returns {boolean}
+   */
+  function replaceOldestTurnsWithSummary(workingSet, summary, actions, count) {
+    const firstTurnIndex = workingSet.findIndex(isUnprotectedTurn);
+    if (firstTurnIndex < 0) {
+      return false;
+    }
+    const removed = [workingSet[firstTurnIndex]];
+    workingSet.splice(firstTurnIndex, 1);
+    if (workingSet[firstTurnIndex] && isUnprotectedTurn(workingSet[firstTurnIndex])) {
+      removed.push(workingSet[firstTurnIndex]);
+      workingSet.splice(firstTurnIndex, 1);
+    }
+    const beforeTokens = removed.reduce((sum, segment) => sum + count(segment.content ?? ''), 0);
+    const summaryAlreadyPresent = workingSet.some((segment) => segment.kind === SUMMARY_KIND);
+    let afterTokens = 0;
+    if (summary && !summaryAlreadyPresent) {
+      const summaryCopy = { ...summary, kind: SUMMARY_KIND, content: summary.content ?? '' };
+      const insertAt = workingSet.findIndex((segment) => !isSchemaSegment(segment));
+      workingSet.splice(insertAt < 0 ? workingSet.length : insertAt, 0, summaryCopy);
+      afterTokens = count(summaryCopy.content);
+    }
+    actions.push({
+      action: summary && !summaryAlreadyPresent ? 'replace_with_summary' : 'drop_turn',
+      segmentId: removed[0].id,
+      beforeTokens,
+      afterTokens,
+    });
+    return true;
   }
-  return { role: 'user', content: segment.content ?? '' };
+
+  /**
+   * Drops the lowest-ranked unprotected tool body and keeps a source stub.
+   * @param {object[]} workingSet Mutated working set.
+   * @param {object[]} actions Audit log.
+   * @param {(text: string) => number} count Adapter.
+   * @returns {boolean}
+   */
+  function dropLowestRankedToolBody(workingSet, actions, count) {
+    const candidates = workingSet.filter((segment) => segment.kind === TOOL_RESULT_KIND && !isProtectedSegment(segment) && segment.stubbed !== true);
+    if (candidates.length === 0) {
+      return false;
+    }
+    candidates.sort((left, right) => (left.rank ?? 0) - (right.rank ?? 0));
+    const target = candidates[0];
+    const beforeTokens = count(target.content ?? '');
+    const path = target.path ?? '';
+    const sourceId = target.sourceId ?? '';
+    target.content = `[source: ${path} ${sourceId}]`.trim();
+    target.stubbed = true;
+    const afterTokens = count(target.content);
+    actions.push({
+      action: 'drop_tool_body',
+      segmentId: target.id,
+      beforeTokens,
+      afterTokens,
+    });
+    return true;
+  }
+
+  /**
+   * Shrinks one excerpt at a paragraph, then sentence, then word boundary.
+   * @param {object[]} workingSet Mutated working set.
+   * @param {number} minTokens Floor.
+   * @param {object[]} actions Audit log.
+   * @param {(text: string) => number} count Adapter.
+   * @returns {boolean}
+   */
+  function shrinkOneExcerpt(workingSet, minTokens, actions, count) {
+    const target = workingSet.find((segment) => isShrinkableExcerpt(segment) && count(segment.content ?? '') > minTokens);
+    if (!target) {
+      return false;
+    }
+    const beforeTokens = count(target.content ?? '');
+    const nextContent = shrinkExcerptContent(target.content, minTokens, count);
+    if (nextContent === target.content) {
+      return false;
+    }
+    target.content = nextContent;
+    const afterTokens = count(target.content);
+    if (afterTokens >= beforeTokens) {
+      return false;
+    }
+    actions.push({
+      action: 'shrink_excerpt',
+      segmentId: target.id,
+      beforeTokens,
+      afterTokens,
+    });
+    return true;
+
+    /**
+     * @param {object} segment Candidate excerpt.
+     * @returns {boolean}
+     */
+    function isShrinkableExcerpt(segment) {
+      if (isProtectedSegment(segment) || isSchemaSegment(segment) || isUnprotectedTurn(segment)) {
+        return false;
+      }
+      return segment.kind === TOOL_RESULT_KIND || segment.kind === 'excerpt' || segment.shrinkable === true;
+    }
+
+    /**
+     * Reduces excerpt text at natural boundaries down toward the token floor.
+     * @param {string} content Current excerpt.
+     * @param {number} excerptMinTokens Floor.
+     * @param {(text: string) => number} countTokens Adapter.
+     * @returns {string}
+     */
+    function shrinkExcerptContent(content, excerptMinTokens, countTokens) {
+      const paragraphs = content.split(/\n\n+/);
+      if (paragraphs.length > 1) {
+        paragraphs.pop();
+        return paragraphs.join('\n\n').trim();
+      }
+      const sentences = content.split(/(?<=[.!?])\s+/);
+      if (sentences.length > 1) {
+        sentences.pop();
+        return sentences.join(' ').trim();
+      }
+      const words = content.trim().split(/\s+/).filter(Boolean);
+      if (words.length <= 1) {
+        return content;
+      }
+      let low = 1;
+      let high = words.length - 1;
+      let chosen = words.slice(0, high).join(' ');
+      while (low <= high) {
+        const mid = Math.floor((low + high) / 2);
+        const candidate = words.slice(0, mid).join(' ');
+        if (countTokens(candidate) >= excerptMinTokens) {
+          chosen = candidate;
+          high = mid - 1;
+        } else {
+          low = mid + 1;
+        }
+      }
+      return chosen;
+    }
+  }
+
+  /**
+   * @param {object} segment Prompt block.
+   * @returns {boolean}
+   */
+  function isProtectedSegment(segment) {
+    return segment.protected === true;
+  }
+
+  /**
+   * @param {object} segment Prompt block.
+   * @returns {boolean}
+   */
+  function isUnprotectedTurn(segment) {
+    return segment.kind === TURN_KIND && !isProtectedSegment(segment);
+  }
 }
 
 /**
@@ -468,7 +411,7 @@ export function prepareModelInput(input) {
     throwAccountingUnavailable('tokenizer_artifact_mismatch');
   }
 
-  const working = cloneSegments(input.segments);
+  const working = (input.segments ?? []).map((segment) => ({ ...segment, content: segment.content ?? '' }));
   let systemAndToolSchemaTokens;
   let competingInput;
   try {
@@ -503,4 +446,36 @@ export function prepareModelInput(input) {
     validatedContextCapacity,
     compactionActions,
   };
+
+  /**
+   * Tokens already reserved as system rules and tool-schema overhead.
+   * @param {object[]} segments Working set.
+   * @param {(text: string) => number} countTokens Adapter.
+   * @param {number} toolSchemaTokenOverhead Caller-measured extra schema tokens.
+   * @returns {number}
+   */
+  function measureSystemAndToolSchema(segments, countTokens, toolSchemaTokenOverhead) {
+    let total = Number.isFinite(toolSchemaTokenOverhead) ? toolSchemaTokenOverhead : 0;
+    for (const segment of segments) {
+      if (isSchemaSegment(segment)) {
+        total += countTokens(segment.content ?? '');
+      }
+    }
+    return total;
+  }
+
+  /**
+   * Maps remaining segments to `ai` SDK-style message parts.
+   * @param {object} segment Working segment.
+   * @returns {{ role: string, content: string }}
+   */
+  function mapSegmentToMessage(segment) {
+    if (isSchemaSegment(segment)) {
+      return { role: 'system', content: segment.content ?? '' };
+    }
+    if (segment.kind === TURN_KIND && segment.role) {
+      return { role: segment.role, content: segment.content ?? '' };
+    }
+    return { role: 'user', content: segment.content ?? '' };
+  }
 }

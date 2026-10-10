@@ -60,19 +60,6 @@ const llmModelIdSchema = z.string().trim().min(1, { error: 'required model id (n
 const llmContextCapacitySchema = z.coerce.number().int({ error: 'expected a positive integer' }).positive({ error: 'expected a positive integer' });
 
 /**
- * Optional Bearer token. Empty or unset is null — never a dummy default.
- * @param {string | undefined} raw Env value.
- * @returns {string | null}
- */
-function parseOptionalLlmApiKey(raw) {
-  if (typeof raw !== 'string') {
-    return null;
-  }
-  const trimmed = raw.trim();
-  return trimmed === '' ? null : trimmed;
-}
-
-/**
  * Reads the repository credential encryption key without requiring Mongo/JWT env.
  * @param {NodeJS.ProcessEnv} [env] Env overlay.
  * @returns {{ encryptionKey: Buffer, keyId: string }}
@@ -164,27 +151,6 @@ function collectFieldError(errors, variable, result) {
 }
 
 /**
- * Resolves WORKSPACE_ROOT: required absolute path outside tests; test may default to tmp.
- * @param {NodeJS.ProcessEnv | Record<string, string | undefined>} env Env map.
- * @param {string} nodeEnv Resolved NODE_ENV.
- * @param {string[]} errors Accumulator of validation errors.
- * @returns {string | null} Absolute workspace root, or null when invalid.
- */
-function parseWorkspaceRoot(env, nodeEnv, errors) {
-  const raw = typeof env.WORKSPACE_ROOT === 'string' ? env.WORKSPACE_ROOT.trim() : '';
-  const candidate = raw || (nodeEnv === 'test' ? TEST_DEFAULT_WORKSPACE_ROOT : '');
-  if (!candidate) {
-    errors.push('WORKSPACE_ROOT: required absolute path to the encrypted workspace volume');
-    return null;
-  }
-  if (!path.isAbsolute(candidate)) {
-    errors.push('WORKSPACE_ROOT: must be an absolute filesystem path');
-    return null;
-  }
-  return path.resolve(candidate);
-}
-
-/**
  * Builds application configuration by reading environment variables.
  * Collects every validation error before throwing so operators see the full list.
  * Thrown messages name variables and expected formats but never include secret values.
@@ -258,4 +224,38 @@ export function loadConfig(env = process.env) {
       apiKey: llmApiKey,
     },
   };
+
+  /**
+   * Optional Bearer token. Empty or unset is null — never a dummy default.
+   * @param {string | undefined} raw Env value.
+   * @returns {string | null}
+   */
+  function parseOptionalLlmApiKey(raw) {
+    if (typeof raw !== 'string') {
+      return null;
+    }
+    const trimmed = raw.trim();
+    return trimmed === '' ? null : trimmed;
+  }
+
+  /**
+   * Resolves WORKSPACE_ROOT: required absolute path outside tests; test may default to tmp.
+   * @param {NodeJS.ProcessEnv | Record<string, string | undefined>} env Env map.
+   * @param {string} nodeEnv Resolved NODE_ENV.
+   * @param {string[]} errors Accumulator of validation errors.
+   * @returns {string | null} Absolute workspace root, or null when invalid.
+   */
+  function parseWorkspaceRoot(env, nodeEnv, errors) {
+    const raw = typeof env.WORKSPACE_ROOT === 'string' ? env.WORKSPACE_ROOT.trim() : '';
+    const candidate = raw || (nodeEnv === 'test' ? TEST_DEFAULT_WORKSPACE_ROOT : '');
+    if (!candidate) {
+      errors.push('WORKSPACE_ROOT: required absolute path to the encrypted workspace volume');
+      return null;
+    }
+    if (!path.isAbsolute(candidate)) {
+      errors.push('WORKSPACE_ROOT: must be an absolute filesystem path');
+      return null;
+    }
+    return path.resolve(candidate);
+  }
 }

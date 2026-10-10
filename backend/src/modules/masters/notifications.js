@@ -47,59 +47,6 @@ const NOTIFICATION_BODIES = Object.freeze({
 });
 
 /**
- * Clamps a notification list limit.
- * @param {unknown} limit Requested limit.
- * @returns {number}
- */
-function clampNotificationListLimit(limit) {
-  if (typeof limit !== 'number' || !Number.isFinite(limit) || limit < 1) {
-    return NOTIFICATION_LIST_PAGE_SIZE_DEFAULT;
-  }
-  return Math.min(Math.floor(limit), NOTIFICATION_LIST_PAGE_SIZE_MAX);
-}
-
-/**
- * Builds a user-language body that never includes ids or secrets.
- * @param {string} type Notification type.
- * @param {string | null} projectName Project display name.
- * @returns {string}
- */
-function buildNotificationBody(type, projectName) {
-  const base = NOTIFICATION_BODIES[type] ?? NOTIFICATION_BODIES['knowledge.completed'];
-  if (typeof projectName === 'string' && projectName.trim()) {
-    return `${base.replace('A project', `Project "${projectName.trim()}"`).replace('A repository', `Project "${projectName.trim()}"`)}`.slice(
-      0,
-      NOTIFICATION_BODY_MAX_CHARS,
-    );
-  }
-  return base;
-}
-
-/**
- * Lists candidate recipient user ids for a project (members + all-access users).
- * @param {string} orgId Tenant id.
- * @param {string} projectId Project id.
- * @returns {Promise<string[]>}
- */
-async function listCandidateRecipientUserIds(orgId, projectId) {
-  const members = await listProjectMembers(orgId, projectId);
-  const memberIds = members.map((member) => String(member.userId));
-  const allAccess = await User.find({
-    orgId,
-    projectAccessMode: 'all',
-    userStatus: 'active',
-  })
-    .select({ _id: 1 })
-    .lean()
-    .exec();
-  const ids = new Set(memberIds);
-  for (const row of allAccess) {
-    ids.add(String(row._id));
-  }
-  return [...ids];
-}
-
-/**
  * Filters candidate users by a project permission.
  * @param {string} orgId Tenant id.
  * @param {string} projectId Project id.
@@ -126,6 +73,30 @@ export async function listNotificationRecipientUserIds(orgId, projectId, require
     }
   }
   return recipients;
+
+  /**
+   * Lists candidate recipient user ids for a project (members + all-access users).
+   * @param {string} candidateOrgId Tenant id.
+   * @param {string} candidateProjectId Project id.
+   * @returns {Promise<string[]>}
+   */
+  async function listCandidateRecipientUserIds(candidateOrgId, candidateProjectId) {
+    const members = await listProjectMembers(candidateOrgId, candidateProjectId);
+    const memberIds = members.map((member) => String(member.userId));
+    const allAccess = await User.find({
+      orgId: candidateOrgId,
+      projectAccessMode: 'all',
+      userStatus: 'active',
+    })
+      .select({ _id: 1 })
+      .lean()
+      .exec();
+    const ids = new Set(memberIds);
+    for (const row of allAccess) {
+      ids.add(String(row._id));
+    }
+    return [...ids];
+  }
 }
 
 /**
@@ -141,22 +112,6 @@ export function permissionForNotificationType(type) {
     return 'projects.view';
   }
   return 'knowledge.view';
-}
-
-/**
- * Inserts one notification row; ignores duplicate-key races.
- * @param {object} doc Notification fields.
- * @returns {Promise<void>}
- */
-async function insertNotificationIgnoringDuplicate(doc) {
-  try {
-    await Notification.create(doc);
-  } catch (err) {
-    if (err && typeof err === 'object' && 'code' in err && Number(err.code) === 11000) {
-      return;
-    }
-    throw err;
-  }
 }
 
 /**
@@ -211,6 +166,39 @@ export async function emitProjectNotification(input) {
   } catch (err) {
     input.log?.error?.({ errName: err instanceof Error ? err.name : 'Error' }, 'notification emit failed; job already terminal');
     return 0;
+  }
+
+  /**
+   * Builds a user-language body that never includes ids or secrets.
+   * @param {string} type Notification type.
+   * @param {string | null} projectName Project display name.
+   * @returns {string}
+   */
+  function buildNotificationBody(type, projectName) {
+    const base = NOTIFICATION_BODIES[type] ?? NOTIFICATION_BODIES['knowledge.completed'];
+    if (typeof projectName === 'string' && projectName.trim()) {
+      return `${base.replace('A project', `Project "${projectName.trim()}"`).replace('A repository', `Project "${projectName.trim()}"`)}`.slice(
+        0,
+        NOTIFICATION_BODY_MAX_CHARS,
+      );
+    }
+    return base;
+  }
+
+  /**
+   * Inserts one notification row; ignores duplicate-key races.
+   * @param {object} doc Notification fields.
+   * @returns {Promise<void>}
+   */
+  async function insertNotificationIgnoringDuplicate(doc) {
+    try {
+      await Notification.create(doc);
+    } catch (err) {
+      if (err && typeof err === 'object' && 'code' in err && Number(err.code) === 11000) {
+        return;
+      }
+      throw err;
+    }
   }
 }
 
@@ -297,7 +285,10 @@ export function mapNotificationToDto(row) {
  */
 export async function listNotificationsForUser(orgId, userId, query = {}) {
   assertOrgId(orgId);
-  const limit = clampNotificationListLimit(query.limit);
+  const limit =
+    typeof query.limit !== 'number' || !Number.isFinite(query.limit) || query.limit < 1
+      ? NOTIFICATION_LIST_PAGE_SIZE_DEFAULT
+      : Math.min(Math.floor(query.limit), NOTIFICATION_LIST_PAGE_SIZE_MAX);
   /** @type {Record<string, unknown>} */
   const filter = { orgId, userId, status: ROW_STATUS_ACTIVE };
   if (query.unread) {

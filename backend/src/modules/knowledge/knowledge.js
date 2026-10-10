@@ -1,5 +1,6 @@
 /**
- * knowledge/knowledge.js — merged resource file.
+ * knowledge/knowledge.js — KnowledgeVersion persistence, readability gate, publish,
+ * same-job CodeGraph recovery, and browse orchestration/routes.
  */
 import { requireProjectPermission } from '../../http/preHandlers/requireProjectPermission.js';
 import { KnowledgeVersion } from '../../models/knowledgeVersion.model.js';
@@ -130,36 +131,8 @@ export async function insertKnowledgeVersion(input) {
  * Internal Q&A / browse gate — allow, queue, or deny without taking a CodeGraph read lease.
  */
 /**
- * Builds a gate result from a catalog code.
- * @param {'allow' | 'queue' | 'deny'} action Gate action.
- * @param {string} code Error / status code.
- * @param {string} [knowledgeVersionId] Current knowledge version when allowing.
- * @returns {{
- *   action: 'allow' | 'queue' | 'deny',
- *   code?: string,
- *   message?: string,
- *   knowledgeVersionId?: string,
- * }}
- */
-function gateResult(action, code, knowledgeVersionId) {
-  if (action === 'allow') {
-    return { action: 'allow', knowledgeVersionId };
-  }
-  const entry = getCatalogEntry(code);
-  return {
-    action,
-    code,
-    message: entry?.message ?? 'Project knowledge is not available.',
-  };
-}
-
-/**
  * Decides whether project knowledge may be read for chat/search/browse.
  * @param {{ orgId: string, projectId: string }} scope Tenant + project.
- * @param {{
- *   findProject?: typeof findProjectById,
- *   hasWriterLock?: typeof hasActiveProjectWriterLock,
- * }} [deps] Test seams.
  * @returns {Promise<{
  *   action: 'allow' | 'queue' | 'deny',
  *   code?: string,
@@ -167,11 +140,8 @@ function gateResult(action, code, knowledgeVersionId) {
  *   knowledgeVersionId?: string,
  * }>}
  */
-export async function assertKnowledgeReadable(scope, deps = {}) {
-  const findProject = deps.findProject ?? findProjectById;
-  const hasWriterLock = deps.hasWriterLock ?? hasActiveProjectWriterLock;
-
-  const project = await findProject(scope.orgId, scope.projectId);
+export async function assertKnowledgeReadable(scope) {
+  const project = await findProjectById(scope.orgId, scope.projectId);
   if (!project) {
     return gateResult('deny', 'KNOWLEDGE_UNAVAILABLE');
   }
@@ -193,7 +163,7 @@ export async function assertKnowledgeReadable(scope, deps = {}) {
     return gateResult('queue', 'KNOWLEDGE_UPDATING');
   }
 
-  const writerActive = await hasWriterLock({
+  const writerActive = await hasActiveProjectWriterLock({
     orgId: scope.orgId,
     projectId: scope.projectId,
   });
@@ -208,6 +178,30 @@ export async function assertKnowledgeReadable(scope, deps = {}) {
   }
 
   return gateResult('deny', 'KNOWLEDGE_UNAVAILABLE');
+
+  /**
+   * Builds a gate result from a catalog code.
+   * @param {'allow' | 'queue' | 'deny'} action Gate action.
+   * @param {string} code Error / status code.
+   * @param {string} [versionId] Current knowledge version when allowing.
+   * @returns {{
+   *   action: 'allow' | 'queue' | 'deny',
+   *   code?: string,
+   *   message?: string,
+   *   knowledgeVersionId?: string,
+   * }}
+   */
+  function gateResult(action, code, versionId) {
+    if (action === 'allow') {
+      return { action: 'allow', knowledgeVersionId: versionId };
+    }
+    const entry = getCatalogEntry(code);
+    return {
+      action,
+      code,
+      message: entry?.message ?? 'Project knowledge is not available.',
+    };
+  }
 }
 
 // --- from knowledge/knowledge.publish.js ---
@@ -371,29 +365,18 @@ export function isRecoverableCodegraphFailure(err) {
 /**
  * Runs S4 with same-job recovery: rematerialize this version, wipe index, retry indexAll.
  * @param {object} ctx IngestStageContext.
- * @param {{
- *   runS3?: typeof runMaterializeDocsStage,
- *   runS4?: typeof runCodegraphUpdateStage,
- *   wipeIndex?: typeof wipeCodegraphIndex,
- *   maxAttempts?: number,
- * }} [deps] Test seams.
  * @returns {Promise<object>} S4 stage result.
  */
-export async function runCodegraphUpdateWithRecovery(ctx, deps = {}) {
-  const runS3 = deps.runS3 ?? runMaterializeDocsStage;
-  const runS4 = deps.runS4 ?? runCodegraphUpdateStage;
-  const wipeIndex = deps.wipeIndex ?? wipeCodegraphIndex;
-  const maxAttempts = deps.maxAttempts ?? KNOWLEDGE_RECOVERY_MAX_ATTEMPTS;
-
+export async function runCodegraphUpdateWithRecovery(ctx) {
   try {
-    return await runS4(ctx);
+    return await runCodegraphUpdateStage(ctx);
   } catch (err) {
     if (!isRecoverableCodegraphFailure(err)) {
       throw err;
     }
 
     const priorAttempts = Number(ctx.checkpoint?.cursor?.recoveryAttempts ?? 0);
-    if (priorAttempts >= maxAttempts) {
+    if (priorAttempts >= KNOWLEDGE_RECOVERY_MAX_ATTEMPTS) {
       throw createJobFailureError({
         failureClass: 'permanent',
         code: 'CODEGRAPH_RECOVERY_EXHAUSTED',
@@ -418,13 +401,13 @@ export async function runCodegraphUpdateWithRecovery(ctx, deps = {}) {
       };
     }
 
-    ctx.logger?.warn?.({ recoveryAttempts: nextAttempts, maxAttempts }, 'codegraph recovery rematerialize starting');
+    ctx.logger?.warn?.({ recoveryAttempts: nextAttempts, maxAttempts: KNOWLEDGE_RECOVERY_MAX_ATTEMPTS }, 'codegraph recovery rematerialize starting');
 
-    await runS3(ctx);
+    await runMaterializeDocsStage(ctx);
 
     const workspacePath = typeof ctx.carry?.workspacePath === 'string' ? ctx.carry.workspacePath : null;
     if (workspacePath) {
-      await wipeIndex(workspacePath);
+      await wipeCodegraphIndex(workspacePath);
     }
 
     // Clear changedPaths so S4 prefers full index after wipe.
@@ -432,7 +415,7 @@ export async function runCodegraphUpdateWithRecovery(ctx, deps = {}) {
       delete ctx.carry.changedPaths;
     }
 
-    return runS4(ctx);
+    return runCodegraphUpdateStage(ctx);
   }
 }
 
@@ -663,221 +646,6 @@ export function clampBrowseLimit(limit) {
 }
 
 /**
- * Loads the active project or throws 404.
- * @param {string} orgId Tenant id.
- * @param {string} projectId Project id.
- * @param {typeof findProjectById} findProject Finder.
- * @returns {Promise<object>}
- */
-async function loadActiveProject(orgId, projectId, findProject) {
-  const project = await findProject(orgId, projectId);
-  if (!project || project.status !== ROW_STATUS_ACTIVE) {
-    throw ApiError.fromCode('PROJECT_NOT_FOUND');
-  }
-  return project;
-}
-
-/**
- * Maps a gate action to the browse wrapper state.
- * @param {'allow' | 'queue' | 'deny'} action Gate action.
- * @returns {'ready' | 'updating' | 'unavailable'}
- */
-function stateFromGate(action) {
-  if (action === 'allow') {
-    return 'ready';
-  }
-  if (action === 'queue') {
-    return 'updating';
-  }
-  return 'unavailable';
-}
-
-/**
- * Runs a browse kind after the gate allows.
- * @param {{
- *   orgId: string,
- *   projectId: string,
- *   kind: 'index' | 'summary' | 'workflows' | 'apis' | 'symbols' | 'health',
- *   workspaceRoot: string,
- *   query?: { q?: string, cursor?: string, limit?: unknown },
- *   project: object,
- *   knowledgeVersionId: string,
- * }} input Allowed-path inputs.
- * @param {object} deps Injected deps.
- * @returns {Promise<object>}
- */
-async function loadReadyBrowse(input, deps) {
-  const knowledgeVersion = await deps.findKnowledgeVersion({
-    orgId: input.orgId,
-    projectId: input.projectId,
-    knowledgeVersionId: input.knowledgeVersionId,
-  });
-  const sourceVersionId = knowledgeVersion?.sourceVersionId ? String(knowledgeVersion.sourceVersionId) : null;
-  const excludedFromGraphCount = Number(knowledgeVersion?.excludedFileCount ?? 0);
-  const sections = sourceVersionId
-    ? await deps.listSections({
-        orgId: input.orgId,
-        projectId: input.projectId,
-        sourceVersionId,
-      })
-    : [];
-
-  if (input.kind === 'health') {
-    return {
-      state: /** @type {'ready'} */ ('ready'),
-      knowledgeVersionId: input.knowledgeVersionId,
-      knowledgeHealth: input.project.knowledgeHealth,
-      lifecycleStatus: input.project.lifecycleStatus,
-      dimensions: mapHealthDimensions({
-        hasSource: Boolean(sourceVersionId),
-        publishedHealth: knowledgeVersion?.publishedHealth ?? input.project.knowledgeHealth,
-        excludedFromGraphCount,
-      }),
-      partialKnowledge: { excludedFromGraphCount },
-    };
-  }
-
-  const workspacePath = resolveProjectWorkspacePath(input.workspaceRoot, input.orgId, input.projectId);
-  const adapter = deps.createAdapter();
-  const leased = await adapter.acquireReadLease({
-    orgId: input.orgId,
-    projectId: input.projectId,
-    workspacePath,
-  });
-
-  if (!leased.ok && leased.reason === 'writer') {
-    return {
-      ...emptyBrowseEnvelope('updating', {
-        knowledgeVersionId: input.knowledgeVersionId,
-        knowledgeHealth: input.project.knowledgeHealth,
-      }),
-      lifecycleStatus: input.project.lifecycleStatus,
-      partialKnowledge: { excludedFromGraphCount },
-    };
-  }
-
-  if (!leased.ok) {
-    const summary = buildExtractiveSummary({
-      projectName: input.project.name,
-      stats: null,
-      frameworks: [],
-      sections,
-    });
-    const base = {
-      state: /** @type {'ready'} */ ('ready'),
-      knowledgeVersionId: input.knowledgeVersionId,
-      knowledgeHealth: input.project.knowledgeHealth,
-      partialKnowledge: { excludedFromGraphCount },
-    };
-    if (input.kind === 'summary') {
-      return { ...base, title: input.project.name, summary, capabilities: [] };
-    }
-    if (input.kind === 'index') {
-      return {
-        ...base,
-        facets: mapBrowseFacets({
-          hasSummary: summary.length > 0,
-          hasDocumentation: sections.length > 0,
-        }),
-        cursor: null,
-      };
-    }
-    return { ...base, items: [], cursor: null };
-  }
-
-  try {
-    if (leased.lease.expired) {
-      return {
-        ...emptyBrowseEnvelope('unavailable', {
-          knowledgeVersionId: input.knowledgeVersionId,
-          knowledgeHealth: input.project.knowledgeHealth,
-        }),
-        lifecycleStatus: input.project.lifecycleStatus,
-        partialKnowledge: { excludedFromGraphCount },
-      };
-    }
-
-    const graph = leased.lease.graph;
-    const limit = clampBrowseLimit(input.query?.limit);
-    const stats = adapter.queryStats(graph);
-    const frameworks = typeof graph.getDetectedFrameworks === 'function' ? graph.getDetectedFrameworks() : [];
-    const symbolKindCount = Number(stats?.nodesByKind?.function ?? 0) + Number(stats?.nodesByKind?.method ?? 0) + Number(stats?.nodeCount ?? 0);
-    const apiHits = input.kind === 'index' || input.kind === 'apis' ? adapter.queryApis(graph, limit) : [];
-    const workflowHits = input.kind === 'index' || input.kind === 'workflows' ? adapter.queryWorkflows(graph, limit) : [];
-    const symbolHits = input.kind === 'symbols' ? adapter.querySymbols(graph, input.query?.q ?? '', limit) : [];
-    const symbols = symbolHits.map(mapSymbolItem).filter(Boolean);
-    const apis = apiHits.map((row, index) => mapApiItem(row, index)).filter(Boolean);
-    const workflows = workflowHits.map((row, index) => mapApiItem(row, index)).filter(Boolean);
-    const summary = buildExtractiveSummary({
-      projectName: input.project.name,
-      stats,
-      frameworks: Array.isArray(frameworks) ? frameworks : [],
-      sections,
-    });
-
-    if (leased.lease.expired) {
-      return {
-        ...emptyBrowseEnvelope('unavailable', {
-          knowledgeVersionId: input.knowledgeVersionId,
-          knowledgeHealth: input.project.knowledgeHealth,
-        }),
-        lifecycleStatus: input.project.lifecycleStatus,
-        partialKnowledge: { excludedFromGraphCount },
-      };
-    }
-
-    const base = {
-      state: /** @type {'ready'} */ ('ready'),
-      knowledgeVersionId: input.knowledgeVersionId,
-      knowledgeHealth: input.project.knowledgeHealth,
-      partialKnowledge: { excludedFromGraphCount },
-    };
-
-    if (input.kind === 'index') {
-      return {
-        ...base,
-        facets: mapBrowseFacets({
-          hasSummary: summary.length > 0,
-          hasWorkflows: workflows.length > 0,
-          hasApis: apis.length > 0,
-          hasSymbols: symbolKindCount > 0,
-          hasDocumentation: sections.length > 0,
-        }),
-        cursor: null,
-      };
-    }
-    if (input.kind === 'summary') {
-      return {
-        ...base,
-        title: input.project.name,
-        summary,
-        capabilities: [],
-      };
-    }
-    if (input.kind === 'workflows') {
-      return { ...base, items: workflows, cursor: null };
-    }
-    if (input.kind === 'apis') {
-      return { ...base, items: apis, cursor: null };
-    }
-    if (input.kind === 'symbols') {
-      return { ...base, items: symbols, cursor: null };
-    }
-    return {
-      ...base,
-      lifecycleStatus: input.project.lifecycleStatus,
-      dimensions: mapHealthDimensions({
-        hasSource: Boolean(sourceVersionId),
-        publishedHealth: knowledgeVersion?.publishedHealth ?? input.project.knowledgeHealth,
-        excludedFromGraphCount,
-      }),
-    };
-  } finally {
-    leased.lease.release();
-  }
-}
-
-/**
  * Loads a browse payload for the current knowledge version.
  * @param {{
  *   orgId: string,
@@ -886,24 +654,11 @@ async function loadReadyBrowse(input, deps) {
  *   workspaceRoot: string,
  *   query?: { q?: string, cursor?: string, limit?: unknown },
  * }} input Browse request.
- * @param {{
- *   findProject?: typeof findProjectById,
- *   assertReadable?: typeof assertKnowledgeReadable,
- *   findKnowledgeVersion?: typeof findKnowledgeVersionById,
- *   listSections?: typeof listSectionsForVersion,
- *   createAdapter?: () => object,
- * }} [deps] Test seams.
  * @returns {Promise<object>}
  */
-export async function loadKnowledgeBrowse(input, deps = {}) {
-  const findProject = deps.findProject ?? findProjectById;
-  const assertReadable = deps.assertReadable ?? assertKnowledgeReadable;
-  const findKnowledgeVersion = deps.findKnowledgeVersion ?? findKnowledgeVersionById;
-  const listSections = deps.listSections ?? listSectionsForVersion;
-  const createAdapter = deps.createAdapter ?? createCodegraphAdapter;
-
-  const project = await loadActiveProject(input.orgId, input.projectId, findProject);
-  const gate = await assertReadable({ orgId: input.orgId, projectId: input.projectId });
+export async function loadKnowledgeBrowse(input) {
+  const project = await loadActiveProject(input.orgId, input.projectId);
+  const gate = await assertKnowledgeReadable({ orgId: input.orgId, projectId: input.projectId });
   const state = stateFromGate(gate.action);
   if (state !== 'ready') {
     return {
@@ -919,14 +674,224 @@ export async function loadKnowledgeBrowse(input, deps = {}) {
     };
   }
 
-  return loadReadyBrowse(
-    {
-      ...input,
-      project,
-      knowledgeVersionId: String(gate.knowledgeVersionId),
-    },
-    { findKnowledgeVersion, listSections, createAdapter },
-  );
+  return loadReadyBrowse({
+    ...input,
+    project,
+    knowledgeVersionId: String(gate.knowledgeVersionId),
+  });
+
+  /**
+   * Loads the active project or throws 404.
+   * @param {string} orgId Tenant id.
+   * @param {string} projectId Project id.
+   * @returns {Promise<object>}
+   */
+  async function loadActiveProject(orgId, projectId) {
+    const activeProject = await findProjectById(orgId, projectId);
+    if (!activeProject || activeProject.status !== ROW_STATUS_ACTIVE) {
+      throw ApiError.fromCode('PROJECT_NOT_FOUND');
+    }
+    return activeProject;
+  }
+
+  /**
+   * Maps a gate action to the browse wrapper state.
+   * @param {'allow' | 'queue' | 'deny'} action Gate action.
+   * @returns {'ready' | 'updating' | 'unavailable'}
+   */
+  function stateFromGate(action) {
+    if (action === 'allow') {
+      return 'ready';
+    }
+    if (action === 'queue') {
+      return 'updating';
+    }
+    return 'unavailable';
+  }
+
+  /**
+   * Runs a browse kind after the gate allows.
+   * @param {{
+   *   orgId: string,
+   *   projectId: string,
+   *   kind: 'index' | 'summary' | 'workflows' | 'apis' | 'symbols' | 'health',
+   *   workspaceRoot: string,
+   *   query?: { q?: string, cursor?: string, limit?: unknown },
+   *   project: object,
+   *   knowledgeVersionId: string,
+   * }} readyInput Allowed-path inputs.
+   * @returns {Promise<object>}
+   */
+  async function loadReadyBrowse(readyInput) {
+    const knowledgeVersion = await findKnowledgeVersionById({
+      orgId: readyInput.orgId,
+      projectId: readyInput.projectId,
+      knowledgeVersionId: readyInput.knowledgeVersionId,
+    });
+    const sourceVersionId = knowledgeVersion?.sourceVersionId ? String(knowledgeVersion.sourceVersionId) : null;
+    const excludedFromGraphCount = Number(knowledgeVersion?.excludedFileCount ?? 0);
+    const sections = sourceVersionId
+      ? await listSectionsForVersion({
+          orgId: readyInput.orgId,
+          projectId: readyInput.projectId,
+          sourceVersionId,
+        })
+      : [];
+
+    if (readyInput.kind === 'health') {
+      return {
+        state: /** @type {'ready'} */ ('ready'),
+        knowledgeVersionId: readyInput.knowledgeVersionId,
+        knowledgeHealth: readyInput.project.knowledgeHealth,
+        lifecycleStatus: readyInput.project.lifecycleStatus,
+        dimensions: mapHealthDimensions({
+          hasSource: Boolean(sourceVersionId),
+          publishedHealth: knowledgeVersion?.publishedHealth ?? readyInput.project.knowledgeHealth,
+          excludedFromGraphCount,
+        }),
+        partialKnowledge: { excludedFromGraphCount },
+      };
+    }
+
+    const workspacePath = resolveProjectWorkspacePath(readyInput.workspaceRoot, readyInput.orgId, readyInput.projectId);
+    const adapter = createCodegraphAdapter();
+    const leased = await adapter.acquireReadLease({
+      orgId: readyInput.orgId,
+      projectId: readyInput.projectId,
+      workspacePath,
+    });
+
+    if (!leased.ok && leased.reason === 'writer') {
+      return {
+        ...emptyBrowseEnvelope('updating', {
+          knowledgeVersionId: readyInput.knowledgeVersionId,
+          knowledgeHealth: readyInput.project.knowledgeHealth,
+        }),
+        lifecycleStatus: readyInput.project.lifecycleStatus,
+        partialKnowledge: { excludedFromGraphCount },
+      };
+    }
+
+    if (!leased.ok) {
+      const summary = buildExtractiveSummary({
+        projectName: readyInput.project.name,
+        stats: null,
+        frameworks: [],
+        sections,
+      });
+      const base = {
+        state: /** @type {'ready'} */ ('ready'),
+        knowledgeVersionId: readyInput.knowledgeVersionId,
+        knowledgeHealth: readyInput.project.knowledgeHealth,
+        partialKnowledge: { excludedFromGraphCount },
+      };
+      if (readyInput.kind === 'summary') {
+        return { ...base, title: readyInput.project.name, summary, capabilities: [] };
+      }
+      if (readyInput.kind === 'index') {
+        return {
+          ...base,
+          facets: mapBrowseFacets({
+            hasSummary: summary.length > 0,
+            hasDocumentation: sections.length > 0,
+          }),
+          cursor: null,
+        };
+      }
+      return { ...base, items: [], cursor: null };
+    }
+
+    try {
+      if (leased.lease.expired) {
+        return {
+          ...emptyBrowseEnvelope('unavailable', {
+            knowledgeVersionId: readyInput.knowledgeVersionId,
+            knowledgeHealth: readyInput.project.knowledgeHealth,
+          }),
+          lifecycleStatus: readyInput.project.lifecycleStatus,
+          partialKnowledge: { excludedFromGraphCount },
+        };
+      }
+
+      const graph = leased.lease.graph;
+      const limit = clampBrowseLimit(readyInput.query?.limit);
+      const stats = adapter.queryStats(graph);
+      const frameworks = typeof graph.getDetectedFrameworks === 'function' ? graph.getDetectedFrameworks() : [];
+      const symbolKindCount = Number(stats?.nodesByKind?.function ?? 0) + Number(stats?.nodesByKind?.method ?? 0) + Number(stats?.nodeCount ?? 0);
+      const apiHits = readyInput.kind === 'index' || readyInput.kind === 'apis' ? adapter.queryApis(graph, limit) : [];
+      const workflowHits = readyInput.kind === 'index' || readyInput.kind === 'workflows' ? adapter.queryWorkflows(graph, limit) : [];
+      const symbolHits = readyInput.kind === 'symbols' ? adapter.querySymbols(graph, readyInput.query?.q ?? '', limit) : [];
+      const symbols = symbolHits.map(mapSymbolItem).filter(Boolean);
+      const apis = apiHits.map((row, index) => mapApiItem(row, index)).filter(Boolean);
+      const workflows = workflowHits.map((row, index) => mapApiItem(row, index)).filter(Boolean);
+      const summary = buildExtractiveSummary({
+        projectName: readyInput.project.name,
+        stats,
+        frameworks: Array.isArray(frameworks) ? frameworks : [],
+        sections,
+      });
+
+      if (leased.lease.expired) {
+        return {
+          ...emptyBrowseEnvelope('unavailable', {
+            knowledgeVersionId: readyInput.knowledgeVersionId,
+            knowledgeHealth: readyInput.project.knowledgeHealth,
+          }),
+          lifecycleStatus: readyInput.project.lifecycleStatus,
+          partialKnowledge: { excludedFromGraphCount },
+        };
+      }
+
+      const base = {
+        state: /** @type {'ready'} */ ('ready'),
+        knowledgeVersionId: readyInput.knowledgeVersionId,
+        knowledgeHealth: readyInput.project.knowledgeHealth,
+        partialKnowledge: { excludedFromGraphCount },
+      };
+
+      if (readyInput.kind === 'index') {
+        return {
+          ...base,
+          facets: mapBrowseFacets({
+            hasSummary: summary.length > 0,
+            hasWorkflows: workflows.length > 0,
+            hasApis: apis.length > 0,
+            hasSymbols: symbolKindCount > 0,
+            hasDocumentation: sections.length > 0,
+          }),
+          cursor: null,
+        };
+      }
+      if (readyInput.kind === 'summary') {
+        return {
+          ...base,
+          title: readyInput.project.name,
+          summary,
+          capabilities: [],
+        };
+      }
+      if (readyInput.kind === 'workflows') {
+        return { ...base, items: workflows, cursor: null };
+      }
+      if (readyInput.kind === 'apis') {
+        return { ...base, items: apis, cursor: null };
+      }
+      if (readyInput.kind === 'symbols') {
+        return { ...base, items: symbols, cursor: null };
+      }
+      return {
+        ...base,
+        lifecycleStatus: readyInput.project.lifecycleStatus,
+        dimensions: mapHealthDimensions({
+          hasSource: Boolean(sourceVersionId),
+          publishedHealth: knowledgeVersion?.publishedHealth ?? readyInput.project.knowledgeHealth,
+          excludedFromGraphCount,
+        }),
+      };
+    } finally {
+      leased.lease.release();
+    }
+  }
 }
 
 // --- from knowledge/knowledge.routes.js ---

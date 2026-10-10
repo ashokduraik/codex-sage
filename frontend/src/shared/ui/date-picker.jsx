@@ -63,82 +63,6 @@ function addMonths(date, delta) {
 }
 
 /**
- * Locale week start: 0 Sunday … 6 Saturday. Falls back to Monday.
- * @param locale BCP 47 tag from i18n.
- * @returns Week-start weekday index.
- */
-function weekStartIndex(locale) {
-  try {
-    const info = new Intl.Locale(locale).weekInfo;
-    if (!info || typeof info.firstDay !== 'number') {
-      return 1;
-    }
-    return info.firstDay === 7 ? 0 : info.firstDay % WEEKDAY_COUNT;
-  } catch {
-    return 1;
-  }
-}
-
-/**
- * Short weekday labels in locale order starting at `weekStartsOn`.
- * @param locale BCP 47 tag.
- * @param weekStartsOn Week-start index (0 Sunday).
- * @returns Seven short weekday names.
- */
-function weekdayLabels(locale, weekStartsOn) {
-  const formatter = new Intl.DateTimeFormat(locale, { weekday: 'short' });
-  // 4 Jan 2026 is a Sunday — a fixed origin for weekday names.
-  const sunday = new Date(2026, 0, 4);
-  return Array.from({ length: WEEKDAY_COUNT }, (_, index) => {
-    const day = new Date(sunday);
-    day.setDate(sunday.getDate() + ((weekStartsOn + index) % WEEKDAY_COUNT));
-    return formatter.format(day);
-  });
-}
-
-/**
- * Builds a Sunday-aligned month grid, padded with empty cells.
- * @param visibleMonth Any date in the displayed month.
- * @param weekStartsOn Week-start index (0 Sunday).
- * @returns Cells in row-major order; `null` is a leading/trailing pad.
- */
-function monthCells(visibleMonth, weekStartsOn) {
-  const first = startOfMonth(visibleMonth);
-  const leading = (first.getDay() - weekStartsOn + WEEKDAY_COUNT) % WEEKDAY_COUNT;
-  const daysInMonth = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
-  /** @type {Array<Date | null>} */
-  const cells = [];
-  for (let pad = 0; pad < leading; pad += 1) {
-    cells.push(null);
-  }
-  for (let day = 1; day <= daysInMonth; day += 1) {
-    cells.push(new Date(first.getFullYear(), first.getMonth(), day));
-  }
-  while (cells.length % WEEKDAY_COUNT !== 0) {
-    cells.push(null);
-  }
-  return cells;
-}
-
-/**
- * True when `date` is outside an inclusive YYYY-MM-DD min/max range.
- * @param date Candidate day.
- * @param minDate Inclusive minimum YYYY-MM-DD, or empty.
- * @param maxDate Inclusive maximum YYYY-MM-DD, or empty.
- * @returns Whether the day must not be selectable.
- */
-function isDateOutOfRange(date, minDate, maxDate) {
-  const key = toCalendarDateString(date);
-  if (minDate && key < minDate) {
-    return true;
-  }
-  if (maxDate && key > maxDate) {
-    return true;
-  }
-  return false;
-}
-
-/**
  * Calendar-day picker. `value` / `onChange` use YYYY-MM-DD or empty string.
  *
  * @param props Control identity, current day, and optional inclusive bounds.
@@ -159,7 +83,17 @@ export function DatePicker({ id, label, value, onChange, minDate = '', maxDate =
 
   const locale = i18n.language || undefined;
   const weekStartsOn = useMemo(() => weekStartIndex(locale ?? 'en'), [locale]);
-  const weekdays = useMemo(() => weekdayLabels(locale ?? 'en', weekStartsOn), [locale, weekStartsOn]);
+  const weekdays = useMemo(() => {
+    const resolvedLocale = locale ?? 'en';
+    const formatter = new Intl.DateTimeFormat(resolvedLocale, { weekday: 'short' });
+    // 4 Jan 2026 is a Sunday — a fixed origin for weekday names.
+    const sunday = new Date(2026, 0, 4);
+    return Array.from({ length: WEEKDAY_COUNT }, (_, index) => {
+      const day = new Date(sunday);
+      day.setDate(sunday.getDate() + ((weekStartsOn + index) % WEEKDAY_COUNT));
+      return formatter.format(day);
+    });
+  }, [locale, weekStartsOn]);
   const cells = useMemo(() => monthCells(visibleMonth, weekStartsOn), [visibleMonth, weekStartsOn]);
   const todayKey = toCalendarDateString(new Date());
   const selectedKey = selected ? toCalendarDateString(selected) : '';
@@ -272,4 +206,63 @@ export function DatePicker({ id, label, value, onChange, minDate = '', maxDate =
       </Popover>
     </div>
   );
+
+  /**
+   * Locale week start: 0 Sunday … 6 Saturday. Falls back to Monday.
+   * @param resolvedLocale BCP 47 tag from i18n.
+   * @returns Week-start weekday index.
+   */
+  function weekStartIndex(resolvedLocale) {
+    try {
+      const info = new Intl.Locale(resolvedLocale).weekInfo;
+      if (!info || typeof info.firstDay !== 'number') {
+        return 1;
+      }
+      return info.firstDay === 7 ? 0 : info.firstDay % WEEKDAY_COUNT;
+    } catch {
+      return 1;
+    }
+  }
+
+  /**
+   * Builds a month grid padded with empty cells for the locale week start.
+   * @param month Any date in the displayed month.
+   * @param weekStart Week-start index (0 Sunday).
+   * @returns Cells in row-major order; `null` is a leading/trailing pad.
+   */
+  function monthCells(month, weekStart) {
+    const first = startOfMonth(month);
+    const leading = (first.getDay() - weekStart + WEEKDAY_COUNT) % WEEKDAY_COUNT;
+    const daysInMonth = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
+    /** @type {Array<Date | null>} */
+    const nextCells = [];
+    for (let pad = 0; pad < leading; pad += 1) {
+      nextCells.push(null);
+    }
+    for (let day = 1; day <= daysInMonth; day += 1) {
+      nextCells.push(new Date(first.getFullYear(), first.getMonth(), day));
+    }
+    while (nextCells.length % WEEKDAY_COUNT !== 0) {
+      nextCells.push(null);
+    }
+    return nextCells;
+  }
+
+  /**
+   * True when `date` is outside an inclusive YYYY-MM-DD min/max range.
+   * @param date Candidate day.
+   * @param min Inclusive minimum YYYY-MM-DD, or empty.
+   * @param max Inclusive maximum YYYY-MM-DD, or empty.
+   * @returns Whether the day must not be selectable.
+   */
+  function isDateOutOfRange(date, min, max) {
+    const key = toCalendarDateString(date);
+    if (min && key < min) {
+      return true;
+    }
+    if (max && key > max) {
+      return true;
+    }
+    return false;
+  }
 }

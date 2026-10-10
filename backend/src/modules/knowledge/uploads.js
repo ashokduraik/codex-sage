@@ -186,21 +186,6 @@ function basenameOf(normalizedPath) {
 }
 
 /**
- * True when any path segment (as a directory prefix) matches an ignored prefix.
- * @param {string} normalizedPath
- * @returns {boolean}
- */
-function matchesIgnoredDirectory(normalizedPath) {
-  const withSlash = normalizedPath.endsWith('/') ? normalizedPath : `${normalizedPath}/`;
-  for (const prefix of IGNORED_PATH_PREFIXES) {
-    if (withSlash.startsWith(prefix) || withSlash.includes(`/${prefix}`)) {
-      return true;
-    }
-  }
-  return false;
-}
-
-/**
  * Lowercased extension including the leading dot, or empty string.
  * @param {string} basename
  * @returns {string}
@@ -211,30 +196,6 @@ function extensionOf(basename) {
     return '';
   }
   return basename.slice(dot).toLowerCase();
-}
-
-/**
- * True when the path is an allowlisted code, doc, or config file.
- * @param {string} basename
- * @param {string} extension
- * @returns {boolean}
- */
-function isAllowlistedSourceFile(basename, extension) {
-  if (ACCEPTED_CONFIG_BASENAMES.includes(basename)) {
-    return true;
-  }
-  if (ACCEPTED_CODE_EXTENSIONS.includes(extension)) {
-    return true;
-  }
-  if (ACCEPTED_DOC_EXTENSIONS.includes(extension)) {
-    return true;
-  }
-  if (ACCEPTED_CONFIG_EXTENSIONS.includes(extension)) {
-    return true;
-  }
-  // Compound config extensions such as `.env.example` (extensionOf returns `.example`).
-  const basenameLower = basename.toLowerCase();
-  return ACCEPTED_CONFIG_EXTENSIONS.some((ext) => basenameLower.endsWith(ext));
 }
 
 /**
@@ -275,6 +236,45 @@ export function evaluateUploadEntry(entry) {
   }
 
   return { decision: 'accept' };
+
+  /**
+   * True when any path segment (as a directory prefix) matches an ignored prefix.
+   * @param {string} pathNormalized Normalized archive path.
+   * @returns {boolean}
+   */
+  function matchesIgnoredDirectory(pathNormalized) {
+    const withSlash = pathNormalized.endsWith('/') ? pathNormalized : `${pathNormalized}/`;
+    for (const prefix of IGNORED_PATH_PREFIXES) {
+      if (withSlash.startsWith(prefix) || withSlash.includes(`/${prefix}`)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * True when the path is an allowlisted code, doc, or config file.
+   * @param {string} fileBasename Basename.
+   * @param {string} fileExtension Extension including leading dot.
+   * @returns {boolean}
+   */
+  function isAllowlistedSourceFile(fileBasename, fileExtension) {
+    if (ACCEPTED_CONFIG_BASENAMES.includes(fileBasename)) {
+      return true;
+    }
+    if (ACCEPTED_CODE_EXTENSIONS.includes(fileExtension)) {
+      return true;
+    }
+    if (ACCEPTED_DOC_EXTENSIONS.includes(fileExtension)) {
+      return true;
+    }
+    if (ACCEPTED_CONFIG_EXTENSIONS.includes(fileExtension)) {
+      return true;
+    }
+    // Compound config extensions such as `.env.example` (extensionOf returns `.example`).
+    const lower = fileBasename.toLowerCase();
+    return ACCEPTED_CONFIG_EXTENSIONS.some((ext) => lower.endsWith(ext));
+  }
 }
 
 /**
@@ -334,68 +334,6 @@ export function summarizeInspection(entries) {
  * Zip metadata inspection: integrity, zip-slip, entry listing (no file bytes retained).
  */
 /**
- * Collects a readable stream into a Buffer, failing if it exceeds the archive cap.
- * @param {Readable} stream
- * @returns {Promise<Buffer>}
- * @throws {ApiError}
- */
-async function readStreamWithinArchiveCap(stream) {
-  const chunks = [];
-  let total = 0;
-  for await (const chunk of stream) {
-    const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-    total += buf.length;
-    if (total > uploadArchiveLimits.maxArchiveBytes) {
-      stream.destroy?.();
-      throw ApiError.fromCode('SOURCE_ARCHIVE_TOO_LARGE');
-    }
-    chunks.push(buf);
-  }
-  return Buffer.concat(chunks, total);
-}
-
-/**
- * Resolves inspectZip input to a Buffer within size limits.
- * @param {Buffer | Uint8Array | Readable} input
- * @returns {Promise<Buffer>}
- * @throws {ApiError}
- */
-async function resolveArchiveBuffer(input) {
-  if (Buffer.isBuffer(input)) {
-    if (input.length > uploadArchiveLimits.maxArchiveBytes) {
-      throw ApiError.fromCode('SOURCE_ARCHIVE_TOO_LARGE');
-    }
-    return input;
-  }
-  if (input instanceof Uint8Array) {
-    if (input.byteLength > uploadArchiveLimits.maxArchiveBytes) {
-      throw ApiError.fromCode('SOURCE_ARCHIVE_TOO_LARGE');
-    }
-    return Buffer.from(input);
-  }
-  if (input instanceof Readable || (input && typeof input[Symbol.asyncIterator] === 'function')) {
-    return readStreamWithinArchiveCap(/** @type {Readable} */ (input));
-  }
-  throw ApiError.fromCode('SOURCE_ZIP_INTEGRITY');
-}
-
-/**
- * Maps a yauzl / IO failure to a catalog ApiError.
- * @param {unknown} error
- * @returns {ApiError}
- */
-function mapZipOpenError(error) {
-  if (error instanceof ApiError) {
-    return error;
-  }
-  const message = error instanceof Error ? error.message : String(error);
-  if (/invalid filename|absolute path|\\\\|\.\./i.test(message)) {
-    return ApiError.fromCode('SOURCE_ZIP_SLIP');
-  }
-  return ApiError.fromCode('SOURCE_ZIP_INTEGRITY');
-}
-
-/**
  * Lists zip entry paths and uncompressed sizes without retaining file bytes.
  * Rejects zip-slip, duplicates, encryption, truncated archives, and size/count caps.
  * @param {Buffer | Uint8Array | Readable} input Archive bytes or a readable stream.
@@ -453,33 +391,74 @@ export async function inspectZip(input) {
   }
 
   return { entries, integrity: 'ok' };
+
+  /**
+   * Resolves inspectZip input to a Buffer within size limits.
+   * @param {Buffer | Uint8Array | Readable} archiveInput Archive input.
+   * @returns {Promise<Buffer>}
+   * @throws {ApiError}
+   */
+  async function resolveArchiveBuffer(archiveInput) {
+    if (Buffer.isBuffer(archiveInput)) {
+      if (archiveInput.length > uploadArchiveLimits.maxArchiveBytes) {
+        throw ApiError.fromCode('SOURCE_ARCHIVE_TOO_LARGE');
+      }
+      return archiveInput;
+    }
+    if (archiveInput instanceof Uint8Array) {
+      if (archiveInput.byteLength > uploadArchiveLimits.maxArchiveBytes) {
+        throw ApiError.fromCode('SOURCE_ARCHIVE_TOO_LARGE');
+      }
+      return Buffer.from(archiveInput);
+    }
+    if (archiveInput instanceof Readable || (archiveInput && typeof archiveInput[Symbol.asyncIterator] === 'function')) {
+      return readStreamWithinArchiveCap(/** @type {Readable} */ (archiveInput));
+    }
+    throw ApiError.fromCode('SOURCE_ZIP_INTEGRITY');
+  }
+
+  /**
+   * Collects a readable stream into a Buffer, failing if it exceeds the archive cap.
+   * @param {Readable} stream Archive stream.
+   * @returns {Promise<Buffer>}
+   * @throws {ApiError}
+   */
+  async function readStreamWithinArchiveCap(stream) {
+    const chunks = [];
+    let total = 0;
+    for await (const chunk of stream) {
+      const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      total += buf.length;
+      if (total > uploadArchiveLimits.maxArchiveBytes) {
+        stream.destroy?.();
+        throw ApiError.fromCode('SOURCE_ARCHIVE_TOO_LARGE');
+      }
+      chunks.push(buf);
+    }
+    return Buffer.concat(chunks, total);
+  }
+
+  /**
+   * Maps a yauzl / IO failure to a catalog ApiError.
+   * @param {unknown} error Underlying error.
+   * @returns {ApiError}
+   */
+  function mapZipOpenError(error) {
+    if (error instanceof ApiError) {
+      return error;
+    }
+    const message = error instanceof Error ? error.message : String(error);
+    if (/invalid filename|absolute path|\\\\|\.\./i.test(message)) {
+      return ApiError.fromCode('SOURCE_ZIP_SLIP');
+    }
+    return ApiError.fromCode('SOURCE_ZIP_INTEGRITY');
+  }
 }
 
 // --- from sources/consumeSourceArchive.js ---
 /**
  * Reads the multipart `archive` part before idempotency hashing.
  */
-/**
- * Collects a readable stream into a Buffer, enforcing the archive size cap.
- * @param {NodeJS.ReadableStream} stream Part stream.
- * @returns {Promise<Buffer>}
- * @throws {ApiError} SOURCE_ARCHIVE_TOO_LARGE
- */
-async function readPartWithinCap(stream) {
-  const chunks = [];
-  let total = 0;
-  for await (const chunk of stream) {
-    const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-    total += buf.length;
-    if (total > uploadArchiveLimits.maxArchiveBytes) {
-      stream.destroy?.();
-      throw ApiError.fromCode('SOURCE_ARCHIVE_TOO_LARGE');
-    }
-    chunks.push(buf);
-  }
-  return Buffer.concat(chunks, total);
-}
-
 /**
  * Consumes the zip archive part and sets request.body for idempotency hashing.
  * Opt-in via route `config.consumeSourceArchive: true`.
@@ -521,6 +500,27 @@ export async function consumeSourceArchivePreHandler(request) {
   };
   // Stable JSON body so Phase 12 hashes the archive identity, not an empty multipart body.
   request.body = { archiveSha256: contentSha256 };
+
+  /**
+   * Collects a readable stream into a Buffer, enforcing the archive size cap.
+   * @param {NodeJS.ReadableStream} stream Part stream.
+   * @returns {Promise<Buffer>}
+   * @throws {ApiError} SOURCE_ARCHIVE_TOO_LARGE
+   */
+  async function readPartWithinCap(stream) {
+    const chunks = [];
+    let total = 0;
+    for await (const chunk of stream) {
+      const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      total += buf.length;
+      if (total > uploadArchiveLimits.maxArchiveBytes) {
+        stream.destroy?.();
+        throw ApiError.fromCode('SOURCE_ARCHIVE_TOO_LARGE');
+      }
+      chunks.push(buf);
+    }
+    return Buffer.concat(chunks, total);
+  }
 }
 
 // --- from sources/upload.service.js ---
@@ -551,23 +551,6 @@ export function kindForSourcePath(normalizedPath) {
     return 'code';
   }
   return 'code';
-}
-
-/**
- * Creates a transform that updates a hash and counts bytes while passing data through.
- * @param {import('node:crypto').Hash} hash Hash instance.
- * @param {{ byteLength: number }} counter Mutable byte counter.
- * @returns {Transform}
- */
-function createHashingPassThrough(hash, counter) {
-  return new Transform({
-    transform(chunk, _encoding, callback) {
-      const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-      hash.update(buf);
-      counter.byteLength += buf.length;
-      callback(null, buf);
-    },
-  });
 }
 
 /**
@@ -695,6 +678,23 @@ export async function storeAcceptedZipEntries(input) {
   }
 
   return { files, gridFsIds };
+
+  /**
+   * Creates a transform that updates a hash and counts bytes while passing data through.
+   * @param {import('node:crypto').Hash} hash Hash instance.
+   * @param {{ byteLength: number }} counter Mutable byte counter.
+   * @returns {Transform}
+   */
+  function createHashingPassThrough(hash, counter) {
+    return new Transform({
+      transform(chunk, _encoding, callback) {
+        const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+        hash.update(buf);
+        counter.byteLength += buf.length;
+        callback(null, buf);
+      },
+    });
+  }
 }
 
 /**

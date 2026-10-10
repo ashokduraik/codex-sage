@@ -152,23 +152,6 @@ function keysetAfterDescending(cursor, stampField) {
 }
 
 /**
- * Builds an ascending keyset filter on a timestamp field plus `_id`.
- * @param {{ t: string, i: string }} cursor Decoded cursor.
- * @param {string} stampField Timestamp field name.
- * @returns {object}
- */
-function keysetAfterAscending(cursor, stampField) {
-  const stamp = new Date(cursor.t);
-  if (Number.isNaN(stamp.getTime()) || !mongoose.isValidObjectId(cursor.i)) {
-    throw ApiError.fromCode('INVALID_CURSOR');
-  }
-  const id = new mongoose.Types.ObjectId(cursor.i);
-  return {
-    $or: [{ [stampField]: { $gt: stamp } }, { [stampField]: stamp, _id: { $gt: id } }],
-  };
-}
-
-/**
  * Encodes the next-page cursor from a row timestamp.
  * @param {object} row Document with timestamp and `_id`.
  * @param {string} stampField Timestamp field name.
@@ -461,6 +444,23 @@ export async function listMessagesForConversation(orgId, projectId, conversation
   const items = hasMore ? rows.slice(0, limit) : rows;
   const nextCursor = hasMore && items.length > 0 ? encodeRowCursor(items[items.length - 1], 'createdAt') : null;
   return { items, nextCursor };
+
+  /**
+   * Builds an ascending keyset filter on a timestamp field plus `_id`.
+   * @param {{ t: string, i: string }} cursor Decoded cursor.
+   * @param {string} stampField Timestamp field name.
+   * @returns {object}
+   */
+  function keysetAfterAscending(cursor, stampField) {
+    const stamp = new Date(cursor.t);
+    if (Number.isNaN(stamp.getTime()) || !mongoose.isValidObjectId(cursor.i)) {
+      throw ApiError.fromCode('INVALID_CURSOR');
+    }
+    const id = new mongoose.Types.ObjectId(cursor.i);
+    return {
+      $or: [{ [stampField]: { $gt: stamp } }, { [stampField]: stamp, _id: { $gt: id } }],
+    };
+  }
 }
 
 /**

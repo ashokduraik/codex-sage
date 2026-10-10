@@ -84,17 +84,6 @@ function optimisticallyArchiveInLists(queryClient, projectId) {
 }
 
 /**
- * Restores list caches after a failed optimistic archive.
- * @param {import('@tanstack/react-query').QueryClient} queryClient Query client.
- * @param {Array<[unknown, unknown]>} previous Snapshot.
- */
-function restoreListCaches(queryClient, previous) {
-  for (const [key, data] of previous) {
-    queryClient.setQueryData(key, data);
-  }
-}
-
-/**
  * Archive mutation with optimistic list update.
  * @returns Archive mutation.
  */
@@ -126,6 +115,17 @@ export function useArchiveProject() {
       invalidateProjectDetail(queryClient, projectId);
     },
   });
+
+  /**
+   * Restores list caches after a failed optimistic archive.
+   * @param {import('@tanstack/react-query').QueryClient} queryClient Query client.
+   * @param {Array<[unknown, unknown]>} previous Snapshot.
+   */
+  function restoreListCaches(queryClient, previous) {
+    for (const [key, data] of previous) {
+      queryClient.setQueryData(key, data);
+    }
+  }
 }
 
 /**

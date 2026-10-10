@@ -7,9 +7,13 @@ const publishKnowledgeVersion = vi.fn();
 const findProjectById = vi.fn();
 const transitionLifecycle = vi.fn();
 
-vi.mock('../../../src/modules/knowledge/knowledge.js', () => ({
-  publishKnowledgeVersion: (...args) => publishKnowledgeVersion(...args),
-}));
+vi.mock('../../../src/modules/knowledge/knowledge.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    publishKnowledgeVersion: (...args) => publishKnowledgeVersion(...args),
+  };
+});
 
 vi.mock('../../../src/modules/masters/index.js', async (importOriginal) => {
   const actual = await importOriginal();

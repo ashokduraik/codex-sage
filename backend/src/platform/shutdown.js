@@ -24,28 +24,6 @@ export function resetShutdownForTests() {
   signalHandlersAttached = false;
 }
 /**
- * Runs a single hook with a timeout budget.
- * @param hook - Hook to run.
- * @param timeoutMs - Budget in milliseconds.
- */
-async function runHookWithTimeout(hook, timeoutMs) {
-  let timer;
-  try {
-    await Promise.race([
-      hook.run(),
-      new Promise((_, reject) => {
-        timer = setTimeout(() => {
-          reject(new Error(`shutdown hook timed out: ${hook.name}`));
-        }, timeoutMs);
-      }),
-    ]);
-  } finally {
-    if (timer !== undefined) {
-      clearTimeout(timer);
-    }
-  }
-}
-/**
  * Runs hooks in reverse registration order, then exits.
  * A second signal while shutdown is in progress forces an immediate exit(1).
  * @param signal - Signal name for logs (`SIGTERM`, `SIGINT`, …).
@@ -73,6 +51,29 @@ export async function runShutdown(signal, deps) {
     }
   }
   exitFn(failed ? 1 : 0);
+
+  /**
+   * Runs a single hook with a timeout budget.
+   * @param hook - Hook to run.
+   * @param timeoutMs - Budget in milliseconds.
+   */
+  async function runHookWithTimeout(hook, timeoutMs) {
+    let timer;
+    try {
+      await Promise.race([
+        hook.run(),
+        new Promise((_, reject) => {
+          timer = setTimeout(() => {
+            reject(new Error(`shutdown hook timed out: ${hook.name}`));
+          }, timeoutMs);
+        }),
+      ]);
+    } finally {
+      if (timer !== undefined) {
+        clearTimeout(timer);
+      }
+    }
+  }
 }
 /**
  * Attaches SIGTERM/SIGINT handlers that invoke {@link runShutdown}.

@@ -62,25 +62,6 @@ export function getMongoConnectionState() {
   return mapReadyState(mongoose.connection.readyState);
 }
 /**
- * Attaches disconnect/reconnect log listeners once per process.
- * @param log - Logger seam.
- */
-function attachConnectionListeners(log) {
-  if (listenersAttached) {
-    return;
-  }
-  listenersAttached = true;
-  mongoose.connection.on('disconnected', () => {
-    log.warn({}, 'mongo disconnected');
-  });
-  mongoose.connection.on('reconnected', () => {
-    log.info({}, 'mongo reconnected');
-  });
-  mongoose.connection.on('error', (err) => {
-    log.error({ errName: err.name }, 'mongo connection error');
-  });
-}
-/**
  * Opens the Mongoose connection and awaits the first successful connect.
  * Fails fast: callers should exit non-zero if this rejects.
  * @param config - Application config containing `mongo.uri`.
@@ -111,6 +92,26 @@ export async function connectMongo(config, log = defaultLog) {
     const errName = err instanceof Error ? err.name : 'Error';
     log.error({ ...summary, errName }, 'mongo connect failed');
     throw err;
+  }
+
+  /**
+   * Attaches disconnect/reconnect log listeners once per process.
+   * @param log - Logger seam.
+   */
+  function attachConnectionListeners(log) {
+    if (listenersAttached) {
+      return;
+    }
+    listenersAttached = true;
+    mongoose.connection.on('disconnected', () => {
+      log.warn({}, 'mongo disconnected');
+    });
+    mongoose.connection.on('reconnected', () => {
+      log.info({}, 'mongo reconnected');
+    });
+    mongoose.connection.on('error', (err) => {
+      log.error({ errName: err.name }, 'mongo connection error');
+    });
   }
 }
 /**

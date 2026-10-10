@@ -1,12 +1,33 @@
 /**
  * Mongo integration tests for tenant-scoped document search via executeTool.
+ * Scope seams are mocked; searchDocumentSections and Mongo stay real.
  */
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import mongoose from 'mongoose';
+
+vi.mock('../../../src/modules/masters/index.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    findProjectById: vi.fn(),
+  };
+});
+
+vi.mock('../../../src/modules/knowledge/index.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    findKnowledgeVersionById: vi.fn(),
+    resolveProjectWorkspacePath: vi.fn(),
+  };
+});
+
 import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
 import { DocumentSection } from '../../../src/models/documentSection.model.js';
 import { insertDocumentSections } from '../../../src/modules/knowledge/documents.js';
+import { findProjectById } from '../../../src/modules/masters/index.js';
+import { findKnowledgeVersionById, resolveProjectWorkspacePath } from '../../../src/modules/knowledge/index.js';
 import { createTokenizerAdapter, executeTool } from '../../../src/modules/conversation/index.js';
 
 const harness = createMongoHarness({
@@ -37,6 +58,11 @@ describe('agentTools integration', () => {
   beforeAll(async () => {
     await harness.beforeAll();
   }, 60_000);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resolveProjectWorkspacePath.mockReturnValue('/tmp/workspaces/o/p');
+  });
 
   afterEach(async () => {
     await harness.afterEach();
@@ -69,28 +95,24 @@ describe('agentTools integration', () => {
       sections: [{ heading: 'Beta', startLine: 1, endLine: 2, text: 'Unique refunds policy for org B.', sectionIndex: 0 }],
     });
 
-    const result = await executeTool(
-      {
-        name: 'search_documents',
-        args: { query: 'refunds' },
-        scope: {
-          orgId: String(orgA),
-          projectId: String(projectA),
-          knowledgeVersionId: 'kv1',
-          workspaceRoot: '/tmp/workspaces',
-        },
-        budgetState: budgetState(),
+    findProjectById.mockResolvedValue({
+      status: 'A',
+      orgId: String(orgA),
+      currentKnowledgeVersionId: 'kv1',
+    });
+    findKnowledgeVersionById.mockResolvedValue({ sourceVersionId: sourceA });
+
+    const result = await executeTool({
+      name: 'search_documents',
+      args: { query: 'refunds' },
+      scope: {
+        orgId: String(orgA),
+        projectId: String(projectA),
+        knowledgeVersionId: 'kv1',
+        workspaceRoot: '/tmp/workspaces',
       },
-      {
-        findProject: async () => ({
-          status: 'A',
-          orgId: String(orgA),
-          currentKnowledgeVersionId: 'kv1',
-        }),
-        findKnowledgeVersion: async () => ({ sourceVersionId: sourceA }),
-        resolveWorkspacePath: () => '/tmp/workspaces/o/p',
-      },
-    );
+      budgetState: budgetState(),
+    });
 
     expect(result.evidenceRecords.length).toBeGreaterThan(0);
     expect(result.evidenceRecords.every((row) => row.path === 'docs/a.md')).toBe(true);

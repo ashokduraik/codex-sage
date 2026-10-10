@@ -15,24 +15,6 @@ import { useProjectDeletionPreview } from './hooks/useProjectDeletionPreview.js'
 import { correlationFromUnknown, isForbiddenApiError, messageFromUnknown, retryAfterFromUnknown } from '@/shared/api';
 
 /**
- * Builds an i18n key for a deletion consequence row.
- * @param {{ resource: string, effect: string, retentionDays: number | null }} consequence Row.
- * @param {(key: string, options?: object) => string} t Translator.
- * @returns {string}
- */
-function consequenceLabel(consequence, t) {
-  const specificKey = `projects.consequence_${consequence.resource}_${consequence.effect}`;
-  const specific = t(specificKey, { days: consequence.retentionDays ?? '' });
-  if (specific !== specificKey) {
-    return specific;
-  }
-  return t('projects.consequence_generic', {
-    resource: consequence.resource,
-    effect: consequence.effect,
-  });
-}
-
-/**
  * Consequence-explaining delete confirmation dialog.
  *
  * @param {{
@@ -156,6 +138,24 @@ export function ProjectDeleteDialog({ open, onOpenChange, projectId, projectName
       </AlertDialogContent>
     </AlertDialog>
   );
+
+  /**
+   * Builds an i18n key for a deletion consequence row.
+   * @param {{ resource: string, effect: string, retentionDays: number | null }} consequence Row.
+   * @param {(key: string, options?: object) => string} t Translator.
+   * @returns {string}
+   */
+  function consequenceLabel(consequence, t) {
+    const specificKey = `projects.consequence_${consequence.resource}_${consequence.effect}`;
+    const specific = t(specificKey, { days: consequence.retentionDays ?? '' });
+    if (specific !== specificKey) {
+      return specific;
+    }
+    return t('projects.consequence_generic', {
+      resource: consequence.resource,
+      effect: consequence.effect,
+    });
+  }
 }
 
 export default ProjectDeleteDialog;

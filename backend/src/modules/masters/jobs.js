@@ -204,30 +204,6 @@ function toIsoOrNull(value) {
 }
 
 /**
- * Maps stageCheckpoint for the detail response (never on list).
- * @param {object | null | undefined} checkpoint Stored checkpoint.
- * @returns {{
- *   lastCompletedStage: string | null,
- *   cursor?: unknown,
- *   updatedAt: string | null,
- * } | null}
- */
-function mapStageCheckpoint(checkpoint) {
-  if (checkpoint == null) {
-    return null;
-  }
-  /** @type {{ lastCompletedStage: string | null, updatedAt: string | null, cursor?: unknown }} */
-  const mapped = {
-    lastCompletedStage: checkpoint.lastCompletedStage ?? null,
-    updatedAt: toIsoOrNull(checkpoint.updatedAt),
-  };
-  if (Object.prototype.hasOwnProperty.call(checkpoint, 'cursor')) {
-    mapped.cursor = checkpoint.cursor;
-  }
-  return mapped;
-}
-
-/**
  * Maps a job timeline line to the API event DTO.
  * @param {object} event Embedded event or lean object.
  * @returns {{
@@ -301,6 +277,30 @@ export function mapJobToDetailDto(job, events = []) {
     cancellation: progress.cancellation,
     knowledgeAvailability: progress.knowledgeAvailability,
   };
+
+  /**
+   * Maps stageCheckpoint for the detail response (never on list).
+   * @param {object | null | undefined} checkpoint Stored checkpoint.
+   * @returns {{
+   *   lastCompletedStage: string | null,
+   *   cursor?: unknown,
+   *   updatedAt: string | null,
+   * } | null}
+   */
+  function mapStageCheckpoint(checkpoint) {
+    if (checkpoint == null) {
+      return null;
+    }
+    /** @type {{ lastCompletedStage: string | null, updatedAt: string | null, cursor?: unknown }} */
+    const mapped = {
+      lastCompletedStage: checkpoint.lastCompletedStage ?? null,
+      updatedAt: toIsoOrNull(checkpoint.updatedAt),
+    };
+    if (Object.prototype.hasOwnProperty.call(checkpoint, 'cursor')) {
+      mapped.cursor = checkpoint.cursor;
+    }
+    return mapped;
+  }
 }
 
 /**

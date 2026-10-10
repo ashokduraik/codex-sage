@@ -1,8 +1,43 @@
 /**
  * Unit tests for change-summary mapping and latest-read.
  */
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const { findProjectById, findKnowledgeVersionById, sourceChangeSummaryFindOne } = vi.hoisted(() => ({
+  findProjectById: vi.fn(),
+  findKnowledgeVersionById: vi.fn(),
+  sourceChangeSummaryFindOne: vi.fn(),
+}));
+
+vi.mock('../../../src/modules/masters/index.js', () => ({
+  findProjectById,
+}));
+
+vi.mock('../../../src/modules/knowledge/knowledge.js', () => ({
+  findKnowledgeVersionById,
+}));
+
+vi.mock('../../../src/models/sourceChangeSummary.model.js', () => ({
+  SourceChangeSummary: {
+    findOne: sourceChangeSummaryFindOne,
+  },
+}));
+
 import { loadLatestChangeSummary, mapChangeSummaryDto, mapSummaryPaths } from '../../../src/modules/knowledge/changeSummary.js';
+
+/**
+ * Chains findOne → sort → lean → exec for the latest-summary query.
+ * @param {object | null} row Lean summary or null.
+ */
+function mockLatestSummary(row) {
+  sourceChangeSummaryFindOne.mockReturnValue({
+    sort: () => ({
+      lean: () => ({
+        exec: async () => row,
+      }),
+    }),
+  });
+}
 
 describe('mapChangeSummaryDto', () => {
   it('maps changed → modified and leaves impact unknown', () => {
@@ -35,35 +70,34 @@ describe('mapChangeSummaryDto', () => {
 });
 
 describe('loadLatestChangeSummary', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('throws PROJECT_NOT_FOUND or CHANGE_SUMMARY_NOT_FOUND', async () => {
-    await expect(loadLatestChangeSummary({ orgId: 'o1', projectId: 'p1' }, { findProject: async () => null })).rejects.toMatchObject({
+    findProjectById.mockResolvedValue(null);
+    await expect(loadLatestChangeSummary({ orgId: 'o1', projectId: 'p1' })).rejects.toMatchObject({
       code: 'PROJECT_NOT_FOUND',
     });
-    await expect(
-      loadLatestChangeSummary(
-        { orgId: 'o1', projectId: 'p1' },
-        {
-          findProject: async () => ({ status: 'A' }),
-          findLatest: async () => null,
-        },
-      ),
-    ).rejects.toMatchObject({ code: 'CHANGE_SUMMARY_NOT_FOUND' });
+
+    findProjectById.mockResolvedValue({ status: 'A' });
+    mockLatestSummary(null);
+    await expect(loadLatestChangeSummary({ orgId: 'o1', projectId: 'p1' })).rejects.toMatchObject({
+      code: 'CHANGE_SUMMARY_NOT_FOUND',
+    });
   });
 
   it('attaches publishedAt from the linked knowledge version', async () => {
-    const dto = await loadLatestChangeSummary(
-      { orgId: 'o1', projectId: 'p1' },
-      {
-        findProject: async () => ({ status: 'A' }),
-        findLatest: async () => ({
-          sourceVersionId: 'sv2',
-          knowledgeVersionId: 'kv1',
-          counts: { added: 1, changed: 0, removed: 0 },
-          paths: { added: ['a.js'], changed: [], removed: [] },
-        }),
-        findKnowledgeVersion: async () => ({ publishedAt: new Date('2026-01-02T00:00:00.000Z') }),
-      },
-    );
+    findProjectById.mockResolvedValue({ status: 'A' });
+    mockLatestSummary({
+      sourceVersionId: 'sv2',
+      knowledgeVersionId: 'kv1',
+      counts: { added: 1, changed: 0, removed: 0 },
+      paths: { added: ['a.js'], changed: [], removed: [] },
+    });
+    findKnowledgeVersionById.mockResolvedValue({ publishedAt: new Date('2026-01-02T00:00:00.000Z') });
+
+    const dto = await loadLatestChangeSummary({ orgId: 'o1', projectId: 'p1' });
     expect(dto.publishedAt).toBe('2026-01-02T00:00:00.000Z');
     expect(dto.counts.added).toBe(1);
   });

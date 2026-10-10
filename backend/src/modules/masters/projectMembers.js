@@ -236,81 +236,6 @@ export const PROJECT_ACL_NO_ACCESS = Object.freeze({ kind: /** @type {const} */ 
  */
 
 /**
- * Filters overlay permission keys to the product catalog.
- * @param {unknown} permissions Raw permissions array.
- * @returns {string[]}
- */
-function catalogPermissions(permissions) {
-  if (!Array.isArray(permissions)) {
-    return [];
-  }
-  return [...new Set(permissions.filter((key) => typeof key === 'string' && isKnownPermissionKey(key)))];
-}
-
-/**
- * Loads overlay permissions from an optional project member grant.
- * Foreign/missing roleId contributes no permissions (grants only; no throw).
- * @param {string} orgId Tenant id.
- * @param {import('mongoose').Document | null} member Active member row.
- * @returns {Promise<string[]>}
- */
-async function overlayPermissionsFromMember(orgId, member) {
-  if (!member) {
-    return [];
-  }
-  const explicit = catalogPermissions(member.permissions);
-  if (!member.roleId) {
-    return explicit;
-  }
-  const fromRole = await resolveEffectivePermissions(orgId, [String(member.roleId)]);
-  return [...new Set([...explicit, ...fromRole])];
-}
-
-/**
- * Computes project ACL without caching.
- * @param {string} orgId
- * @param {string} userId
- * @param {string} projectId
- * @returns {Promise<{ result: ProjectAclResult, aclVersion: number }>}
- */
-async function computeProjectPermissions(orgId, userId, projectId) {
-  const organization = await findOrganizationById(orgId);
-  const aclVersion = organization && typeof organization.aclVersion === 'number' ? organization.aclVersion : 0;
-
-  const project = await findProjectById(orgId, projectId);
-  if (!project) {
-    return { result: PROJECT_ACL_NO_ACCESS, aclVersion };
-  }
-
-  const user = await findUserById(orgId, userId);
-  if (!user || user.userStatus !== 'active') {
-    return { result: PROJECT_ACL_NO_ACCESS, aclVersion };
-  }
-
-  const projectAccessMode = user.projectAccessMode ?? 'selected';
-  if (projectAccessMode === 'none') {
-    return { result: PROJECT_ACL_NO_ACCESS, aclVersion };
-  }
-
-  const member = findActiveMemberOnProject(project, userId);
-
-  if (projectAccessMode === 'selected' && !member) {
-    return { result: PROJECT_ACL_NO_ACCESS, aclVersion };
-  }
-
-  // 'all' is visible even without a member row; optional overlay may still grant extras.
-  const roleIds = (user.roleIds ?? []).map((id) => String(id));
-  const orgPermissions = await resolveEffectivePermissions(orgId, roleIds);
-  const overlayPermissions = await overlayPermissionsFromMember(orgId, member);
-  const permissions = [...new Set([...orgPermissions, ...overlayPermissions])];
-
-  return {
-    result: { kind: 'OK', visible: true, permissions },
-    aclVersion,
-  };
-}
-
-/**
  * Resolves whether a user may see a project and which permissions apply.
  * @param {string} orgId Tenant id (from principal).
  * @param {string} userId Caller user id.
@@ -349,6 +274,81 @@ export async function resolveProjectPermissions(orgId, userId, projectId, option
   });
   options.requestMemo?.set(memoKey, result);
   return result;
+
+  /**
+   * Computes project ACL without caching.
+   * @param {string} orgId
+   * @param {string} userId
+   * @param {string} projectId
+   * @returns {Promise<{ result: ProjectAclResult, aclVersion: number }>}
+   */
+  async function computeProjectPermissions(orgId, userId, projectId) {
+    const organization = await findOrganizationById(orgId);
+    const aclVersion = organization && typeof organization.aclVersion === 'number' ? organization.aclVersion : 0;
+
+    const project = await findProjectById(orgId, projectId);
+    if (!project) {
+      return { result: PROJECT_ACL_NO_ACCESS, aclVersion };
+    }
+
+    const user = await findUserById(orgId, userId);
+    if (!user || user.userStatus !== 'active') {
+      return { result: PROJECT_ACL_NO_ACCESS, aclVersion };
+    }
+
+    const projectAccessMode = user.projectAccessMode ?? 'selected';
+    if (projectAccessMode === 'none') {
+      return { result: PROJECT_ACL_NO_ACCESS, aclVersion };
+    }
+
+    const member = findActiveMemberOnProject(project, userId);
+
+    if (projectAccessMode === 'selected' && !member) {
+      return { result: PROJECT_ACL_NO_ACCESS, aclVersion };
+    }
+
+    // 'all' is visible even without a member row; optional overlay may still grant extras.
+    const roleIds = (user.roleIds ?? []).map((id) => String(id));
+    const orgPermissions = await resolveEffectivePermissions(orgId, roleIds);
+    const overlayPermissions = await overlayPermissionsFromMember(orgId, member);
+    const permissions = [...new Set([...orgPermissions, ...overlayPermissions])];
+
+    return {
+      result: { kind: 'OK', visible: true, permissions },
+      aclVersion,
+    };
+
+    /**
+     * Loads overlay permissions from an optional project member grant.
+     * Foreign/missing roleId contributes no permissions (grants only; no throw).
+     * @param {string} orgId Tenant id.
+     * @param {import('mongoose').Document | null} member Active member row.
+     * @returns {Promise<string[]>}
+     */
+    async function overlayPermissionsFromMember(orgId, member) {
+      if (!member) {
+        return [];
+      }
+      const explicit = catalogPermissions(member.permissions);
+      if (!member.roleId) {
+        return explicit;
+      }
+      const fromRole = await resolveEffectivePermissions(orgId, [String(member.roleId)]);
+      return [...new Set([...explicit, ...fromRole])];
+
+      /**
+       * Filters overlay permission keys to the product catalog.
+       * @param {unknown} permissions Raw permissions array.
+       * @returns {string[]}
+       */
+      function catalogPermissions(permissions) {
+        if (!Array.isArray(permissions)) {
+          return [];
+        }
+        return [...new Set(permissions.filter((key) => typeof key === 'string' && isKnownPermissionKey(key)))];
+      }
+    }
+  }
 }
 
 /**
@@ -686,36 +686,6 @@ export function mapProjectMemberToDto(member) {
 }
 
 /**
- * Validates POST body: roleId and/or catalog permissions required.
- * @param {{ roleId?: string | null, permissions?: string[] }} input Body fields.
- * @returns {{ roleId: string | null, permissions: string[] }}
- */
-function normalizeMemberOverlay(input) {
-  const roleId = input.roleId ? String(input.roleId) : null;
-  const permissions = Array.isArray(input.permissions) ? [...new Set(input.permissions.map(String))] : [];
-
-  if (!roleId && permissions.length === 0) {
-    throw ApiError.fromCode('VALIDATION_ERROR', {
-      details: [
-        {
-          path: 'body',
-          message: 'At least one of roleId or permissions is required',
-        },
-      ],
-    });
-  }
-
-  const unknown = permissions.filter((key) => !isKnownPermissionKey(key));
-  if (unknown.length > 0) {
-    throw ApiError.fromCode('UNKNOWN_PERMISSION', {
-      details: { unknownKeys: unknown },
-    });
-  }
-
-  return { roleId, permissions };
-}
-
-/**
  * Lists project members (ids only).
  * @param {string} orgId Tenant id.
  * @param {string} projectId Project id.
@@ -838,6 +808,36 @@ export async function addProjectMember(input) {
   );
 
   return { member: mapProjectMemberToDto(member), created: true };
+
+  /**
+   * Validates POST body: roleId and/or catalog permissions required.
+   * @param {{ roleId?: string | null, permissions?: string[] }} input Body fields.
+   * @returns {{ roleId: string | null, permissions: string[] }}
+   */
+  function normalizeMemberOverlay(input) {
+    const roleId = input.roleId ? String(input.roleId) : null;
+    const permissions = Array.isArray(input.permissions) ? [...new Set(input.permissions.map(String))] : [];
+
+    if (!roleId && permissions.length === 0) {
+      throw ApiError.fromCode('VALIDATION_ERROR', {
+        details: [
+          {
+            path: 'body',
+            message: 'At least one of roleId or permissions is required',
+          },
+        ],
+      });
+    }
+
+    const unknown = permissions.filter((key) => !isKnownPermissionKey(key));
+    if (unknown.length > 0) {
+      throw ApiError.fromCode('UNKNOWN_PERMISSION', {
+        details: { unknownKeys: unknown },
+      });
+    }
+
+    return { roleId, permissions };
+  }
 }
 
 /**
@@ -926,45 +926,6 @@ const addBodySchema = z
   })
   .strict();
 
-/**
- * Maps zod issues to VALIDATION_ERROR details.
- * @param {import('zod').ZodError} error Zod error.
- * @returns {{ path: string, message: string }[]}
- */
-function zodDetails(error) {
-  /** @type {{ path: string, message: string }[]} */
-  const details = [];
-  for (const issue of error.issues) {
-    if (issue.code === 'unrecognized_keys' && Array.isArray(issue.keys)) {
-      for (const key of issue.keys) {
-        details.push({ path: String(key), message: 'Unrecognized key' });
-      }
-      continue;
-    }
-    details.push({
-      path: issue.path.join('.') || 'body',
-      message: issue.message,
-    });
-  }
-  return details;
-}
-
-/**
- * Shared request context for member services.
- * @param {import('fastify').FastifyRequest} request Request.
- */
-function serviceContext(request) {
-  const audit = buildAuditContextFromRequest(request);
-  return {
-    orgId: /** @type {string} */ (request.principal.orgId),
-    actorUserId: /** @type {string} */ (request.principal.userId),
-    correlationId: audit.correlationId,
-    ip: audit.ip,
-    userAgent: audit.userAgent,
-    log: request.log,
-  };
-}
-
 /** Members manage: projects.update on the project OR org-level users.manage. */
 const requireMembersManage = requireProjectPermission(['projects.update', 'users.manage'], { mode: 'any' });
 
@@ -1039,4 +1000,43 @@ export async function projectMemberRoutes(app) {
       return reply.code(204).send();
     },
   );
+
+  /**
+   * Maps zod issues to VALIDATION_ERROR details.
+   * @param {import('zod').ZodError} error Zod error.
+   * @returns {{ path: string, message: string }[]}
+   */
+  function zodDetails(error) {
+    /** @type {{ path: string, message: string }[]} */
+    const details = [];
+    for (const issue of error.issues) {
+      if (issue.code === 'unrecognized_keys' && Array.isArray(issue.keys)) {
+        for (const key of issue.keys) {
+          details.push({ path: String(key), message: 'Unrecognized key' });
+        }
+        continue;
+      }
+      details.push({
+        path: issue.path.join('.') || 'body',
+        message: issue.message,
+      });
+    }
+    return details;
+  }
+
+  /**
+   * Shared request context for member services.
+   * @param {import('fastify').FastifyRequest} request Request.
+   */
+  function serviceContext(request) {
+    const audit = buildAuditContextFromRequest(request);
+    return {
+      orgId: /** @type {string} */ (request.principal.orgId),
+      actorUserId: /** @type {string} */ (request.principal.userId),
+      correlationId: audit.correlationId,
+      ip: audit.ip,
+      userAgent: audit.userAgent,
+      log: request.log,
+    };
+  }
 }

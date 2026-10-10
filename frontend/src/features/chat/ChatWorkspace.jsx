@@ -31,22 +31,6 @@ const KEYWORDS = [
   'integration',
 ];
 /**
- * Detect vague questions that need a capability clarification chip.
- *
- * @param question - User question text
- * @param project - Current project with knowledge tree
- * @returns Clarification prompt, or null when not needed
- */
-function needsClarification(question, project) {
-  const normalized = question.toLowerCase();
-  const hasKeyword = KEYWORDS.some((keyword) => normalized.includes(keyword));
-  const vague = /\b(it|this|that|them)\b/.test(normalized) || normalized.split(/\s+/).length < 4;
-  if (hasKeyword || !vague) return null;
-  const options = (project.knowledgeTree || []).map((node) => node.label).slice(0, 3);
-  if (options.length === 0) return null;
-  return { question, options };
-}
-/**
  * Project chat workspace with history, messages, and composer.
  *
  * @returns Chat workspace UI
@@ -310,4 +294,21 @@ export default function ChatWorkspace() {
       </div>
     </div>
   );
+
+  /**
+   * Detect vague questions that need a capability clarification chip.
+   *
+   * @param question - User question text
+   * @param project - Current project with knowledge tree
+   * @returns Clarification prompt, or null when not needed
+   */
+  function needsClarification(question, project) {
+    const normalized = question.toLowerCase();
+    const hasKeyword = KEYWORDS.some((keyword) => normalized.includes(keyword));
+    const vague = /\b(it|this|that|them)\b/.test(normalized) || normalized.split(/\s+/).length < 4;
+    if (hasKeyword || !vague) return null;
+    const options = (project.knowledgeTree || []).map((node) => node.label).slice(0, 3);
+    if (options.length === 0) return null;
+    return { question, options };
+  }
 }

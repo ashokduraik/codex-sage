@@ -1,5 +1,5 @@
 ---
-description: Function design — meaningful names, own the response, Promises, extract only when reused
+description: Function design — product-intent names, nest single-caller, soft export split, no test deps
 alwaysApply: true
 ---
 
@@ -7,17 +7,20 @@ alwaysApply: true
 
 ## Meaningful names
 
-- Function and variable names must always be **intention-revealing** — say what they do or hold.
+- Function and variable names must always be **intention-revealing** — say what they do or hold
+  in **product language** (what the user or system accomplishes), not vague mechanical verbs alone
+  (`execute` / `handle` / `helper` / `doStuff`).
 - Avoid abbreviations, single-letter names (except loop indices), and vague names (`data`,
-  `temp`, `helper`, `handle`, `doStuff`).
-- Prefer verbs for functions (`loadProjectById`) and nouns for values (`projectId`).
+  `temp`).
+- Prefer verbs for functions (`loadProjectById`, `runExploreCodeTool`) and nouns for values
+  (`projectId`).
 
 ```js
 // ❌ BAD
 const d = await get(id);
 function h(r, s) { /* ... */ }
 
- // ✅ GOOD
+// ✅ GOOD
 const project = await loadProjectById(projectId);
 async function listActiveProjects(orgId) { /* ... */ }
 ```
@@ -63,18 +66,21 @@ fs.readFile(path, (err, data) => { /* ... */ });
 const data = await fs.promises.readFile(path);
 ```
 
-## Extract functions only when reused
+## Nest single-caller helpers; inline tiny wrappers
 
 - Do **not** create a function for one or two lines used in a single place.
-- Inline small, one-off logic at the call site.
-- A one-call-site helper that is a small wrapper (roughly ≤15 lines, no multi-branch
-  domain logic) **must** be inlined. Do not extract a one-liner just to name it.
-- Extract a named function only when the same logic is (or clearly will be) used in
-  **two or more** places, or when the body is complex enough that a name materially aids
-  understanding (multi-branch / multi-step domain logic — not a one-liner wrapper).
-- Keep HTTP / service / repo public operations even when one route is the only caller.
-  Keep overflow files required by the 1000-line cap (`file-colocation.mdc`).
-- An extracted function lives in the resource file unless `file-colocation.mdc`
+- A one-call-site helper that is a small wrapper (roughly ≤15 lines, no multi-branch domain
+  logic) **must** be inlined.
+- A non-exported function with **exactly one** production caller is declared **inside** that
+  caller as a `function` declaration at the **end** of the parent body (after the main logic;
+  declarations hoist within the parent scope). Prefer nesting over a module-level one-call
+  helper.
+- Extract a **module-level** named function when the same logic is used in **two or more**
+  places.
+- **Exported** functions stay module-level even when only one caller (HTTP / service / repo
+  public surface). Keep overflow files required by the 1000-line file cap
+  (`file-colocation.mdc`).
+- An extracted module-level function lives in the resource file unless `file-colocation.mdc`
   allows a `.helper.js` / `.util.js` overflow file.
 
 ```js
@@ -87,6 +93,47 @@ res.status(toStatusCode(valid)).json(body);
 // ✅ GOOD — inline at the single call site
 res.status(valid ? 200 : 400).json(body);
 
+// ✅ GOOD — single-caller helper nested at end of parent
+export async function loadLatestChangeSummary(input) {
+  const project = await findProjectById(input.orgId, input.projectId);
+  // ...
+  return mapChangeSummaryDto(row, publishedAt);
+
+  function mapChangeSummaryDto(row, publishedAt) { /* ... */ }
+}
+
 // ✅ GOOD — shared logic used in multiple handlers
 function mapProjectToDto(project) { /* ... */ }
 ```
+
+## Soft ~200 code-line guideline for exports
+
+- Not a hard CI/lint gate. Count code lines like `file-colocation.mdc` (exclude blanks and
+  comments; nested functions inside the export count).
+- Prefer nesting single-caller helpers inside the export.
+- **When** an export becomes hard to follow or clearly oversized (~200+ as a signal), split
+  into **2** top-level functions along a cohesive product boundary; if a piece is still too
+  large, split again (3, then 4, …). Keep the public entry thin when you split; siblings stay
+  module-private unless they must be exported.
+- Do **not** split clear code just to stay under 200.
+
+```js
+// When nesting makes an export unwieldy, split as needed:
+export async function executeTool(input) {
+  const scope = await resolveLiveToolTenantScope(input.scope);
+  const raw = await dispatchAgentTool(input.name, input.args, scope);
+  return fitEvidenceToContextBudget(raw, input.budgetState);
+}
+
+async function dispatchAgentTool(name, args, scope) { /* ... */ }
+async function resolveLiveToolTenantScope(scopeInput) { /* ... */ }
+function fitEvidenceToContextBudget(raw, budgetState) { /* ... */ }
+```
+
+## No product test-seam `deps` bags
+
+- Do **not** add optional `deps` / `input.deps` parameters on product functions so tests can
+  swap collaborators. Production calls real imports; tests use `vi.mock` (or mock models / I/O).
+- **Exception:** process/lifecycle entrypoints may inject `process`, `exit`, timers, and boot
+  collaborators (`startWorker`, shutdown helpers).
+- Do not add wrapper layers, DI containers, or files whose only purpose is testing.

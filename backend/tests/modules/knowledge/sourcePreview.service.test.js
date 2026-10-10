@@ -1,7 +1,32 @@
 /**
  * Unit tests for source preview path safety, metadata, and slices.
  */
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const { findProjectById, findKnowledgeVersionById, findSourceFileByPath, readSourceGridFsBytes } = vi.hoisted(() => ({
+  findProjectById: vi.fn(),
+  findKnowledgeVersionById: vi.fn(),
+  findSourceFileByPath: vi.fn(),
+  readSourceGridFsBytes: vi.fn(),
+}));
+
+vi.mock('../../../src/modules/masters/index.js', () => ({
+  findProjectById,
+}));
+
+vi.mock('../../../src/modules/knowledge/knowledge.js', () => ({
+  findKnowledgeVersionById,
+}));
+
+vi.mock('../../../src/modules/knowledge/sources.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    findSourceFileByPath,
+    readSourceGridFsBytes,
+  };
+});
+
 import {
   contentTypeForPath,
   countTextLines,
@@ -12,6 +37,8 @@ import {
   loadSourceFileSlice,
   normalizePreviewPath,
   sliceUtf8,
+  SOURCE_PREVIEW_MAX_BYTES,
+  SOURCE_PREVIEW_MAX_LINES,
 } from '../../../src/modules/knowledge/sourcePreview.js';
 
 /**
@@ -19,6 +46,14 @@ import {
  */
 function readyProject() {
   return { status: 'A', currentKnowledgeVersionId: 'kv1' };
+}
+
+/**
+ * Stubs an active project with a current knowledge/source version.
+ */
+function stubReadyScope() {
+  findProjectById.mockResolvedValue(readyProject());
+  findKnowledgeVersionById.mockResolvedValue({ sourceVersionId: 'sv1' });
 }
 
 describe('preview helpers', () => {
@@ -59,49 +94,41 @@ describe('preview helpers', () => {
 });
 
 describe('loadSourceFileMetadata / loadSourceFileSlice', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('throws PROJECT_NOT_FOUND or SOURCE_NOT_FOUND when scope is missing', async () => {
-    await expect(loadSourceFileMetadata({ orgId: 'o1', projectId: 'p1', path: 'src/a.js' }, { findProject: async () => null })).rejects.toMatchObject(
-      { code: 'PROJECT_NOT_FOUND' },
-    );
+    findProjectById.mockResolvedValue(null);
+    await expect(loadSourceFileMetadata({ orgId: 'o1', projectId: 'p1', path: 'src/a.js' })).rejects.toMatchObject({
+      code: 'PROJECT_NOT_FOUND',
+    });
 
-    await expect(
-      loadSourceFileMetadata(
-        { orgId: 'o1', projectId: 'p1', path: 'src/a.js' },
-        {
-          findProject: async () => ({ status: 'A', currentKnowledgeVersionId: null }),
-        },
-      ),
-    ).rejects.toMatchObject({ code: 'SOURCE_NOT_FOUND' });
+    findProjectById.mockResolvedValue({ status: 'A', currentKnowledgeVersionId: null });
+    await expect(loadSourceFileMetadata({ orgId: 'o1', projectId: 'p1', path: 'src/a.js' })).rejects.toMatchObject({
+      code: 'SOURCE_NOT_FOUND',
+    });
 
-    await expect(
-      loadSourceFileMetadata(
-        { orgId: 'o1', projectId: 'p1', path: 'src/a.js' },
-        {
-          findProject: async () => readyProject(),
-          findKnowledgeVersion: async () => ({ sourceVersionId: 'sv1' }),
-          findFile: async () => null,
-        },
-      ),
-    ).rejects.toMatchObject({ code: 'SOURCE_NOT_FOUND' });
+    stubReadyScope();
+    findSourceFileByPath.mockResolvedValue(null);
+    await expect(loadSourceFileMetadata({ orgId: 'o1', projectId: 'p1', path: 'src/a.js' })).rejects.toMatchObject({
+      code: 'SOURCE_NOT_FOUND',
+    });
   });
 
   it('returns metadata including excluded-from-graph labels', async () => {
-    const meta = await loadSourceFileMetadata(
-      { orgId: 'o1', projectId: 'p1', path: 'src/a.js' },
-      {
-        findProject: async () => readyProject(),
-        findKnowledgeVersion: async () => ({ sourceVersionId: 'sv1' }),
-        findFile: async () => ({
-          path: 'src/a.js',
-          sha256: 'abc',
-          byteLength: 5,
-          gridFsId: 'g1',
-          excludedFromGraph: true,
-          exclusionReason: 'over_graph_size_limit',
-        }),
-        readBytes: async () => Buffer.from('hello'),
-      },
-    );
+    stubReadyScope();
+    findSourceFileByPath.mockResolvedValue({
+      path: 'src/a.js',
+      sha256: 'abc',
+      byteLength: 5,
+      gridFsId: 'g1',
+      excludedFromGraph: true,
+      exclusionReason: 'over_graph_size_limit',
+    });
+    readSourceGridFsBytes.mockResolvedValue(Buffer.from('hello'));
+
+    const meta = await loadSourceFileMetadata({ orgId: 'o1', projectId: 'p1', path: 'src/a.js' });
     expect(meta).toMatchObject({
       path: 'src/a.js',
       sourceVersionId: 'sv1',
@@ -115,48 +142,47 @@ describe('loadSourceFileMetadata / loadSourceFileSlice', () => {
   });
 
   it('marks binary files as not previewable and rejects slices', async () => {
-    const deps = {
-      findProject: async () => readyProject(),
-      findKnowledgeVersion: async () => ({ sourceVersionId: 'sv1' }),
-      findFile: async () => ({
-        path: 'logo.png',
-        sha256: 'x',
-        byteLength: 4,
-        gridFsId: 'g1',
-        excludedFromGraph: false,
-      }),
-      readBytes: async () => Buffer.from([0x89, 0x50, 0x4e, 0x47]),
-    };
-    const meta = await loadSourceFileMetadata({ orgId: 'o1', projectId: 'p1', path: 'logo.png' }, deps);
+    stubReadyScope();
+    findSourceFileByPath.mockResolvedValue({
+      path: 'logo.png',
+      sha256: 'x',
+      byteLength: 4,
+      gridFsId: 'g1',
+      excludedFromGraph: false,
+    });
+    readSourceGridFsBytes.mockResolvedValue(Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+
+    const meta = await loadSourceFileMetadata({ orgId: 'o1', projectId: 'p1', path: 'logo.png' });
     expect(meta.previewAvailable).toBe(false);
     expect(meta.lineCount).toBeNull();
-    await expect(loadSourceFileSlice({ orgId: 'o1', projectId: 'p1', path: 'logo.png', startLine: 1, endLine: 2 }, deps)).rejects.toMatchObject({
+    await expect(loadSourceFileSlice({ orgId: 'o1', projectId: 'p1', path: 'logo.png', startLine: 1, endLine: 2 })).rejects.toMatchObject({
       code: 'UNSUPPORTED_MEDIA_TYPE',
     });
   });
 
   it('slices lines and truncates when the byte cap is exceeded', async () => {
-    const lines = ['one', 'two', 'three', 'four'];
-    const result = await loadSourceFileSlice(
-      { orgId: 'o1', projectId: 'p1', path: 'src/a.js', startLine: 2, endLine: 4 },
-      {
-        findProject: async () => readyProject(),
-        findKnowledgeVersion: async () => ({ sourceVersionId: 'sv1' }),
-        findFile: async () => ({
-          path: 'src/a.js',
-          sha256: 'x',
-          byteLength: 20,
-          gridFsId: 'g1',
-          excludedFromGraph: false,
-        }),
-        readBytes: async () => Buffer.from(lines.join('\n')),
-        caps: { maxBytes: 5, maxLines: 400 },
-      },
-    );
+    stubReadyScope();
+    findSourceFileByPath.mockResolvedValue({
+      path: 'src/a.js',
+      sha256: 'x',
+      byteLength: SOURCE_PREVIEW_MAX_BYTES + 100,
+      gridFsId: 'g1',
+      excludedFromGraph: false,
+    });
+    // One long line past the default byte cap triggers truncatedReason=byte_cap.
+    readSourceGridFsBytes.mockResolvedValue(Buffer.from('x'.repeat(SOURCE_PREVIEW_MAX_BYTES + 50)));
+
+    const result = await loadSourceFileSlice({
+      orgId: 'o1',
+      projectId: 'p1',
+      path: 'src/a.js',
+      startLine: 1,
+      endLine: 1,
+    });
     expect(result.truncated).toBe(true);
     expect(result.truncatedReason).toBe('byte_cap');
-    expect(result.startLine).toBe(2);
-    expect(result.content.length).toBeLessThanOrEqual(5);
+    expect(result.startLine).toBe(1);
+    expect(result.content.length).toBeLessThanOrEqual(SOURCE_PREVIEW_MAX_BYTES);
   });
 
   it('truncates by line cap and rejects invalid ranges', async () => {
@@ -170,41 +196,37 @@ describe('loadSourceFileMetadata / loadSourceFileSlice', () => {
       }),
     ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
 
-    await expect(
-      loadSourceFileSlice(
-        { orgId: 'o1', projectId: 'p1', path: 'src/a.js', startLine: 9, endLine: 10 },
-        {
-          findProject: async () => readyProject(),
-          findKnowledgeVersion: async () => ({ sourceVersionId: 'sv1' }),
-          findFile: async () => ({
-            path: 'src/a.js',
-            sha256: 'x',
-            byteLength: 5,
-            gridFsId: 'g1',
-            excludedFromGraph: false,
-          }),
-          readBytes: async () => Buffer.from('a\nb\n'),
-        },
-      ),
-    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    stubReadyScope();
+    findSourceFileByPath.mockResolvedValue({
+      path: 'src/a.js',
+      sha256: 'x',
+      byteLength: 5,
+      gridFsId: 'g1',
+      excludedFromGraph: false,
+    });
+    readSourceGridFsBytes.mockResolvedValue(Buffer.from('a\nb\n'));
+    await expect(loadSourceFileSlice({ orgId: 'o1', projectId: 'p1', path: 'src/a.js', startLine: 9, endLine: 10 })).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+    });
 
-    const capped = await loadSourceFileSlice(
-      { orgId: 'o1', projectId: 'p1', path: 'src/a.js', startLine: 1, endLine: 4 },
-      {
-        findProject: async () => readyProject(),
-        findKnowledgeVersion: async () => ({ sourceVersionId: 'sv1' }),
-        findFile: async () => ({
-          path: 'src/a.js',
-          sha256: 'x',
-          byteLength: 20,
-          gridFsId: 'g1',
-          excludedFromGraph: false,
-        }),
-        readBytes: async () => Buffer.from('a\nb\nc\nd'),
-        caps: { maxBytes: 1000, maxLines: 2 },
-      },
-    );
+    const lineCount = SOURCE_PREVIEW_MAX_LINES + 10;
+    readSourceGridFsBytes.mockResolvedValue(Buffer.from(Array.from({ length: lineCount }, (_, index) => `line-${index}`).join('\n')));
+    findSourceFileByPath.mockResolvedValue({
+      path: 'src/a.js',
+      sha256: 'x',
+      byteLength: 20,
+      gridFsId: 'g1',
+      excludedFromGraph: false,
+    });
+
+    const capped = await loadSourceFileSlice({
+      orgId: 'o1',
+      projectId: 'p1',
+      path: 'src/a.js',
+      startLine: 1,
+      endLine: lineCount,
+    });
     expect(capped.truncatedReason).toBe('line_cap');
-    expect(capped.content.split('\n')).toHaveLength(2);
+    expect(capped.content.split('\n')).toHaveLength(SOURCE_PREVIEW_MAX_LINES);
   });
 });

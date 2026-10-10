@@ -189,22 +189,6 @@ function keysetAfterFilter(cursor, sortField) {
 }
 
 /**
- * Encodes the sort timestamp for the next cursor.
- * @param {import('mongoose').Document} row Project row.
- * @param {'updatedAt' | 'lastAccessedAt'} sortField Sort field.
- * @returns {string}
- */
-function cursorTimestampForRow(row, sortField) {
-  if (sortField === 'lastAccessedAt') {
-    if (row.lastAccessedAt instanceof Date) {
-      return row.lastAccessedAt.toISOString();
-    }
-    return NULL_LAST_ACCESSED_CURSOR_ISO;
-  }
-  return row.updatedAt.toISOString();
-}
-
-/**
  * Inserts a project row.
  * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
  * @param {{
@@ -337,6 +321,22 @@ export async function listProjects(orgId, filters = {}) {
     });
   }
   return { items, pageInfo: { nextCursor, hasMore } };
+
+  /**
+   * Encodes the sort timestamp for the next cursor.
+   * @param {import('mongoose').Document} row Project row.
+   * @param {'updatedAt' | 'lastAccessedAt'} sortField Sort field.
+   * @returns {string}
+   */
+  function cursorTimestampForRow(row, sortField) {
+    if (sortField === 'lastAccessedAt') {
+      if (row.lastAccessedAt instanceof Date) {
+        return row.lastAccessedAt.toISOString();
+      }
+      return NULL_LAST_ACCESSED_CURSOR_ISO;
+    }
+    return row.updatedAt.toISOString();
+  }
 }
 
 /**

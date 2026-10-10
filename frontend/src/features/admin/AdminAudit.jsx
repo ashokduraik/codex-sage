@@ -82,31 +82,6 @@ const AUDIT_LIST_PAGE_SIZE = 20;
 export const AUDIT_LIST_MAX_RANGE_DAYS = 31;
 
 /**
- * Converts a YYYY-MM-DD filter to the inclusive UTC start instant.
- * @param calendarDate Calendar day from the URL, or empty.
- * @returns ISO instant, or undefined when the day is missing or invalid.
- */
-function fromDateToUtcStart(calendarDate) {
-  if (!parseCalendarDate(calendarDate)) {
-    return undefined;
-  }
-  return `${calendarDate}T00:00:00.000Z`;
-}
-
-/**
- * Converts a YYYY-MM-DD filter to the exclusive UTC end (start of the next day).
- * @param calendarDate Calendar day from the URL, or empty.
- * @returns ISO instant, or undefined when the day is missing or invalid.
- */
-function toDateToUtcEnd(calendarDate) {
-  const parsed = parseCalendarDate(calendarDate);
-  if (!parsed) {
-    return undefined;
-  }
-  return new Date(Date.UTC(parsed.getFullYear(), parsed.getMonth(), parsed.getDate() + 1)).toISOString();
-}
-
-/**
  * Shifts a YYYY-MM-DD calendar day by a signed day count.
  * @param calendarDate Day key, or empty.
  * @param deltaDays Days to add (negative to subtract).
@@ -302,24 +277,6 @@ export function targetLabel(event, t) {
     return typePart;
   }
   return t('admin.auditNotRecorded');
-}
-
-/**
- * Result badge tone classes.
- * @param {string | undefined} result Result value.
- * @returns {string}
- */
-function resultTone(result) {
-  if (result === 'success') {
-    return 'text-emerald-700 bg-emerald-100';
-  }
-  if (result === 'denied') {
-    return 'text-amber-800 bg-amber-100';
-  }
-  if (result === 'failed') {
-    return 'text-red-700 bg-red-100';
-  }
-  return 'text-muted-foreground bg-muted';
 }
 
 /**
@@ -708,4 +665,47 @@ export default function AdminAudit() {
       </div>
     </div>
   );
+
+  /**
+   * Converts a YYYY-MM-DD filter to the inclusive UTC start instant.
+   * @param calendarDate Calendar day from the URL, or empty.
+   * @returns ISO instant, or undefined when the day is missing or invalid.
+   */
+  function fromDateToUtcStart(calendarDate) {
+    if (!parseCalendarDate(calendarDate)) {
+      return undefined;
+    }
+    return `${calendarDate}T00:00:00.000Z`;
+  }
+
+  /**
+   * Converts a YYYY-MM-DD filter to the exclusive UTC end (start of the next day).
+   * @param calendarDate Calendar day from the URL, or empty.
+   * @returns ISO instant, or undefined when the day is missing or invalid.
+   */
+  function toDateToUtcEnd(calendarDate) {
+    const parsed = parseCalendarDate(calendarDate);
+    if (!parsed) {
+      return undefined;
+    }
+    return new Date(Date.UTC(parsed.getFullYear(), parsed.getMonth(), parsed.getDate() + 1)).toISOString();
+  }
+
+  /**
+   * Result badge tone classes.
+   * @param {string | undefined} result Result value.
+   * @returns {string}
+   */
+  function resultTone(result) {
+    if (result === 'success') {
+      return 'text-emerald-700 bg-emerald-100';
+    }
+    if (result === 'denied') {
+      return 'text-amber-800 bg-amber-100';
+    }
+    if (result === 'failed') {
+      return 'text-red-700 bg-red-100';
+    }
+    return 'text-muted-foreground bg-muted';
+  }
 }

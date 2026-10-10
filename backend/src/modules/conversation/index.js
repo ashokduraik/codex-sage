@@ -41,7 +41,7 @@ export {
   getLlmConfigStatus,
   streamText,
 } from './llm.js';
-export { buildToolExecutionScope, executeTool, listToolDefinitionsForSchema } from './agentTools.js';
+export { executeTool, listToolDefinitionsForSchema } from './agentTools.js';
 export {
   PINNED_FACTS_MAX_COUNT,
   RECENT_TURNS_MAX_COUNT,

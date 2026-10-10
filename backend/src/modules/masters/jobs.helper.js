@@ -128,15 +128,6 @@ export const JOB_EVENT_MESSAGES = Object.freeze({
 });
 
 /**
- * Formats a non-negative integer with en-US grouping.
- * @param {number} value Count.
- * @returns {string}
- */
-function formatCount(value) {
-  return Math.max(0, Math.floor(value)).toLocaleString('en-US');
-}
-
-/**
  * Renders a catalogue message for an event code.
  * Unknown codes fall back to a safe generic phrase (never raw diagnostics).
  * @param {string} eventCode Stable event code.
@@ -208,6 +199,15 @@ export function renderJobEventMessage(eventCode, context = {}) {
     return `Code relationships analyzed (${formatCount(context.indexedFiles)} files)`;
   }
   return JOB_EVENT_MESSAGES[eventCode] ?? 'Processing update';
+
+  /**
+   * Formats a non-negative integer with en-US grouping.
+   * @param {number} value Count.
+   * @returns {string}
+   */
+  function formatCount(value) {
+    return Math.max(0, Math.floor(value)).toLocaleString('en-US');
+  }
 }
 
 // --- from jobs/jobRetryMode.js ---
@@ -347,139 +347,6 @@ export function deriveKnowledgeAvailability(jobStatus) {
 }
 
 /**
- * Resolves which stage index is current/failed for projection.
- * @param {readonly { stage: string }[]} definitions Stage list.
- * @param {object} job Job document.
- * @returns {{ currentIndex: number, lastCompletedIndex: number }}
- */
-function resolveStageIndexes(definitions, job) {
-  const lastCompletedIndex = definitions.findIndex((entry) => entry.stage === (job.stageCheckpoint?.lastCompletedStage ?? null));
-  let currentIndex = definitions.findIndex((entry) => entry.stage === (job.currentStage ?? null));
-  if (currentIndex < 0 && lastCompletedIndex >= 0 && lastCompletedIndex + 1 < definitions.length) {
-    currentIndex = lastCompletedIndex + 1;
-  }
-  if (currentIndex < 0 && lastCompletedIndex < 0 && definitions.length > 0) {
-    currentIndex = 0;
-  }
-  return { currentIndex, lastCompletedIndex };
-}
-
-/**
- * Builds per-stage progress rows from the job document.
- * @param {object} job Job document or lean object.
- * @returns {object[]}
- */
-function projectStages(job) {
-  const definitions = listStagesForJobType(job.jobType);
-  const { currentIndex, lastCompletedIndex } = resolveStageIndexes(definitions, job);
-  const isTerminalSuccess = job.jobStatus === 'completed' || job.jobStatus === 'completed_with_warnings';
-  const isActive = job.jobStatus === 'running' || job.jobStatus === 'pending' || job.jobStatus === 'retrying';
-
-  return definitions.map((definition, index) => {
-    /** @type {'completed' | 'current' | 'pending' | 'failed' | 'skipped'} */
-    let state = 'pending';
-    if (isTerminalSuccess) {
-      state = 'completed';
-    } else if (job.jobStatus === 'failed' && index === currentIndex) {
-      state = 'failed';
-    } else if (job.jobStatus === 'failed' && lastCompletedIndex >= 0 && index <= lastCompletedIndex) {
-      state = 'completed';
-    } else if (job.jobStatus === 'cancelled' && index === currentIndex) {
-      state = 'failed';
-    } else if (job.jobStatus === 'cancelled' && lastCompletedIndex >= 0 && index <= lastCompletedIndex) {
-      state = 'completed';
-    } else if (isActive && index === currentIndex) {
-      state = 'current';
-    } else if (lastCompletedIndex >= 0 && index <= lastCompletedIndex) {
-      state = 'completed';
-    }
-
-    const perStage = job.progressByStage?.[definition.stage];
-    const attachJobTotals = !job.progressByStage && (state === 'failed' || state === 'current');
-
-    return {
-      stage: definition.stage,
-      label: definition.label,
-      state,
-      startedAt: toIsoOrNull(state === 'pending' ? null : job.startedAt),
-      endedAt: toIsoOrNull(state === 'completed' || state === 'failed' ? job.completedAt : null),
-      itemsProcessed: perStage ? (perStage.itemsProcessed ?? 0) : attachJobTotals ? (job.progressCounters?.itemsProcessed ?? 0) : 0,
-      itemsFailed: perStage ? (perStage.itemsFailed ?? 0) : attachJobTotals && state === 'failed' ? (job.progressCounters?.itemsFailed ?? 0) : 0,
-      warningCount: perStage ? (perStage.warningCount ?? 0) : 0,
-    };
-  });
-}
-
-/**
- * Collects warning/error summary rows from job events.
- * @param {object[]} events Job events.
- * @param {'warning' | 'error'} severity Severity filter.
- * @returns {{ code: string, message: string, affectedCount: number, occurredAt: string | null }[]}
- */
-function collectSeveritySummaries(events, severity) {
-  /** @type {Map<string, { code: string, message: string, affectedCount: number, occurredAt: string | null }>} */
-  const byCode = new Map();
-  for (const event of events) {
-    if (event.severity !== severity) {
-      continue;
-    }
-    const code = event.eventCode || event.data?.code || 'UNKNOWN';
-    const affectedCount = typeof event.data?.affectedCount === 'number' ? event.data.affectedCount : 1;
-    const existing = byCode.get(code);
-    if (existing) {
-      existing.affectedCount += affectedCount;
-      existing.occurredAt = toIsoOrNull(event.createdAt) ?? existing.occurredAt;
-    } else {
-      byCode.set(code, {
-        code,
-        message: event.message,
-        affectedCount,
-        occurredAt: toIsoOrNull(event.createdAt),
-      });
-    }
-  }
-  return [...byCode.values()];
-}
-
-/**
- * Computes percent only when a real total is known; otherwise null (never fabricate).
- * @param {object} job Job document.
- * @returns {number | null}
- */
-function computePercent(job) {
-  const processed = job.progressCounters?.itemsProcessed;
-  const total = job.progressCounters?.itemsTotal;
-  if (typeof processed !== 'number' || typeof total !== 'number' || !Number.isFinite(processed) || !Number.isFinite(total) || total <= 0) {
-    return null;
-  }
-  return Math.min(100, Math.max(0, Math.round((processed / total) * 100)));
-}
-
-/**
- * Ensures exactly one stage is marked current when the job is active.
- * @param {object[]} stages Stage rows.
- * @param {string} jobStatus Job status.
- * @returns {object[]}
- */
-function ensureSingleCurrent(stages, jobStatus) {
-  const isActive = jobStatus === 'running' || jobStatus === 'pending' || jobStatus === 'retrying';
-  if (!isActive) {
-    return stages.map((stage) => (stage.state === 'current' ? { ...stage, state: 'pending' } : stage));
-  }
-  let seenCurrent = false;
-  return stages.map((stage) => {
-    if (stage.state !== 'current') {
-      return stage;
-    }
-    if (seenCurrent) {
-      return { ...stage, state: 'pending' };
-    }
-    seenCurrent = true;
-    return stage;
-  });
-}
-
-/**
  * Projects the human-readable progress block for job detail.
  * @param {object} job Job document or lean object.
  * @param {object[]} [events] Ordered embedded timeline lines.
@@ -513,6 +380,139 @@ export function projectJobProgress(job, events = [], options = {}) {
     },
     knowledgeAvailability: deriveKnowledgeAvailability(job.jobStatus),
   };
+
+  /**
+   * Resolves which stage index is current/failed for projection.
+   * @param {readonly { stage: string }[]} definitions Stage list.
+   * @param {object} job Job document.
+   * @returns {{ currentIndex: number, lastCompletedIndex: number }}
+   */
+  function resolveStageIndexes(definitions, job) {
+    const lastCompletedIndex = definitions.findIndex((entry) => entry.stage === (job.stageCheckpoint?.lastCompletedStage ?? null));
+    let currentIndex = definitions.findIndex((entry) => entry.stage === (job.currentStage ?? null));
+    if (currentIndex < 0 && lastCompletedIndex >= 0 && lastCompletedIndex + 1 < definitions.length) {
+      currentIndex = lastCompletedIndex + 1;
+    }
+    if (currentIndex < 0 && lastCompletedIndex < 0 && definitions.length > 0) {
+      currentIndex = 0;
+    }
+    return { currentIndex, lastCompletedIndex };
+  }
+
+  /**
+   * Builds per-stage progress rows from the job document.
+   * @param {object} job Job document or lean object.
+   * @returns {object[]}
+   */
+  function projectStages(job) {
+    const definitions = listStagesForJobType(job.jobType);
+    const { currentIndex, lastCompletedIndex } = resolveStageIndexes(definitions, job);
+    const isTerminalSuccess = job.jobStatus === 'completed' || job.jobStatus === 'completed_with_warnings';
+    const isActive = job.jobStatus === 'running' || job.jobStatus === 'pending' || job.jobStatus === 'retrying';
+
+    return definitions.map((definition, index) => {
+      /** @type {'completed' | 'current' | 'pending' | 'failed' | 'skipped'} */
+      let state = 'pending';
+      if (isTerminalSuccess) {
+        state = 'completed';
+      } else if (job.jobStatus === 'failed' && index === currentIndex) {
+        state = 'failed';
+      } else if (job.jobStatus === 'failed' && lastCompletedIndex >= 0 && index <= lastCompletedIndex) {
+        state = 'completed';
+      } else if (job.jobStatus === 'cancelled' && index === currentIndex) {
+        state = 'failed';
+      } else if (job.jobStatus === 'cancelled' && lastCompletedIndex >= 0 && index <= lastCompletedIndex) {
+        state = 'completed';
+      } else if (isActive && index === currentIndex) {
+        state = 'current';
+      } else if (lastCompletedIndex >= 0 && index <= lastCompletedIndex) {
+        state = 'completed';
+      }
+
+      const perStage = job.progressByStage?.[definition.stage];
+      const attachJobTotals = !job.progressByStage && (state === 'failed' || state === 'current');
+
+      return {
+        stage: definition.stage,
+        label: definition.label,
+        state,
+        startedAt: toIsoOrNull(state === 'pending' ? null : job.startedAt),
+        endedAt: toIsoOrNull(state === 'completed' || state === 'failed' ? job.completedAt : null),
+        itemsProcessed: perStage ? (perStage.itemsProcessed ?? 0) : attachJobTotals ? (job.progressCounters?.itemsProcessed ?? 0) : 0,
+        itemsFailed: perStage ? (perStage.itemsFailed ?? 0) : attachJobTotals && state === 'failed' ? (job.progressCounters?.itemsFailed ?? 0) : 0,
+        warningCount: perStage ? (perStage.warningCount ?? 0) : 0,
+      };
+    });
+  }
+
+  /**
+   * Collects warning/error summary rows from job events.
+   * @param {object[]} events Job events.
+   * @param {'warning' | 'error'} severity Severity filter.
+   * @returns {{ code: string, message: string, affectedCount: number, occurredAt: string | null }[]}
+   */
+  function collectSeveritySummaries(events, severity) {
+    /** @type {Map<string, { code: string, message: string, affectedCount: number, occurredAt: string | null }>} */
+    const byCode = new Map();
+    for (const event of events) {
+      if (event.severity !== severity) {
+        continue;
+      }
+      const code = event.eventCode || event.data?.code || 'UNKNOWN';
+      const affectedCount = typeof event.data?.affectedCount === 'number' ? event.data.affectedCount : 1;
+      const existing = byCode.get(code);
+      if (existing) {
+        existing.affectedCount += affectedCount;
+        existing.occurredAt = toIsoOrNull(event.createdAt) ?? existing.occurredAt;
+      } else {
+        byCode.set(code, {
+          code,
+          message: event.message,
+          affectedCount,
+          occurredAt: toIsoOrNull(event.createdAt),
+        });
+      }
+    }
+    return [...byCode.values()];
+  }
+
+  /**
+   * Computes percent only when a real total is known; otherwise null (never fabricate).
+   * @param {object} job Job document.
+   * @returns {number | null}
+   */
+  function computePercent(job) {
+    const processed = job.progressCounters?.itemsProcessed;
+    const total = job.progressCounters?.itemsTotal;
+    if (typeof processed !== 'number' || typeof total !== 'number' || !Number.isFinite(processed) || !Number.isFinite(total) || total <= 0) {
+      return null;
+    }
+    return Math.min(100, Math.max(0, Math.round((processed / total) * 100)));
+  }
+
+  /**
+   * Ensures exactly one stage is marked current when the job is active.
+   * @param {object[]} stages Stage rows.
+   * @param {string} jobStatus Job status.
+   * @returns {object[]}
+   */
+  function ensureSingleCurrent(stages, jobStatus) {
+    const isActive = jobStatus === 'running' || jobStatus === 'pending' || jobStatus === 'retrying';
+    if (!isActive) {
+      return stages.map((stage) => (stage.state === 'current' ? { ...stage, state: 'pending' } : stage));
+    }
+    let seenCurrent = false;
+    return stages.map((stage) => {
+      if (stage.state !== 'current') {
+        return stage;
+      }
+      if (seenCurrent) {
+        return { ...stage, state: 'pending' };
+      }
+      seenCurrent = true;
+      return stage;
+    });
+  }
 }
 
 // --- from jobs/jobs.repository.js ---
@@ -542,25 +542,6 @@ export function clampJobListLimit(limit) {
  */
 export function isKnownJobStatus(jobStatus) {
   return typeof jobStatus === 'string' && JOB_STATUS_VALUES.includes(jobStatus);
-}
-
-/**
- * Builds a keyset filter for createdAt/_id descending pages.
- * @param {{ t: string, i: string }} cursor Decoded cursor.
- * @returns {object}
- */
-function keysetAfterCreatedAt(cursor) {
-  const stamp = new Date(cursor.t);
-  if (Number.isNaN(stamp.getTime())) {
-    throw ApiError.fromCode('INVALID_CURSOR');
-  }
-  if (!mongoose.isValidObjectId(cursor.i)) {
-    throw ApiError.fromCode('INVALID_CURSOR');
-  }
-  const id = new mongoose.Types.ObjectId(cursor.i);
-  return {
-    $or: [{ createdAt: { $lt: stamp } }, { createdAt: stamp, _id: { $lt: id } }],
-  };
 }
 
 /**
@@ -749,6 +730,25 @@ export async function listJobsByProject(orgId, projectId, filters = {}) {
     });
   }
   return { items, pageInfo: { nextCursor, hasMore } };
+
+  /**
+   * Builds a keyset filter for createdAt/_id descending pages.
+   * @param {{ t: string, i: string }} cursor Decoded cursor.
+   * @returns {object}
+   */
+  function keysetAfterCreatedAt(cursor) {
+    const stamp = new Date(cursor.t);
+    if (Number.isNaN(stamp.getTime())) {
+      throw ApiError.fromCode('INVALID_CURSOR');
+    }
+    if (!mongoose.isValidObjectId(cursor.i)) {
+      throw ApiError.fromCode('INVALID_CURSOR');
+    }
+    const id = new mongoose.Types.ObjectId(cursor.i);
+    return {
+      $or: [{ createdAt: { $lt: stamp } }, { createdAt: stamp, _id: { $lt: id } }],
+    };
+  }
 }
 
 /**

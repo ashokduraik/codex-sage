@@ -459,14 +459,10 @@ export const SEARCH_GRAPH_TYPES = Object.freeze(['code', 'symbol', 'workflow', '
  *   q: string,
  *   limit?: number,
  * }} input Scope + query.
- * @param {{
- *   searchSections?: typeof searchDocumentSections,
- * }} [deps] Test seams.
  * @returns {Promise<object[]>}
  */
-export async function searchProjectDocuments(input, deps = {}) {
-  const searchSections = deps.searchSections ?? searchDocumentSections;
-  const rows = await searchSections(
+export async function searchProjectDocuments(input) {
+  const rows = await searchDocumentSections(
     {
       orgId: input.orgId,
       projectId: input.projectId,
@@ -511,21 +507,6 @@ export function emptySearchEnvelope(state, base = {}) {
     items: [],
     cursor: null,
   };
-}
-
-/**
- * Loads the active project or throws 404.
- * @param {string} orgId Tenant id.
- * @param {string} projectId Project id.
- * @param {typeof findProjectById} findProject Finder.
- * @returns {Promise<object>}
- */
-async function loadActiveProject(orgId, projectId, findProject) {
-  const project = await findProject(orgId, projectId);
-  if (!project || project.status !== ROW_STATUS_ACTIVE) {
-    throw ApiError.fromCode('PROJECT_NOT_FOUND');
-  }
-  return project;
 }
 
 /**
@@ -612,115 +593,6 @@ export function collectGraphSearchItems(adapter, graph, q, types, knowledgeVersi
 }
 
 /**
- * Runs search after the gate allows.
- * @param {object} input Allowed-path inputs.
- * @param {object} deps Injected deps.
- * @returns {Promise<object>}
- */
-async function loadReadySearch(input, deps) {
-  const knowledgeVersion = await deps.findKnowledgeVersion({
-    orgId: input.orgId,
-    projectId: input.projectId,
-    knowledgeVersionId: input.knowledgeVersionId,
-  });
-  const sourceVersionId = knowledgeVersion?.sourceVersionId ? String(knowledgeVersion.sourceVersionId) : null;
-
-  /** @type {object[]} */
-  let docItems = [];
-  if (input.types.includes('doc') && sourceVersionId) {
-    docItems = await deps.searchDocuments({
-      orgId: input.orgId,
-      projectId: input.projectId,
-      sourceVersionId,
-      knowledgeVersionId: input.knowledgeVersionId,
-      q: input.q,
-    });
-  }
-
-  const wantsGraph = input.types.some((type) => SEARCH_GRAPH_TYPES.includes(type));
-  if (!wantsGraph) {
-    const sorted = [...docItems].sort(compareSearchItems);
-    const paged = pageSearchItems(sorted, input.cursor, input.limit);
-    return {
-      state: 'ready',
-      knowledgeVersionId: input.knowledgeVersionId,
-      knowledgeHealth: input.project.knowledgeHealth,
-      q: input.q,
-      ...paged,
-    };
-  }
-
-  const workspacePath = resolveProjectWorkspacePath(input.workspaceRoot, input.orgId, input.projectId);
-  const adapter = deps.createAdapter();
-  const leased = await adapter.acquireReadLease({
-    orgId: input.orgId,
-    projectId: input.projectId,
-    workspacePath,
-  });
-
-  if (!leased.ok && leased.reason === 'writer') {
-    const sorted = [...docItems].sort(compareSearchItems);
-    const paged = pageSearchItems(sorted, input.cursor, input.limit);
-    return {
-      state: 'updating',
-      knowledgeVersionId: input.knowledgeVersionId,
-      knowledgeHealth: input.project.knowledgeHealth,
-      q: input.q,
-      ...paged,
-    };
-  }
-
-  if (!leased.ok) {
-    const sorted = [...docItems].sort(compareSearchItems);
-    const paged = pageSearchItems(sorted, input.cursor, input.limit);
-    return {
-      state: 'ready',
-      knowledgeVersionId: input.knowledgeVersionId,
-      knowledgeHealth: input.project.knowledgeHealth,
-      q: input.q,
-      ...paged,
-    };
-  }
-
-  try {
-    if (leased.lease.expired) {
-      const sorted = [...docItems].sort(compareSearchItems);
-      const paged = pageSearchItems(sorted, input.cursor, input.limit);
-      return {
-        state: 'unavailable',
-        knowledgeVersionId: input.knowledgeVersionId,
-        knowledgeHealth: input.project.knowledgeHealth,
-        q: input.q,
-        ...paged,
-      };
-    }
-    const graphItems = collectGraphSearchItems(adapter, leased.lease.graph, input.q, input.types, input.knowledgeVersionId);
-    if (leased.lease.expired) {
-      const sorted = [...docItems].sort(compareSearchItems);
-      const paged = pageSearchItems(sorted, input.cursor, input.limit);
-      return {
-        state: 'unavailable',
-        knowledgeVersionId: input.knowledgeVersionId,
-        knowledgeHealth: input.project.knowledgeHealth,
-        q: input.q,
-        ...paged,
-      };
-    }
-    const sorted = [...docItems, ...graphItems].sort(compareSearchItems);
-    const paged = pageSearchItems(sorted, input.cursor, input.limit);
-    return {
-      state: 'ready',
-      knowledgeVersionId: input.knowledgeVersionId,
-      knowledgeHealth: input.project.knowledgeHealth,
-      q: input.q,
-      ...paged,
-    };
-  } finally {
-    leased.lease.release();
-  }
-}
-
-/**
  * Runs project-scoped keyword search over docs and the current graph.
  * @param {{
  *   orgId: string,
@@ -731,24 +603,11 @@ async function loadReadySearch(input, deps) {
  *   cursor?: string,
  *   limit: number,
  * }} input Search request.
- * @param {{
- *   findProject?: typeof findProjectById,
- *   assertReadable?: typeof assertKnowledgeReadable,
- *   findKnowledgeVersion?: typeof findKnowledgeVersionById,
- *   searchDocuments?: typeof searchProjectDocuments,
- *   createAdapter?: () => object,
- * }} [deps] Test seams.
  * @returns {Promise<object>}
  */
-export async function runProjectSearch(input, deps = {}) {
-  const findProject = deps.findProject ?? findProjectById;
-  const assertReadable = deps.assertReadable ?? assertKnowledgeReadable;
-  const findKnowledgeVersion = deps.findKnowledgeVersion ?? findKnowledgeVersionById;
-  const searchDocuments = deps.searchDocuments ?? searchProjectDocuments;
-  const createAdapter = deps.createAdapter ?? createCodegraphAdapter;
-
-  const project = await loadActiveProject(input.orgId, input.projectId, findProject);
-  const gate = await assertReadable({ orgId: input.orgId, projectId: input.projectId });
+export async function runProjectSearch(input) {
+  const project = await loadActiveProject(input.orgId, input.projectId);
+  const gate = await assertKnowledgeReadable({ orgId: input.orgId, projectId: input.projectId });
   const state = stateFromGate(gate.action);
   const knowledgeVersionId = gate.knowledgeVersionId
     ? String(gate.knowledgeVersionId)
@@ -763,14 +622,133 @@ export async function runProjectSearch(input, deps = {}) {
     });
   }
 
-  return loadReadySearch(
-    {
-      ...input,
-      project,
-      knowledgeVersionId: String(gate.knowledgeVersionId),
-    },
-    { findKnowledgeVersion, searchDocuments, createAdapter },
-  );
+  return loadReadySearch({
+    ...input,
+    project,
+    knowledgeVersionId: String(gate.knowledgeVersionId),
+  });
+
+  /**
+   * Loads the active project or throws 404.
+   * @param {string} orgId Tenant id.
+   * @param {string} projectId Project id.
+   * @returns {Promise<object>}
+   */
+  async function loadActiveProject(orgId, projectId) {
+    const activeProject = await findProjectById(orgId, projectId);
+    if (!activeProject || activeProject.status !== ROW_STATUS_ACTIVE) {
+      throw ApiError.fromCode('PROJECT_NOT_FOUND');
+    }
+    return activeProject;
+  }
+
+  /**
+   * Runs search after the gate allows (docs FTS + optional graph lease).
+   * @param {object} readyInput Allowed-path inputs including project and knowledgeVersionId.
+   * @returns {Promise<object>}
+   */
+  async function loadReadySearch(readyInput) {
+    const knowledgeVersion = await findKnowledgeVersionById({
+      orgId: readyInput.orgId,
+      projectId: readyInput.projectId,
+      knowledgeVersionId: readyInput.knowledgeVersionId,
+    });
+    const sourceVersionId = knowledgeVersion?.sourceVersionId ? String(knowledgeVersion.sourceVersionId) : null;
+
+    /** @type {object[]} */
+    let docItems = [];
+    if (readyInput.types.includes('doc') && sourceVersionId) {
+      docItems = await searchProjectDocuments({
+        orgId: readyInput.orgId,
+        projectId: readyInput.projectId,
+        sourceVersionId,
+        knowledgeVersionId: readyInput.knowledgeVersionId,
+        q: readyInput.q,
+      });
+    }
+
+    const wantsGraph = readyInput.types.some((type) => SEARCH_GRAPH_TYPES.includes(type));
+    if (!wantsGraph) {
+      const sorted = [...docItems].sort(compareSearchItems);
+      const paged = pageSearchItems(sorted, readyInput.cursor, readyInput.limit);
+      return {
+        state: 'ready',
+        knowledgeVersionId: readyInput.knowledgeVersionId,
+        knowledgeHealth: readyInput.project.knowledgeHealth,
+        q: readyInput.q,
+        ...paged,
+      };
+    }
+
+    const workspacePath = resolveProjectWorkspacePath(readyInput.workspaceRoot, readyInput.orgId, readyInput.projectId);
+    const adapter = createCodegraphAdapter();
+    const leased = await adapter.acquireReadLease({
+      orgId: readyInput.orgId,
+      projectId: readyInput.projectId,
+      workspacePath,
+    });
+
+    if (!leased.ok && leased.reason === 'writer') {
+      const sorted = [...docItems].sort(compareSearchItems);
+      const paged = pageSearchItems(sorted, readyInput.cursor, readyInput.limit);
+      return {
+        state: 'updating',
+        knowledgeVersionId: readyInput.knowledgeVersionId,
+        knowledgeHealth: readyInput.project.knowledgeHealth,
+        q: readyInput.q,
+        ...paged,
+      };
+    }
+
+    if (!leased.ok) {
+      const sorted = [...docItems].sort(compareSearchItems);
+      const paged = pageSearchItems(sorted, readyInput.cursor, readyInput.limit);
+      return {
+        state: 'ready',
+        knowledgeVersionId: readyInput.knowledgeVersionId,
+        knowledgeHealth: readyInput.project.knowledgeHealth,
+        q: readyInput.q,
+        ...paged,
+      };
+    }
+
+    try {
+      if (leased.lease.expired) {
+        const sorted = [...docItems].sort(compareSearchItems);
+        const paged = pageSearchItems(sorted, readyInput.cursor, readyInput.limit);
+        return {
+          state: 'unavailable',
+          knowledgeVersionId: readyInput.knowledgeVersionId,
+          knowledgeHealth: readyInput.project.knowledgeHealth,
+          q: readyInput.q,
+          ...paged,
+        };
+      }
+      const graphItems = collectGraphSearchItems(adapter, leased.lease.graph, readyInput.q, readyInput.types, readyInput.knowledgeVersionId);
+      if (leased.lease.expired) {
+        const sorted = [...docItems].sort(compareSearchItems);
+        const paged = pageSearchItems(sorted, readyInput.cursor, readyInput.limit);
+        return {
+          state: 'unavailable',
+          knowledgeVersionId: readyInput.knowledgeVersionId,
+          knowledgeHealth: readyInput.project.knowledgeHealth,
+          q: readyInput.q,
+          ...paged,
+        };
+      }
+      const sorted = [...docItems, ...graphItems].sort(compareSearchItems);
+      const paged = pageSearchItems(sorted, readyInput.cursor, readyInput.limit);
+      return {
+        state: 'ready',
+        knowledgeVersionId: readyInput.knowledgeVersionId,
+        knowledgeHealth: readyInput.project.knowledgeHealth,
+        q: readyInput.q,
+        ...paged,
+      };
+    } finally {
+      leased.lease.release();
+    }
+  }
 }
 
 /**
@@ -781,23 +759,19 @@ export async function runProjectSearch(input, deps = {}) {
  *   workspaceRoot: string,
  *   query: unknown,
  * }} input Route input.
- * @param {Parameters<typeof runProjectSearch>[1]} [deps] Test seams.
  * @returns {Promise<object>}
  */
-export async function runProjectSearchFromQuery(input, deps = {}) {
+export async function runProjectSearchFromQuery(input) {
   const parsed = parseSearchQuery(input.query);
-  return runProjectSearch(
-    {
-      orgId: input.orgId,
-      projectId: input.projectId,
-      workspaceRoot: input.workspaceRoot,
-      q: parsed.q,
-      types: parsed.types,
-      cursor: parsed.cursor,
-      limit: parsed.limit,
-    },
-    deps,
-  );
+  return runProjectSearch({
+    orgId: input.orgId,
+    projectId: input.projectId,
+    workspaceRoot: input.workspaceRoot,
+    q: parsed.q,
+    types: parsed.types,
+    cursor: parsed.cursor,
+    limit: parsed.limit,
+  });
 }
 
 // --- from search/search.routes.js ---

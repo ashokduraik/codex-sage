@@ -136,26 +136,6 @@ function StepAlert({ text, reference }) {
 }
 
 /**
- * Resolves an alert string from a probe mapping or an HTTP error.
- * @param {import('react-i18next').TFunction} t Translator.
- * @param {{ messageKey: string, fullName: string | null } | null} mapped Probe map.
- * @param {unknown} submitError Last thrown error.
- * @returns {{ text: string, reference?: string } | null}
- */
-function resolveAlert(t, mapped, submitError) {
-  if (submitError instanceof ApiError) {
-    return { text: submitError.message, reference: submitError.correlationId };
-  }
-  if (submitError instanceof Error) {
-    return { text: submitError.message };
-  }
-  if (mapped) {
-    return { text: t(mapped.messageKey, { fullName: mapped.fullName ?? '' }) };
-  }
-  return null;
-}
-
-/**
  * Multi-step dialog to probe and attach a GitHub/GitLab repository.
  * @param {{
  *   open: boolean,
@@ -441,6 +421,26 @@ export function ConnectRepositoryDialog({ open, onOpenChange, projectId, onConne
       </DialogContent>
     </Dialog>
   );
+
+  /**
+   * Resolves an alert string from a probe mapping or an HTTP error.
+   * @param {import('react-i18next').TFunction} t Translator.
+   * @param {{ messageKey: string, fullName: string | null } | null} mapped Probe map.
+   * @param {unknown} submitError Last thrown error.
+   * @returns {{ text: string, reference?: string } | null}
+   */
+  function resolveAlert(t, mapped, submitError) {
+    if (submitError instanceof ApiError) {
+      return { text: submitError.message, reference: submitError.correlationId };
+    }
+    if (submitError instanceof Error) {
+      return { text: submitError.message };
+    }
+    if (mapped) {
+      return { text: t(mapped.messageKey, { fullName: mapped.fullName ?? '' }) };
+    }
+    return null;
+  }
 }
 
 export default ConnectRepositoryDialog;

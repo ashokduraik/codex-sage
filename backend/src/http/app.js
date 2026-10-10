@@ -53,32 +53,6 @@ export function generateCorrelationId() {
 export const CSRF_HEADER_NAME = 'x-csrf-token';
 
 /**
- * Resolves Fastify logger options from config and an optional pre-built instance.
- * @param {object} config Application configuration.
- * @param {{ loggerInstance?: import('pino').Logger | false }} [options]
- * @returns {{
- *   loggerOption: { logger: object | false } | { loggerInstance: import('pino').Logger },
- *   loggingEnabled: boolean,
- * }}
- */
-function resolveFastifyLoggerConfig(config, options = {}) {
-  if (Object.prototype.hasOwnProperty.call(options, 'loggerInstance')) {
-    if (options.loggerInstance === false || options.loggerInstance == null) {
-      return { loggerOption: { logger: false }, loggingEnabled: false };
-    }
-    return {
-      loggerOption: { loggerInstance: options.loggerInstance },
-      loggingEnabled: true,
-    };
-  }
-  const logger = buildLoggerOptions(config);
-  return {
-    loggerOption: { logger },
-    loggingEnabled: logger !== false,
-  };
-}
-
-/**
  * Builds and configures the Fastify application instance.
  * Registers platform concerns (error handling, structured logging, CORS) and
  * domain routes. Does not start listening — call `.listen()` on the returned
@@ -195,4 +169,30 @@ export function buildApp(config = loadConfig(), options = {}) {
   });
 
   return app;
+
+  /**
+   * Resolves Fastify logger options from config and an optional pre-built instance.
+   * @param {object} config Application configuration.
+   * @param {{ loggerInstance?: import('pino').Logger | false }} [options]
+   * @returns {{
+   *   loggerOption: { logger: object | false } | { loggerInstance: import('pino').Logger },
+   *   loggingEnabled: boolean,
+   * }}
+   */
+  function resolveFastifyLoggerConfig(config, options = {}) {
+    if (Object.prototype.hasOwnProperty.call(options, 'loggerInstance')) {
+      if (options.loggerInstance === false || options.loggerInstance == null) {
+        return { loggerOption: { logger: false }, loggingEnabled: false };
+      }
+      return {
+        loggerOption: { loggerInstance: options.loggerInstance },
+        loggingEnabled: true,
+      };
+    }
+    const logger = buildLoggerOptions(config);
+    return {
+      loggerOption: { logger },
+      loggingEnabled: logger !== false,
+    };
+  }
 }
