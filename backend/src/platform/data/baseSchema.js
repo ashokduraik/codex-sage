@@ -69,40 +69,6 @@ export function assertOrgId(orgId) {
 }
 
 /**
- * Applies default active-row filter unless status is explicit or includeDeleted is set.
- * @param {import('mongoose').Schema} schema Target schema.
- */
-function applySoftDeleteQueryDefaults(schema) {
-  const filterActiveUnlessOptedIn = function filterActiveUnlessOptedIn() {
-    if (this.getOptions()?.[INCLUDE_DELETED_OPTION]) {
-      return;
-    }
-    const conditions = this.getQuery();
-    if (Object.prototype.hasOwnProperty.call(conditions, 'status')) {
-      return;
-    }
-    this.where({ status: ROW_STATUS_ACTIVE });
-  };
-
-  schema.pre('find', filterActiveUnlessOptedIn);
-  schema.pre('findOne', filterActiveUnlessOptedIn);
-  schema.pre('countDocuments', filterActiveUnlessOptedIn);
-  schema.pre('findOneAndUpdate', filterActiveUnlessOptedIn);
-}
-
-/**
- * Requires orgId on validate for tenant-scoped schemas.
- * @param {import('mongoose').Schema} schema Target schema.
- */
-function applyTenantOrgIdPlugin(schema) {
-  schema.pre('validate', function rejectMissingOrgId() {
-    if (this.orgId === undefined || this.orgId === null) {
-      throw ApiError.fromCode('TENANT_SCOPE_MISSING');
-    }
-  });
-}
-
-/**
  * Builds a domain schema with base fields and shared plugins.
  * @param {import('mongoose').SchemaDefinition} definition Domain fields (not base fields).
  * @param {{
@@ -158,4 +124,38 @@ export function createBaseSchema(definition, options = {}) {
   }
 
   return schema;
+}
+
+/**
+ * Applies default active-row filter unless status is explicit or includeDeleted is set.
+ * @param {import('mongoose').Schema} schema Target schema.
+ */
+function applySoftDeleteQueryDefaults(schema) {
+  const filterActiveUnlessOptedIn = function filterActiveUnlessOptedIn() {
+    if (this.getOptions()?.[INCLUDE_DELETED_OPTION]) {
+      return;
+    }
+    const conditions = this.getQuery();
+    if (Object.prototype.hasOwnProperty.call(conditions, 'status')) {
+      return;
+    }
+    this.where({ status: ROW_STATUS_ACTIVE });
+  };
+
+  schema.pre('find', filterActiveUnlessOptedIn);
+  schema.pre('findOne', filterActiveUnlessOptedIn);
+  schema.pre('countDocuments', filterActiveUnlessOptedIn);
+  schema.pre('findOneAndUpdate', filterActiveUnlessOptedIn);
+}
+
+/**
+ * Requires orgId on validate for tenant-scoped schemas.
+ * @param {import('mongoose').Schema} schema Target schema.
+ */
+function applyTenantOrgIdPlugin(schema) {
+  schema.pre('validate', function rejectMissingOrgId() {
+    if (this.orgId === undefined || this.orgId === null) {
+      throw ApiError.fromCode('TENANT_SCOPE_MISSING');
+    }
+  });
 }

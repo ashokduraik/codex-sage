@@ -296,92 +296,94 @@ async function runExploreCodeTool(toolArgs, toolScope) {
   } finally {
     leaseResult.lease.release();
   }
-}
 
-/**
- * Converts adapter.buildContext output into evidence records.
- * @param {object} evidenceScope Execution scope.
- * @param {unknown} exploreResult Library or fallback payload.
- * @param {string} graphQuery Original query.
- * @returns {object[]}
- */
-function mapCodegraphExploreToEvidence(evidenceScope, exploreResult, graphQuery) {
-  if (typeof exploreResult === 'string') {
-    const excerpt = clipEvidenceExcerpt(exploreResult);
-    if (!excerpt) {
+  /**
+   * Converts adapter.buildContext output into evidence records.
+   * Hit→evidence mapping stays inlined here so this nested helper has no further nest.
+   * @param {object} evidenceScope Execution scope.
+   * @param {unknown} exploreResult Library or fallback payload.
+   * @param {string} graphQuery Original query.
+   * @returns {object[]}
+   */
+  function mapCodegraphExploreToEvidence(evidenceScope, exploreResult, graphQuery) {
+    if (typeof exploreResult === 'string') {
+      const excerpt = clipEvidenceExcerpt(exploreResult);
+      if (!excerpt) {
+        return [];
+      }
+      return [
+        {
+          evidenceId: allocateRunEvidenceId(evidenceScope),
+          kind: 'code',
+          path: '',
+          excerpt,
+          knowledgeVersionId: evidenceScope.knowledgeVersionId,
+          sourceVersionId: evidenceScope.sourceVersionId,
+          provenance: { toolName: 'explore_code', graphQuery },
+        },
+      ];
+    }
+    if (!exploreResult || typeof exploreResult !== 'object') {
       return [];
     }
-    return [
-      {
+    /** @type {object[]} */
+    const records = [];
+    const codeBlocks = Array.isArray(exploreResult.codeBlocks) ? exploreResult.codeBlocks : [];
+    for (const block of codeBlocks) {
+      const hitNode = block?.node && typeof block.node === 'object' ? block.node : block;
+      if (!hitNode || typeof hitNode !== 'object') {
+        continue;
+      }
+      const path = typeof hitNode.filePath === 'string' ? hitNode.filePath : typeof hitNode.path === 'string' ? hitNode.path : '';
+      if (!path) {
+        continue;
+      }
+      const startLine = Number(hitNode.startLine) || undefined;
+      const endLine = Number(hitNode.endLine) || startLine;
+      records.push({
         evidenceId: allocateRunEvidenceId(evidenceScope),
         kind: 'code',
-        path: '',
-        excerpt,
+        path,
+        startLine,
+        endLine,
+        excerpt: clipEvidenceExcerpt(block.content ?? hitNode.content ?? hitNode.excerpt ?? hitNode.name ?? ''),
         knowledgeVersionId: evidenceScope.knowledgeVersionId,
         sourceVersionId: evidenceScope.sourceVersionId,
         provenance: { toolName: 'explore_code', graphQuery },
-      },
+      });
+    }
+    if (records.length > 0) {
+      return records;
+    }
+    const nodes = [
+      ...(Array.isArray(exploreResult.entryPoints) ? exploreResult.entryPoints : []),
+      ...(Array.isArray(exploreResult.symbols) ? exploreResult.symbols : []),
+      ...(Array.isArray(exploreResult.apis) ? exploreResult.apis : []),
     ];
-  }
-  if (!exploreResult || typeof exploreResult !== 'object') {
-    return [];
-  }
-  /** @type {object[]} */
-  const records = [];
-  const codeBlocks = Array.isArray(exploreResult.codeBlocks) ? exploreResult.codeBlocks : [];
-  for (const block of codeBlocks) {
-    const mapped = mapCodegraphHitToEvidence(evidenceScope, block, graphQuery);
-    if (mapped) {
-      mapped.excerpt = clipEvidenceExcerpt(block.content ?? mapped.excerpt);
-      records.push(mapped);
+    for (const rawHit of nodes) {
+      const hitNode = rawHit?.node && typeof rawHit.node === 'object' ? rawHit.node : rawHit;
+      if (!hitNode || typeof hitNode !== 'object') {
+        continue;
+      }
+      const path = typeof hitNode.filePath === 'string' ? hitNode.filePath : typeof hitNode.path === 'string' ? hitNode.path : '';
+      if (!path) {
+        continue;
+      }
+      const startLine = Number(hitNode.startLine) || undefined;
+      const endLine = Number(hitNode.endLine) || startLine;
+      records.push({
+        evidenceId: allocateRunEvidenceId(evidenceScope),
+        kind: 'code',
+        path,
+        startLine,
+        endLine,
+        excerpt: clipEvidenceExcerpt(hitNode.content ?? hitNode.excerpt ?? hitNode.name ?? ''),
+        knowledgeVersionId: evidenceScope.knowledgeVersionId,
+        sourceVersionId: evidenceScope.sourceVersionId,
+        provenance: { toolName: 'explore_code', graphQuery },
+      });
     }
-  }
-  if (records.length > 0) {
     return records;
-  }
-  const nodes = [
-    ...(Array.isArray(exploreResult.entryPoints) ? exploreResult.entryPoints : []),
-    ...(Array.isArray(exploreResult.symbols) ? exploreResult.symbols : []),
-    ...(Array.isArray(exploreResult.apis) ? exploreResult.apis : []),
-  ];
-  for (const node of nodes) {
-    const mapped = mapCodegraphHitToEvidence(evidenceScope, node, graphQuery);
-    if (mapped) {
-      records.push(mapped);
-    }
-  }
-  return records;
-
-  /**
-   * Maps a raw graph hit into an evidence record when a path is present.
-   * @param {object} hitScope Execution scope.
-   * @param {object} rawHit Library row.
-   * @param {string} hitGraphQuery Original query.
-   * @returns {object | null}
-   */
-  function mapCodegraphHitToEvidence(hitScope, rawHit, hitGraphQuery) {
-    const node = rawHit?.node && typeof rawHit.node === 'object' ? rawHit.node : rawHit;
-    if (!node || typeof node !== 'object') {
-      return null;
-    }
-    const path = typeof node.filePath === 'string' ? node.filePath : typeof node.path === 'string' ? node.path : '';
-    if (!path) {
-      return null;
-    }
-    const startLine = Number(node.startLine) || undefined;
-    const endLine = Number(node.endLine) || startLine;
-    const excerpt = clipEvidenceExcerpt(node.content ?? node.excerpt ?? node.name ?? '');
-    return {
-      evidenceId: allocateRunEvidenceId(hitScope),
-      kind: 'code',
-      path,
-      startLine,
-      endLine,
-      excerpt,
-      knowledgeVersionId: hitScope.knowledgeVersionId,
-      sourceVersionId: hitScope.sourceVersionId,
-      provenance: { toolName: 'explore_code', graphQuery: hitGraphQuery },
-    };
   }
 }
 

@@ -126,40 +126,6 @@ export function shouldIncludeStack(config, logLevelLabel = 'error') {
 }
 
 /**
- * Shared Pino formatters, serializers, redact, and timestamp.
- * Main-thread encoding (no worker transport) so level labels and ISO time apply
- * to console and rotating file alike.
- *
- * @param {string} level Pino level string.
- * @param {{ env: { isProduction: boolean }, logging: { level: string } }} config App config.
- * @returns {object} Base logger option fields (without stream).
- */
-function baseLoggerFields(level, config) {
-  const includeStack = shouldIncludeStack(config);
-  return {
-    level,
-    // Drop default pid/hostname — not useful in local or single-product deploys.
-    base: undefined,
-    redact: {
-      paths: LOG_REDACT_PATHS,
-      censor: '[redacted]',
-    },
-    serializers: {
-      req: serializeRequest,
-      err: (err) => serializeError(err, { includeStack }),
-    },
-    formatters: {
-      /** Emit the level name ("info") instead of the numeric Pino severity code (30). */
-      level: (label) => ({ level: label }),
-      /** Ensure pid/hostname stay absent even if a caller reintroduces base bindings. */
-      bindings: () => ({}),
-    },
-    /** Emit ISO 8601 wall-clock time instead of epoch milliseconds. */
-    timestamp: () => `,"time":"${new Date().toISOString()}"`,
-  };
-}
-
-/**
  * Builds sync Fastify/Pino logger options (stdout / default destination only).
  * Rotating file output requires {@link createAppLogger} — worker transports cannot
  * carry custom level/time formatters.
@@ -262,4 +228,38 @@ export function registerRequestLogging(app) {
     request.log.debug({ res: reply, responseTime: reply.elapsedTime }, 'request completed');
     done();
   });
+}
+
+/**
+ * Shared Pino formatters, serializers, redact, and timestamp.
+ * Main-thread encoding (no worker transport) so level labels and ISO time apply
+ * to console and rotating file alike.
+ *
+ * @param {string} level Pino level string.
+ * @param {{ env: { isProduction: boolean }, logging: { level: string } }} config App config.
+ * @returns {object} Base logger option fields (without stream).
+ */
+function baseLoggerFields(level, config) {
+  const includeStack = shouldIncludeStack(config);
+  return {
+    level,
+    // Drop default pid/hostname — not useful in local or single-product deploys.
+    base: undefined,
+    redact: {
+      paths: LOG_REDACT_PATHS,
+      censor: '[redacted]',
+    },
+    serializers: {
+      req: serializeRequest,
+      err: (err) => serializeError(err, { includeStack }),
+    },
+    formatters: {
+      /** Emit the level name ("info") instead of the numeric Pino severity code (30). */
+      level: (label) => ({ level: label }),
+      /** Ensure pid/hostname stay absent even if a caller reintroduces base bindings. */
+      bindings: () => ({}),
+    },
+    /** Emit ISO 8601 wall-clock time instead of epoch milliseconds. */
+    timestamp: () => `,"time":"${new Date().toISOString()}"`,
+  };
 }

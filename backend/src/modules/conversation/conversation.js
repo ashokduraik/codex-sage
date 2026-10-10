@@ -69,81 +69,6 @@ const conversationParamsSchema = z.object({
 });
 
 /**
- * Maps zod issues to VALIDATION_ERROR details.
- * @param {import('zod').ZodError} error Zod error.
- * @returns {{ path: string, message: string }[]}
- */
-function zodDetails(error) {
-  /** @type {{ path: string, message: string }[]} */
-  const details = [];
-  for (const issue of error.issues) {
-    if (issue.code === 'unrecognized_keys' && Array.isArray(issue.keys)) {
-      for (const key of issue.keys) {
-        details.push({ path: String(key), message: 'Unrecognized key' });
-      }
-      continue;
-    }
-    details.push({
-      path: issue.path.join('.') || 'body',
-      message: issue.message,
-    });
-  }
-  return details;
-}
-
-/**
- * Shared request context for conversation services.
- * @param {import('fastify').FastifyRequest} request Request.
- * @returns {{
- *   orgId: string,
- *   projectId: string,
- *   actorUserId: string,
- *   correlationId: string,
- *   ip?: string,
- *   userAgent?: string,
- *   log: import('fastify').FastifyBaseLogger,
- * }}
- */
-function serviceContext(request) {
-  const audit = buildAuditContextFromRequest(request);
-  const scope = request.projectScope;
-  return {
-    orgId: scope.orgId,
-    projectId: scope.projectId,
-    actorUserId: scope.userId,
-    correlationId: audit.correlationId,
-    ip: audit.ip,
-    userAgent: audit.userAgent,
-    log: request.log,
-  };
-}
-
-/**
- * Parses conversation params or throws VALIDATION_ERROR.
- * @param {unknown} params Route params.
- * @returns {{ projectId: string, conversationId: string }}
- */
-function parseConversationParams(params) {
-  const parsed = conversationParamsSchema.safeParse(params ?? {});
-  if (!parsed.success) {
-    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
-  }
-  return parsed.data;
-}
-
-/**
- * Rejects limit=0 after zod coerce (same as jobs/projects).
- * @param {number | undefined} limit Parsed limit.
- */
-function assertPositiveLimit(limit) {
-  if (limit === 0) {
-    throw ApiError.fromCode('VALIDATION_ERROR', {
-      details: [{ path: 'limit', message: 'limit must be a positive integer' }],
-    });
-  }
-}
-
-/**
  * Registers conversation routes under `/api/v1`.
  * @param {import('fastify').FastifyInstance} app Fastify app.
  */
@@ -318,37 +243,85 @@ export async function conversationRoutes(app) {
   );
 }
 
+/**
+ * Maps zod issues to VALIDATION_ERROR details.
+ * @param {import('zod').ZodError} error Zod error.
+ * @returns {{ path: string, message: string }[]}
+ */
+function zodDetails(error) {
+  /** @type {{ path: string, message: string }[]} */
+  const details = [];
+  for (const issue of error.issues) {
+    if (issue.code === 'unrecognized_keys' && Array.isArray(issue.keys)) {
+      for (const key of issue.keys) {
+        details.push({ path: String(key), message: 'Unrecognized key' });
+      }
+      continue;
+    }
+    details.push({
+      path: issue.path.join('.') || 'body',
+      message: issue.message,
+    });
+  }
+  return details;
+}
+
+/**
+ * Shared request context for conversation services.
+ * @param {import('fastify').FastifyRequest} request Request.
+ * @returns {{
+ *   orgId: string,
+ *   projectId: string,
+ *   actorUserId: string,
+ *   correlationId: string,
+ *   ip?: string,
+ *   userAgent?: string,
+ *   log: import('fastify').FastifyBaseLogger,
+ * }}
+ */
+function serviceContext(request) {
+  const audit = buildAuditContextFromRequest(request);
+  const scope = request.projectScope;
+  return {
+    orgId: scope.orgId,
+    projectId: scope.projectId,
+    actorUserId: scope.userId,
+    correlationId: audit.correlationId,
+    ip: audit.ip,
+    userAgent: audit.userAgent,
+    log: request.log,
+  };
+}
+
+/**
+ * Parses conversation params or throws VALIDATION_ERROR.
+ * @param {unknown} params Route params.
+ * @returns {{ projectId: string, conversationId: string }}
+ */
+function parseConversationParams(params) {
+  const parsed = conversationParamsSchema.safeParse(params ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
+  }
+  return parsed.data;
+}
+
+/**
+ * Rejects limit=0 after zod coerce (same as jobs/projects).
+ * @param {number | undefined} limit Parsed limit.
+ */
+function assertPositiveLimit(limit) {
+  if (limit === 0) {
+    throw ApiError.fromCode('VALIDATION_ERROR', {
+      details: [{ path: 'limit', message: 'limit must be a positive integer' }],
+    });
+  }
+}
+
 // --- from conversations/conversations.service.js ---
 /**
  * Conversation use cases — audit, counts, owner-only visibility.
  */
-/**
- * Formats a date as ISO-8601, or empty string when missing.
- * @param {unknown} value Date or string.
- * @returns {string}
- */
-function toIsoOrEmpty(value) {
-  if (value instanceof Date) {
-    return value.toISOString();
-  }
-  return String(value ?? '');
-}
-
-/**
- * Formats a date as ISO-8601, or null when missing.
- * @param {unknown} value Date or string.
- * @returns {string | null}
- */
-function toIsoOrNull(value) {
-  if (value instanceof Date) {
-    return value.toISOString();
-  }
-  if (value == null || value === '') {
-    return null;
-  }
-  return String(value);
-}
-
 /**
  * Maps a conversation row to the create/get/patch header.
  * @param {object} conversation Conversation document or lean object.
@@ -953,6 +926,33 @@ export async function searchConversations(input) {
     items: page.items.map((row) => mapConversationToSearchDto(row, buildConversationSnippet(row, q))),
     nextCursor: page.nextCursor,
   };
+}
+
+/**
+ * Formats a date as ISO-8601, or empty string when missing.
+ * @param {unknown} value Date or string.
+ * @returns {string}
+ */
+function toIsoOrEmpty(value) {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  return String(value ?? '');
+}
+
+/**
+ * Formats a date as ISO-8601, or null when missing.
+ * @param {unknown} value Date or string.
+ * @returns {string | null}
+ */
+function toIsoOrNull(value) {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  if (value == null || value === '') {
+    return null;
+  }
+  return String(value);
 }
 
 export {

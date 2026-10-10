@@ -64,53 +64,6 @@ const projectIdParamsSchema = z.object({
 });
 
 /**
- * Maps zod issues to VALIDATION_ERROR details.
- * @param {import('zod').ZodError} error Zod error.
- * @returns {{ path: string, message: string }[]}
- */
-function zodDetails(error) {
-  /** @type {{ path: string, message: string }[]} */
-  const details = [];
-  for (const issue of error.issues) {
-    if (issue.code === 'unrecognized_keys' && Array.isArray(issue.keys)) {
-      for (const key of issue.keys) {
-        details.push({ path: String(key), message: 'Unrecognized key' });
-      }
-      continue;
-    }
-    details.push({
-      path: issue.path.join('.') || 'body',
-      message: issue.message,
-    });
-  }
-  return details;
-}
-
-/**
- * Shared request context for project services.
- * @param {import('fastify').FastifyRequest} request Request.
- * @returns {{
- *   orgId: string,
- *   actorUserId: string,
- *   correlationId: string,
- *   ip?: string,
- *   userAgent?: string,
- *   log: import('fastify').FastifyBaseLogger,
- * }}
- */
-function serviceContext(request) {
-  const audit = buildAuditContextFromRequest(request);
-  return {
-    orgId: /** @type {string} */ (request.principal.orgId),
-    actorUserId: /** @type {string} */ (request.principal.userId),
-    correlationId: audit.correlationId,
-    ip: audit.ip,
-    userAgent: audit.userAgent,
-    log: request.log,
-  };
-}
-
-/**
  * Registers project routes under `/api/v1`.
  * @param {import('fastify').FastifyInstance} app Fastify app.
  */
@@ -311,6 +264,53 @@ export async function projectRoutes(app) {
   );
 }
 
+/**
+ * Maps zod issues to VALIDATION_ERROR details.
+ * @param {import('zod').ZodError} error Zod error.
+ * @returns {{ path: string, message: string }[]}
+ */
+function zodDetails(error) {
+  /** @type {{ path: string, message: string }[]} */
+  const details = [];
+  for (const issue of error.issues) {
+    if (issue.code === 'unrecognized_keys' && Array.isArray(issue.keys)) {
+      for (const key of issue.keys) {
+        details.push({ path: String(key), message: 'Unrecognized key' });
+      }
+      continue;
+    }
+    details.push({
+      path: issue.path.join('.') || 'body',
+      message: issue.message,
+    });
+  }
+  return details;
+}
+
+/**
+ * Shared request context for project services.
+ * @param {import('fastify').FastifyRequest} request Request.
+ * @returns {{
+ *   orgId: string,
+ *   actorUserId: string,
+ *   correlationId: string,
+ *   ip?: string,
+ *   userAgent?: string,
+ *   log: import('fastify').FastifyBaseLogger,
+ * }}
+ */
+function serviceContext(request) {
+  const audit = buildAuditContextFromRequest(request);
+  return {
+    orgId: /** @type {string} */ (request.principal.orgId),
+    actorUserId: /** @type {string} */ (request.principal.userId),
+    correlationId: audit.correlationId,
+    ip: audit.ip,
+    userAgent: audit.userAgent,
+    log: request.log,
+  };
+}
+
 // --- from projects/projects.service.js ---
 /**
  * Project use cases — CRUD, lifecycle transitions, audit, deletion preview.
@@ -343,33 +343,6 @@ export function validateProjectSettingsKeys(settings) {
     return { ok: false, unknownKeys };
   }
   return { ok: true };
-}
-
-/**
- * Formats a date field as ISO-8601, or empty string when missing.
- * @param {unknown} value Date or string.
- * @returns {string}
- */
-function toIsoOrEmpty(value) {
-  if (value instanceof Date) {
-    return value.toISOString();
-  }
-  return String(value ?? '');
-}
-
-/**
- * Formats a date field as ISO-8601, or null when missing.
- * @param {unknown} value Date or string.
- * @returns {string | null}
- */
-function toIsoOrNull(value) {
-  if (value instanceof Date) {
-    return value.toISOString();
-  }
-  if (value == null || value === '') {
-    return null;
-  }
-  return String(value);
 }
 
 /**
@@ -999,6 +972,33 @@ export {
   clampProjectsListLimit,
   resolveProjectsListSort,
 } from './projects.helper.js';
+
+/**
+ * Formats a date field as ISO-8601, or empty string when missing.
+ * @param {unknown} value Date or string.
+ * @returns {string}
+ */
+function toIsoOrEmpty(value) {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  return String(value ?? '');
+}
+
+/**
+ * Formats a date field as ISO-8601, or null when missing.
+ * @param {unknown} value Date or string.
+ * @returns {string | null}
+ */
+function toIsoOrNull(value) {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  if (value == null || value === '') {
+    return null;
+  }
+  return String(value);
+}
 
 import { Project } from '../../models/projects.model.js';
 export { Project };

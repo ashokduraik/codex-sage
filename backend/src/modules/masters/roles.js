@@ -21,51 +21,10 @@ export const ADMIN_ROLE_NAME = 'Org Admin';
 /** Identity `code` pattern shared with the Role schema. */
 const MASTER_CODE_PATTERN = /^[A-Z0-9_-]{2,64}$/;
 
-/**
- * Clamps a requested role list page size.
- * @param {unknown} limit Raw limit.
- * @returns {number}
- */
-function clampIdentityListLimit(limit) {
-  if (limit === undefined || limit === null || limit === '') {
-    return IDENTITY_LIST_PAGE_SIZE_DEFAULT;
-  }
-  const parsed = typeof limit === 'number' ? limit : Number(limit);
-  if (!Number.isFinite(parsed) || parsed < 1) {
-    throw ApiError.fromCode('VALIDATION_ERROR', {
-      details: [{ path: 'limit', message: 'limit must be a positive integer' }],
-    });
-  }
-  return Math.min(Math.floor(parsed), 100);
-}
-
 // --- from identity/role.repository.js ---
 /**
  * Role repository — tenant-scoped; every role stores its own permissions.
  */
-/**
- * Builds a keyset filter for createdAt/_id descending pages.
- * @param {{ t: string, i: string }} cursor Decoded cursor.
- * @returns {object}
- */
-function keysetAfterFilter(cursor) {
-  const createdAt = new Date(cursor.t);
-  if (Number.isNaN(createdAt.getTime())) {
-    throw ApiError.fromCode('VALIDATION_ERROR', {
-      details: [{ path: 'cursor', message: 'cursor timestamp is invalid' }],
-    });
-  }
-  if (!mongoose.isValidObjectId(cursor.i)) {
-    throw ApiError.fromCode('VALIDATION_ERROR', {
-      details: [{ path: 'cursor', message: 'cursor id is invalid' }],
-    });
-  }
-  const id = new mongoose.Types.ObjectId(cursor.i);
-  return {
-    $or: [{ createdAt: { $lt: createdAt } }, { createdAt, _id: { $lt: id } }],
-  };
-}
-
 /**
  * Finds a role by org and identity code.
  * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
@@ -191,6 +150,47 @@ export async function listRolesPage(orgId, filters = {}) {
   return {
     items,
     pageInfo: { nextCursor, hasMore },
+  };
+}
+
+/**
+ * Clamps a requested role list page size.
+ * @param {unknown} limit Raw limit.
+ * @returns {number}
+ */
+function clampIdentityListLimit(limit) {
+  if (limit === undefined || limit === null || limit === '') {
+    return IDENTITY_LIST_PAGE_SIZE_DEFAULT;
+  }
+  const parsed = typeof limit === 'number' ? limit : Number(limit);
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    throw ApiError.fromCode('VALIDATION_ERROR', {
+      details: [{ path: 'limit', message: 'limit must be a positive integer' }],
+    });
+  }
+  return Math.min(Math.floor(parsed), 100);
+}
+
+/**
+ * Builds a keyset filter for createdAt/_id descending pages.
+ * @param {{ t: string, i: string }} cursor Decoded cursor.
+ * @returns {object}
+ */
+function keysetAfterFilter(cursor) {
+  const createdAt = new Date(cursor.t);
+  if (Number.isNaN(createdAt.getTime())) {
+    throw ApiError.fromCode('VALIDATION_ERROR', {
+      details: [{ path: 'cursor', message: 'cursor timestamp is invalid' }],
+    });
+  }
+  if (!mongoose.isValidObjectId(cursor.i)) {
+    throw ApiError.fromCode('VALIDATION_ERROR', {
+      details: [{ path: 'cursor', message: 'cursor id is invalid' }],
+    });
+  }
+  const id = new mongoose.Types.ObjectId(cursor.i);
+  return {
+    $or: [{ createdAt: { $lt: createdAt } }, { createdAt, _id: { $lt: id } }],
   };
 }
 

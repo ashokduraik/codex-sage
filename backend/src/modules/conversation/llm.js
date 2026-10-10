@@ -36,196 +36,6 @@ let defaultInferenceQueue;
 const QUEUE_INSTANCE = Symbol('inferenceQueue');
 
 /**
- * Shared OpenAI-compatible provider. generate/stream use `provider.chat` (not Responses).
- * @param {{ baseUrl: string, apiKey?: string | null }} llm Env-backed connection slice.
- * @param {{ fetch?: typeof fetch }} [options] Injected fetch for tests.
- * @returns {ReturnType<typeof createOpenAI>}
- */
-function createLlmProvider(llm, options = {}) {
-  return createOpenAI({
-    baseURL: llm.baseUrl,
-    apiKey: llm.apiKey || 'not-needed',
-    fetch: options.fetch,
-  });
-}
-
-/**
- * FIFO queue with a concurrency cap. Rejects before enqueue when full.
- * @param {{ maxDepth?: number, maxConcurrency?: number }} [limits] Production constants or a test override.
- * @returns {{ enqueue: (task: () => Promise<unknown>) => Promise<unknown> }}
- */
-function createInferenceQueue(limits = {}) {
-  const maxDepth = limits.maxDepth ?? INFERENCE_QUEUE_MAX_DEPTH;
-  const maxConcurrency = limits.maxConcurrency ?? INFERENCE_QUEUE_MAX_CONCURRENCY;
-  let running = 0;
-  const waiting = [];
-
-  /**
-   * Starts queued work while a concurrency slot is free.
-   * @returns {void}
-   */
-  function pump() {
-    while (running < maxConcurrency && waiting.length > 0) {
-      const item = waiting.shift();
-      running += 1;
-      Promise.resolve()
-        .then(() => item.task())
-        .then(item.resolve, item.reject)
-        .finally(() => {
-          running -= 1;
-          pump();
-        });
-    }
-  }
-
-  return {
-    /**
-     * @param {() => Promise<unknown>} task Work that talks to the SDK.
-     * @returns {Promise<unknown>}
-     */
-    enqueue(task) {
-      if (waiting.length + running >= maxDepth) {
-        return Promise.reject(ApiError.fromCode('LLM_QUEUE_FULL'));
-      }
-      return new Promise((resolve, reject) => {
-        waiting.push({ task, resolve, reject });
-        pump();
-      });
-    },
-  };
-}
-
-/**
- * Uses an injected queue, a limits object, or the process default.
- * @param {{ enqueue?: Function, maxDepth?: number, maxConcurrency?: number } | undefined} queueOption Test seam.
- * @returns {{ enqueue: (task: () => Promise<unknown>) => Promise<unknown> }}
- */
-function resolveQueue(queueOption) {
-  if (queueOption && typeof queueOption.enqueue === 'function') {
-    return queueOption;
-  }
-  if (queueOption && (queueOption.maxDepth != null || queueOption.maxConcurrency != null)) {
-    queueOption[QUEUE_INSTANCE] ??= createInferenceQueue(queueOption);
-    return queueOption[QUEUE_INSTANCE];
-  }
-  defaultInferenceQueue ??= createInferenceQueue();
-  return defaultInferenceQueue;
-}
-
-/**
- * @param {{ baseUrl?: string, modelId?: string } | undefined} llm Connection slice.
- * @returns {{ baseUrl: string, modelId: string } | null}
- */
-function readConfiguredLlm(llm) {
-  const baseUrl = typeof llm?.baseUrl === 'string' ? llm.baseUrl.trim() : '';
-  const modelId = typeof llm?.modelId === 'string' ? llm.modelId.trim() : '';
-  if (!baseUrl || !modelId) {
-    return null;
-  }
-  return { baseUrl, modelId };
-}
-
-/**
- * Maps provider usage. Returns null when no counts were reported — never invents totals.
- * @param {object | null | undefined} usage SDK usage object.
- * @returns {{ inputTokens: number | null, outputTokens: number | null, totalTokens: number | null } | null}
- */
-function mapUsage(usage) {
-  if (!usage || typeof usage !== 'object') {
-    return null;
-  }
-  const hasInput = Number.isFinite(usage.inputTokens);
-  const hasOutput = Number.isFinite(usage.outputTokens);
-  const hasTotal = Number.isFinite(usage.totalTokens);
-  if (!hasInput && !hasOutput && !hasTotal) {
-    return null;
-  }
-  return {
-    inputTokens: hasInput ? usage.inputTokens : null,
-    outputTokens: hasOutput ? usage.outputTokens : null,
-    totalTokens: hasTotal ? usage.totalTokens : null,
-  };
-}
-
-/**
- * Persistable budgeter fields for Phase 49. Only values prepareModelInput actually measured.
- * @param {object} prepared Phase 43 return value.
- * @returns {object}
- */
-function contextMetricsFromPrepared(prepared) {
-  return {
-    measuredInputTokens: prepared.measuredInputTokens,
-    maximumInputBudget: prepared.maximumInputBudget,
-    reservedOutputTokens: prepared.reservedOutputTokens,
-    validatedContextCapacity: prepared.validatedContextCapacity,
-    compactionActions: prepared.compactionActions,
-  };
-}
-
-/**
- * @param {unknown} error Thrown value.
- * @returns {never}
- */
-function throwProviderError(error) {
-  if (error instanceof ApiError) {
-    throw error;
-  }
-  throw ApiError.fromCode('LLM_PROVIDER_ERROR');
-}
-
-/**
- * Chat Completions via injected impl or provider.chat. Shared by generate and stream.
- * @param {'generate' | 'stream'} method Which SDK entry to call.
- * @param {object} request Caller's generate/stream request.
- * @param {object} prepared Budgeter output.
- * @param {object} options Client options.
- * @returns {Promise<object>}
- */
-async function invokeSdkCall(method, request, prepared, options) {
-  const impl = method === 'generate' ? options.generateTextImpl : options.streamTextImpl;
-  if (impl) {
-    return impl({
-      messages: prepared.messages,
-      abortSignal: request.abortSignal,
-      outputSchema: request.outputSchema,
-    });
-  }
-  const llm = options.llm;
-  const provider = createLlmProvider(llm, { fetch: options.fetch });
-  const call = {
-    model: provider.chat(llm.modelId),
-    messages: prepared.messages,
-    abortSignal: request.abortSignal,
-    maxRetries: 0,
-  };
-  if (request.outputSchema) {
-    call.output = Output.json({ schema: request.outputSchema });
-  }
-  return method === 'generate' ? sdkGenerateText(call) : sdkStreamText(call);
-}
-
-/**
- * @param {object} request Caller's generate/stream request.
- * @param {object} options Injection + llm slice.
- * @returns {object} prepareModelInput result.
- */
-function preflightModelInput(request, options) {
-  const llm = options.llm ?? loadConfig().llm;
-  if (!readConfiguredLlm(llm)) {
-    throw ApiError.fromCode('LLM_CONFIG_UNAVAILABLE');
-  }
-  options.llm = llm;
-  return prepareModelInput({
-    modelArtifactRef: llm.artifactId ?? llm.modelId,
-    purpose: request.purpose,
-    segments: request.segments,
-    summarySegment: request.summarySegment,
-    toolSchemaTokenOverhead: request.toolSchemaTokenOverhead,
-    options: { tokenizer: options.tokenizer, llm },
-  });
-}
-
-/**
  * Whether URL + model id are present (startup probe already attached artifactId).
  * @param {{ baseUrl?: string, modelId?: string }} [llm] Connection slice; defaults to loadConfig().
  * @returns {{ ready: boolean, modelId: string | null }}
@@ -431,4 +241,192 @@ export async function streamText(request, options = {}) {
     modelId: options.llm.modelId,
     contextMetrics: contextMetricsFromPrepared(prepared),
   };
+}
+
+/**
+ * Shared OpenAI-compatible provider. generate/stream use `provider.chat` (not Responses).
+ * @param {{ baseUrl: string, apiKey?: string | null }} llm Env-backed connection slice.
+ * @param {{ fetch?: typeof fetch }} [options] Injected fetch for tests.
+ * @returns {ReturnType<typeof createOpenAI>}
+ */
+function createLlmProvider(llm, options = {}) {
+  return createOpenAI({
+    baseURL: llm.baseUrl,
+    apiKey: llm.apiKey || 'not-needed',
+    fetch: options.fetch,
+  });
+}
+
+/**
+ * Uses an injected queue, a limits object, or the process default.
+ * @param {{ enqueue?: Function, maxDepth?: number, maxConcurrency?: number } | undefined} queueOption Test seam.
+ * @returns {{ enqueue: (task: () => Promise<unknown>) => Promise<unknown> }}
+ */
+function resolveQueue(queueOption) {
+  if (queueOption && typeof queueOption.enqueue === 'function') {
+    return queueOption;
+  }
+  if (queueOption && (queueOption.maxDepth != null || queueOption.maxConcurrency != null)) {
+    queueOption[QUEUE_INSTANCE] ??= createInferenceQueue(queueOption);
+    return queueOption[QUEUE_INSTANCE];
+  }
+  defaultInferenceQueue ??= createInferenceQueue();
+  return defaultInferenceQueue;
+
+  /**
+   * FIFO queue with a concurrency cap. Rejects before enqueue when full.
+   * Drain runs as a method on the returned object (not a nested function declaration).
+   * @param {{ maxDepth?: number, maxConcurrency?: number }} [limits] Production constants or a test override.
+   * @returns {{ enqueue: (task: () => Promise<unknown>) => Promise<unknown> }}
+   */
+  function createInferenceQueue(limits = {}) {
+    const maxDepth = limits.maxDepth ?? INFERENCE_QUEUE_MAX_DEPTH;
+    const maxConcurrency = limits.maxConcurrency ?? INFERENCE_QUEUE_MAX_CONCURRENCY;
+    let running = 0;
+    const waiting = [];
+
+    const queue = {
+      /**
+       * @param {() => Promise<unknown>} task Work that talks to the SDK.
+       * @returns {Promise<unknown>}
+       */
+      enqueue(task) {
+        if (waiting.length + running >= maxDepth) {
+          return Promise.reject(ApiError.fromCode('LLM_QUEUE_FULL'));
+        }
+        return new Promise((resolve, reject) => {
+          waiting.push({ task, resolve, reject });
+          queue.drain();
+        });
+      },
+      /** Starts queued work while a concurrency slot is free. */
+      drain() {
+        while (running < maxConcurrency && waiting.length > 0) {
+          const item = waiting.shift();
+          running += 1;
+          Promise.resolve()
+            .then(() => item.task())
+            .then(item.resolve, item.reject)
+            .finally(() => {
+              running -= 1;
+              queue.drain();
+            });
+        }
+      },
+    };
+    return { enqueue: (task) => queue.enqueue(task) };
+  }
+}
+
+/**
+ * @param {{ baseUrl?: string, modelId?: string } | undefined} llm Connection slice.
+ * @returns {{ baseUrl: string, modelId: string } | null}
+ */
+function readConfiguredLlm(llm) {
+  const baseUrl = typeof llm?.baseUrl === 'string' ? llm.baseUrl.trim() : '';
+  const modelId = typeof llm?.modelId === 'string' ? llm.modelId.trim() : '';
+  if (!baseUrl || !modelId) {
+    return null;
+  }
+  return { baseUrl, modelId };
+}
+
+/**
+ * Maps provider usage. Returns null when no counts were reported — never invents totals.
+ * @param {object | null | undefined} usage SDK usage object.
+ * @returns {{ inputTokens: number | null, outputTokens: number | null, totalTokens: number | null } | null}
+ */
+function mapUsage(usage) {
+  if (!usage || typeof usage !== 'object') {
+    return null;
+  }
+  const hasInput = Number.isFinite(usage.inputTokens);
+  const hasOutput = Number.isFinite(usage.outputTokens);
+  const hasTotal = Number.isFinite(usage.totalTokens);
+  if (!hasInput && !hasOutput && !hasTotal) {
+    return null;
+  }
+  return {
+    inputTokens: hasInput ? usage.inputTokens : null,
+    outputTokens: hasOutput ? usage.outputTokens : null,
+    totalTokens: hasTotal ? usage.totalTokens : null,
+  };
+}
+
+/**
+ * Persistable budgeter fields for Phase 49. Only values prepareModelInput actually measured.
+ * @param {object} prepared Phase 43 return value.
+ * @returns {object}
+ */
+function contextMetricsFromPrepared(prepared) {
+  return {
+    measuredInputTokens: prepared.measuredInputTokens,
+    maximumInputBudget: prepared.maximumInputBudget,
+    reservedOutputTokens: prepared.reservedOutputTokens,
+    validatedContextCapacity: prepared.validatedContextCapacity,
+    compactionActions: prepared.compactionActions,
+  };
+}
+
+/**
+ * @param {unknown} error Thrown value.
+ * @returns {never}
+ */
+function throwProviderError(error) {
+  if (error instanceof ApiError) {
+    throw error;
+  }
+  throw ApiError.fromCode('LLM_PROVIDER_ERROR');
+}
+
+/**
+ * Chat Completions via injected impl or provider.chat. Shared by generate and stream.
+ * @param {'generate' | 'stream'} method Which SDK entry to call.
+ * @param {object} request Caller's generate/stream request.
+ * @param {object} prepared Budgeter output.
+ * @param {object} options Client options.
+ * @returns {Promise<object>}
+ */
+async function invokeSdkCall(method, request, prepared, options) {
+  const impl = method === 'generate' ? options.generateTextImpl : options.streamTextImpl;
+  if (impl) {
+    return impl({
+      messages: prepared.messages,
+      abortSignal: request.abortSignal,
+      outputSchema: request.outputSchema,
+    });
+  }
+  const llm = options.llm;
+  const provider = createLlmProvider(llm, { fetch: options.fetch });
+  const call = {
+    model: provider.chat(llm.modelId),
+    messages: prepared.messages,
+    abortSignal: request.abortSignal,
+    maxRetries: 0,
+  };
+  if (request.outputSchema) {
+    call.output = Output.json({ schema: request.outputSchema });
+  }
+  return method === 'generate' ? sdkGenerateText(call) : sdkStreamText(call);
+}
+
+/**
+ * @param {object} request Caller's generate/stream request.
+ * @param {object} options Injection + llm slice.
+ * @returns {object} prepareModelInput result.
+ */
+function preflightModelInput(request, options) {
+  const llm = options.llm ?? loadConfig().llm;
+  if (!readConfiguredLlm(llm)) {
+    throw ApiError.fromCode('LLM_CONFIG_UNAVAILABLE');
+  }
+  options.llm = llm;
+  return prepareModelInput({
+    modelArtifactRef: llm.artifactId ?? llm.modelId,
+    purpose: request.purpose,
+    segments: request.segments,
+    summarySegment: request.summarySegment,
+    toolSchemaTokenOverhead: request.toolSchemaTokenOverhead,
+    options: { tokenizer: options.tokenizer, llm },
+  });
 }

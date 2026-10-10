@@ -134,10 +134,18 @@ logic; declarations hoist within the parent scope).
 
 Examples from `agentTools.js`:
 
-- `mapCodegraphHitToEvidence` nested in `mapCodegraphExploreToEvidence`
+- `mapCodegraphExploreToEvidence` nested in `runExploreCodeTool` (hit→evidence mapping
+  inlined in that nest — no second-level nest)
 - `resolveDocumentHeadingRange` nested in `runReadDocumentSliceTool`
 
 ```js
+async function runExploreCodeTool(toolArgs, toolScope) {
+  // …
+  return { evidenceRecords: mapCodegraphExploreToEvidence(/* … */), rejected: [] };
+
+  function mapCodegraphExploreToEvidence(evidenceScope, exploreResult, graphQuery) { /* … */ }
+}
+
 async function runReadDocumentSliceTool(toolArgs, toolScope) {
   const range = await resolveDocumentHeadingRange(toolArgs, toolScope);
   // …
@@ -194,10 +202,9 @@ export async function executeTool(input) {
   /* gates + dispatch + budget fit */
 }
 
-async function runExploreCodeTool(args, scope) { /* … */ }
-function mapCodegraphExploreToEvidence(/* … */) {
+async function runExploreCodeTool(args, scope) {
   /* … */
-  function mapCodegraphHitToEvidence(/* … */) { /* … */ }
+  function mapCodegraphExploreToEvidence(/* … */) { /* … */ }
 }
 
 async function runSearchDocumentsTool(args, scope) { /* … */ }

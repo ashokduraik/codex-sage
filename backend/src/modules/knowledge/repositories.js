@@ -127,33 +127,6 @@ export async function softDeleteConnection(input, options = {}) {
  * Encrypt / decrypt / replace repository credentials. Decrypt only in memory.
  */
 /**
- * Encrypts a PAT into the nested credential shape. Never logs plaintext.
- * @param {string} accessToken Raw PAT.
- * @returns {{
- *   ciphertext: string,
- *   iv: string,
- *   authTag: string,
- *   keyId: string,
- *   credentialKind: string,
- *   lastValidatedAt: Date,
- *   revokedAt: null,
- * }}
- */
-function buildEncryptedCredential(accessToken) {
-  const crypto = resolveRepositoryCrypto();
-  const sealed = encryptSecret(accessToken, crypto.encryptionKey, crypto.keyId);
-  return {
-    ciphertext: sealed.ciphertext,
-    iv: sealed.iv,
-    authTag: sealed.authTag,
-    keyId: sealed.keyId,
-    credentialKind: 'pat',
-    lastValidatedAt: new Date(),
-    revokedAt: null,
-  };
-}
-
-/**
  * Encrypts a PAT and overwrites `connection.credential`.
  * @param {{
  *   orgId: string,
@@ -644,39 +617,6 @@ export async function retestRepositoryConnection(input) {
   return result;
 }
 
-/**
- * @param {string} orgId Tenant id.
- * @param {string} projectId Project id.
- * @returns {Promise<object>}
- */
-async function requireActiveConnection(orgId, projectId) {
-  const connection = await findActiveConnection(orgId, projectId);
-  if (!connection) {
-    throw ApiError.fromCode('NOT_FOUND');
-  }
-  return connection;
-}
-
-/**
- * @param {string} selectedBranch Branch name.
- * @param {object} probe Connected probe DTO.
- */
-function assertSelectedBranch(selectedBranch, probe) {
-  const branches = Array.isArray(probe.branches) ? probe.branches : [];
-  if (branches.includes(selectedBranch)) {
-    return;
-  }
-  if (probe.branchesTruncated && selectedBranch === probe.defaultBranch) {
-    return;
-  }
-  if (branches.length >= REPO_BRANCH_LIST_LIMIT && selectedBranch === probe.defaultBranch) {
-    return;
-  }
-  throw ApiError.fromCode('VALIDATION_ERROR', {
-    details: [{ path: 'selectedBranch', message: 'Branch is not in the probe result.' }],
-  });
-}
-
 // --- from repositories/repositories.routes.js ---
 /**
  * Repository HTTP routes under `/api/v1`.
@@ -899,6 +839,66 @@ export async function repositoryRoutes(app) {
       });
     },
   );
+}
+
+/**
+ * Encrypts a PAT into the nested credential shape. Never logs plaintext.
+ * @param {string} accessToken Raw PAT.
+ * @returns {{
+ *   ciphertext: string,
+ *   iv: string,
+ *   authTag: string,
+ *   keyId: string,
+ *   credentialKind: string,
+ *   lastValidatedAt: Date,
+ *   revokedAt: null,
+ * }}
+ */
+function buildEncryptedCredential(accessToken) {
+  const crypto = resolveRepositoryCrypto();
+  const sealed = encryptSecret(accessToken, crypto.encryptionKey, crypto.keyId);
+  return {
+    ciphertext: sealed.ciphertext,
+    iv: sealed.iv,
+    authTag: sealed.authTag,
+    keyId: sealed.keyId,
+    credentialKind: 'pat',
+    lastValidatedAt: new Date(),
+    revokedAt: null,
+  };
+}
+
+/**
+ * @param {string} orgId Tenant id.
+ * @param {string} projectId Project id.
+ * @returns {Promise<object>}
+ */
+async function requireActiveConnection(orgId, projectId) {
+  const connection = await findActiveConnection(orgId, projectId);
+  if (!connection) {
+    throw ApiError.fromCode('NOT_FOUND');
+  }
+  return connection;
+}
+
+/**
+ * @param {string} selectedBranch Branch name.
+ * @param {object} probe Connected probe DTO.
+ */
+function assertSelectedBranch(selectedBranch, probe) {
+  const branches = Array.isArray(probe.branches) ? probe.branches : [];
+  if (branches.includes(selectedBranch)) {
+    return;
+  }
+  if (probe.branchesTruncated && selectedBranch === probe.defaultBranch) {
+    return;
+  }
+  if (branches.length >= REPO_BRANCH_LIST_LIMIT && selectedBranch === probe.defaultBranch) {
+    return;
+  }
+  throw ApiError.fromCode('VALIDATION_ERROR', {
+    details: [{ path: 'selectedBranch', message: 'Branch is not in the probe result.' }],
+  });
 }
 
 export { RepositoryConnection };

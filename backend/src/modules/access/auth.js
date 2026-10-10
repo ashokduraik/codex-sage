@@ -225,19 +225,6 @@ export function hashRefreshToken(refreshToken) {
  * Login-session repository — one document per sign-in, tokens embedded.
  */
 /**
- * Finds the token entry matching a refresh-token hash.
- * @param {import('mongoose').Document | null | undefined} loginSession Login document.
- * @param {string} refreshTokenHash SHA-256 hex of the opaque token.
- * @returns {{ refreshTokenHash: string, issuedAt: Date, rotatedAt?: Date, _id: import('mongoose').Types.ObjectId } | undefined}
- */
-function findTokenEntryByHash(loginSession, refreshTokenHash) {
-  if (!loginSession?.tokens) {
-    return undefined;
-  }
-  return loginSession.tokens.find((entry) => entry.refreshTokenHash === refreshTokenHash);
-}
-
-/**
  * Creates a new login session with the first refresh-token entry.
  * @param {{
  *   orgId: import('mongoose').Types.ObjectId | string,
@@ -792,6 +779,147 @@ const loginBodySchema = z.object({
 });
 
 /**
+ * Maps auth service outcomes to API errors (never leaks internal reasons).
+ * @param {string} outcome Auth service outcome code.
+ * @throws {ApiError}
+ */
+function throwForAuthOutcome(outcome) {
+  if (outcome === 'invalid_credentials' || outcome === 'not_permitted') {
+    throw ApiError.fromCode('INVALID_CREDENTIALS');
+  }
+  if (outcome === 'reuse_detected' || outcome === 'session_expired') {
+    throw ApiError.fromCode('SESSION_EXPIRED');
+  }
+  throw ApiError.fromCode('UNAUTHENTICATED');
+}
+
+/**
+ * Reads the refresh token from the auth cookie.
+ * @param {import('fastify').FastifyRequest} request Request.
+ * @returns {string | undefined}
+ */
+function readRefreshToken(request) {
+  const value = request.cookies?.[REFRESH_COOKIE_NAME];
+  return typeof value === 'string' && value.length > 0 ? value : undefined;
+}
+
+/**
+ * Registers `/auth/*` routes on the Fastify instance (under API_BASE_PATH).
+ * @param {import('fastify').FastifyInstance} app Fastify app with auth plugins decorated.
+ */
+export async function authRoutes(app) {
+  const authService = app.authService;
+  const isProduction = app.config.env.isProduction;
+
+  app.post(
+    '/auth/login',
+    {
+      config: { routeAccess: 'public' },
+    },
+    async (request, reply) => {
+      const parsed = loginBodySchema.safeParse(request.body ?? {});
+      if (!parsed.success) {
+        throw ApiError.fromCode('VALIDATION_ERROR', {
+          details: parsed.error.issues.map((issue) => ({
+            path: issue.path.join('.'),
+            message: issue.message,
+          })),
+        });
+      }
+      const result = await authService.login(parsed.data, { log: request.log });
+      if (result.outcome !== 'authenticated') {
+        throwForAuthOutcome(result.outcome);
+      }
+      setAuthCookies(reply, result.refreshToken, isProduction);
+      return {
+        accessToken: result.accessToken,
+        accessTokenExpiresInSeconds: result.accessTokenExpiresInSeconds ?? JWT_ACCESS_TOKEN_TTL_SECONDS,
+        user: result.user,
+      };
+    },
+  );
+
+  app.post(
+    '/auth/refresh',
+    {
+      config: { routeAccess: 'public' },
+      onRequest: app.csrfProtection,
+    },
+    async (request, reply) => {
+      const refreshToken = readRefreshToken(request);
+      const result = await authService.refresh(refreshToken, {
+        log: request.log,
+      });
+      if (result.outcome !== 'authenticated') {
+        clearAuthCookies(reply, isProduction);
+        throwForAuthOutcome(result.outcome);
+      }
+      setAuthCookies(reply, result.refreshToken, isProduction);
+      return {
+        accessToken: result.accessToken,
+        accessTokenExpiresInSeconds: result.accessTokenExpiresInSeconds ?? JWT_ACCESS_TOKEN_TTL_SECONDS,
+        user: result.user,
+      };
+    },
+  );
+
+  app.post(
+    '/auth/logout',
+    {
+      config: { routeAccess: 'public' },
+      onRequest: app.csrfProtection,
+    },
+    async (request, reply) => {
+      const refreshToken = readRefreshToken(request);
+      await authService.logout(refreshToken);
+      clearAuthCookies(reply, isProduction);
+      return reply.status(204).send();
+    },
+  );
+
+  app.get(
+    '/auth/me',
+    {
+      config: {
+        routeAccess: 'authenticated',
+        allowWhenMustChangePassword: true,
+      },
+    },
+    async (request) => {
+      const principal = request.principal;
+      const user = await findUserById(principal.orgId, principal.userId);
+      if (!user || user.userStatus !== 'active') {
+        throw ApiError.fromCode('UNAUTHENTICATED');
+      }
+      const roleIds = (user.roleIds ?? []).map((id) => String(id));
+      const permissions = await resolveEffectivePermissions(principal.orgId, roleIds);
+      return {
+        id: String(user._id),
+        email: user.email,
+        displayName: user.displayName,
+        orgId: String(user.orgId),
+        roleIds,
+        permissions,
+        mustChangePassword: user.mustChangePassword === true,
+      };
+    },
+  );
+}
+
+/**
+ * Finds the token entry matching a refresh-token hash.
+ * @param {import('mongoose').Document | null | undefined} loginSession Login document.
+ * @param {string} refreshTokenHash SHA-256 hex of the opaque token.
+ * @returns {{ refreshTokenHash: string, issuedAt: Date, rotatedAt?: Date, _id: import('mongoose').Types.ObjectId } | undefined}
+ */
+function findTokenEntryByHash(loginSession, refreshTokenHash) {
+  if (!loginSession?.tokens) {
+    return undefined;
+  }
+  return loginSession.tokens.find((entry) => entry.refreshTokenHash === refreshTokenHash);
+}
+
+/**
  * Cookie options for the httpOnly refresh token (D14).
  * @param {boolean} isProduction Whether Secure should be set.
  * @returns {object}
@@ -873,132 +1001,6 @@ function setAuthCookies(reply, refreshToken, isProduction) {
     ...csrfCookieOptions(isProduction),
     maxAge: JWT_REFRESH_TOKEN_TTL_SECONDS,
   });
-}
-
-/**
- * Maps auth service outcomes to API errors (never leaks internal reasons).
- * @param {string} outcome Auth service outcome code.
- * @throws {ApiError}
- */
-function throwForAuthOutcome(outcome) {
-  if (outcome === 'invalid_credentials' || outcome === 'not_permitted') {
-    throw ApiError.fromCode('INVALID_CREDENTIALS');
-  }
-  if (outcome === 'reuse_detected' || outcome === 'session_expired') {
-    throw ApiError.fromCode('SESSION_EXPIRED');
-  }
-  throw ApiError.fromCode('UNAUTHENTICATED');
-}
-
-/**
- * Reads the refresh token from the auth cookie.
- * @param {import('fastify').FastifyRequest} request Request.
- * @returns {string | undefined}
- */
-function readRefreshToken(request) {
-  const value = request.cookies?.[REFRESH_COOKIE_NAME];
-  return typeof value === 'string' && value.length > 0 ? value : undefined;
-}
-
-/**
- * Registers `/auth/*` routes on the Fastify instance (under API_BASE_PATH).
- * @param {import('fastify').FastifyInstance} app Fastify app with auth plugins decorated.
- */
-export async function authRoutes(app) {
-  const authService = app.authService;
-  const isProduction = app.config.env.isProduction;
-
-  app.post(
-    '/auth/login',
-    {
-      config: { routeAccess: 'public' },
-    },
-    async (request, reply) => {
-      const parsed = loginBodySchema.safeParse(request.body ?? {});
-      if (!parsed.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', {
-          details: parsed.error.issues.map((issue) => ({
-            path: issue.path.join('.'),
-            message: issue.message,
-          })),
-        });
-      }
-      const result = await authService.login(parsed.data, { log: request.log });
-      if (result.outcome !== 'authenticated') {
-        throwForAuthOutcome(result.outcome);
-      }
-      setAuthCookies(reply, result.refreshToken, isProduction);
-      return {
-        accessToken: result.accessToken,
-        accessTokenExpiresInSeconds: result.accessTokenExpiresInSeconds ?? JWT_ACCESS_TOKEN_TTL_SECONDS,
-        user: result.user,
-      };
-    },
-  );
-
-  app.post(
-    '/auth/refresh',
-    {
-      config: { routeAccess: 'public' },
-      onRequest: app.csrfProtection,
-    },
-    async (request, reply) => {
-      const result = await authService.refresh(readRefreshToken(request), {
-        log: request.log,
-      });
-      if (result.outcome !== 'authenticated') {
-        clearAuthCookies(reply, isProduction);
-        throwForAuthOutcome(result.outcome);
-      }
-      setAuthCookies(reply, result.refreshToken, isProduction);
-      return {
-        accessToken: result.accessToken,
-        accessTokenExpiresInSeconds: result.accessTokenExpiresInSeconds ?? JWT_ACCESS_TOKEN_TTL_SECONDS,
-        user: result.user,
-      };
-    },
-  );
-
-  app.post(
-    '/auth/logout',
-    {
-      config: { routeAccess: 'public' },
-      onRequest: app.csrfProtection,
-    },
-    async (request, reply) => {
-      await authService.logout(readRefreshToken(request));
-      clearAuthCookies(reply, isProduction);
-      return reply.status(204).send();
-    },
-  );
-
-  app.get(
-    '/auth/me',
-    {
-      config: {
-        routeAccess: 'authenticated',
-        allowWhenMustChangePassword: true,
-      },
-    },
-    async (request) => {
-      const principal = request.principal;
-      const user = await findUserById(principal.orgId, principal.userId);
-      if (!user || user.userStatus !== 'active') {
-        throw ApiError.fromCode('UNAUTHENTICATED');
-      }
-      const roleIds = (user.roleIds ?? []).map((id) => String(id));
-      const permissions = await resolveEffectivePermissions(principal.orgId, roleIds);
-      return {
-        id: String(user._id),
-        email: user.email,
-        displayName: user.displayName,
-        orgId: String(user.orgId),
-        roleIds,
-        permissions,
-        mustChangePassword: user.mustChangePassword === true,
-      };
-    },
-  );
 }
 
 export { LoginSession } from '../../models/loginSession.model.js';

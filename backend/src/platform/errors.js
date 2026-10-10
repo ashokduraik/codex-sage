@@ -4,15 +4,6 @@
  */
 import { allowsErrorDetails, ERROR_CATALOG, getCatalogEntry, isKnownErrorCode } from './errorCatalog.js';
 
-/**
- * Default replay detector (name check only — no class import).
- * @param {unknown} error Thrown value.
- * @returns {boolean}
- */
-function defaultIsReplayError(error) {
-  return Boolean(error && typeof error === 'object' && /** @type {{ name?: string }} */ (error).name === 'IdempotencyReplay');
-}
-
 /** @type {(error: unknown) => boolean} */
 let isReplayError = defaultIsReplayError;
 
@@ -270,4 +261,13 @@ export function registerErrorHandler(app, options = {}) {
 
     return reply.status(mapped.statusCode).send(mapped.body);
   });
+}
+
+/**
+ * Default replay detector (name check only — no class import).
+ * @param {unknown} error Thrown value.
+ * @returns {boolean}
+ */
+function defaultIsReplayError(error) {
+  return Boolean(error && typeof error === 'object' && /** @type {{ name?: string }} */ (error).name === 'IdempotencyReplay');
 }

@@ -7,15 +7,6 @@ import { ProjectJobLock } from '../models/projectJobLock.model.js';
 import { PROJECT_JOB_LOCK_SCOPE, WORKER_LEASE_TTL_MS } from './worker.constants.js';
 
 /**
- * Returns true when an error is a Mongo duplicate-key conflict.
- * @param {unknown} error Candidate error.
- * @returns {boolean}
- */
-function isDuplicateKeyError(error) {
-  return Boolean(error && typeof error === 'object' && /** @type {{ code?: number }} */ (error).code === 11000);
-}
-
-/**
  * Tries to acquire the project writer lock for a claimed job.
  * Succeeds when no live lock exists or the existing lock's expiresAt has passed (server time).
  * @param {{
@@ -101,6 +92,15 @@ export async function acquireProjectJobLock(input) {
   ).exec();
 
   return { acquired: Boolean(taken) };
+}
+
+/**
+ * Returns true when an error is a Mongo duplicate-key conflict.
+ * @param {unknown} error Candidate error.
+ * @returns {boolean}
+ */
+function isDuplicateKeyError(error) {
+  return Boolean(error && typeof error === 'object' && /** @type {{ code?: number }} */ (error).code === 11000);
 }
 
 /**
