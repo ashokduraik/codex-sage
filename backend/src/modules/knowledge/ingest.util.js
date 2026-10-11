@@ -1,40 +1,40 @@
 /**
  * knowledge/ingest.util.js — merged resource file.
  */
-import { loadConfig } from '../../platform/config.js';
-import { caughtErrorFields } from '../../platform/errors.js';
-import { createJobFailureError, createJobFailureFromCaught } from '../../worker/retryPolicy.js';
+import path from 'node:path';
+import fs from 'node:fs/promises';
+import { listSourceFilesOrdered } from './ingest.js';
 import { findProjectById } from '../masters/index.js';
+import { loadConfig } from '../../platform/config.js';
+import { findKnowledgeVersionById } from './knowledge.js';
+import { caughtErrorFields } from '../../platform/errors.js';
 import { codegraphIndexExists, createCodegraphAdapter } from './codegraph.js';
+import { findChangeSummaryForVersion, upsertChangeSummary } from './changeSummary.js';
+import { createJobFailureError, createJobFailureFromCaught } from '../../worker/retryPolicy.js';
 import {
-  copySectionsForPaths,
-  insertDocumentSections,
+  buildWorkspaceMaterializedEvent,
+  buildDocumentationIdentifiedEvent,
+  buildProjectStructureAnalyzedEvent,
+  buildCodeRelationshipsAnalyzedEvent,
+} from './ingest.helper.js';
+import {
   isDocumentPath,
+  copySectionsForPaths,
   parseDocumentSections,
+  insertDocumentSections,
   softDeleteSectionsForPath,
   softDeleteSectionsForVersion,
 } from './documents.js';
 import {
-  buildDocumentationIdentifiedEvent,
-  buildWorkspaceMaterializedEvent,
-  buildCodeRelationshipsAnalyzedEvent,
-  buildProjectStructureAnalyzedEvent,
-} from './ingest.helper.js';
-import { findChangeSummaryForVersion, upsertChangeSummary } from './changeSummary.js';
-import { listSourceFilesOrdered } from './ingest.js';
-import { findKnowledgeVersionById } from './knowledge.js';
-import {
-  SOURCE_FILE_STATE_STORED,
-  carryFromSourceDiff,
   computeSourceDiff,
+  carryFromSourceDiff,
+  SOURCE_FILE_STATE_STORED,
   deleteWorkspaceRelativePath,
   materializeGridFsFileToDisk,
-  resetProjectWorkspaceSubtree,
   resolveProjectWorkspacePath,
+  resetProjectWorkspaceSubtree,
   resolveSafeWorkspaceFilePath,
 } from './sources.js';
-import fs from 'node:fs/promises';
-import path from 'node:path';
 
 // --- from ingest/applySourceDiff.js ---
 /**

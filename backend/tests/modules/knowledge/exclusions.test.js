@@ -1,17 +1,17 @@
 /**
  * Unit tests for summarizeInspection and ruleset assert helper.
  */
-import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readFile } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
 import { ApiError } from '../../../src/platform/errors.js';
 import {
+  inspectZip,
+  summarizeInspection,
   EXCLUSION_RULESET_ID,
   GRAPH_FILE_MAX_BYTES,
   assertKnownExclusionRulesetId,
-  inspectZip,
-  summarizeInspection,
 } from '../../../src/modules/knowledge/uploads.js';
 
 const fixturesDir = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures');

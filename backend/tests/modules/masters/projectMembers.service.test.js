@@ -1,14 +1,14 @@
 /**
  * Project members service unit tests.
  */
-import { createTestOrganization, ensureTestRoles, nextTestUserCode } from '../../identityFixtures.js';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
+import { createMongoHarness } from '../../mongoHarness.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { AUDIT_MODELS, listAuditEvents } from '../../../src/modules/access/audit.js';
-import { IDENTITY_MODELS, createUserInRepo, findRoleByCode } from '../../../src/modules/masters/index.js';
 import { PROJECT_MODELS, createProjectInRepo } from '../../../src/modules/masters/projects.js';
+import { createTestOrganization, ensureTestRoles, nextTestUserCode } from '../../identityFixtures.js';
 import { addProjectMember, removeProjectMember } from '../../../src/modules/masters/projectMembers.js';
+import { IDENTITY_MODELS, createUserInRepo, findRoleByCode } from '../../../src/modules/masters/index.js';
 
 const harness = createMongoHarness({
   models: [...IDENTITY_MODELS, ...PROJECT_MODELS, ...AUDIT_MODELS],

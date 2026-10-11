@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
 import { cn } from '@/shared/lib/utils';
+import { describe, expect, it } from 'vitest';
+
 describe('cn', () => {
   it('merges class names and resolves Tailwind conflicts', () => {
     const omitHidden = false;

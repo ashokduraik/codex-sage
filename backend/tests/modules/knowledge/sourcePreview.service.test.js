@@ -2,6 +2,19 @@
  * Unit tests for source preview path safety, metadata, and slices.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  sliceUtf8,
+  countTextLines,
+  isBinaryPreview,
+  createPreviewCaps,
+  contentTypeForPath,
+  loadSourceFileSlice,
+  normalizePreviewPath,
+  graphCoverageFromFile,
+  loadSourceFileMetadata,
+  SOURCE_PREVIEW_MAX_BYTES,
+  SOURCE_PREVIEW_MAX_LINES,
+} from '../../../src/modules/knowledge/sourcePreview.js';
 
 const { findProjectById, findKnowledgeVersionById, findSourceFileByPath, readSourceGridFsBytes } = vi.hoisted(() => ({
   findProjectById: vi.fn(),
@@ -26,20 +39,6 @@ vi.mock('../../../src/modules/knowledge/sources.js', async (importOriginal) => {
     readSourceGridFsBytes,
   };
 });
-
-import {
-  contentTypeForPath,
-  countTextLines,
-  createPreviewCaps,
-  graphCoverageFromFile,
-  isBinaryPreview,
-  loadSourceFileMetadata,
-  loadSourceFileSlice,
-  normalizePreviewPath,
-  sliceUtf8,
-  SOURCE_PREVIEW_MAX_BYTES,
-  SOURCE_PREVIEW_MAX_LINES,
-} from '../../../src/modules/knowledge/sourcePreview.js';
 
 /**
  * @returns {object}

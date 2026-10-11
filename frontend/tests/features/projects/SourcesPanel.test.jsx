@@ -1,7 +1,7 @@
-import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
+import { ApiError } from '@/shared/api/index';
 import { Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ApiError } from '@/shared/api/index';
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 
 vi.mock('@/features/projects/api/projectsApi.js', async () => {
   const fixtures = await import('./test/projectApiFixtures.js');
@@ -26,16 +26,16 @@ vi.mock('@/features/projects/api/repositoriesApi.js', () => ({
   attachProjectRepository: vi.fn(),
 }));
 
+import SourcesPanel from '@/features/projects/SourcesPanel';
+import ProjectDetailPage from '@/features/projects/ProjectDetailPage';
 import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
 import { listProjectSourceVersions, reingestProjectSource } from '@/features/projects/api/sourcesApi.js';
 import {
   getProjectRepositoryConnection,
-  replaceProjectRepositoryCredential,
-  revokeProjectRepositoryCredential,
   retestProjectRepositoryConnection,
+  revokeProjectRepositoryCredential,
+  replaceProjectRepositoryCredential,
 } from '@/features/projects/api/repositoriesApi.js';
-import ProjectDetailPage from '@/features/projects/ProjectDetailPage';
-import SourcesPanel from '@/features/projects/SourcesPanel';
 
 const ATLAS_CONNECTION = {
   id: 'rc_atlas',

@@ -1,11 +1,11 @@
 /**
  * Unit tests for startWorker boot wiring (Mongo and runtime are mocked).
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { TEST_APP_CONFIG } from '../appConfig.js';
-import { resetProcessHandlersForTests, resetShutdownForTests } from '../../src/platform/shutdown.js';
-import { clearJobHandlersForTests } from '../../src/worker/handlerRegistry.js';
 import { startWorker } from '../../src/worker/startWorker.js';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { clearJobHandlersForTests } from '../../src/worker/handlerRegistry.js';
+import { resetProcessHandlersForTests, resetShutdownForTests } from '../../src/platform/shutdown.js';
 
 describe('startWorker', () => {
   beforeEach(() => {

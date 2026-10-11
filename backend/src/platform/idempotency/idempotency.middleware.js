@@ -5,12 +5,12 @@
 import { createHash } from 'node:crypto';
 import { ApiError, setIdempotencyErrorHooks } from '../errors.js';
 import {
+  IDEMPOTENCY_WAIT_MS,
   beginIdempotencyClaim,
+  releaseIdempotencyClaim,
   completeIdempotencyRecord,
   findActiveIdempotencyRecord,
   IDEMPOTENCY_POLL_INTERVAL_MS,
-  IDEMPOTENCY_WAIT_MS,
-  releaseIdempotencyClaim,
 } from './idempotency.repository.js';
 
 /** Minimum accepted Idempotency-Key length. */

@@ -2,6 +2,7 @@
  * Conversation search query validation and snippet shaping via searchConversations.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { searchConversations } from '../../../src/modules/conversation/conversation.js';
 import { CONVERSATION_SEARCH_SNIPPET_MAX_CHARS } from '../../../src/modules/conversation/conversation.helper.js';
 
 const searchOwnConversations = vi.hoisted(() => vi.fn());
@@ -13,8 +14,6 @@ vi.mock('../../../src/modules/conversation/conversation.helper.js', async (impor
     searchOwnConversations,
   };
 });
-
-import { searchConversations } from '../../../src/modules/conversation/conversation.js';
 
 describe('conversations.search', () => {
   beforeEach(() => {

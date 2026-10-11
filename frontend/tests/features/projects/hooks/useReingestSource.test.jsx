@@ -1,10 +1,10 @@
 /**
  * Tests for the reingest mutation hook.
  */
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, renderHook } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/shared/api/index';
+import { describe, expect, it, vi } from 'vitest';
+import { act, renderHook } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 vi.mock('@/features/projects/api/sourcesApi.js', () => ({
   reingestProjectSource: vi.fn(),
@@ -12,8 +12,8 @@ vi.mock('@/features/projects/api/sourcesApi.js', () => ({
 }));
 
 import { reingestProjectSource } from '@/features/projects/api/sourcesApi.js';
-import { useReingestSource } from '@/features/projects/hooks/useReingestSource.js';
 import { projectDetailQueryKey } from '@/features/projects/api/projectsApi.js';
+import { useReingestSource } from '@/features/projects/hooks/useReingestSource.js';
 import { projectJobsQueryRoot } from '@/features/projects/processing/api/jobsApi.js';
 
 /**

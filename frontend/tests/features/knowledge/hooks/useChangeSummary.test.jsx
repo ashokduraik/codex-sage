@@ -1,9 +1,11 @@
 /**
  * Hook tests for change summary and source preview.
  */
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { renderHook, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useChangeSummary } from '@/features/knowledge/hooks/useChangeSummary.js';
+import { useSourcePreview } from '@/features/knowledge/hooks/useSourcePreview.js';
 
 const fetchChangeSummary = vi.fn();
 const fetchSourceFileMetadata = vi.fn();
@@ -18,9 +20,6 @@ vi.mock('@/features/knowledge/api/knowledgeApi.js', async (importOriginal) => {
     fetchSourceSlice: (...args) => fetchSourceSlice(...args),
   };
 });
-
-import { useChangeSummary } from '@/features/knowledge/hooks/useChangeSummary.js';
-import { useSourcePreview } from '@/features/knowledge/hooks/useSourcePreview.js';
 
 /**
  * @param {import('react').ReactNode} children Tree.

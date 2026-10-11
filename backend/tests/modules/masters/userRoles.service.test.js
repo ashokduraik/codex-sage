@@ -1,8 +1,8 @@
 /**
  * User role service unit tests — last admin and audit.
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { User } from '../../../src/models/user.model.js';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../../src/modules/access/index.js', () => ({
   recordAuditEvent: vi.fn(async () => {}),
@@ -45,14 +45,14 @@ vi.mock('mongoose', async (importOriginal) => {
   };
 });
 
-import { recordAuditEvent } from '../../../src/modules/access/index.js';
 import { findRolesByIds } from '../../../src/modules/masters/roles.js';
+import { recordAuditEvent } from '../../../src/modules/access/index.js';
 import {
-  assertRolesExistInOrg,
-  countActiveUsersManageHolders,
-  isRoleReferencedByActiveUser,
   replaceUserRoles,
   wouldRemoveLastAdmin,
+  assertRolesExistInOrg,
+  isRoleReferencedByActiveUser,
+  countActiveUsersManageHolders,
 } from '../../../src/modules/masters/users.js';
 
 const ORG_ID = '665f1c9d4b2a8e0012a4f010';

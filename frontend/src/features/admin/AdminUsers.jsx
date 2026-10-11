@@ -1,24 +1,24 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Ban, CheckCircle2, KeyRound, Loader2, MoreHorizontal, Plus, Search, Trash2, UserCog } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
-import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { useAuth } from '@/features/auth/AuthContext';
-import { correlationFromUnknown, messageFromUnknown } from '@/shared/api';
-import { useRoles } from '@/features/admin/api/useRoles.js';
-import { useUsers } from '@/features/admin/api/useUsers.js';
-import { useCreateUser, useRemoveUser, useResetUserPassword, useSetUserStatus, useUpdateUserRoles } from '@/features/admin/api/useUserMutations.js';
-import { InlineErrorAlert } from '@/features/admin/InlineErrorAlert.jsx';
-import { RoleMultiSelect } from '@/features/admin/RoleMultiSelect.jsx';
-import { formatRelative } from '@/shared/lib/format';
 import { cn } from '@/shared/lib/utils';
 import { Badge } from '@/shared/ui/badge';
-import { Button } from '@/shared/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/ui/dialog';
 import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
+import { Button } from '@/shared/ui/button';
+import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router-dom';
+import { formatRelative } from '@/shared/lib/format';
+import { useEffect, useMemo, useState } from 'react';
+import { useAuth } from '@/features/auth/AuthContext';
+import { useRoles } from '@/features/admin/api/useRoles.js';
+import { useUsers } from '@/features/admin/api/useUsers.js';
+import { RoleMultiSelect } from '@/features/admin/RoleMultiSelect.jsx';
+import { InlineErrorAlert } from '@/features/admin/InlineErrorAlert.jsx';
+import { correlationFromUnknown, messageFromUnknown } from '@/shared/api';
 import { Popover, PopoverContent, PopoverTrigger } from '@/shared/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/ui/select';
+import { Ban, CheckCircle2, KeyRound, Loader2, MoreHorizontal, Plus, Search, Trash2, UserCog } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/ui/dialog';
+import { useCreateUser, useRemoveUser, useResetUserPassword, useSetUserStatus, useUpdateUserRoles } from '@/features/admin/api/useUserMutations.js';
 
 /** Debounce delay before search text reaches the query key. */
 const USER_SEARCH_DEBOUNCE_MS = 300;

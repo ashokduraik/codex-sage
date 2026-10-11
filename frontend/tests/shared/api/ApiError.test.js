@@ -1,20 +1,20 @@
-import { describe, expect, it } from 'vitest';
 import i18n from '@/shared/i18n/index';
+import { describe, expect, it } from 'vitest';
 import {
   ApiError,
-  apiErrorFromNetworkFailure,
-  apiErrorFromResponse,
-  correlationFromUnknown,
-  ERROR_CODE_MESSAGES,
-  getErrorMessageEntry,
-  isForbiddenApiError,
   isNotFoundApiError,
-  isRequestAbortedError,
   messageFromUnknown,
-  parseRetryAfterSeconds,
+  ERROR_CODE_MESSAGES,
+  isForbiddenApiError,
   RequestAbortedError,
-  resolveRetryAfterSeconds,
+  apiErrorFromResponse,
+  getErrorMessageEntry,
+  isRequestAbortedError,
   retryAfterFromUnknown,
+  correlationFromUnknown,
+  parseRetryAfterSeconds,
+  resolveRetryAfterSeconds,
+  apiErrorFromNetworkFailure,
 } from '@/shared/api/ApiError.js';
 
 /**

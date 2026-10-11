@@ -1,7 +1,7 @@
-import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ChangePasswordPage from '@/features/auth/ChangePasswordPage';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetRefreshClientForTests } from '@/shared/api/refreshClient.js';
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
 
 afterEach(() => {

@@ -1,12 +1,12 @@
 /**
  * access/password.js — merged resource file.
  */
+import { z } from 'zod';
+import mongoose from 'mongoose';
 import { ApiError } from '../../platform/errors.js';
-import { applyPasswordUpdate, findUserById, findUserByIdWithPassword } from '../masters/index.js';
 import { buildAuditContextFromRequest, recordAuditEvent } from './audit.js';
 import { hashPassword, verifyPassword, revokeAllLoginSessionsForUser } from './auth.js';
-import mongoose from 'mongoose';
-import { z } from 'zod';
+import { applyPasswordUpdate, findUserById, findUserByIdWithPassword } from '../masters/index.js';
 
 // --- from auth/passwordPolicy.js ---
 /**

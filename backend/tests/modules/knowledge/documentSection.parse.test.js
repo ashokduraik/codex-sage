@@ -3,11 +3,11 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
-  DOCUMENT_SECTION_MAX_CHARS,
-  DOCUMENT_TXT_SECTION_LINE_WINDOW,
   capSectionText,
   isDocumentPath,
   parseDocumentSections,
+  DOCUMENT_SECTION_MAX_CHARS,
+  DOCUMENT_TXT_SECTION_LINE_WINDOW,
 } from '../../../src/modules/knowledge/documents.js';
 
 describe('isDocumentPath', () => {

@@ -1,7 +1,8 @@
-import { BrowserRouter } from 'react-router-dom';
-import { Providers } from '@/app/providers';
 import { AppRoutes } from '@/app/routes';
+import { Providers } from '@/app/providers';
+import { BrowserRouter } from 'react-router-dom';
 import { ScrollToTop } from '@/shared/components';
+
 /**
  * Root application: router, providers, scroll restoration, and routes.
  *

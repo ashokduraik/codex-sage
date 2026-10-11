@@ -1,11 +1,11 @@
-import { act, cleanup, render, renderHook, screen, waitFor } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthProvider, useAuth } from '@/features/auth/AuthContext';
 import { CURRENT_USER_QUERY_KEY } from '@/features/auth/api/authApi.js';
-import { clearSession, getAccessToken, setAccessToken } from '@/shared/api/index';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { resetRefreshClientForTests } from '@/shared/api/refreshClient.js';
+import { clearSession, getAccessToken, setAccessToken } from '@/shared/api/index';
+import { act, cleanup, render, renderHook, screen, waitFor } from '@testing-library/react';
 import { buildTestAuthUser, clearAuthSession, seedAuthSession } from '@tests/renderWithProviders';
 
 afterEach(() => {

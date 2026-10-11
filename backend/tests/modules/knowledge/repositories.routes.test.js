@@ -1,29 +1,29 @@
 /**
  * Probe route integration tests — ACL, validation, and token redaction.
  */
-import { nextTestUserCode, ensureTestRoles } from '../../identityFixtures.js';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { API_BASE_PATH, buildApp } from '../../../src/http/app.js';
-import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
-import { AUDIT_MODELS, listAuditEvents } from '../../../src/modules/access/audit.js';
+import { createMongoHarness } from '../../mongoHarness.js';
+import { JOB_MODELS } from '../../../src/modules/masters/jobs.js';
+import { API_BASE_PATH, buildApp } from '../../../src/http/app.js';
 import { AUTH_MODELS } from '../../../src/modules/access/index.js';
 import { hashPassword } from '../../../src/modules/access/auth.js';
+import { PROJECT_MODELS } from '../../../src/modules/masters/projects.js';
+import { nextTestUserCode, ensureTestRoles } from '../../identityFixtures.js';
+import { IDEMPOTENCY_MODELS } from '../../../src/platform/idempotency/index.js';
+import { addProjectMember } from '../../../src/modules/masters/projectMembers.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { AUDIT_MODELS, listAuditEvents } from '../../../src/modules/access/audit.js';
+import { probeRepository } from '../../../src/modules/knowledge/repositories.helper.js';
+import { REPOSITORY_MODELS, RepositoryConnection } from '../../../src/modules/knowledge/repositories.js';
 import {
-  DEFAULT_ADMIN_EMAIL,
-  DEFAULT_ADMIN_PASSWORD,
+  findRoleByCode,
   IDENTITY_MODELS,
   createUserInRepo,
-  findOrganizationBySlug,
   runBootstrapSeed,
-  findRoleByCode,
+  DEFAULT_ADMIN_EMAIL,
+  DEFAULT_ADMIN_PASSWORD,
+  findOrganizationBySlug,
 } from '../../../src/modules/masters/index.js';
-import { IDEMPOTENCY_MODELS } from '../../../src/platform/idempotency/index.js';
-import { PROJECT_MODELS } from '../../../src/modules/masters/projects.js';
-import { addProjectMember } from '../../../src/modules/masters/projectMembers.js';
-import { JOB_MODELS } from '../../../src/modules/masters/jobs.js';
-import { REPOSITORY_MODELS, RepositoryConnection } from '../../../src/modules/knowledge/repositories.js';
-import { probeRepository } from '../../../src/modules/knowledge/repositories.helper.js';
 
 vi.mock('../../../src/modules/knowledge/repositories.helper.js', async (importOriginal) => {
   const actual = await importOriginal();

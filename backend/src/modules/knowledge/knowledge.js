@@ -2,24 +2,24 @@
  * knowledge/knowledge.js — KnowledgeVersion persistence, readability gate, publish,
  * same-job CodeGraph recovery, and browse orchestration/routes.
  */
-import { requireProjectPermission } from '../../http/preHandlers/requireProjectPermission.js';
-import { KnowledgeVersion } from '../../models/knowledgeVersion.model.js';
-import { SourceFile } from '../../models/sourceFile.model.js';
-import { assertOrgId, ROW_STATUS_ACTIVE } from '../../platform/data/index.js';
-import { getCatalogEntry } from '../../platform/errorCatalog.js';
-import { ApiError } from '../../platform/errors.js';
-import { hasActiveProjectWriterLock } from '../../worker/projectJobLock.js';
-import { createJobFailureError, createJobFailureFromCaught } from '../../worker/retryPolicy.js';
-import { recordAuditEvent } from '../access/index.js';
-import { findProjectById } from '../masters/index.js';
-import { resolveCodegraphDir, createCodegraphAdapter } from './codegraph.js';
-import { listSectionsForVersion } from './documents.js';
-import { runMaterializeDocsStage, runCodegraphUpdateStage } from './ingest.util.js';
-import { SOURCE_FILE_STATE_STORED, resolveProjectWorkspacePath } from './sources.js';
+import { z } from 'zod';
+import path from 'node:path';
 import mongoose from 'mongoose';
 import fs from 'node:fs/promises';
-import path from 'node:path';
-import { z } from 'zod';
+import { ApiError } from '../../platform/errors.js';
+import { findProjectById } from '../masters/index.js';
+import { recordAuditEvent } from '../access/index.js';
+import { listSectionsForVersion } from './documents.js';
+import { SourceFile } from '../../models/sourceFile.model.js';
+import { getCatalogEntry } from '../../platform/errorCatalog.js';
+import { KnowledgeVersion } from '../../models/knowledgeVersion.model.js';
+import { hasActiveProjectWriterLock } from '../../worker/projectJobLock.js';
+import { resolveCodegraphDir, createCodegraphAdapter } from './codegraph.js';
+import { assertOrgId, ROW_STATUS_ACTIVE } from '../../platform/data/index.js';
+import { runMaterializeDocsStage, runCodegraphUpdateStage } from './ingest.util.js';
+import { SOURCE_FILE_STATE_STORED, resolveProjectWorkspacePath } from './sources.js';
+import { requireProjectPermission } from '../../http/preHandlers/requireProjectPermission.js';
+import { createJobFailureError, createJobFailureFromCaught } from '../../worker/retryPolicy.js';
 
 // --- from knowledge/knowledgeVersion.repository.js ---
 /**

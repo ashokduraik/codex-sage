@@ -1,7 +1,8 @@
+import { MessageItem } from '@/features/chat/MessageItem';
 import { cleanup, fireEvent, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
-import { MessageItem } from '@/features/chat/MessageItem';
+
 afterEach(() => {
   cleanup();
 });

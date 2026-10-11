@@ -1,7 +1,8 @@
-import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import Fastify from 'fastify';
-import { buildHealthResponse, buildReadinessResponse, healthRoutes } from '../../src/http/health.routes.js';
 import { MONGO_UNAVAILABLE_CODE } from '../../src/platform/mongo.js';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
+import { buildHealthResponse, buildReadinessResponse, healthRoutes } from '../../src/http/health.routes.js';
+
 vi.mock('../../src/platform/mongo.js', async (importOriginal) => {
   const actual = await importOriginal();
   return {
@@ -9,7 +10,9 @@ vi.mock('../../src/platform/mongo.js', async (importOriginal) => {
     checkMongoHealth: vi.fn(),
   };
 });
+
 import { checkMongoHealth } from '../../src/platform/mongo.js';
+
 let app;
 afterEach(async () => {
   await app?.close();

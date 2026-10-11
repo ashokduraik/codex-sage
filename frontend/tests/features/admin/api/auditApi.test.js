@@ -1,8 +1,8 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { API_BASE_URL, setAccessToken } from '@/shared/api/index';
-import { resetApiSessionForTests } from '@/shared/api/apiSession.js';
-import { resetRefreshClientForTests } from '@/shared/api/refreshClient.js';
 import { listAuditEvents } from '@/features/admin/api/auditApi.js';
+import { resetApiSessionForTests } from '@/shared/api/apiSession.js';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { resetRefreshClientForTests } from '@/shared/api/refreshClient.js';
 
 /**
  * Builds a mock fetch Response compatible with apiRequest.

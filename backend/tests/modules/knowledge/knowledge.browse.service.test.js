@@ -2,6 +2,7 @@
  * Unit tests for knowledge browse orchestration.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { clampBrowseLimit, loadKnowledgeBrowse } from '../../../src/modules/knowledge/knowledge.js';
 
 const KNOWLEDGE_VERSION_ID = '6650f1a2c3d4e5f601020304';
 const SOURCE_VERSION_ID = '6650f1a2c3d4e5f601020305';
@@ -36,8 +37,6 @@ vi.mock('../../../src/models/knowledgeVersion.model.js', () => ({
     findOne: (...args) => knowledgeVersionFindOne(...args),
   },
 }));
-
-import { clampBrowseLimit, loadKnowledgeBrowse } from '../../../src/modules/knowledge/knowledge.js';
 
 /**
  * Active ready project used by most browse paths.

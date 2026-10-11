@@ -1,8 +1,8 @@
 /**
  * Unit tests for job DTO mappers.
  */
-import { describe, expect, it } from 'vitest';
 import mongoose from 'mongoose';
+import { describe, expect, it } from 'vitest';
 import { mapJobToDetailDto, mapJobToListDto, mapJobEventToDto } from '../../../src/modules/masters/jobs.js';
 
 describe('jobs.types', () => {

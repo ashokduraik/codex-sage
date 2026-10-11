@@ -1,9 +1,9 @@
 /**
  * Repository probe mutation keeps the token out of React Query variables.
  */
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { act, renderHook } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 vi.mock('@/features/projects/api/repositoriesApi.js', () => ({
   probeProjectRepository: vi.fn(),

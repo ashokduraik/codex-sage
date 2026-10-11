@@ -1,10 +1,10 @@
 /**
  * Unit tests for multipart archive consumption preHandler.
  */
-import { describe, expect, it, vi } from 'vitest';
 import { Readable } from 'node:stream';
-import { consumeSourceArchivePreHandler } from '../../../src/modules/knowledge/uploads.js';
+import { describe, expect, it, vi } from 'vitest';
 import { UPLOAD_MAX_ARCHIVE_BYTES } from '../../../src/modules/knowledge/uploads.js';
+import { consumeSourceArchivePreHandler } from '../../../src/modules/knowledge/uploads.js';
 
 describe('consumeSourceArchivePreHandler', () => {
   it('no-ops when the route is not opted in', async () => {

@@ -1,36 +1,39 @@
 /**
  * knowledge/sources.js — merged resource file.
  */
+import { z } from 'zod';
+import path from 'node:path';
+import mongoose from 'mongoose';
+import fs from 'node:fs/promises';
+import { createWriteStream } from 'node:fs';
+import { pipeline } from 'node:stream/promises';
+import { ApiError } from '../../platform/errors.js';
+import { isUnsafeArchivePath, normalizeArchivePath } from './uploads.js';
+import { SourceChangeSummary } from '../../models/sourceChangeSummary.model.js';
+import { createPendingJob, findActiveJobForSourceVersion } from '../masters/index.js';
 import { requireProjectPermission } from '../../http/preHandlers/requireProjectPermission.js';
+import { assertOrgId, decodeCursor, encodeCursor, ROW_STATUS_ACTIVE } from '../../platform/data/index.js';
 import {
+  SourceVersion,
+  SOURCE_ORIGIN_UPLOAD,
+  SOURCE_ORIGIN_REPOSITORY,
+  VERSION_LIFECYCLE_VALUES,
+  VERSION_LIFECYCLE_RECEIVED,
+} from '../../models/sourceVersion.model.js';
+import {
+  SourceFile,
   SOURCE_FILE_KIND_VALUES,
-  SOURCE_FILE_STATE_CORRUPT,
-  SOURCE_FILE_STATE_MISSING,
   SOURCE_FILE_STATE_STORED,
   SOURCE_FILE_STATE_VALUES,
-  SourceFile,
+  SOURCE_FILE_STATE_CORRUPT,
+  SOURCE_FILE_STATE_MISSING,
 } from '../../models/sourceFile.model.js';
+
 export { SourceFile } from '../../models/sourceFile.model.js';
-import {
-  SOURCE_ORIGIN_REPOSITORY,
-  SOURCE_ORIGIN_UPLOAD,
-  VERSION_LIFECYCLE_RECEIVED,
-  VERSION_LIFECYCLE_VALUES,
-  SourceVersion,
-} from '../../models/sourceVersion.model.js';
+
 export { SourceVersion } from '../../models/sourceVersion.model.js';
-import { assertOrgId, decodeCursor, encodeCursor, ROW_STATUS_ACTIVE } from '../../platform/data/index.js';
-import { ApiError } from '../../platform/errors.js';
-import { createPendingJob, findActiveJobForSourceVersion } from '../masters/index.js';
-import { isUnsafeArchivePath, normalizeArchivePath } from './uploads.js';
-import mongoose from 'mongoose';
-import { createWriteStream } from 'node:fs';
-import fs from 'node:fs/promises';
-import path from 'node:path';
-import { pipeline } from 'node:stream/promises';
-import { SourceChangeSummary } from '../../models/sourceChangeSummary.model.js';
+
 export { SourceChangeSummary };
-import { z } from 'zod';
 
 // --- from sources/sources.constants.js ---
 /**

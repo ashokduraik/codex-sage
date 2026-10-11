@@ -2,13 +2,13 @@
  * Latest knowledge-update change summary from the Phase 39 API.
  */
 import { useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
-import { AlertTriangle, ChevronDown, ChevronRight, FileEdit, FileMinus, FilePlus, GitCompare } from 'lucide-react';
+import { cn } from '@/shared/lib/utils';
 import { useTranslation } from 'react-i18next';
 import { EmptyState } from '@/shared/components';
-import { cn } from '@/shared/lib/utils';
-import { useChangeSummary } from '@/features/knowledge/hooks/useChangeSummary.js';
+import { useOutletContext } from 'react-router-dom';
 import SourcePreviewDrawer from '@/features/knowledge/SourcePreviewDrawer.jsx';
+import { useChangeSummary } from '@/features/knowledge/hooks/useChangeSummary.js';
+import { AlertTriangle, ChevronDown, ChevronRight, FileEdit, FileMinus, FilePlus, GitCompare } from 'lucide-react';
 
 const ROWS = [
   {

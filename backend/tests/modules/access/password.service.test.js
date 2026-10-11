@@ -1,8 +1,8 @@
 /**
  * Unit tests for password service helpers and outcomes.
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../../../src/platform/errors.js';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../../src/modules/masters/index.js', () => ({
   findUserById: vi.fn(),
@@ -29,8 +29,9 @@ vi.mock('mongoose', async () => {
 });
 
 import { User } from '../../../src/models/user.model.js';
-import { applyPasswordUpdate, findUserById, findUserByIdWithPassword } from '../../../src/modules/masters/index.js';
 import { verifyPassword } from '../../../src/modules/access/auth.js';
+import { applyPasswordUpdate, findUserById, findUserByIdWithPassword } from '../../../src/modules/masters/index.js';
+import { adminSetPassword, changeOwnPassword, getPasswordResetStatus } from '../../../src/modules/access/password.js';
 
 /**
  * @param {object | null} doc User document.
@@ -49,7 +50,6 @@ function mockUserLookup(doc) {
     exec: vi.fn().mockResolvedValue(doc),
   });
 }
-import { adminSetPassword, changeOwnPassword, getPasswordResetStatus } from '../../../src/modules/access/password.js';
 
 describe('getPasswordResetStatus', () => {
   it('returns none when passwordUpdatedAt is missing', () => {

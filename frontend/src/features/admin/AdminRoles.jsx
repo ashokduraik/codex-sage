@@ -1,19 +1,19 @@
-import { Loader2, Pencil, Plus, Search, ShieldCheck, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { cn } from '@/shared/lib/utils';
+import { Input } from '@/shared/ui/input';
+import { Label } from '@/shared/ui/label';
+import { Button } from '@/shared/ui/button';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
-import { toast } from 'sonner';
 import { useAuth } from '@/features/auth/AuthContext';
-import { correlationFromUnknown, messageFromUnknown } from '@/shared/api';
-import { usePermissionsCatalog } from '@/features/admin/api/usePermissionsCatalog.js';
-import { useCreateRole, useDeleteRole, useUpdateRole } from '@/features/admin/api/useRoleMutations.js';
 import { useRolesPage } from '@/features/admin/api/useRoles.js';
 import { InlineErrorAlert } from '@/features/admin/InlineErrorAlert.jsx';
-import { cn } from '@/shared/lib/utils';
-import { Button } from '@/shared/ui/button';
+import { correlationFromUnknown, messageFromUnknown } from '@/shared/api';
+import { Loader2, Pencil, Plus, Search, ShieldCheck, Trash2 } from 'lucide-react';
+import { usePermissionsCatalog } from '@/features/admin/api/usePermissionsCatalog.js';
+import { useCreateRole, useDeleteRole, useUpdateRole } from '@/features/admin/api/useRoleMutations.js';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/ui/dialog';
-import { Input } from '@/shared/ui/input';
-import { Label } from '@/shared/ui/label';
 
 /** Debounce delay before search text reaches the query key. */
 const ROLE_SEARCH_DEBOUNCE_MS = 300;

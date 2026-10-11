@@ -2,8 +2,8 @@
  * Unit tests for the authenticate preHandler.
  */
 import { describe, expect, it, vi } from 'vitest';
-import { createAuthenticatePreHandler } from '../../../src/modules/access/auth.js';
 import { LoginSession } from '../../../src/models/loginSession.model.js';
+import { createAuthenticatePreHandler } from '../../../src/modules/access/auth.js';
 
 vi.mock('../../../src/modules/masters/index.js', async (importOriginal) => {
   const actual = await importOriginal();

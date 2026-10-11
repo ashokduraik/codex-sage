@@ -1,15 +1,15 @@
 /**
  * knowledge/search.js — merged resource file.
  */
-import { requireProjectPermission } from '../../http/preHandlers/requireProjectPermission.js';
-import { ROW_STATUS_ACTIVE } from '../../platform/data/index.js';
+import { z } from 'zod';
 import { ApiError } from '../../platform/errors.js';
-import { findProjectById, recordProjectActivity } from '../masters/index.js';
 import { createCodegraphAdapter } from './codegraph.js';
 import { searchDocumentSections } from './documents.js';
-import { assertKnowledgeReadable, findKnowledgeVersionById } from './knowledge.js';
 import { resolveProjectWorkspacePath } from './sources.js';
-import { z } from 'zod';
+import { ROW_STATUS_ACTIVE } from '../../platform/data/index.js';
+import { findProjectById, recordProjectActivity } from '../masters/index.js';
+import { assertKnowledgeReadable, findKnowledgeVersionById } from './knowledge.js';
+import { requireProjectPermission } from '../../http/preHandlers/requireProjectPermission.js';
 
 // --- from search/search.ids.js ---
 /**

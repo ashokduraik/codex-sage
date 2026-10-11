@@ -1,7 +1,7 @@
 import { Loader2 } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
 import { cn } from '@/shared/lib/utils';
+import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { jobTypeLabelKey, stageLabelKey } from '@/features/projects/processing/jobProgressMap.js';
 
 /**

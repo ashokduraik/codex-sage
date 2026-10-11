@@ -1,13 +1,13 @@
-import { Link, useSearchParams } from 'react-router-dom';
-import { Activity, Loader2 } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
-import { correlationFromUnknown, messageFromUnknown } from '@/shared/api';
-import { EmptyState } from '@/shared/components';
 import { Button } from '@/shared/ui/button';
+import { useTranslation } from 'react-i18next';
+import { Activity, Loader2 } from 'lucide-react';
+import { EmptyState } from '@/shared/components';
+import ProcessingJobCard from './ProcessingJobCard.jsx';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useProject } from '@/features/projects/hooks/useProject.js';
+import { correlationFromUnknown, messageFromUnknown } from '@/shared/api';
 import { flattenJobPages, useProjectJobs } from './hooks/useProjectJobs.js';
 import { isActiveJobStatus, isHistoryJobStatus } from './jobProgressMap.js';
-import ProcessingJobCard from './ProcessingJobCard.jsx';
 
 /**
  * Processing center showing in-progress and historical knowledge jobs.

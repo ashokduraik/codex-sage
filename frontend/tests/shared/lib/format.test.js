@@ -1,5 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { formatDateTime, formatRelative } from '@/shared/lib/format';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 describe('formatRelative', () => {
   beforeEach(() => {
     vi.useFakeTimers();

@@ -2,23 +2,23 @@
  * Every domain ObjectId path must name its Mongoose model via `ref`.
  */
 import { describe, expect, it } from 'vitest';
-import { AuditEvent } from '../../src/models/audit.model.js';
-import { Conversation } from '../../src/models/conversations.model.js';
-import { DocumentSection } from '../../src/models/documentSection.model.js';
-import { IdempotencyRecord } from '../../src/models/idempotency.model.js';
 import { Job } from '../../src/models/job.model.js';
-import { KnowledgeVersion } from '../../src/models/knowledgeVersion.model.js';
-import { Message } from '../../src/models/messages.model.js';
-import { Organization } from '../../src/models/organization.model.js';
-import { ProjectJobLock } from '../../src/models/projectJobLock.model.js';
-import { Project } from '../../src/models/projects.model.js';
-import { RepositoryConnection } from '../../src/models/repositoryConnection.model.js';
 import { Role } from '../../src/models/role.model.js';
-import { LoginSession } from '../../src/models/loginSession.model.js';
-import { SourceChangeSummary } from '../../src/models/sourceChangeSummary.model.js';
-import { SourceFile } from '../../src/models/sourceFile.model.js';
-import { SourceVersion } from '../../src/models/sourceVersion.model.js';
 import { User } from '../../src/models/user.model.js';
+import { AuditEvent } from '../../src/models/audit.model.js';
+import { Message } from '../../src/models/messages.model.js';
+import { Project } from '../../src/models/projects.model.js';
+import { SourceFile } from '../../src/models/sourceFile.model.js';
+import { LoginSession } from '../../src/models/loginSession.model.js';
+import { Organization } from '../../src/models/organization.model.js';
+import { Conversation } from '../../src/models/conversations.model.js';
+import { SourceVersion } from '../../src/models/sourceVersion.model.js';
+import { IdempotencyRecord } from '../../src/models/idempotency.model.js';
+import { ProjectJobLock } from '../../src/models/projectJobLock.model.js';
+import { DocumentSection } from '../../src/models/documentSection.model.js';
+import { KnowledgeVersion } from '../../src/models/knowledgeVersion.model.js';
+import { SourceChangeSummary } from '../../src/models/sourceChangeSummary.model.js';
+import { RepositoryConnection } from '../../src/models/repositoryConnection.model.js';
 
 /** Paths that store an ObjectId that is not a single Mongoose document. */
 const OBJECT_ID_PATHS_WITHOUT_REF = Object.freeze(new Set(['IdempotencyRecord.resourceId', 'SourceFile.gridFsId']));

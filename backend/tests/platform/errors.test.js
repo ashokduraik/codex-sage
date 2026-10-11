@@ -1,7 +1,7 @@
-import { describe, it, expect, afterEach, vi } from 'vitest';
-import { ApiError, apiErrorFromCaught, buildErrorEnvelope, canSendJsonError, caughtErrorFields, logCaughtError } from '../../src/platform/errors.js';
-import { buildApp, CORRELATION_ID_HEADER } from '../../src/http/app.js';
 import { TEST_APP_CONFIG } from '../appConfig.js';
+import { describe, it, expect, afterEach, vi } from 'vitest';
+import { buildApp, CORRELATION_ID_HEADER } from '../../src/http/app.js';
+import { ApiError, apiErrorFromCaught, buildErrorEnvelope, canSendJsonError, caughtErrorFields, logCaughtError } from '../../src/platform/errors.js';
 
 describe('ApiError', () => {
   it('constructs with statusCode, code, and message', () => {

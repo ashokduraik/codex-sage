@@ -2,7 +2,22 @@
  * Unit tests for the six scoped agent tools: registry, tenant scope, evidence
  * mapping, budgeter hand-off, and abort — with masters/knowledge seams mocked.
  */
+import { ApiError } from '../../../src/platform/errors.js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { findProjectById } from '../../../src/modules/masters/index.js';
+import { LIST_DOCUMENTS_PAGE_SIZE } from '../../../src/modules/conversation/agentTools.js';
+import { executeTool, listToolDefinitionsForSchema } from '../../../src/modules/conversation/index.js';
+import {
+  isDocumentPath,
+  listSectionsForPath,
+  loadSourceFileSlice,
+  createCodegraphAdapter,
+  searchDocumentSections,
+  assertKnowledgeReadable,
+  findKnowledgeVersionById,
+  listDocumentFilesForVersion,
+  resolveProjectWorkspacePath,
+} from '../../../src/modules/knowledge/index.js';
 
 const { countTokensForBudget } = vi.hoisted(() => ({
   countTokensForBudget: vi.fn((text) => {
@@ -38,22 +53,6 @@ vi.mock('../../../src/modules/knowledge/index.js', async (importOriginal) => {
     searchDocumentSections: vi.fn(),
   };
 });
-
-import { findProjectById } from '../../../src/modules/masters/index.js';
-import {
-  assertKnowledgeReadable,
-  createCodegraphAdapter,
-  findKnowledgeVersionById,
-  isDocumentPath,
-  listDocumentFilesForVersion,
-  listSectionsForPath,
-  loadSourceFileSlice,
-  resolveProjectWorkspacePath,
-  searchDocumentSections,
-} from '../../../src/modules/knowledge/index.js';
-import { ApiError } from '../../../src/platform/errors.js';
-import { LIST_DOCUMENTS_PAGE_SIZE } from '../../../src/modules/conversation/agentTools.js';
-import { executeTool, listToolDefinitionsForSchema } from '../../../src/modules/conversation/index.js';
 
 const MODEL = 'test-model';
 

@@ -16,8 +16,8 @@ vi.mock('../../../src/modules/access/index.js', () => ({
   PASSWORD_MIN_LENGTH: 6,
 }));
 
-import { adminSetPassword } from '../../../src/modules/access/index.js';
 import { userRoutes } from '../../../src/modules/masters/users.js';
+import { adminSetPassword } from '../../../src/modules/access/index.js';
 
 /**
  * @returns {{

@@ -5,12 +5,12 @@
  * via `resourceRef` (processing when a job id is present, otherwise sources).
  */
 import { Bell } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
-import { messageFromUnknown } from '@/shared/api';
 import { cn } from '@/shared/lib/utils';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuSeparator, DropdownMenuTrigger } from '@/shared/ui/dropdown-menu';
+import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { messageFromUnknown } from '@/shared/api';
 import { useNotificationActions, useNotifications } from './hooks/useNotifications.js';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuSeparator, DropdownMenuTrigger } from '@/shared/ui/dropdown-menu';
 
 /**
  * Builds the in-app path for a notification row.

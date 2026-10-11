@@ -1,18 +1,18 @@
+import { Button } from '@/shared/ui/button';
 import { Loader2, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/shared/ui/alert-dialog';
-import { Button } from '@/shared/ui/button';
 import { useDeleteProject } from './hooks/useProjectMutations.js';
 import { useProjectDeletionPreview } from './hooks/useProjectDeletionPreview.js';
 import { correlationFromUnknown, isForbiddenApiError, messageFromUnknown, retryAfterFromUnknown } from '@/shared/api';
+import {
+  AlertDialog,
+  AlertDialogTitle,
+  AlertDialogCancel,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogContent,
+  AlertDialogDescription,
+} from '@/shared/ui/alert-dialog';
 
 /**
  * Consequence-explaining delete confirmation dialog.

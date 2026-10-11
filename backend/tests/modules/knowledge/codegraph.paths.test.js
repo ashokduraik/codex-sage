@@ -1,16 +1,16 @@
 /**
  * Unit tests for CodeGraph path helpers.
  */
-import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import fs from 'node:fs/promises';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   CODEGRAPH_DIR_NAME,
-  CODEGRAPH_PROJECT_CONFIG_FILENAME,
-  codegraphIndexExists,
   resolveCodegraphDir,
+  codegraphIndexExists,
   writeCodegraphExcludeConfig,
+  CODEGRAPH_PROJECT_CONFIG_FILENAME,
 } from '../../../src/modules/knowledge/codegraph.js';
 
 describe('codegraph.paths', () => {

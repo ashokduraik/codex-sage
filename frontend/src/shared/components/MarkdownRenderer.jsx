@@ -1,9 +1,10 @@
-import { Check, Copy } from 'lucide-react';
 import { useState } from 'react';
-import { useTranslation } from 'react-i18next';
-import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { cn } from '@/shared/lib/utils';
+import { Check, Copy } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import { useTranslation } from 'react-i18next';
+
 /**
  * Fenced code block with a language label and copy button.
  * @param props - Code block props.

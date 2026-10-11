@@ -1,14 +1,18 @@
 /**
  * Search panel tests against the mocked search API.
  */
-import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 
 vi.mock('@/features/projects/api/projectsApi.js', async () => {
   const fixtures = await import('@tests/features/projects/test/projectApiFixtures.js');
   return fixtures.defaultProjectsApiMock;
 });
+
+import SearchPanel from '@/features/knowledge/SearchPanel';
+import ProjectDetailPage from '@/features/projects/ProjectDetailPage';
+import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
 
 const fetchProjectSearch = vi.fn();
 const fetchSourceFileMetadata = vi.fn();
@@ -24,10 +28,6 @@ vi.mock('@/features/knowledge/api/knowledgeApi.js', async (importOriginal) => {
     fetchSourceSlice: (...args) => fetchSourceSlice(...args),
   };
 });
-
-import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
-import ProjectDetailPage from '@/features/projects/ProjectDetailPage';
-import SearchPanel from '@/features/knowledge/SearchPanel';
 
 afterEach(() => {
   cleanup();

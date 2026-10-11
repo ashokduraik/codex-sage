@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { MessagesSquare, Search, Archive } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
-import { EmptyState } from '@/shared/components';
 import { Input } from '@/shared/ui/input';
 import { Button } from '@/shared/ui/button';
-import { formatRelative } from '@/shared/lib/format';
+import { useTranslation } from 'react-i18next';
 import { useAppData } from '@/shared/mock-data';
+import { EmptyState } from '@/shared/components';
+import { formatRelative } from '@/shared/lib/format';
+import { MessagesSquare, Search, Archive } from 'lucide-react';
+
 /**
  * Cross-project conversations list with archive toggle and search.
  *

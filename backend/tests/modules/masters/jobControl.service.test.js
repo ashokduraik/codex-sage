@@ -1,8 +1,17 @@
 /**
  * Unit tests for job control service (retry/cancel).
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../../../src/platform/errors.js';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { cancelJob, retryJob } from '../../../src/modules/masters/jobs.js';
+import {
+  findJobById,
+  appendJobEvent,
+  beginUserRetry,
+  cancelQueuedJob,
+  findActiveJobForProject,
+  requestRunningJobCancel,
+} from '../../../src/modules/masters/jobs.helper.js';
 
 const { hasRequiredPermissions, resolveProjectPermissions, findProjectById, recordAuditEvent } = vi.hoisted(() => ({
   hasRequiredPermissions: vi.fn(),
@@ -36,16 +45,6 @@ vi.mock('../../../src/modules/masters/jobs.helper.js', async (importOriginal) =>
     appendJobEvent: vi.fn(),
   };
 });
-
-import {
-  appendJobEvent,
-  beginUserRetry,
-  cancelQueuedJob,
-  findActiveJobForProject,
-  findJobById,
-  requestRunningJobCancel,
-} from '../../../src/modules/masters/jobs.helper.js';
-import { cancelJob, retryJob } from '../../../src/modules/masters/jobs.js';
 
 const orgId = '665f1c9d4b2a8e0012a4f010';
 const userId = '665f1c9d4b2a8e0012a4f011';

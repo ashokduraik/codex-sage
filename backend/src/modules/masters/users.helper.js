@@ -2,12 +2,12 @@
  * users.helper.js — last-admin, role-in-use, and role-existence checks.
  * Used only by users.js.
  */
-import { User } from '../../models/user.model.js';
-import { assertOrgId } from '../../platform/data/index.js';
-import { ApiError } from '../../platform/errors.js';
-import { resolveEffectivePermissions } from '../access/index.js';
-import { findRolesByIds } from './roles.js';
 import mongoose from 'mongoose';
+import { findRolesByIds } from './roles.js';
+import { User } from '../../models/user.model.js';
+import { ApiError } from '../../platform/errors.js';
+import { assertOrgId } from '../../platform/data/index.js';
+import { resolveEffectivePermissions } from '../access/index.js';
 
 /**
  * Returns whether the given permission set includes users.manage.

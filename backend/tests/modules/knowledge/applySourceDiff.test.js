@@ -1,15 +1,15 @@
 /**
  * Tests for the post-S0 source-diff hook.
  */
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import mongoose from 'mongoose';
-import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
-import { KnowledgeVersion } from '../../../src/models/knowledgeVersion.model.js';
+import { createMongoHarness } from '../../mongoHarness.js';
 import { Project } from '../../../src/models/projects.model.js';
-import { SourceChangeSummary, SourceFile, SourceVersion, insertSourceFiles, insertSourceVersion } from '../../../src/modules/knowledge/sources.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { EXCLUSION_RULESET_ID } from '../../../src/modules/knowledge/uploads.js';
+import { KnowledgeVersion } from '../../../src/models/knowledgeVersion.model.js';
 import { applySourceDiffAfterValidate, hydrateSourceDiffCarry } from '../../../src/modules/knowledge/ingest.util.js';
+import { SourceChangeSummary, SourceFile, SourceVersion, insertSourceFiles, insertSourceVersion } from '../../../src/modules/knowledge/sources.js';
 
 const harness = createMongoHarness({
   models: [Project, KnowledgeVersion, SourceVersion, SourceFile, SourceChangeSummary],

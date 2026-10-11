@@ -1,14 +1,14 @@
 import { useState } from 'react';
-import { GitBranch, Loader2, AlertCircle, Check, ExternalLink, ArrowLeft } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
 import { ApiError } from '@/shared/api';
-import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/shared/ui/dialog';
+import { Button } from '@/shared/ui/button';
+import { useTranslation } from 'react-i18next';
 import { useRepositoryProbe } from './hooks/useRepositoryProbe.js';
 import { useRepositoryAttach } from './hooks/useRepositoryAttach.js';
+import { GitBranch, Loader2, AlertCircle, Check, ExternalLink, ArrowLeft } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/shared/ui/dialog';
 
 /** Known probe statuses from Phase 30. */
 export const KNOWN_PROBE_STATUSES = Object.freeze(['connected', 'authentication_required', 'access_denied', 'not_found', 'unreachable']);

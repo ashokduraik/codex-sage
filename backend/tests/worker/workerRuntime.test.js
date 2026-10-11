@@ -1,8 +1,8 @@
 /**
  * Unit tests for workerRuntime concurrency gate and shutdown release (mocked claim layer).
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import mongoose from 'mongoose';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { clearJobHandlersForTests, registerJobHandler } from '../../src/worker/handlerRegistry.js';
 
 const claimNextJob = vi.fn();

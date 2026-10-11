@@ -3,11 +3,11 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
-  AUDIT_CONTEXT_MAX_BYTES,
-  AUDIT_CONTEXT_MAX_VALUE_CHARS,
-  AUDIT_USER_AGENT_MAX_CHARS,
-  sanitizeAuditContext,
   sanitizeUserAgent,
+  sanitizeAuditContext,
+  AUDIT_CONTEXT_MAX_BYTES,
+  AUDIT_USER_AGENT_MAX_CHARS,
+  AUDIT_CONTEXT_MAX_VALUE_CHARS,
 } from '../../../src/modules/access/audit.js';
 
 describe('sanitizeAuditContext', () => {

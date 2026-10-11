@@ -1,9 +1,9 @@
 /**
  * Tests for job detail polling.
  */
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { renderHook, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 vi.mock('@/features/projects/processing/api/jobsApi.js', async (importOriginal) => {
   const actual = await importOriginal();
@@ -13,8 +13,8 @@ vi.mock('@/features/projects/processing/api/jobsApi.js', async (importOriginal) 
   };
 });
 
-import { getJob, JOB_DETAIL_POLL_INTERVAL_MS } from '@/features/projects/processing/api/jobsApi.js';
 import { useJob } from '@/features/projects/processing/hooks/useJob.js';
+import { getJob, JOB_DETAIL_POLL_INTERVAL_MS } from '@/features/projects/processing/api/jobsApi.js';
 
 /**
  * @param {import('@tanstack/react-query').QueryClient} queryClient Client.

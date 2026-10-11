@@ -2,8 +2,15 @@
  * Mongo integration tests for tenant-scoped document search via executeTool.
  * Scope seams are mocked; searchDocumentSections and Mongo stay real.
  */
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import mongoose from 'mongoose';
+import { TEST_APP_CONFIG } from '../../appConfig.js';
+import { createMongoHarness } from '../../mongoHarness.js';
+import { findProjectById } from '../../../src/modules/masters/index.js';
+import { executeTool } from '../../../src/modules/conversation/index.js';
+import { DocumentSection } from '../../../src/models/documentSection.model.js';
+import { insertDocumentSections } from '../../../src/modules/knowledge/documents.js';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { findKnowledgeVersionById, resolveProjectWorkspacePath } from '../../../src/modules/knowledge/index.js';
 
 const { countTokensForBudget } = vi.hoisted(() => ({
   countTokensForBudget: vi.fn((text) => {
@@ -32,14 +39,6 @@ vi.mock('../../../src/modules/knowledge/index.js', async (importOriginal) => {
     resolveProjectWorkspacePath: vi.fn(),
   };
 });
-
-import { createMongoHarness } from '../../mongoHarness.js';
-import { TEST_APP_CONFIG } from '../../appConfig.js';
-import { DocumentSection } from '../../../src/models/documentSection.model.js';
-import { insertDocumentSections } from '../../../src/modules/knowledge/documents.js';
-import { findProjectById } from '../../../src/modules/masters/index.js';
-import { findKnowledgeVersionById, resolveProjectWorkspacePath } from '../../../src/modules/knowledge/index.js';
-import { executeTool } from '../../../src/modules/conversation/index.js';
 
 const harness = createMongoHarness({
   models: [DocumentSection],

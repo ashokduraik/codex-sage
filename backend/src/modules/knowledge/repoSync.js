@@ -1,25 +1,25 @@
 /**
  * knowledge/repoSync.js — merged resource file.
  */
+import mongoose from 'mongoose';
 import { loadConfig } from '../../platform/config.js';
-import { ApiError, caughtErrorFields, logCaughtError } from '../../platform/errors.js';
-import { hasActiveProjectWriterLock } from '../../worker/projectJobLock.js';
 import { recordAuditEvent } from '../access/index.js';
+import { hasActiveProjectWriterLock } from '../../worker/projectJobLock.js';
+import { ApiError, caughtErrorFields, logCaughtError } from '../../platform/errors.js';
+import { inspectZip, storeAcceptedZipEntries, summarizeInspection, UPLOAD_MAX_ARCHIVE_BYTES } from './uploads.js';
+import { listDueConnections, updateConnection, findActiveConnection, decryptConnectionToken } from './repositories.js';
 import { insertPendingJob, findActiveJobForProjectByTypes, createPendingJob, deferRunningJob } from '../masters/index.js';
+import { insertSourceFiles, insertSourceVersion, markGridFsFilesOrphaned, setSourceVersionJobId, SOURCE_ORIGIN_REPOSITORY } from './sources.js';
 import {
-  assertHostAllowed,
   outboundGet,
   githubHeaders,
   gitlabApiBase,
   gitlabHeaders,
-  mapAuthenticatedLookupStatus,
-  mapAnonymousLookupStatus,
+  assertHostAllowed,
   mapOutboundThrown,
+  mapAnonymousLookupStatus,
+  mapAuthenticatedLookupStatus,
 } from './repositories.helper.js';
-import { listDueConnections, updateConnection, findActiveConnection, decryptConnectionToken } from './repositories.js';
-import { insertSourceFiles, insertSourceVersion, markGridFsFilesOrphaned, setSourceVersionJobId, SOURCE_ORIGIN_REPOSITORY } from './sources.js';
-import { inspectZip, storeAcceptedZipEntries, summarizeInspection, UPLOAD_MAX_ARCHIVE_BYTES } from './uploads.js';
-import mongoose from 'mongoose';
 
 // --- from repositories/sync/repoSync.constants.js ---
 /**

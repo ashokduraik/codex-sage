@@ -1,7 +1,7 @@
-import { QueryClient } from '@tanstack/react-query';
-import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/shared/api/index';
+import { QueryClient } from '@tanstack/react-query';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
 
 vi.mock('@/features/projects/api/repositoriesApi.js', () => ({
@@ -11,8 +11,8 @@ vi.mock('@/features/projects/api/repositoriesApi.js', () => ({
   repositoryConnectionQueryKey: (projectId) => Object.freeze(['projects', String(projectId), 'repositories', 'connection']),
 }));
 
-import { attachProjectRepository, probeProjectRepository } from '@/features/projects/api/repositoriesApi.js';
 import { ConnectRepositoryDialog } from '@/features/projects/ConnectRepositoryDialog';
+import { attachProjectRepository, probeProjectRepository } from '@/features/projects/api/repositoriesApi.js';
 
 afterEach(() => {
   cleanup();

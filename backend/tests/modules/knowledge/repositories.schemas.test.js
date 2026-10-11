@@ -3,10 +3,10 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
-  attachBodySchema,
-  mapRepositoryZodDetails,
-  patchBranchBodySchema,
   probeBodySchema,
+  attachBodySchema,
+  patchBranchBodySchema,
+  mapRepositoryZodDetails,
   replaceCredentialBodySchema,
 } from '../../../src/modules/knowledge/repositories.js';
 

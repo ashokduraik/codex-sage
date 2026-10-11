@@ -1,10 +1,11 @@
-import { describe, it, expect, afterEach, vi, beforeEach } from 'vitest';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { API_BASE_PATH, buildApp, CORRELATION_ID_HEADER, CORRELATION_ID_PREFIX, generateCorrelationId } from '../../src/http/app.js';
+import { tmpdir } from 'node:os';
 import { TEST_APP_CONFIG } from '../appConfig.js';
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { MONGO_UNAVAILABLE_CODE } from '../../src/platform/mongo.js';
+import { describe, it, expect, afterEach, vi, beforeEach } from 'vitest';
+import { API_BASE_PATH, buildApp, CORRELATION_ID_HEADER, CORRELATION_ID_PREFIX, generateCorrelationId } from '../../src/http/app.js';
+
 vi.mock('../../src/platform/mongo.js', async (importOriginal) => {
   const actual = await importOriginal();
   return {
@@ -12,7 +13,9 @@ vi.mock('../../src/platform/mongo.js', async (importOriginal) => {
     checkMongoHealth: vi.fn(),
   };
 });
+
 import { checkMongoHealth } from '../../src/platform/mongo.js';
+
 let app;
 beforeEach(() => {
   vi.mocked(checkMongoHealth).mockResolvedValue({ ok: true, latencyMs: 1 });

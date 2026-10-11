@@ -1,10 +1,10 @@
 /**
  * Credential replace / revoke / re-test mutations.
  */
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, renderHook, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/shared/api/index';
+import { describe, expect, it, vi } from 'vitest';
+import { act, renderHook, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 vi.mock('@/features/projects/api/repositoriesApi.js', () => ({
   repositoryConnectionQueryKey: (projectId) => Object.freeze(['projects', String(projectId), 'repositories', 'connection']),
@@ -17,13 +17,13 @@ vi.mock('@/features/projects/api/sourcesApi.js', () => ({
   sourceVersionsQueryKey: (projectId) => Object.freeze(['projects', String(projectId), 'source-versions']),
 }));
 
-import {
-  replaceProjectRepositoryCredential,
-  revokeProjectRepositoryCredential,
-  retestProjectRepositoryConnection,
-} from '@/features/projects/api/repositoriesApi.js';
 import { projectDetailQueryKey } from '@/features/projects/api/projectsApi.js';
 import { useRepositoryCredentialActions } from '@/features/projects/hooks/useRepositoryCredentialActions.js';
+import {
+  retestProjectRepositoryConnection,
+  revokeProjectRepositoryCredential,
+  replaceProjectRepositoryCredential,
+} from '@/features/projects/api/repositoriesApi.js';
 
 /**
  * @param {import('@tanstack/react-query').QueryClient} queryClient Client.

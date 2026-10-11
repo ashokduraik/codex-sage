@@ -1,17 +1,17 @@
 /**
  * Unit tests for workspace reset and GridFS→disk materialization.
  */
-import { createHash } from 'node:crypto';
-import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { Readable } from 'node:stream';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import mongoose from 'mongoose';
-import { createMongoHarness } from '../../mongoHarness.js';
+import fs from 'node:fs/promises';
+import { Readable } from 'node:stream';
+import { createHash } from 'node:crypto';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
-import { getSourceFilesBucket } from '../../../src/modules/knowledge/sources.js';
+import { createMongoHarness } from '../../mongoHarness.js';
 import { clearSourceFilesBucket } from '../../clearSourceFilesBucket.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { getSourceFilesBucket } from '../../../src/modules/knowledge/sources.js';
 import { materializeGridFsFileToDisk, resetProjectWorkspaceSubtree } from '../../../src/modules/knowledge/sources.js';
 
 const harness = createMongoHarness({

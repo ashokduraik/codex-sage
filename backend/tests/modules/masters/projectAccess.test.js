@@ -1,20 +1,20 @@
 /**
  * Unit tests for resolveProjectPermissions matrix and cache behaviour.
  */
-import { createTestOrganization, ensureTestRoles, nextTestUserCode } from '../../identityFixtures.js';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
-import { IDENTITY_MODELS, createUserInRepo, bumpOrganizationAclVersion, findRoleByCode } from '../../../src/modules/masters/index.js';
-import { PROJECT_MODELS, createProjectInRepo } from '../../../src/modules/masters/projects.js';
-import {
-  createProjectAclCache,
-  createProjectMember,
-  resolveProjectPermissions,
-  softDeleteProjectMember,
-  bumpProjectAclVersion,
-} from '../../../src/modules/masters/projectMembers.js';
+import { createMongoHarness } from '../../mongoHarness.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { softDeleteProject } from '../../../src/modules/masters/projects.helper.js';
+import { PROJECT_MODELS, createProjectInRepo } from '../../../src/modules/masters/projects.js';
+import { createTestOrganization, ensureTestRoles, nextTestUserCode } from '../../identityFixtures.js';
+import { IDENTITY_MODELS, createUserInRepo, bumpOrganizationAclVersion, findRoleByCode } from '../../../src/modules/masters/index.js';
+import {
+  createProjectMember,
+  bumpProjectAclVersion,
+  createProjectAclCache,
+  softDeleteProjectMember,
+  resolveProjectPermissions,
+} from '../../../src/modules/masters/projectMembers.js';
 
 const harness = createMongoHarness({
   models: [...IDENTITY_MODELS, ...PROJECT_MODELS],

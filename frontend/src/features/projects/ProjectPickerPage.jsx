@@ -1,10 +1,10 @@
-import { Link, useNavigate } from 'react-router-dom';
-import { MessageSquare, BookOpen, Search, FolderKanban, ArrowRight, Loader2 } from 'lucide-react';
+import { Button } from '@/shared/ui/button';
 import { useTranslation } from 'react-i18next';
 import { EmptyState } from '@/shared/components';
-import { Button } from '@/shared/ui/button';
-import { flattenProjectPages, useProjects } from './hooks/useProjects.js';
+import { Link, useNavigate } from 'react-router-dom';
 import { correlationFromUnknown, messageFromUnknown } from '@/shared/api';
+import { flattenProjectPages, useProjects } from './hooks/useProjects.js';
+import { MessageSquare, BookOpen, Search, FolderKanban, ArrowRight, Loader2 } from 'lucide-react';
 
 const TAB_META = {
   chat: {

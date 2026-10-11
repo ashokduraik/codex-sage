@@ -1,9 +1,9 @@
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { tmpdir } from 'node:os';
+import { TEST_APP_CONFIG } from '../appConfig.js';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi, beforeEach } from 'vitest';
 import { API_BASE_PATH, buildApp, CORRELATION_ID_HEADER } from '../../src/http/app.js';
-import { TEST_APP_CONFIG } from '../appConfig.js';
 import { FRONTEND_DIST_ROOT, isApiUrlPath, resolveProductionDistRoot } from '../../src/http/static-spa.js';
 
 vi.mock('../../src/platform/mongo.js', async (importOriginal) => {

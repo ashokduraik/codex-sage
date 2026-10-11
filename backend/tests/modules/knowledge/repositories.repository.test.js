@@ -1,18 +1,18 @@
 /**
  * Tenant-scoped connection and credential persistence.
  */
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import mongoose from 'mongoose';
-import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
+import { createMongoHarness } from '../../mongoHarness.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { includeDeleted, ROW_STATUS_DELETED } from '../../../src/platform/data/index.js';
 import { RepositoryConnection } from '../../../src/models/repositoryConnection.model.js';
 import {
-  findActiveConnection,
-  listDueConnections,
   insertConnection,
-  softDeleteConnection,
   updateConnection,
+  listDueConnections,
+  findActiveConnection,
+  softDeleteConnection,
 } from '../../../src/modules/knowledge/repositories.js';
 
 const harness = createMongoHarness({

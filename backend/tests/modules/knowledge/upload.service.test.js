@@ -1,20 +1,20 @@
 /**
  * Unit tests for source upload persistence helpers.
  */
-import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import mongoose from 'mongoose';
-import { createMongoHarness } from '../../mongoHarness.js';
+import { createHash } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
+import { readFile } from 'node:fs/promises';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
-import { GRAPH_FILE_MAX_BYTES } from '../../../src/modules/knowledge/uploads.js';
-import { summarizeInspection } from '../../../src/modules/knowledge/uploads.js';
-import { getSourceFilesBucket, GRIDFS_SOURCE_BUCKET } from '../../../src/modules/knowledge/sources.js';
+import { createMongoHarness } from '../../mongoHarness.js';
 import { clearSourceFilesBucket } from '../../clearSourceFilesBucket.js';
-import { kindForSourcePath, storeAcceptedZipEntries } from '../../../src/modules/knowledge/uploads.js';
+import { summarizeInspection } from '../../../src/modules/knowledge/uploads.js';
+import { GRAPH_FILE_MAX_BYTES } from '../../../src/modules/knowledge/uploads.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { SourceFile, SourceVersion } from '../../../src/modules/knowledge/sources.js';
+import { getSourceFilesBucket, GRIDFS_SOURCE_BUCKET } from '../../../src/modules/knowledge/sources.js';
+import { kindForSourcePath, storeAcceptedZipEntries } from '../../../src/modules/knowledge/uploads.js';
 
 const fixturesDir = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures');
 

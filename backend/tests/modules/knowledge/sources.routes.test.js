@@ -1,31 +1,31 @@
 /**
  * Reingest route integration tests — ACL, idempotency, and 404 isolation.
  */
-import { nextTestUserCode, ensureTestRoles } from '../../identityFixtures.js';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import mongoose from 'mongoose';
-import { API_BASE_PATH, buildApp } from '../../../src/http/app.js';
-import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
-import { AUDIT_MODELS } from '../../../src/modules/access/audit.js';
+import { createMongoHarness } from '../../mongoHarness.js';
+import { API_BASE_PATH, buildApp } from '../../../src/http/app.js';
 import { AUTH_MODELS } from '../../../src/modules/access/index.js';
 import { hashPassword } from '../../../src/modules/access/auth.js';
+import { AUDIT_MODELS } from '../../../src/modules/access/audit.js';
+import { JOB_MODELS, Job } from '../../../src/modules/masters/jobs.js';
+import { PROJECT_MODELS } from '../../../src/modules/masters/projects.js';
+import { SOURCE_MODELS } from '../../../src/modules/knowledge/sources.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { nextTestUserCode, ensureTestRoles } from '../../identityFixtures.js';
+import { IDEMPOTENCY_MODELS } from '../../../src/platform/idempotency/index.js';
+import { insertSourceVersion } from '../../../src/modules/knowledge/sources.js';
+import { EXCLUSION_RULESET_ID } from '../../../src/modules/knowledge/uploads.js';
+import { addProjectMember } from '../../../src/modules/masters/projectMembers.js';
 import {
-  DEFAULT_ADMIN_EMAIL,
-  DEFAULT_ADMIN_PASSWORD,
+  findRoleByCode,
   IDENTITY_MODELS,
   createUserInRepo,
-  findOrganizationBySlug,
   runBootstrapSeed,
-  findRoleByCode,
+  DEFAULT_ADMIN_EMAIL,
+  DEFAULT_ADMIN_PASSWORD,
+  findOrganizationBySlug,
 } from '../../../src/modules/masters/index.js';
-import { IDEMPOTENCY_MODELS } from '../../../src/platform/idempotency/index.js';
-import { PROJECT_MODELS } from '../../../src/modules/masters/projects.js';
-import { addProjectMember } from '../../../src/modules/masters/projectMembers.js';
-import { JOB_MODELS, Job } from '../../../src/modules/masters/jobs.js';
-import { EXCLUSION_RULESET_ID } from '../../../src/modules/knowledge/uploads.js';
-import { SOURCE_MODELS } from '../../../src/modules/knowledge/sources.js';
-import { insertSourceVersion } from '../../../src/modules/knowledge/sources.js';
 
 const harness = createMongoHarness({
   models: [...IDENTITY_MODELS, ...AUTH_MODELS, ...AUDIT_MODELS, ...IDEMPOTENCY_MODELS, ...PROJECT_MODELS, ...JOB_MODELS, ...SOURCE_MODELS],

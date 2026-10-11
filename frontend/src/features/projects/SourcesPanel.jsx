@@ -1,30 +1,30 @@
 import { useState } from 'react';
-import { Link, useNavigate, useOutletContext } from 'react-router-dom';
-import { useAuth } from '@/features/auth/AuthContext';
-import { AlertCircle, Check, GitBranch, KeyRound, Loader2, Plus, RefreshCw, Trash2, UploadCloud } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
-import { ApiError, correlationFromUnknown, messageFromUnknown } from '@/shared/api';
-import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
+import { Button } from '@/shared/ui/button';
+import { useTranslation } from 'react-i18next';
+import { formatDateTime } from '@/shared/lib/format';
+import { useAuth } from '@/features/auth/AuthContext';
+import { SourceUploadDialog } from './SourceUploadDialog';
+import { useReingestSource } from './hooks/useReingestSource.js';
+import { ConnectRepositoryDialog } from './ConnectRepositoryDialog';
+import { Link, useNavigate, useOutletContext } from 'react-router-dom';
+import { useRepositoryConnection } from './hooks/useRepositoryConnection.js';
+import { ApiError, correlationFromUnknown, messageFromUnknown } from '@/shared/api';
+import { useRepositoryCredentialActions } from './hooks/useRepositoryCredentialActions.js';
+import { flattenSourceVersionPages, useSourceVersions } from './hooks/useSourceVersions.js';
+import { AlertCircle, Check, GitBranch, KeyRound, Loader2, Plus, RefreshCw, Trash2, UploadCloud } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/ui/dialog';
 import {
   AlertDialog,
+  AlertDialogTitle,
   AlertDialogAction,
   AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogTitle,
+  AlertDialogContent,
+  AlertDialogDescription,
 } from '@/shared/ui/alert-dialog';
-import { formatDateTime } from '@/shared/lib/format';
-import { SourceUploadDialog } from './SourceUploadDialog';
-import { ConnectRepositoryDialog } from './ConnectRepositoryDialog';
-import { flattenSourceVersionPages, useSourceVersions } from './hooks/useSourceVersions.js';
-import { useRepositoryConnection } from './hooks/useRepositoryConnection.js';
-import { useRepositoryCredentialActions } from './hooks/useRepositoryCredentialActions.js';
-import { useReingestSource } from './hooks/useReingestSource.js';
 
 /** @type {Readonly<Record<string, string>>} */
 const CONNECTION_STATUS_LABEL_KEYS = Object.freeze({

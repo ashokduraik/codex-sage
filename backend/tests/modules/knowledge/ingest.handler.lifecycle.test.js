@@ -2,6 +2,7 @@
  * Unit tests for ingest job-start lifecycle and fail hook helpers.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { enterIngestLifecycleAtJobStart, markProjectKnowledgeFailed } from '../../../src/modules/knowledge/ingest.js';
 
 const findProjectById = vi.fn();
 const transitionLifecycle = vi.fn();
@@ -15,8 +16,6 @@ vi.mock('../../../src/modules/masters/index.js', () => ({
 vi.mock('../../../src/modules/access/index.js', () => ({
   recordAuditEvent: (...args) => recordAuditEvent(...args),
 }));
-
-import { enterIngestLifecycleAtJobStart, markProjectKnowledgeFailed } from '../../../src/modules/knowledge/ingest.js';
 
 describe('enterIngestLifecycleAtJobStart', () => {
   beforeEach(() => {

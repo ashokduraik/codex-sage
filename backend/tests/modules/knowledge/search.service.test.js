@@ -2,6 +2,15 @@
  * Unit tests for project search orchestration.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { encodeSearchCursor } from '../../../src/modules/knowledge/search.js';
+import {
+  stateFromGate,
+  pageSearchItems,
+  runProjectSearch,
+  emptySearchEnvelope,
+  collectGraphSearchItems,
+  runProjectSearchFromQuery,
+} from '../../../src/modules/knowledge/search.js';
 
 const { findProjectById, assertKnowledgeReadable, findKnowledgeVersionById, searchDocumentSections, createCodegraphAdapter } = vi.hoisted(() => ({
   findProjectById: vi.fn(),
@@ -28,16 +37,6 @@ vi.mock('../../../src/modules/knowledge/documents.js', () => ({
 vi.mock('../../../src/modules/knowledge/codegraph.js', () => ({
   createCodegraphAdapter,
 }));
-
-import {
-  collectGraphSearchItems,
-  emptySearchEnvelope,
-  pageSearchItems,
-  runProjectSearch,
-  runProjectSearchFromQuery,
-  stateFromGate,
-} from '../../../src/modules/knowledge/search.js';
-import { encodeSearchCursor } from '../../../src/modules/knowledge/search.js';
 
 /**
  * @returns {object}

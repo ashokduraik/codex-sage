@@ -1,9 +1,9 @@
 /**
  * knowledge/repositories.helper.js — merged resource file.
  */
+import { isIP } from 'node:net';
 import { loadConfig } from '../../platform/config.js';
 import { ApiError, apiErrorFromCaught, logCaughtError } from '../../platform/errors.js';
-import { isIP } from 'node:net';
 
 // --- from repositories/providers/outboundHttp.js ---
 /**

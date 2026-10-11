@@ -1,8 +1,9 @@
-import { cleanup, screen } from '@testing-library/react';
 import { Route, Routes } from 'react-router-dom';
+import { cleanup, screen } from '@testing-library/react';
+import NotFoundPage from '@/features/not-found/NotFoundPage';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
-import NotFoundPage from '@/features/not-found/NotFoundPage';
+
 afterEach(() => {
   cleanup();
 });

@@ -1,5 +1,5 @@
-import { QueryClient } from '@tanstack/react-query';
 import { ApiError } from '@/shared/api/ApiError.js';
+import { QueryClient } from '@tanstack/react-query';
 
 /** Default query stale time — admin lists tolerate it; hot status slices override. */
 export const QUERY_STALE_TIME_MS = 30_000;

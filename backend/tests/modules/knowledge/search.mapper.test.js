@@ -4,12 +4,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   isFileLikeNode,
+  unwrapGraphNode,
   mapApiSearchItem,
   mapDocSearchItem,
+  matchesQueryText,
   mapGraphSearchItem,
   mapWorkflowSearchItem,
-  matchesQueryText,
-  unwrapGraphNode,
 } from '../../../src/modules/knowledge/search.js';
 
 describe('search.mapper', () => {

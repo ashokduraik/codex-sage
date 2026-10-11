@@ -1,32 +1,32 @@
 /**
  * Unit/integration tests for audit model, repository, and service helpers.
  */
-import { createTestOrganization, ensureTestRoles, nextTestUserCode } from '../../identityFixtures.js';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import mongoose from 'mongoose';
-import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
-import { encodeCursor, ROW_STATUS_DELETED } from '../../../src/platform/data/index.js';
-import { IDENTITY_MODELS, PROJECT_MODELS, createUserInRepo } from '../../../src/modules/masters/index.js';
-import { AUDIT_MODELS } from '../../../src/modules/access/audit.js';
-import { AuditEvent } from '../../../src/models/audit.model.js';
-import { Conversation } from '../../../src/models/conversations.model.js';
 import { Job } from '../../../src/models/job.model.js';
-import { KnowledgeVersion } from '../../../src/models/knowledgeVersion.model.js';
+import { createMongoHarness } from '../../mongoHarness.js';
+import { AuditEvent } from '../../../src/models/audit.model.js';
 import { Project } from '../../../src/models/projects.model.js';
-import { RepositoryConnection } from '../../../src/models/repositoryConnection.model.js';
+import { AUDIT_MODELS } from '../../../src/modules/access/audit.js';
+import { Conversation } from '../../../src/models/conversations.model.js';
 import { SourceVersion } from '../../../src/models/sourceVersion.model.js';
-import {
-  clampAuditListLimit,
-  AUDIT_LIST_PAGE_SIZE_DEFAULT,
-  AUDIT_LIST_PAGE_SIZE_MAX,
-  insertAuditEvent,
-  listAuditEvents,
-  listAuditEventsForOrg,
-  getAuditEventForOrg,
-  assertAuditListDateRange,
-} from '../../../src/modules/access/audit.js';
+import { KnowledgeVersion } from '../../../src/models/knowledgeVersion.model.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { encodeCursor, ROW_STATUS_DELETED } from '../../../src/platform/data/index.js';
+import { RepositoryConnection } from '../../../src/models/repositoryConnection.model.js';
+import { createTestOrganization, ensureTestRoles, nextTestUserCode } from '../../identityFixtures.js';
+import { IDENTITY_MODELS, PROJECT_MODELS, createUserInRepo } from '../../../src/modules/masters/index.js';
 import { buildAuditContextFromRequest, recordAuditEvent, shouldAuditAuthorizationDenial } from '../../../src/modules/access/audit.js';
+import {
+  listAuditEvents,
+  insertAuditEvent,
+  clampAuditListLimit,
+  getAuditEventForOrg,
+  listAuditEventsForOrg,
+  assertAuditListDateRange,
+  AUDIT_LIST_PAGE_SIZE_MAX,
+  AUDIT_LIST_PAGE_SIZE_DEFAULT,
+} from '../../../src/modules/access/audit.js';
 
 const harness = createMongoHarness({
   models: [...IDENTITY_MODELS, ...PROJECT_MODELS, SourceVersion, Conversation, Job, KnowledgeVersion, RepositoryConnection, ...AUDIT_MODELS],

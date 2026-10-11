@@ -1,30 +1,30 @@
 /**
  * Conversation route integration tests — owner privacy, lifecycle, search, titles.
  */
-import { nextTestUserCode } from '../../identityFixtures.js';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import mongoose from 'mongoose';
-import { API_BASE_PATH, buildApp } from '../../../src/http/app.js';
-import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
-import { AUDIT_MODELS, listAuditEvents } from '../../../src/modules/access/audit.js';
+import { createMongoHarness } from '../../mongoHarness.js';
+import { nextTestUserCode } from '../../identityFixtures.js';
+import { API_BASE_PATH, buildApp } from '../../../src/http/app.js';
 import { AUTH_MODELS } from '../../../src/modules/access/index.js';
 import { hashPassword } from '../../../src/modules/access/auth.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { IDEMPOTENCY_MODELS } from '../../../src/platform/idempotency/index.js';
+import { addProjectMember } from '../../../src/modules/masters/projectMembers.js';
+import { PROJECT_MODELS, Project } from '../../../src/modules/masters/projects.js';
+import { AUDIT_MODELS, listAuditEvents } from '../../../src/modules/access/audit.js';
+import { CONVERSATION_DEFAULT_TITLE } from '../../../src/modules/conversation/conversation.helper.js';
+import { CONVERSATION_MODELS, Message, refreshConversationSearchText } from '../../../src/modules/conversation/conversation.js';
 import {
-  DEFAULT_ADMIN_EMAIL,
-  DEFAULT_ADMIN_PASSWORD,
+  findRoleByCode,
   IDENTITY_MODELS,
   createRoleInRepo,
   createUserInRepo,
-  findOrganizationBySlug,
   runBootstrapSeed,
-  findRoleByCode,
+  DEFAULT_ADMIN_EMAIL,
+  DEFAULT_ADMIN_PASSWORD,
+  findOrganizationBySlug,
 } from '../../../src/modules/masters/index.js';
-import { PROJECT_MODELS, Project } from '../../../src/modules/masters/projects.js';
-import { addProjectMember } from '../../../src/modules/masters/projectMembers.js';
-import { CONVERSATION_MODELS, Message, refreshConversationSearchText } from '../../../src/modules/conversation/conversation.js';
-import { CONVERSATION_DEFAULT_TITLE } from '../../../src/modules/conversation/conversation.helper.js';
 
 const harness = createMongoHarness({
   models: [...IDENTITY_MODELS, ...AUTH_MODELS, ...AUDIT_MODELS, ...IDEMPOTENCY_MODELS, ...PROJECT_MODELS, ...CONVERSATION_MODELS],

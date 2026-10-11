@@ -1,12 +1,12 @@
-import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, MessageSquare, Sparkles, FolderKanban, Plus, Loader2 } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
-import { KnowledgeHealthBadge } from '@/shared/components';
 import { Button } from '@/shared/ui/button';
+import { useTranslation } from 'react-i18next';
 import { formatRelative } from '@/shared/lib/format';
+import { Link, useNavigate } from 'react-router-dom';
+import { KnowledgeHealthBadge } from '@/shared/components';
 import { useAppData, SUGGESTED_QUESTIONS } from '@/shared/mock-data';
-import { flattenProjectPages, useProjects } from '@/features/projects/hooks/useProjects.js';
 import { correlationFromUnknown, messageFromUnknown } from '@/shared/api';
+import { flattenProjectPages, useProjects } from '@/features/projects/hooks/useProjects.js';
+import { ArrowRight, MessageSquare, Sparkles, FolderKanban, Plus, Loader2 } from 'lucide-react';
 
 /**
  * Home dashboard with suggested questions, recent projects, and conversations.

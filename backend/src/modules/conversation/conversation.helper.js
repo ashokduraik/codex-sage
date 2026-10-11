@@ -1,16 +1,16 @@
 /**
  * conversation/conversation.helper.js — merged resource file.
  */
-import {
-  CONVERSATION_LIFECYCLE_STATUS_VALUES,
-  CONVERSATION_TITLE_MAX_LENGTH,
-  CONVERSATION_TITLE_SOURCE_VALUES,
-  Conversation,
-} from '../../models/conversations.model.js';
+import mongoose from 'mongoose';
+import { ApiError } from '../../platform/errors.js';
 import { MESSAGE_ROLE_VALUES, MESSAGE_STATUS_VALUES, Message } from '../../models/messages.model.js';
 import { assertOrgId, decodeCursor, encodeCursor, softDelete, ROW_STATUS_ACTIVE } from '../../platform/data/index.js';
-import { ApiError } from '../../platform/errors.js';
-import mongoose from 'mongoose';
+import {
+  Conversation,
+  CONVERSATION_TITLE_MAX_LENGTH,
+  CONVERSATION_TITLE_SOURCE_VALUES,
+  CONVERSATION_LIFECYCLE_STATUS_VALUES,
+} from '../../models/conversations.model.js';
 
 // --- from conversations/conversations.constants.js ---
 /**

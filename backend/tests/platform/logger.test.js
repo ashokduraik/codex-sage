@@ -1,21 +1,21 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { Writable } from 'node:stream';
 import pino from 'pino';
-import {
-  buildLoggerOptions,
-  createAppLogger,
-  createRequestChildLogger,
-  registerRequestLogging,
-  serializeError,
-  serializeRequest,
-  shouldIncludeStack,
-  toPinoLevel,
-  LOG_BACKUP_COUNT,
-  LOG_DIR,
-  LOG_REDACT_PATHS,
-} from '../../src/platform/logger.js';
+import { Writable } from 'node:stream';
 import { TEST_APP_CONFIG } from '../appConfig.js';
 import { ApiError } from '../../src/platform/errors.js';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import {
+  LOG_DIR,
+  toPinoLevel,
+  serializeError,
+  createAppLogger,
+  LOG_BACKUP_COUNT,
+  LOG_REDACT_PATHS,
+  serializeRequest,
+  buildLoggerOptions,
+  shouldIncludeStack,
+  registerRequestLogging,
+  createRequestChildLogger,
+} from '../../src/platform/logger.js';
 
 vi.mock('pino-roll', () => ({
   default: vi.fn(async () => {

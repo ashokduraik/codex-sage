@@ -1,6 +1,13 @@
 /**
  * Public surface of the knowledge module (source, ingest, browse, search).
  */
+import { SourceFile } from '../../models/sourceFile.model.js';
+import { SourceVersion } from '../../models/sourceVersion.model.js';
+import { DocumentSection } from '../../models/documentSection.model.js';
+import { KnowledgeVersion } from '../../models/knowledgeVersion.model.js';
+import { SourceChangeSummary } from '../../models/sourceChangeSummary.model.js';
+import { RepositoryConnection } from '../../models/repositoryConnection.model.js';
+
 export { UPLOAD_MAX_ARCHIVE_BYTES, consumeSourceArchivePreHandler, sourceUploadRoutes } from './uploads.js';
 export { MULTIPART_MAX_FILES, sourceRoutes } from './sources.js';
 export { changeSummaryRoutes } from './changeSummary.js';
@@ -31,13 +38,6 @@ export { searchRoutes, SEARCH_DOC_MAX_RESULTS, SEARCH_GRAPH_MAX_RESULTS, SEARCH_
 export { createCodegraphAdapter, CODEGRAPH_READ_LEASE_TTL_MS } from './codegraph.js';
 export { resolveProjectWorkspacePath } from './sources.js';
 export { isDocumentPath, listDocumentFilesForVersion, listSectionsForPath, searchDocumentSections } from './documents.js';
-
-import { DocumentSection } from '../../models/documentSection.model.js';
-import { KnowledgeVersion } from '../../models/knowledgeVersion.model.js';
-import { RepositoryConnection } from '../../models/repositoryConnection.model.js';
-import { SourceChangeSummary } from '../../models/sourceChangeSummary.model.js';
-import { SourceFile } from '../../models/sourceFile.model.js';
-import { SourceVersion } from '../../models/sourceVersion.model.js';
 
 export const SOURCE_MODELS = Object.freeze([SourceVersion, SourceFile, SourceChangeSummary]);
 export const DOCUMENT_MODELS = Object.freeze([DocumentSection]);

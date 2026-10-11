@@ -1,9 +1,10 @@
 /**
  * Hook tests for debounced project search.
  */
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { renderHook, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useProjectSearch } from '@/features/knowledge/hooks/useProjectSearch.js';
 
 const fetchProjectSearch = vi.fn();
 
@@ -15,8 +16,6 @@ vi.mock('@/features/knowledge/api/knowledgeApi.js', async (importOriginal) => {
     fetchProjectSearch: (...args) => fetchProjectSearch(...args),
   };
 });
-
-import { useProjectSearch } from '@/features/knowledge/hooks/useProjectSearch.js';
 
 /**
  * @param {import('react').ReactNode} children Tree.

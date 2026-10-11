@@ -8,11 +8,11 @@ vi.mock('@/shared/api/refreshClient.js', async (importOriginal) => {
   return { ...actual, refreshAccessToken: vi.fn() };
 });
 
-import { getAccessToken, setAccessToken, resetApiSessionForTests } from '@/shared/api/apiSession.js';
-import { refreshAccessToken, resetRefreshClientForTests } from '@/shared/api/refreshClient.js';
+import { apiUpload } from '@/shared/api/apiUpload.js';
 import { API_BASE_URL } from '@/shared/api/apiConfig.js';
 import { ApiError, RequestAbortedError } from '@/shared/api/ApiError.js';
-import { apiUpload } from '@/shared/api/apiUpload.js';
+import { refreshAccessToken, resetRefreshClientForTests } from '@/shared/api/refreshClient.js';
+import { getAccessToken, setAccessToken, resetApiSessionForTests } from '@/shared/api/apiSession.js';
 
 /**
  * @returns {{

@@ -1,27 +1,27 @@
 /**
  * Password change and admin-set integration tests via app.inject.
  */
-import { createTestOrganization, nextTestUserCode, ensureTestRoles } from '../../identityFixtures.js';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { API_BASE_PATH, buildApp } from '../../../src/http/app.js';
-import { createMongoHarness } from '../../mongoHarness.js';
+import mongoose from 'mongoose';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
-import { AUDIT_MODELS } from '../../../src/modules/access/audit.js';
+import { createMongoHarness } from '../../mongoHarness.js';
+import { API_BASE_PATH, buildApp } from '../../../src/http/app.js';
 import { AUTH_MODELS } from '../../../src/modules/access/index.js';
+import { hashPassword } from '../../../src/modules/access/auth.js';
+import { AUDIT_MODELS } from '../../../src/modules/access/audit.js';
+import { LoginSession } from '../../../src/models/loginSession.model.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { createTestOrganization, nextTestUserCode, ensureTestRoles } from '../../identityFixtures.js';
 import {
-  DEFAULT_ADMIN_EMAIL,
-  DEFAULT_ADMIN_PASSWORD,
+  findUserById,
+  findRoleByCode,
+  softDeleteUser,
   IDENTITY_MODELS,
   createUserInRepo,
-  findUserById,
-  findUserByIdWithPassword,
   runBootstrapSeed,
-  softDeleteUser,
-  findRoleByCode,
+  DEFAULT_ADMIN_EMAIL,
+  DEFAULT_ADMIN_PASSWORD,
+  findUserByIdWithPassword,
 } from '../../../src/modules/masters/index.js';
-import { LoginSession } from '../../../src/models/loginSession.model.js';
-import { hashPassword } from '../../../src/modules/access/auth.js';
-import mongoose from 'mongoose';
 
 const PLACEHOLDER_ROLE_ID = new mongoose.Types.ObjectId();
 

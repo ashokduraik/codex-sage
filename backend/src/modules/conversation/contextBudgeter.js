@@ -3,8 +3,8 @@
  * countTokensForBudget, compact in solution §1.2 order, and fail closed when
  * counting is unavailable. No HTTP; callers are LLM / tool / loader code.
  */
-import { ApiError, apiErrorFromCaught } from '../../platform/errors.js';
 import { countTokensForBudget } from './tokenCount.js';
+import { ApiError, apiErrorFromCaught } from '../../platform/errors.js';
 
 /**
  * Reserved completion tokens (DRAFT eval_count 201 + margin 256) from the

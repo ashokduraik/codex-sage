@@ -1,4 +1,5 @@
 import { Toaster as Sonner } from 'sonner';
+
 /**
  * App-wide toast host powered by sonner.
  *

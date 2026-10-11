@@ -3,9 +3,9 @@
  */
 import i18n from '@/shared/i18n';
 import { API_BASE_URL } from './apiConfig.js';
-import { ApiError, apiErrorFromNetworkFailure, apiErrorFromResponse, isRequestAbortedError, RequestAbortedError } from './ApiError.js';
-import { clearSession, getAccessToken } from './apiSession.js';
 import { refreshAccessToken } from './refreshClient.js';
+import { clearSession, getAccessToken } from './apiSession.js';
+import { ApiError, apiErrorFromNetworkFailure, apiErrorFromResponse, isRequestAbortedError, RequestAbortedError } from './ApiError.js';
 
 /**
  * @typedef {object} ApiUploadOptions

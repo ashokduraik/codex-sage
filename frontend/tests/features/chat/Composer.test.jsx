@@ -1,7 +1,8 @@
+import { Composer } from '@/features/chat/Composer';
 import { cleanup, fireEvent, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
-import { Composer } from '@/features/chat/Composer';
+
 afterEach(() => {
   cleanup();
 });

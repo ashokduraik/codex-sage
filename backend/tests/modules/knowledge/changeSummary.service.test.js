@@ -2,6 +2,7 @@
  * Unit tests for change-summary mapping and latest-read.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { loadLatestChangeSummary, mapChangeSummaryDto, mapSummaryPaths } from '../../../src/modules/knowledge/changeSummary.js';
 
 const { findProjectById, findKnowledgeVersionById, sourceChangeSummaryFindOne } = vi.hoisted(() => ({
   findProjectById: vi.fn(),
@@ -22,8 +23,6 @@ vi.mock('../../../src/models/sourceChangeSummary.model.js', () => ({
     findOne: sourceChangeSummaryFindOne,
   },
 }));
-
-import { loadLatestChangeSummary, mapChangeSummaryDto, mapSummaryPaths } from '../../../src/modules/knowledge/changeSummary.js';
 
 /**
  * Chains findOne → sort → lean → exec for the latest-summary query.

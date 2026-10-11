@@ -3,6 +3,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createJobFailureError } from '../../../src/worker/retryPolicy.js';
+import { isRecoverableCodegraphFailure, runCodegraphUpdateWithRecovery } from '../../../src/modules/knowledge/knowledge.js';
 
 const { runMaterializeDocsStage, runCodegraphUpdateStage, fsRm, fsMkdir } = vi.hoisted(() => ({
   runMaterializeDocsStage: vi.fn(),
@@ -24,8 +25,6 @@ vi.mock('node:fs/promises', () => ({
   rm: (...args) => fsRm(...args),
   mkdir: (...args) => fsMkdir(...args),
 }));
-
-import { isRecoverableCodegraphFailure, runCodegraphUpdateWithRecovery } from '../../../src/modules/knowledge/knowledge.js';
 
 describe('knowledge.recovery', () => {
   beforeEach(() => {

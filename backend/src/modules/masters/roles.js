@@ -1,14 +1,14 @@
 /**
  * masters/roles.js — merged resource file.
  */
-import { Role } from '../../models/role.model.js';
-import { assertOrgId, decodeCursor, encodeCursor, includeDeleted, softDelete } from '../../platform/data/index.js';
-import { ApiError, apiErrorFromCaught } from '../../platform/errors.js';
-import { ALL_PERMISSION_KEYS, isKnownPermissionKey, invalidateRole, recordAuditEvent, buildAuditContextFromRequest } from '../access/index.js';
-import { bumpProjectAclVersion } from './projectMembers.js';
-import { isRoleReferencedByActiveUser } from './users.js';
 import { z } from 'zod';
 import mongoose from 'mongoose';
+import { Role } from '../../models/role.model.js';
+import { isRoleReferencedByActiveUser } from './users.js';
+import { bumpProjectAclVersion } from './projectMembers.js';
+import { ApiError, apiErrorFromCaught } from '../../platform/errors.js';
+import { assertOrgId, decodeCursor, encodeCursor, includeDeleted, softDelete } from '../../platform/data/index.js';
+import { ALL_PERMISSION_KEYS, isKnownPermissionKey, invalidateRole, recordAuditEvent, buildAuditContextFromRequest } from '../access/index.js';
 
 const IDENTITY_LIST_PAGE_SIZE_DEFAULT = 25;
 

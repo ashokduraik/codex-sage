@@ -1,10 +1,10 @@
 /**
  * knowledge/documents.js — merged resource file.
  */
-import { DocumentSection } from '../../models/documentSection.model.js';
-import { SourceFile } from '../../models/sourceFile.model.js';
-import { assertOrgId, ROW_STATUS_ACTIVE, ROW_STATUS_DELETED } from '../../platform/data/index.js';
 import mongoose from 'mongoose';
+import { SourceFile } from '../../models/sourceFile.model.js';
+import { DocumentSection } from '../../models/documentSection.model.js';
+import { assertOrgId, ROW_STATUS_ACTIVE, ROW_STATUS_DELETED } from '../../platform/data/index.js';
 
 /** Default page size for document-path listings used by agent tools. */
 export const LIST_DOCUMENT_FILES_PAGE_SIZE = 20;

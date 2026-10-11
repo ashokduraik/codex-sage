@@ -1,28 +1,28 @@
 /**
  * Job routes integration tests — list/detail ACL, pagination, unhappy paths.
  */
-import { nextTestUserCode, ensureTestRoles } from '../../identityFixtures.js';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import mongoose from 'mongoose';
-import { API_BASE_PATH, buildApp } from '../../../src/http/app.js';
-import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
-import { AUDIT_MODELS } from '../../../src/modules/access/audit.js';
+import { createMongoHarness } from '../../mongoHarness.js';
+import { softDelete } from '../../../src/platform/data/index.js';
+import { API_BASE_PATH, buildApp } from '../../../src/http/app.js';
 import { AUTH_MODELS } from '../../../src/modules/access/index.js';
 import { hashPassword } from '../../../src/modules/access/auth.js';
+import { AUDIT_MODELS } from '../../../src/modules/access/audit.js';
+import { PROJECT_MODELS } from '../../../src/modules/masters/projects.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { nextTestUserCode, ensureTestRoles } from '../../identityFixtures.js';
 import { IDEMPOTENCY_MODELS } from '../../../src/platform/idempotency/index.js';
-import { softDelete } from '../../../src/platform/data/index.js';
+import { JOB_MODELS, Job, createPendingJob, JOB_ENQUEUED_MESSAGE, JOB_EVENT_CODE_ENQUEUED } from '../../../src/modules/masters/jobs.js';
 import {
-  DEFAULT_ADMIN_EMAIL,
-  DEFAULT_ADMIN_PASSWORD,
+  findRoleByCode,
   IDENTITY_MODELS,
   createUserInRepo,
-  findOrganizationBySlug,
   runBootstrapSeed,
-  findRoleByCode,
+  DEFAULT_ADMIN_EMAIL,
+  DEFAULT_ADMIN_PASSWORD,
+  findOrganizationBySlug,
 } from '../../../src/modules/masters/index.js';
-import { PROJECT_MODELS } from '../../../src/modules/masters/projects.js';
-import { JOB_MODELS, Job, createPendingJob, JOB_ENQUEUED_MESSAGE, JOB_EVENT_CODE_ENQUEUED } from '../../../src/modules/masters/jobs.js';
 
 const harness = createMongoHarness({
   models: [...IDENTITY_MODELS, ...AUTH_MODELS, ...AUDIT_MODELS, ...IDEMPOTENCY_MODELS, ...PROJECT_MODELS, ...JOB_MODELS],

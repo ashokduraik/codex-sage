@@ -1,13 +1,13 @@
 /**
  * knowledge/changeSummary.js — merged resource file.
  */
-import { requireProjectPermission } from '../../http/preHandlers/requireProjectPermission.js';
-import { SourceChangeSummary } from '../../models/sourceChangeSummary.model.js';
-import { assertOrgId, ROW_STATUS_ACTIVE } from '../../platform/data/index.js';
+import mongoose from 'mongoose';
 import { ApiError } from '../../platform/errors.js';
 import { findProjectById } from '../masters/index.js';
 import { findKnowledgeVersionById } from './knowledge.js';
-import mongoose from 'mongoose';
+import { assertOrgId, ROW_STATUS_ACTIVE } from '../../platform/data/index.js';
+import { SourceChangeSummary } from '../../models/sourceChangeSummary.model.js';
+import { requireProjectPermission } from '../../http/preHandlers/requireProjectPermission.js';
 
 // --- from sources/sourceChangeSummary.repository.js ---
 /**

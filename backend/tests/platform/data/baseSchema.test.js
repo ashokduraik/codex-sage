@@ -2,13 +2,13 @@
  * Base schema behaviour against the external replica set (D16).
  */
 import mongoose from 'mongoose';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { ApiError } from '../../../src/platform/errors.js';
-import { assertOrgId, createBaseSchema, includeDeleted, softDelete } from '../../../src/platform/data/baseSchema.js';
-import { ROW_STATUS_ACTIVE, ROW_STATUS_DELETED } from '../../../src/platform/data/baseSchema.js';
-import { syncSchemaIndexes } from '../../../src/platform/data/index.js';
-import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
+import { ApiError } from '../../../src/platform/errors.js';
+import { createMongoHarness } from '../../mongoHarness.js';
+import { syncSchemaIndexes } from '../../../src/platform/data/index.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { ROW_STATUS_ACTIVE, ROW_STATUS_DELETED } from '../../../src/platform/data/baseSchema.js';
+import { assertOrgId, createBaseSchema, includeDeleted, softDelete } from '../../../src/platform/data/baseSchema.js';
 
 const tenantSchema = createBaseSchema({
   name: { type: String, required: true },

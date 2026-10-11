@@ -4,20 +4,20 @@
  * One `retention` job per org (`projectId` null). Rules are named constants only
  * (no PATCH). Soft-delete `status: 'D'` — never hard-delete GridFS bytes here.
  */
-import { AuditEvent } from '../../models/audit.model.js';
-import { Conversation } from '../../models/conversations.model.js';
 import { Job } from '../../models/job.model.js';
-import { KnowledgeVersion } from '../../models/knowledgeVersion.model.js';
+import { insertPendingJob } from './jobs.helper.js';
+import { AuditEvent } from '../../models/audit.model.js';
 import { Message } from '../../models/messages.model.js';
+import { Project } from '../../models/projects.model.js';
+import { caughtErrorFields } from '../../platform/errors.js';
+import { SourceFile } from '../../models/sourceFile.model.js';
 import { Notification } from '../../models/notification.model.js';
 import { Organization } from '../../models/organization.model.js';
-import { Project } from '../../models/projects.model.js';
-import { SourceFile } from '../../models/sourceFile.model.js';
+import { Conversation } from '../../models/conversations.model.js';
 import { SourceVersion } from '../../models/sourceVersion.model.js';
 import { ProjectActivity } from '../../models/projectActivity.model.js';
+import { KnowledgeVersion } from '../../models/knowledgeVersion.model.js';
 import { includeDeleted, ROW_STATUS_ACTIVE, ROW_STATUS_DELETED } from '../../platform/data/index.js';
-import { caughtErrorFields } from '../../platform/errors.js';
-import { insertPendingJob } from './jobs.helper.js';
 
 /** Ready source versions kept per project. */
 export const RETENTION_READY_SOURCE_VERSIONS_KEEP = 3;

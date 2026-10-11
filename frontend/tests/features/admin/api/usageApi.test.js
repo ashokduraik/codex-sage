@@ -1,9 +1,9 @@
 /**
  * Organization usage HTTP client tests.
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { API_BASE_URL, setAccessToken } from '@/shared/api/index';
 import { resetApiSessionForTests } from '@/shared/api/apiSession.js';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetRefreshClientForTests } from '@/shared/api/refreshClient.js';
 import { fetchOrganizationUsage, organizationUsageQueryKey } from '@/features/admin/api/usageApi.js';
 

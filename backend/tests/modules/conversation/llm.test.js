@@ -2,9 +2,17 @@
  * OpenAI-compatible startup probe and budgeted generate/stream client.
  * Collaborators (ai SDK, config, budgeter) are mocked — no product option seams.
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../../../src/platform/errors.js';
 import { getCatalogEntry } from '../../../src/platform/errorCatalog.js';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  streamText,
+  generateText,
+  assertLlmAvailable,
+  getLlmConfigStatus,
+  INFERENCE_QUEUE_MAX_DEPTH,
+  INFERENCE_QUEUE_MAX_CONCURRENCY,
+} from '../../../src/modules/conversation/index.js';
 
 const { mockGenerateText, mockStreamText, mockPrepareModelInput, mockLoadConfig, configState, LLM, READY_LLM } = vi.hoisted(() => {
   const LLM = {
@@ -54,15 +62,6 @@ vi.mock('../../../src/modules/conversation/contextBudgeter.js', async (importOri
     prepareModelInput: (...args) => mockPrepareModelInput(...args),
   };
 });
-
-import {
-  INFERENCE_QUEUE_MAX_CONCURRENCY,
-  INFERENCE_QUEUE_MAX_DEPTH,
-  assertLlmAvailable,
-  generateText,
-  getLlmConfigStatus,
-  streamText,
-} from '../../../src/modules/conversation/index.js';
 
 const silentLog = {
   info: () => {},

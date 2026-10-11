@@ -4,12 +4,12 @@
  * `recordProjectActivity` is best-effort: a write failure must not fail ingest or search.
  * GET /usage/* aggregates `projectActivities` by occurredAt; it never invents question or token numbers.
  */
-import mongoose from 'mongoose';
 import { z } from 'zod';
-import { ProjectActivity, PROJECT_ACTIVITY_KIND_VALUES } from '../../models/projectActivity.model.js';
+import mongoose from 'mongoose';
 import { SourceFile } from '../../models/sourceFile.model.js';
-import { assertOrgId, ROW_STATUS_ACTIVE } from '../../platform/data/index.js';
 import { ApiError, caughtErrorFields } from '../../platform/errors.js';
+import { assertOrgId, ROW_STATUS_ACTIVE } from '../../platform/data/index.js';
+import { ProjectActivity, PROJECT_ACTIVITY_KIND_VALUES } from '../../models/projectActivity.model.js';
 
 /** Default lookback in days for usage GET. */
 export const USAGE_DEFAULT_LOOKBACK_DAYS = 30;

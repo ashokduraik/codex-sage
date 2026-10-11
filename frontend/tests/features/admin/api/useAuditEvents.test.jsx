@@ -1,8 +1,8 @@
 import { renderHook, waitFor } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, setAccessToken } from '@/shared/api/index';
 import { resetApiSessionForTests } from '@/shared/api/apiSession.js';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { isInvalidAuditCursorError, useAuditEvents } from '@/features/admin/api/useAuditEvents.js';
 
 afterEach(() => {

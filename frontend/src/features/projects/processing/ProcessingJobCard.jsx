@@ -2,27 +2,27 @@
  * One processing job: stages, events, retry/cancel, and completion CTAs.
  */
 import { useState } from 'react';
+import { cn } from '@/shared/lib/utils';
 import { Link } from 'react-router-dom';
-import { BookOpen, LayoutDashboard, Loader2, MessageSquare, RefreshCw, XCircle } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
-import { correlationFromUnknown, messageFromUnknown } from '@/shared/api';
+import { useJob } from './hooks/useJob.js';
 import { Button } from '@/shared/ui/button';
+import { useTranslation } from 'react-i18next';
+import { formatDateTime } from '@/shared/lib/format';
+import { useJobControl } from './hooks/useJobControl.js';
+import { isProjectAskable } from '@/shared/components/StatusBadge.jsx';
+import { correlationFromUnknown, messageFromUnknown } from '@/shared/api';
+import { BookOpen, LayoutDashboard, Loader2, MessageSquare, RefreshCw, XCircle } from 'lucide-react';
+import { hasRenderablePercent, isActiveJobStatus, jobStatusLabelKey, jobTypeLabelKey, mapJobStatus, mapStageState } from './jobProgressMap.js';
 import {
   AlertDialog,
+  AlertDialogTitle,
   AlertDialogAction,
   AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogTitle,
+  AlertDialogContent,
+  AlertDialogDescription,
 } from '@/shared/ui/alert-dialog';
-import { formatDateTime } from '@/shared/lib/format';
-import { cn } from '@/shared/lib/utils';
-import { isProjectAskable } from '@/shared/components/StatusBadge.jsx';
-import { useJob } from './hooks/useJob.js';
-import { useJobControl } from './hooks/useJobControl.js';
-import { hasRenderablePercent, isActiveJobStatus, jobStatusLabelKey, jobTypeLabelKey, mapJobStatus, mapStageState } from './jobProgressMap.js';
 
 /**
  * Collapsible activity log from job events.

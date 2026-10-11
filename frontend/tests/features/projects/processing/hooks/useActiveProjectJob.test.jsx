@@ -1,9 +1,9 @@
 /**
  * Tests for selecting the header/overview active job.
  */
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { renderHook, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 vi.mock('@/features/projects/processing/api/jobsApi.js', async (importOriginal) => {
   const actual = await importOriginal();

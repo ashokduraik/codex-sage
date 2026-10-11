@@ -1,14 +1,18 @@
 /**
  * Changes panel tests against the mocked change-summary API.
  */
-import { cleanup, fireEvent, screen } from '@testing-library/react';
 import { Route, Routes } from 'react-router-dom';
+import { cleanup, fireEvent, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/features/projects/api/projectsApi.js', async () => {
   const fixtures = await import('@tests/features/projects/test/projectApiFixtures.js');
   return fixtures.defaultProjectsApiMock;
 });
+
+import ChangesPanel from '@/features/knowledge/ChangesPanel';
+import ProjectDetailPage from '@/features/projects/ProjectDetailPage';
+import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
 
 const fetchChangeSummary = vi.fn();
 const fetchSourceFileMetadata = vi.fn();
@@ -23,10 +27,6 @@ vi.mock('@/features/knowledge/api/knowledgeApi.js', async (importOriginal) => {
     fetchSourceSlice: (...args) => fetchSourceSlice(...args),
   };
 });
-
-import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
-import ChangesPanel from '@/features/knowledge/ChangesPanel';
-import ProjectDetailPage from '@/features/projects/ProjectDetailPage';
 
 afterEach(() => {
   cleanup();

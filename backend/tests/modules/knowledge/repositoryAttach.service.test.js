@@ -1,28 +1,28 @@
 /**
  * Attach, branch, credential, and re-test orchestration.
  */
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import mongoose from 'mongoose';
-import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
-import { AUDIT_MODELS, listAuditEvents } from '../../../src/modules/access/audit.js';
-import { createProject, findProjectById } from '../../../src/modules/masters/projects.helper.js';
+import { createMongoHarness } from '../../mongoHarness.js';
 import { Project } from '../../../src/models/projects.model.js';
 import { SOURCE_MODELS } from '../../../src/modules/knowledge/sources.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { insertSourceVersion } from '../../../src/modules/knowledge/sources.js';
 import { EXCLUSION_RULESET_ID } from '../../../src/modules/knowledge/uploads.js';
+import { insertConnection } from '../../../src/modules/knowledge/repositories.js';
+import { AUDIT_MODELS, listAuditEvents } from '../../../src/modules/access/audit.js';
 import { includeDeleted, ROW_STATUS_DELETED } from '../../../src/platform/data/index.js';
 import { RepositoryConnection } from '../../../src/models/repositoryConnection.model.js';
-import { insertConnection } from '../../../src/modules/knowledge/repositories.js';
 import { REPO_BRANCH_LIST_LIMIT } from '../../../src/modules/knowledge/repositories.helper.js';
+import { createProject, findProjectById } from '../../../src/modules/masters/projects.helper.js';
 import {
   attachRepository,
-  getRepositoryConnection,
   mapConnectionToDto,
   patchRepositoryBranch,
-  replaceRepositoryCredential,
+  getRepositoryConnection,
   retestRepositoryConnection,
   revokeRepositoryCredential,
+  replaceRepositoryCredential,
 } from '../../../src/modules/knowledge/repositories.js';
 
 const TOKEN_FIXTURE = 'ghp_probe_token_fixture_never_log';

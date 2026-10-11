@@ -1,7 +1,7 @@
+import { API_BASE_URL } from '@/shared/api/apiConfig.js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getAccessToken, resetApiSessionForTests, subscribeSessionCleared } from '@/shared/api/apiSession.js';
 import { refreshAccessToken, resetRefreshClientForTests, readCsrfTokenFromCookie, CSRF_HEADER_NAME } from '@/shared/api/refreshClient.js';
-import { API_BASE_URL } from '@/shared/api/apiConfig.js';
 
 describe('readCsrfTokenFromCookie', () => {
   beforeEach(() => {

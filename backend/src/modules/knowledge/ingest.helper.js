@@ -1,22 +1,22 @@
 /**
  * knowledge/ingest.helper.js — merged resource file.
  */
+import { publishKnowledgeVersion } from './knowledge.js';
 import { createJobFailureError, createJobFailureFromCaught } from '../../worker/retryPolicy.js';
 import { renderJobEventMessage, findProjectById, transitionLifecycle } from '../masters/index.js';
+import { assertKnownExclusionRulesetId, isUnsafeArchivePath, normalizeArchivePath, evaluateUploadEntry } from './uploads.js';
 import {
-  countSourceFilesForVersion,
+  updateSourceFileState,
   listSourceFilesOrdered,
+  markOrphanGridFsObjects,
   markSourceVersionFailed,
+  findSourceGridFsFileById,
+  SOURCE_FILE_STATE_STORED,
   SOURCE_FILE_STATE_CORRUPT,
   SOURCE_FILE_STATE_MISSING,
-  SOURCE_FILE_STATE_STORED,
-  findSourceGridFsFileById,
-  markOrphanGridFsObjects,
-  updateSourceFileState,
   updateSourceFileExclusion,
+  countSourceFilesForVersion,
 } from './ingest.js';
-import { publishKnowledgeVersion } from './knowledge.js';
-import { assertKnownExclusionRulesetId, isUnsafeArchivePath, normalizeArchivePath, evaluateUploadEntry } from './uploads.js';
 
 // --- from ingest/ingest.counters.js ---
 /**

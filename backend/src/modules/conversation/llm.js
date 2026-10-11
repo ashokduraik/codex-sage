@@ -3,10 +3,10 @@
  * generateText and streamText. No HTTP responses, no model pull.
  */
 import { createOpenAI } from '@ai-sdk/openai';
-import { generateText as sdkGenerateText, Output, streamText as sdkStreamText } from 'ai';
 import { loadConfig } from '../../platform/config.js';
-import { ApiError, apiErrorFromCaught, caughtErrorFields } from '../../platform/errors.js';
 import { prepareModelInput } from './contextBudgeter.js';
+import { generateText as sdkGenerateText, Output, streamText as sdkStreamText } from 'ai';
+import { ApiError, apiErrorFromCaught, caughtErrorFields } from '../../platform/errors.js';
 
 /** Fail the probe if the provider does not answer within this window. */
 export const LLM_PROBE_TIMEOUT_MS = 10_000;

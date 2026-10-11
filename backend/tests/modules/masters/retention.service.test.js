@@ -1,21 +1,21 @@
 /**
  * Retention soft-delete windows and scheduler enqueue tests.
  */
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import mongoose from 'mongoose';
-import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
-import { AuditEvent } from '../../../src/models/audit.model.js';
-import { Conversation } from '../../../src/models/conversations.model.js';
 import { Job } from '../../../src/models/job.model.js';
-import { KnowledgeVersion } from '../../../src/models/knowledgeVersion.model.js';
+import { createMongoHarness } from '../../mongoHarness.js';
+import { AuditEvent } from '../../../src/models/audit.model.js';
 import { Message } from '../../../src/models/messages.model.js';
-import { Notification } from '../../../src/models/notification.model.js';
-import { Organization } from '../../../src/models/organization.model.js';
 import { Project } from '../../../src/models/projects.model.js';
 import { SourceFile } from '../../../src/models/sourceFile.model.js';
+import { Notification } from '../../../src/models/notification.model.js';
+import { Organization } from '../../../src/models/organization.model.js';
+import { Conversation } from '../../../src/models/conversations.model.js';
 import { SourceVersion } from '../../../src/models/sourceVersion.model.js';
 import { ProjectActivity } from '../../../src/models/projectActivity.model.js';
+import { KnowledgeVersion } from '../../../src/models/knowledgeVersion.model.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { ROW_STATUS_DELETED, includeDeleted } from '../../../src/platform/data/index.js';
 import { enqueueDueRetentionJobs, nextUtcMidnight, runRetentionForOrg, runRetentionJob } from '../../../src/modules/masters/retention.js';
 

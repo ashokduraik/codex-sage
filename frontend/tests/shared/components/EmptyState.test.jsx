@@ -1,8 +1,9 @@
 import { Inbox } from 'lucide-react';
-import { cleanup, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
 import EmptyState from '@/shared/components/EmptyState';
+import { afterEach, describe, expect, it } from 'vitest';
+import { cleanup, screen } from '@testing-library/react';
 import { clearAuthSession, renderWithProviders } from '@tests/renderWithProviders';
+
 afterEach(() => {
   cleanup();
   localStorage.clear();

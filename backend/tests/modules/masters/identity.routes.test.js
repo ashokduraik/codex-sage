@@ -1,24 +1,24 @@
 /**
  * Identity admin routes integration tests via app.inject.
  */
-import { createTestOrganization, ensureTestRoles, nextTestUserCode } from '../../identityFixtures.js';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { API_BASE_PATH, buildApp } from '../../../src/http/app.js';
-import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
-import { AUDIT_MODELS, listAuditEvents } from '../../../src/modules/access/audit.js';
+import { createMongoHarness } from '../../mongoHarness.js';
+import { API_BASE_PATH, buildApp } from '../../../src/http/app.js';
 import { AUTH_MODELS } from '../../../src/modules/access/index.js';
 import { hashPassword } from '../../../src/modules/access/auth.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { containsForbiddenSecretKey } from '../../containsForbiddenSecretKey.js';
+import { AUDIT_MODELS, listAuditEvents } from '../../../src/modules/access/audit.js';
 import { IDEMPOTENCY_MODELS, IdempotencyRecord } from '../../../src/platform/idempotency/index.js';
+import { createTestOrganization, ensureTestRoles, nextTestUserCode } from '../../identityFixtures.js';
 import {
-  DEFAULT_ADMIN_EMAIL,
-  DEFAULT_ADMIN_PASSWORD,
+  findRoleByCode,
   IDENTITY_MODELS,
   createUserInRepo,
   runBootstrapSeed,
-  findRoleByCode,
+  DEFAULT_ADMIN_EMAIL,
+  DEFAULT_ADMIN_PASSWORD,
 } from '../../../src/modules/masters/index.js';
-import { containsForbiddenSecretKey } from '../../containsForbiddenSecretKey.js';
 
 const harness = createMongoHarness({
   models: [...IDENTITY_MODELS, ...AUTH_MODELS, ...AUDIT_MODELS, ...IDEMPOTENCY_MODELS],

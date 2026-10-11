@@ -1,8 +1,9 @@
-import { cleanup, fireEvent, screen } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Link, Route, Routes } from 'react-router-dom';
 import ScrollToTop from '@/shared/components/ScrollToTop';
+import { cleanup, fireEvent, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { clearAuthSession, renderWithProviders } from '@tests/renderWithProviders';
+
 afterEach(() => {
   cleanup();
   localStorage.clear();

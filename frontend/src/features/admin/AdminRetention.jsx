@@ -2,8 +2,8 @@
  * Admin retention page — read-only policy copy. Rules live as backend constants;
  * this screen does not PATCH retention settings.
  */
-import { BookOpen, Clock, Database, MessagesSquare, ScrollText, Activity, Bell } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { BookOpen, Clock, Database, MessagesSquare, ScrollText, Activity, Bell } from 'lucide-react';
 
 const POLICIES = [
   {

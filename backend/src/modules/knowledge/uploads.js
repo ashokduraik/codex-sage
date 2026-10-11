@@ -1,26 +1,26 @@
 /**
  * knowledge/uploads.js — merged resource file.
  */
-import { requireProjectPermission } from '../../http/preHandlers/requireProjectPermission.js';
+import mongoose from 'mongoose';
+import { createHash } from 'node:crypto';
+import { fromBufferPromise } from 'yauzl';
+import { pipeline } from 'node:stream/promises';
+import { Readable, Transform } from 'node:stream';
 import { ApiError, apiErrorFromCaught } from '../../platform/errors.js';
 import { recordAuditEvent, buildAuditContextFromRequest } from '../access/index.js';
 import { createPendingJob, findProjectById, transitionLifecycle } from '../masters/index.js';
+import { requireProjectPermission } from '../../http/preHandlers/requireProjectPermission.js';
 import {
-  ARCHIVE_FIELD_NAME,
-  UPLOAD_HASH_ALGORITHM,
-  buildSourceGridFsFilename,
-  getSourceFilesBucket,
-  markGridFsFilesOrphaned,
   insertSourceFiles,
+  ARCHIVE_FIELD_NAME,
   insertSourceVersion,
-  setSourceVersionJobId,
+  getSourceFilesBucket,
   GRIDFS_SOURCE_BUCKET,
+  setSourceVersionJobId,
+  UPLOAD_HASH_ALGORITHM,
+  markGridFsFilesOrphaned,
+  buildSourceGridFsFilename,
 } from './sources.js';
-import mongoose from 'mongoose';
-import { createHash } from 'node:crypto';
-import { Readable, Transform } from 'node:stream';
-import { pipeline } from 'node:stream/promises';
-import { fromBufferPromise } from 'yauzl';
 
 // --- from sources/exclusions/exclusions.constants.js ---
 /**

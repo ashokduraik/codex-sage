@@ -2,8 +2,8 @@
  * Production-only SPA hosting: serve `frontend/dist` and fall back to `index.html`.
  * Development never registers static files (Vite HMR owns the UI process).
  */
-import { existsSync } from 'node:fs';
 import path from 'node:path';
+import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import fastifyStatic from '@fastify/static';
 

@@ -1,8 +1,8 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import i18n from '@/shared/i18n/index';
 import { I18nextProvider } from 'react-i18next';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import i18n from '@/shared/i18n/index';
 import { RoleMultiSelect } from '@/features/admin/RoleMultiSelect';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 
 afterEach(() => {
   cleanup();

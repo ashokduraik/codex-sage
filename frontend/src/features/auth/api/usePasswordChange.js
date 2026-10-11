@@ -1,5 +1,5 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { setAccessToken } from '@/shared/api';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { changePassword as changePasswordRequest, logout as logoutRequest } from './authApi.js';
 
 /**

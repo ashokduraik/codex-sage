@@ -1,9 +1,9 @@
-import { renderHook, waitFor } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setAccessToken } from '@/shared/api/index';
+import { renderHook, waitFor } from '@testing-library/react';
 import { resetApiSessionForTests } from '@/shared/api/apiSession.js';
 import { useCurrentUser } from '@/features/auth/api/useCurrentUser.js';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 afterEach(() => {
   resetApiSessionForTests();

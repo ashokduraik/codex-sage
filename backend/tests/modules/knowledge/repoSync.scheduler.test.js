@@ -1,8 +1,8 @@
 /**
  * Unit tests for the repo_sync due-connection scanner.
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
 import mongoose from 'mongoose';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const insertPendingJob = vi.fn();
 const findActiveJobForProjectByTypes = vi.fn();

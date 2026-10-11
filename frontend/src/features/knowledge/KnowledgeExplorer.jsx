@@ -2,12 +2,12 @@
  * Knowledge explorer backed by the Phase 37 browse API.
  */
 import { useState } from 'react';
-import { Link, useNavigate, useOutletContext } from 'react-router-dom';
-import { ArrowRight, BookOpen, Boxes, ChevronDown, ChevronRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { EmptyState } from '@/shared/components';
-import { useKnowledgeFacet, useKnowledgeFacets, useKnowledgeHealth } from './hooks/useKnowledgeFacets.js';
 import SourcePreviewDrawer from './SourcePreviewDrawer.jsx';
+import { Link, useNavigate, useOutletContext } from 'react-router-dom';
+import { ArrowRight, BookOpen, Boxes, ChevronDown, ChevronRight } from 'lucide-react';
+import { useKnowledgeFacet, useKnowledgeFacets, useKnowledgeHealth } from './hooks/useKnowledgeFacets.js';
 
 /**
  * @param {{

@@ -1,7 +1,7 @@
-import { cleanup, screen, waitFor } from '@testing-library/react';
-import { Route, Routes } from 'react-router-dom';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/shared/api/index';
+import { Route, Routes } from 'react-router-dom';
+import { cleanup, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/features/projects/api/projectsApi.js', async () => {
   const fixtures = await import('./test/projectApiFixtures.js');
@@ -13,10 +13,10 @@ vi.mock('@/features/projects/api/repositoriesApi.js', () => ({
   getProjectRepositoryConnection: vi.fn(),
 }));
 
-import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
-import { getProjectRepositoryConnection } from '@/features/projects/api/repositoriesApi.js';
 import HealthPanel from '@/features/projects/HealthPanel';
 import ProjectDetailPage from '@/features/projects/ProjectDetailPage';
+import { getProjectRepositoryConnection } from '@/features/projects/api/repositoriesApi.js';
+import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
 
 const ATLAS_CONNECTION = {
   connection: {

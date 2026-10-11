@@ -3,15 +3,15 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
-  hasRenderablePercent,
-  isActiveJobStatus,
-  isHistoryJobStatus,
-  jobStatusLabelKey,
-  jobTypeLabelKey,
   mapJobStatus,
   mapStageState,
-  selectActiveJob,
   stageLabelKey,
+  jobTypeLabelKey,
+  selectActiveJob,
+  isActiveJobStatus,
+  jobStatusLabelKey,
+  isHistoryJobStatus,
+  hasRenderablePercent,
 } from '@/features/projects/processing/jobProgressMap.js';
 
 describe('jobProgressMap', () => {

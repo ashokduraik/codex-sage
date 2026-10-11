@@ -2,6 +2,16 @@
  * Conversation service race / null-update branches with mocked repository.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  listConversations,
+  createConversation,
+  deleteConversation,
+  archiveConversation,
+  restoreConversation,
+  searchConversations,
+  updateConversationTitle,
+  listConversationMessages,
+} from '../../../src/modules/conversation/conversation.js';
 
 const loadMocks = vi.hoisted(() => ({
   findOwnConversation: vi.fn(),
@@ -57,17 +67,6 @@ vi.mock('mongoose', async (importOriginal) => {
     },
   };
 });
-
-import {
-  archiveConversation,
-  createConversation,
-  deleteConversation,
-  listConversationMessages,
-  listConversations,
-  restoreConversation,
-  searchConversations,
-  updateConversationTitle,
-} from '../../../src/modules/conversation/conversation.js';
 
 describe('conversations.service edges', () => {
   beforeEach(() => {

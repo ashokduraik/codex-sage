@@ -1,10 +1,10 @@
 /**
  * Extra workerRuntime paths: temporary/permanent failure, cancel, warnings, unknown type.
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import mongoose from 'mongoose';
-import { clearJobHandlersForTests, registerJobHandler } from '../../src/worker/handlerRegistry.js';
 import { createJobFailureError } from '../../src/worker/retryPolicy.js';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { clearJobHandlersForTests, registerJobHandler } from '../../src/worker/handlerRegistry.js';
 
 const claimNextJob = vi.fn();
 const recordJobClaimedEvent = vi.fn();

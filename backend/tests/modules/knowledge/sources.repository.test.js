@@ -1,30 +1,30 @@
 /**
  * Unit tests for GridFS helpers and source repository.
  */
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import mongoose from 'mongoose';
+import { TEST_APP_CONFIG } from '../../appConfig.js';
 import { createMongoHarness } from '../../mongoHarness.js';
 import { clearSourceFilesBucket } from '../../clearSourceFilesBucket.js';
-import { TEST_APP_CONFIG } from '../../appConfig.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { EXCLUSION_RULESET_ID } from '../../../src/modules/knowledge/uploads.js';
 import {
   SourceFile,
   SourceVersion,
   computeSourceDiff,
-  buildSourceGridFsFilename,
+  insertSourceFiles,
   countSourceVersions,
-  findActiveSourceVersionForProject,
+  insertSourceVersion,
   findSourceFileByPath,
+  getSourceFilesBucket,
   findSourceVersionById,
   readSourceGridFsBytes,
-  getSourceFilesBucket,
-  insertSourceFiles,
-  insertSourceVersion,
-  listSourceFilePathHashesPage,
+  markGridFsFilesOrphaned,
+  buildSourceGridFsFilename,
   listSourceFilesForVersion,
   listSourceVersionsByProject,
-  markGridFsFilesOrphaned,
+  listSourceFilePathHashesPage,
+  findActiveSourceVersionForProject,
 } from '../../../src/modules/knowledge/sources.js';
-import { EXCLUSION_RULESET_ID } from '../../../src/modules/knowledge/uploads.js';
 
 const harness = createMongoHarness({
   models: [SourceVersion, SourceFile],

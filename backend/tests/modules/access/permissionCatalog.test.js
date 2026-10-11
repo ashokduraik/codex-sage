@@ -1,15 +1,15 @@
-import { createTestOrganization } from '../../identityFixtures.js';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
-import { IDENTITY_MODELS } from '../../../src/modules/masters/index.js';
 import { Role } from '../../../src/models/role.model.js';
+import { createMongoHarness } from '../../mongoHarness.js';
+import { createTestOrganization } from '../../identityFixtures.js';
+import { IDENTITY_MODELS } from '../../../src/modules/masters/index.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import {
-  ALL_PERMISSION_KEYS,
   PERMISSION_GROUPS,
-  assertRolePermissionsInCatalog,
+  ALL_PERMISSION_KEYS,
   isKnownPermissionKey,
   toPermissionsApiPayload,
+  assertRolePermissionsInCatalog,
 } from '../../../src/modules/access/permissions.js';
 
 /** Exact solution §8.2 list — a silent addition must fail this test. */

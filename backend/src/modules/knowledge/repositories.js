@@ -1,19 +1,19 @@
 /**
  * knowledge/repositories.js — merged resource file.
  */
-import { requireProjectPermission } from '../../http/preHandlers/requireProjectPermission.js';
-import { RepositoryConnection } from '../../models/repositoryConnection.model.js';
+import { z } from 'zod';
+import mongoose from 'mongoose';
+import { countSourceVersions } from './sources.js';
+import { recordAuditEvent } from '../access/index.js';
+import { enqueueManualRepositorySync } from './repoSync.js';
 import { resolveRepositoryCrypto } from '../../platform/config.js';
-import { assertOrgId, ROW_STATUS_ACTIVE, ROW_STATUS_DELETED } from '../../platform/data/index.js';
 import { ApiError, apiErrorFromCaught } from '../../platform/errors.js';
 import { decryptSecret, encryptSecret } from '../../platform/secretCrypto.js';
-import { recordAuditEvent } from '../access/index.js';
-import { findProjectById, mapProjectToDto, transitionLifecycle, updateProjectSourceConfig } from '../masters/index.js';
-import { enqueueManualRepositorySync } from './repoSync.js';
+import { RepositoryConnection } from '../../models/repositoryConnection.model.js';
 import { probeRepository, REPO_BRANCH_LIST_LIMIT } from './repositories.helper.js';
-import { countSourceVersions } from './sources.js';
-import mongoose from 'mongoose';
-import { z } from 'zod';
+import { requireProjectPermission } from '../../http/preHandlers/requireProjectPermission.js';
+import { assertOrgId, ROW_STATUS_ACTIVE, ROW_STATUS_DELETED } from '../../platform/data/index.js';
+import { findProjectById, mapProjectToDto, transitionLifecycle, updateProjectSourceConfig } from '../masters/index.js';
 
 // --- from repositories/repositories.repository.js ---
 /**

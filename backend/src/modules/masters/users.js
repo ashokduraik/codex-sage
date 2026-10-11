@@ -1,22 +1,22 @@
 /**
  * masters/users.js — merged resource file.
  */
+import { z } from 'zod';
+import mongoose from 'mongoose';
 import { User } from '../../models/user.model.js';
-import { assertOrgId, decodeCursor, encodeCursor, softDelete } from '../../platform/data/index.js';
+import { bumpProjectAclVersion } from './projectMembers.js';
 import { ApiError, apiErrorFromCaught } from '../../platform/errors.js';
+import { assertRolesExistInOrg, wouldRemoveLastAdmin } from './users.helper.js';
+import { duplicateKeyField, findRolesByIds, isDuplicateKeyError } from './roles.js';
+import { assertOrgId, decodeCursor, encodeCursor, softDelete } from '../../platform/data/index.js';
 import {
   adminSetPassword,
-  buildAuditContextFromRequest,
-  getPasswordResetStatus,
-  PASSWORD_MIN_LENGTH,
   recordAuditEvent,
+  PASSWORD_MIN_LENGTH,
+  getPasswordResetStatus,
+  buildAuditContextFromRequest,
   revokeAllLoginSessionsForUser,
 } from '../access/index.js';
-import { z } from 'zod';
-import { assertRolesExistInOrg, wouldRemoveLastAdmin } from './users.helper.js';
-import { bumpProjectAclVersion } from './projectMembers.js';
-import { duplicateKeyField, findRolesByIds, isDuplicateKeyError } from './roles.js';
-import mongoose from 'mongoose';
 
 export {
   assertRolesExistInOrg,

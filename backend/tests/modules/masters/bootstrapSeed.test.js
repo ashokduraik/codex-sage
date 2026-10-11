@@ -1,21 +1,21 @@
 /**
  * Bootstrap seed integration tests.
  */
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
-import { ApiError } from '../../../src/platform/errors.js';
-import {
-  DEFAULT_ADMIN_EMAIL,
-  DEFAULT_ORG_SLUG,
-  IDENTITY_MODELS,
-  findOrganizationBySlug,
-  findUserByEmail,
-  runBootstrapSeed,
-} from '../../../src/modules/masters/index.js';
-import { DEFAULT_ORG_CODE } from '../../../src/modules/masters/organizations.js';
-import { Organization } from '../../../src/models/organization.model.js';
 import { Role } from '../../../src/models/role.model.js';
+import { ApiError } from '../../../src/platform/errors.js';
+import { createMongoHarness } from '../../mongoHarness.js';
+import { Organization } from '../../../src/models/organization.model.js';
+import { DEFAULT_ORG_CODE } from '../../../src/modules/masters/organizations.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import {
+  findUserByEmail,
+  IDENTITY_MODELS,
+  DEFAULT_ORG_SLUG,
+  runBootstrapSeed,
+  DEFAULT_ADMIN_EMAIL,
+  findOrganizationBySlug,
+} from '../../../src/modules/masters/index.js';
 
 const harness = createMongoHarness({
   models: [...IDENTITY_MODELS],

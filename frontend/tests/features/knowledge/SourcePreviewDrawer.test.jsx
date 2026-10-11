@@ -2,7 +2,9 @@
  * Source preview drawer tests.
  */
 import { cleanup, screen } from '@testing-library/react';
+import { renderWithProviders } from '@tests/renderWithProviders';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import SourcePreviewDrawer from '@/features/knowledge/SourcePreviewDrawer.jsx';
 
 const fetchSourceFileMetadata = vi.fn();
 const fetchSourceSlice = vi.fn();
@@ -15,9 +17,6 @@ vi.mock('@/features/knowledge/api/knowledgeApi.js', async (importOriginal) => {
     fetchSourceSlice: (...args) => fetchSourceSlice(...args),
   };
 });
-
-import { renderWithProviders } from '@tests/renderWithProviders';
-import SourcePreviewDrawer from '@/features/knowledge/SourcePreviewDrawer.jsx';
 
 afterEach(() => {
   cleanup();

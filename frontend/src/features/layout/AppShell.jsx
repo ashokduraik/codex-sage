@@ -1,8 +1,9 @@
+import Header from './Header';
+import Sidebar from './Sidebar';
 import { useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { Sheet, SheetContent } from '@/shared/ui/sheet';
-import Header from './Header';
-import Sidebar from './Sidebar';
+
 /**
  * Authenticated application chrome: sidebar (desktop + mobile sheet) and header.
  *

@@ -3,8 +3,8 @@
  */
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { sourceVersionsQueryKey, uploadProjectSource } from '@/features/projects/api/sourcesApi.js';
 import { projectDetailQueryKey } from '@/features/projects/api/projectsApi.js';
+import { sourceVersionsQueryKey, uploadProjectSource } from '@/features/projects/api/sourcesApi.js';
 
 /**
  * Uploads an archive and tracks byte-level HTTP progress.

@@ -1,23 +1,23 @@
 /**
  * Project member overlay repository tests — reactivation and accessible ids.
  */
-import { createTestOrganization } from '../../identityFixtures.js';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import mongoose from 'mongoose';
-import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
-import { dropProjectMembersCollectionIfPresent } from '../../../src/platform/data/index.js';
+import { createMongoHarness } from '../../mongoHarness.js';
+import { createTestOrganization } from '../../identityFixtures.js';
 import { IDENTITY_MODELS } from '../../../src/modules/masters/index.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { dropProjectMembersCollectionIfPresent } from '../../../src/platform/data/index.js';
 import { PROJECT_MODELS, createProjectInRepo } from '../../../src/modules/masters/projects.js';
 import {
-  createProjectMember,
-  findActiveMemberOnProject,
-  findActiveProjectMember,
-  findProjectMemberIncludingDeleted,
-  listAccessibleProjectIdsForUser,
   listProjectMembers,
+  createProjectMember,
+  findActiveProjectMember,
   reactivateProjectMember,
   softDeleteProjectMember,
+  findActiveMemberOnProject,
+  listAccessibleProjectIdsForUser,
+  findProjectMemberIncludingDeleted,
 } from '../../../src/modules/masters/projectMembers.js';
 
 const harness = createMongoHarness({

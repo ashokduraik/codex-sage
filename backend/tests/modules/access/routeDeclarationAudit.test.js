@@ -1,10 +1,10 @@
 import Fastify from 'fastify';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
-  assertAllRoutesDeclareAccess,
-  classifyRouteAccess,
-  installRouteDeclarationCollector,
   normalizeRoutePath,
+  classifyRouteAccess,
+  assertAllRoutesDeclareAccess,
+  installRouteDeclarationCollector,
 } from '../../../src/modules/access/permissions.js';
 
 describe('routeDeclarationAudit', () => {

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { registerProcessHandlers, resetProcessHandlersForTests } from '../../src/platform/shutdown.js';
+
 describe('registerProcessHandlers', () => {
   beforeEach(() => {
     resetProcessHandlersForTests();

@@ -2,9 +2,9 @@
  * Optional integration tests against the real `@colbymchenry/codegraph` package.
  * Skipped when the library cannot be loaded (document for phase 63 CI).
  */
-import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 import { codegraphIndexExists, createCodegraphAdapter, isCodegraphLoadable } from '../../../src/modules/knowledge/codegraph.js';

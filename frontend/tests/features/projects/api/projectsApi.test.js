@@ -2,24 +2,23 @@
  * projectsApi request builders.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  getProject,
+  listProjects,
+  patchProject,
+  createProject,
+  deleteProject,
+  archiveProject,
+  restoreProject,
+  recordProjectAccess,
+  getProjectDeletionPreview,
+} from '@/features/projects/api/projectsApi.js';
 
 const apiRequest = vi.fn();
 
 vi.mock('@/shared/api/index', () => ({
   apiRequest: (...args) => apiRequest(...args),
 }));
-
-import {
-  archiveProject,
-  createProject,
-  deleteProject,
-  getProject,
-  getProjectDeletionPreview,
-  listProjects,
-  patchProject,
-  recordProjectAccess,
-  restoreProject,
-} from '@/features/projects/api/projectsApi.js';
 
 describe('projectsApi', () => {
   afterEach(() => {

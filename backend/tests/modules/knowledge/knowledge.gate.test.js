@@ -2,6 +2,7 @@
  * Unit tests for assertKnowledgeReadable.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { assertKnowledgeReadable } from '../../../src/modules/knowledge/knowledge.js';
 
 const { findProjectById, hasActiveProjectWriterLock } = vi.hoisted(() => ({
   findProjectById: vi.fn(),
@@ -15,8 +16,6 @@ vi.mock('../../../src/modules/masters/index.js', () => ({
 vi.mock('../../../src/worker/projectJobLock.js', () => ({
   hasActiveProjectWriterLock,
 }));
-
-import { assertKnowledgeReadable } from '../../../src/modules/knowledge/knowledge.js';
 
 describe('assertKnowledgeReadable', () => {
   beforeEach(() => {

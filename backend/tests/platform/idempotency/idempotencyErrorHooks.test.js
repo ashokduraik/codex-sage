@@ -1,10 +1,10 @@
 /**
  * Unit tests for late-bound idempotency error hooks via the Fastify error handler.
  */
-import { afterEach, describe, expect, it, vi } from 'vitest';
 import Fastify from 'fastify';
-import { ApiError, registerErrorHandler, resetIdempotencyErrorHooks, setIdempotencyErrorHooks } from '../../../src/platform/errors.js';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { IdempotencyReplay } from '../../../src/platform/idempotency/idempotency.middleware.js';
+import { ApiError, registerErrorHandler, resetIdempotencyErrorHooks, setIdempotencyErrorHooks } from '../../../src/platform/errors.js';
 
 describe('idempotencyErrorHooks', () => {
   afterEach(() => {

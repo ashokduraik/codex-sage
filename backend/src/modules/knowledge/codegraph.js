@@ -1,12 +1,12 @@
 /**
  * knowledge/codegraph.js — merged resource file.
  */
+import path from 'node:path';
+import fs from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { assertPathInsideRoot } from './sources.js';
 import { logCaughtError } from '../../platform/errors.js';
 import { hasActiveProjectWriterLock } from '../../worker/projectJobLock.js';
-import { assertPathInsideRoot } from './sources.js';
-import { createHash } from 'node:crypto';
-import fs from 'node:fs/promises';
-import path from 'node:path';
 
 // --- from codegraph/codegraph.paths.js ---
 /**

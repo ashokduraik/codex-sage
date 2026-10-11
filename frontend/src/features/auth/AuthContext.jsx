@@ -1,11 +1,11 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { getAccessToken, refreshAccessToken, setAccessToken, subscribeSessionCleared } from '@/shared/api';
-import { useCurrentUser } from '@/features/auth/api/useCurrentUser.js';
+import { useQueryClient } from '@tanstack/react-query';
 import { useLogin } from '@/features/auth/api/useLogin.js';
 import { useLogout } from '@/features/auth/api/useLogout.js';
+import { useCurrentUser } from '@/features/auth/api/useCurrentUser.js';
 import { usePasswordChange } from '@/features/auth/api/usePasswordChange.js';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { getAccessToken, refreshAccessToken, setAccessToken, subscribeSessionCleared } from '@/shared/api';
 
 const AuthContext = createContext(null);
 

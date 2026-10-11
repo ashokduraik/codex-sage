@@ -2,6 +2,9 @@
  * Unit tests for S5 and S6 stages.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createIngestCounters } from '../../../src/modules/knowledge/ingest.helper.js';
+import { runKnowledgePublishStage } from '../../../src/modules/knowledge/ingest.helper.js';
+import { lifecycleStatusForPublishedHealth, runFinalizeStage } from '../../../src/modules/knowledge/ingest.helper.js';
 
 const publishKnowledgeVersion = vi.fn();
 const findProjectById = vi.fn();
@@ -23,10 +26,6 @@ vi.mock('../../../src/modules/masters/index.js', async (importOriginal) => {
     transitionLifecycle: (...args) => transitionLifecycle(...args),
   };
 });
-
-import { runKnowledgePublishStage } from '../../../src/modules/knowledge/ingest.helper.js';
-import { lifecycleStatusForPublishedHealth, runFinalizeStage } from '../../../src/modules/knowledge/ingest.helper.js';
-import { createIngestCounters } from '../../../src/modules/knowledge/ingest.helper.js';
 
 describe('s5KnowledgePublish', () => {
   beforeEach(() => {

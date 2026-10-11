@@ -1,38 +1,38 @@
 /**
  * Jobs repository — pending create, pagination, event message caps, soft-delete visibility.
  */
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import mongoose from 'mongoose';
-import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
-import { encodeCursor, softDelete, ROW_STATUS_DELETED } from '../../../src/platform/data/index.js';
-import { ApiError } from '../../../src/platform/errors.js';
 import { Job } from '../../../src/models/job.model.js';
+import { listJobEvents } from '../../listJobEvents.js';
+import { ApiError } from '../../../src/platform/errors.js';
+import { createMongoHarness } from '../../mongoHarness.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { encodeCursor, softDelete, ROW_STATUS_DELETED } from '../../../src/platform/data/index.js';
 import {
-  JOB_DEFAULT_MAX_ATTEMPTS,
   JOB_ENQUEUED_MESSAGE,
-  JOB_EVENT_CODE_ENQUEUED,
-  JOB_EVENT_MESSAGE_MAX_LENGTH,
-  JOB_LIST_PAGE_SIZE_DEFAULT,
   JOB_LIST_PAGE_SIZE_MAX,
+  JOB_EVENT_CODE_ENQUEUED,
+  JOB_DEFAULT_MAX_ATTEMPTS,
+  JOB_LIST_PAGE_SIZE_DEFAULT,
+  JOB_EVENT_MESSAGE_MAX_LENGTH,
 } from '../../../src/modules/masters/jobs.helper.js';
 import {
+  findJobById,
   appendJobEvent,
-  assertJobEventMessageLength,
   beginUserRetry,
   cancelQueuedJob,
-  clampJobListLimit,
   deferRunningJob,
-  findActiveJobForProject,
-  findActiveJobForProjectByTypes,
-  findActiveJobForSourceVersion,
-  findJobById,
   insertPendingJob,
   isKnownJobStatus,
+  clampJobListLimit,
   listJobsByProject,
+  findActiveJobForProject,
   requestRunningJobCancel,
+  assertJobEventMessageLength,
+  findActiveJobForSourceVersion,
+  findActiveJobForProjectByTypes,
 } from '../../../src/modules/masters/jobs.helper.js';
-import { listJobEvents } from '../../listJobEvents.js';
 
 const harness = createMongoHarness({
   models: [Job],

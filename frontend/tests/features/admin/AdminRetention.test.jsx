@@ -1,7 +1,7 @@
 import { cleanup, screen } from '@testing-library/react';
+import AdminRetention from '@/features/admin/AdminRetention';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
-import AdminRetention from '@/features/admin/AdminRetention';
 
 afterEach(() => {
   cleanup();

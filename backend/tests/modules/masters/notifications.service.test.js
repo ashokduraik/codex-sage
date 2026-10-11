@@ -1,21 +1,21 @@
 /**
  * Notification fan-out, list, and mark-read service tests.
  */
-import { createTestOrganization, ensureTestRoles, nextTestUserCode } from '../../identityFixtures.js';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import mongoose from 'mongoose';
-import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
+import { createMongoHarness } from '../../mongoHarness.js';
 import { Notification } from '../../../src/models/notification.model.js';
-import { IDENTITY_MODELS, createUserInRepo, findRoleByCode } from '../../../src/modules/masters/index.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { PROJECT_MODELS, createProjectInRepo } from '../../../src/modules/masters/projects.js';
+import { createTestOrganization, ensureTestRoles, nextTestUserCode } from '../../identityFixtures.js';
+import { IDENTITY_MODELS, createUserInRepo, findRoleByCode } from '../../../src/modules/masters/index.js';
 import {
-  emitNotificationsForJobTerminal,
+  markNotificationRead,
   emitProjectNotification,
   listNotificationsForUser,
   markAllNotificationsRead,
-  markNotificationRead,
   permissionForNotificationType,
+  emitNotificationsForJobTerminal,
 } from '../../../src/modules/masters/notifications.js';
 
 const harness = createMongoHarness({

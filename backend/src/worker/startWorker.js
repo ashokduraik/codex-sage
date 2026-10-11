@@ -4,26 +4,26 @@
  */
 import { hostname } from 'node:os';
 import { loadConfig } from '../platform/config.js';
-import { connectMongo, disconnectMongo } from '../platform/mongo.js';
-import { syncSchemaIndexes } from '../platform/data/index.js';
-import { JOB_MODELS, NOTIFICATION_MODELS, PROJECT_ACTIVITY_MODELS } from '../modules/masters/index.js';
-import { retentionHandlerRegistration, enqueueDueRetentionJobs, RETENTION_SCHEDULER_TICK_MS } from '../modules/masters/index.js';
-import { SOURCE_MODELS } from '../modules/knowledge/index.js';
-import { DOCUMENT_MODELS } from '../modules/knowledge/index.js';
-import { PROJECT_MODELS } from '../modules/masters/index.js';
-import { KNOWLEDGE_MODELS } from '../modules/knowledge/index.js';
-import { REPOSITORY_MODELS } from '../modules/knowledge/index.js';
-import { CONVERSATION_MODELS } from '../modules/conversation/index.js';
 import { AUDIT_MODELS } from '../modules/access/index.js';
 import { caughtErrorFields } from '../platform/errors.js';
-import { attachShutdownSignals, registerProcessHandlers, registerShutdownHook } from '../platform/shutdown.js';
-import { clearJobHandlersForTests, registerJobHandler } from './handlerRegistry.js';
-import { workerSmokeHandlerRegistration } from './handlers/workerSmokeHandler.js';
-import { ingestHandlerRegistration, reingestHandlerRegistration } from '../modules/knowledge/index.js';
-import { enqueueDueRepositorySyncs, repoSyncHandlerRegistration, REPO_SYNC_SCHEDULER_TICK_MS } from '../modules/knowledge/index.js';
+import { PROJECT_MODELS } from '../modules/masters/index.js';
+import { SOURCE_MODELS } from '../modules/knowledge/index.js';
+import { syncSchemaIndexes } from '../platform/data/index.js';
+import { DOCUMENT_MODELS } from '../modules/knowledge/index.js';
+import { KNOWLEDGE_MODELS } from '../modules/knowledge/index.js';
+import { REPOSITORY_MODELS } from '../modules/knowledge/index.js';
 import { ProjectJobLock } from '../models/projectJobLock.model.js';
+import { connectMongo, disconnectMongo } from '../platform/mongo.js';
 import { buildWorkerId, startWorkerRuntime } from './workerRuntime.js';
+import { CONVERSATION_MODELS } from '../modules/conversation/index.js';
+import { workerSmokeHandlerRegistration } from './handlers/workerSmokeHandler.js';
+import { clearJobHandlersForTests, registerJobHandler } from './handlerRegistry.js';
 import { WORKER_HEARTBEAT_INTERVAL_MS, assertWorkerLeaseTimingSafe } from './worker.constants.js';
+import { ingestHandlerRegistration, reingestHandlerRegistration } from '../modules/knowledge/index.js';
+import { JOB_MODELS, NOTIFICATION_MODELS, PROJECT_ACTIVITY_MODELS } from '../modules/masters/index.js';
+import { attachShutdownSignals, registerProcessHandlers, registerShutdownHook } from '../platform/shutdown.js';
+import { retentionHandlerRegistration, enqueueDueRetentionJobs, RETENTION_SCHEDULER_TICK_MS } from '../modules/masters/index.js';
+import { enqueueDueRepositorySyncs, repoSyncHandlerRegistration, REPO_SYNC_SCHEDULER_TICK_MS } from '../modules/knowledge/index.js';
 
 export { WORKER_HEARTBEAT_INTERVAL_MS };
 

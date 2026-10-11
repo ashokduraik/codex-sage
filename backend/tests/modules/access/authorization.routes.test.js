@@ -1,32 +1,32 @@
 /**
  * Authorization HTTP integration tests.
  */
-import { ensureTestRoles, nextTestUserCode } from '../../identityFixtures.js';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import Fastify from 'fastify';
-import { API_BASE_PATH, buildApp } from '../../../src/http/app.js';
-import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
-import { registerErrorHandler } from '../../../src/platform/errors.js';
-import { AUDIT_MODELS } from '../../../src/modules/access/audit.js';
+import { Role } from '../../../src/models/role.model.js';
+import { createMongoHarness } from '../../mongoHarness.js';
+import { API_BASE_PATH, buildApp } from '../../../src/http/app.js';
 import { AUTH_MODELS } from '../../../src/modules/access/index.js';
 import { hashPassword } from '../../../src/modules/access/auth.js';
-import { createAuthenticatePreHandler } from '../../../src/modules/access/auth.js';
+import { AUDIT_MODELS } from '../../../src/modules/access/audit.js';
+import { registerErrorHandler } from '../../../src/platform/errors.js';
 import { createAuthService } from '../../../src/modules/access/auth.js';
-import {
-  DEFAULT_ADMIN_EMAIL,
-  DEFAULT_ADMIN_PASSWORD,
-  DEFAULT_ORG_SLUG,
-  IDENTITY_MODELS,
-  createUserInRepo,
-  findOrganizationBySlug,
-  findUserByEmail,
-  runBootstrapSeed,
-} from '../../../src/modules/masters/index.js';
-import { Role } from '../../../src/models/role.model.js';
+import { invalidateRole } from '../../../src/modules/access/permissions.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { ensureTestRoles, nextTestUserCode } from '../../identityFixtures.js';
+import { createAuthenticatePreHandler } from '../../../src/modules/access/auth.js';
 import { createAuthorizePreHandler } from '../../../src/modules/access/permissions.js';
 import { ALL_PERMISSION_KEYS, PERMISSION_GROUPS } from '../../../src/modules/access/permissions.js';
-import { invalidateRole } from '../../../src/modules/access/permissions.js';
+import {
+  findUserByEmail,
+  IDENTITY_MODELS,
+  createUserInRepo,
+  DEFAULT_ORG_SLUG,
+  runBootstrapSeed,
+  DEFAULT_ADMIN_EMAIL,
+  DEFAULT_ADMIN_PASSWORD,
+  findOrganizationBySlug,
+} from '../../../src/modules/masters/index.js';
 
 const harness = createMongoHarness({
   models: [...IDENTITY_MODELS, ...AUTH_MODELS, ...AUDIT_MODELS],

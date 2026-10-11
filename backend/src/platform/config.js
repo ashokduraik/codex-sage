@@ -2,9 +2,9 @@
  * Application runtime configuration read from environment variables.
  * All `process.env` reads are centralised here — no scattered accesses elsewhere.
  */
+import { z } from 'zod';
 import os from 'node:os';
 import path from 'node:path';
-import { z } from 'zod';
 import { parseEncryptionKey } from './secretCrypto.js';
 
 const LOG_LEVELS = new Set(['debug', 'info', 'warning', 'error']);

@@ -1,11 +1,11 @@
 /**
  * Unit tests for zip integrity / slip inspection.
  */
+import path from 'node:path';
+import { Readable } from 'node:stream';
+import { fileURLToPath } from 'node:url';
 import { createReadStream } from 'node:fs';
 import { readFile } from 'node:fs/promises';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { Readable } from 'node:stream';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { inspectZip, uploadArchiveLimits } from '../../../src/modules/knowledge/uploads.js';
 

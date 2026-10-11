@@ -1,6 +1,6 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { setAccessToken } from '@/shared/api';
 import { logout as logoutRequest } from './authApi.js';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 /**
  * Mutation that calls logout, clears the in-memory token (no session-cleared notify),

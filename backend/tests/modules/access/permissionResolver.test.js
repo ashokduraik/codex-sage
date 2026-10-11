@@ -1,14 +1,14 @@
 /**
  * Unit tests for permission resolution (Mongo).
  */
-import { createTestOrganization, ensureTestRoles } from '../../identityFixtures.js';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
-import { IDENTITY_MODELS } from '../../../src/modules/masters/index.js';
 import { Role } from '../../../src/models/role.model.js';
-import { ALL_PERMISSION_KEYS } from '../../../src/modules/access/permissions.js';
+import { createMongoHarness } from '../../mongoHarness.js';
+import { IDENTITY_MODELS } from '../../../src/modules/masters/index.js';
 import { createRoleCache } from '../../../src/modules/access/permissions.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { ALL_PERMISSION_KEYS } from '../../../src/modules/access/permissions.js';
+import { createTestOrganization, ensureTestRoles } from '../../identityFixtures.js';
 import { hasRequiredPermissions, resolveEffectivePermissions } from '../../../src/modules/access/permissions.js';
 
 const harness = createMongoHarness({

@@ -3,35 +3,35 @@
  */
 import { randomBytes } from 'node:crypto';
 import { Job } from '../models/job.model.js';
-import { appendJobEvent, emitNotificationsForJobTerminal, recordProjectActivitiesForJobTerminal } from '../modules/masters/index.js';
-import { getJobHandler, listRegisteredJobTypes } from './handlerRegistry.js';
-import {
-  claimNextJob,
-  finishJobCancelled,
-  finishJobCompleted,
-  finishJobFailed,
-  recordJobClaimedEvent,
-  releaseJobOnShutdown,
-  requeueJobProjectBusy,
-  requeueJobTemporaryFailure,
-  resolveNextDueAt,
-  saveJobCheckpoint,
-  saveJobProgress,
-} from './jobClaim.js';
-import { heartbeatInFlightJob } from './jobHeartbeat.js';
+import { createJobLogger } from './workerLogger.js';
 import { sweepExpiredLeases } from './leaseSweeper.js';
-import { acquireProjectJobLock, releaseProjectJobLock } from './projectJobLock.js';
+import { heartbeatInFlightJob } from './jobHeartbeat.js';
 import { caughtErrorFields } from '../platform/errors.js';
+import { getJobHandler, listRegisteredJobTypes } from './handlerRegistry.js';
 import { classifyThrownFailure, decideFailureOutcome } from './retryPolicy.js';
+import { acquireProjectJobLock, releaseProjectJobLock } from './projectJobLock.js';
+import { appendJobEvent, emitNotificationsForJobTerminal, recordProjectActivitiesForJobTerminal } from '../modules/masters/index.js';
 import {
   WORKER_DRAIN_TIMEOUT_MS,
-  WORKER_HEARTBEAT_INTERVAL_MS,
-  WORKER_MAX_CONCURRENT_JOBS,
   WORKER_POLL_INTERVAL_MS,
   WORKER_SWEEP_INTERVAL_MS,
+  WORKER_MAX_CONCURRENT_JOBS,
   assertWorkerLeaseTimingSafe,
+  WORKER_HEARTBEAT_INTERVAL_MS,
 } from './worker.constants.js';
-import { createJobLogger } from './workerLogger.js';
+import {
+  claimNextJob,
+  finishJobFailed,
+  saveJobProgress,
+  resolveNextDueAt,
+  saveJobCheckpoint,
+  finishJobCancelled,
+  finishJobCompleted,
+  releaseJobOnShutdown,
+  recordJobClaimedEvent,
+  requeueJobProjectBusy,
+  requeueJobTemporaryFailure,
+} from './jobClaim.js';
 
 /**
  * Builds a worker id that stays unique across fast restarts.

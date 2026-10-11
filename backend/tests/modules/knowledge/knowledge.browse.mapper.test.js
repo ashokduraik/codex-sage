@@ -3,14 +3,14 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
-  buildExtractiveSummary,
-  capSummaryText,
-  emptyBrowseEnvelope,
-  KNOWLEDGE_SUMMARY_MAX_CHARS,
   mapApiItem,
-  mapBrowseFacets,
-  mapHealthDimensions,
   mapSymbolItem,
+  capSummaryText,
+  mapBrowseFacets,
+  emptyBrowseEnvelope,
+  mapHealthDimensions,
+  buildExtractiveSummary,
+  KNOWLEDGE_SUMMARY_MAX_CHARS,
 } from '../../../src/modules/knowledge/knowledge.js';
 
 describe('knowledge.browse.mapper', () => {

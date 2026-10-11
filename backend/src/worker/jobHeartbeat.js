@@ -2,10 +2,10 @@
  * Conditional lease and project-lock refresh for in-flight jobs.
  */
 import mongoose from 'mongoose';
-import { ROW_STATUS_ACTIVE } from '../platform/data/index.js';
 import { Job } from '../models/job.model.js';
 import { refreshProjectJobLock } from './projectJobLock.js';
 import { WORKER_LEASE_TTL_MS } from './worker.constants.js';
+import { ROW_STATUS_ACTIVE } from '../platform/data/index.js';
 
 /**
  * Refreshes heartbeat/lease for a job when workerId still matches.

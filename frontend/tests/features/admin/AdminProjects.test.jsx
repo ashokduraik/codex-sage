@@ -1,7 +1,8 @@
+import AdminProjects from '@/features/admin/AdminProjects';
 import { cleanup, fireEvent, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
-import AdminProjects from '@/features/admin/AdminProjects';
+
 afterEach(() => {
   cleanup();
 });

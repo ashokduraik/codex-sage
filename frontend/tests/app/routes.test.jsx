@@ -1,15 +1,15 @@
-import { cleanup, render, screen } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter } from 'react-router-dom';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { AppRoutes } from '@/app/routes';
-import { AuthProvider } from '@/features/auth/AuthContext';
-import LoginPage from '@/features/auth/LoginPage';
-import { CURRENT_USER_QUERY_KEY } from '@/features/auth/api/authApi.js';
-import { resetApiSessionForTests } from '@/shared/api/apiSession.js';
-import { resetRefreshClientForTests } from '@/shared/api/refreshClient.js';
 import '@/shared/i18n/index';
+import { AppRoutes } from '@/app/routes';
+import { MemoryRouter } from 'react-router-dom';
+import LoginPage from '@/features/auth/LoginPage';
 import { AppDataProvider } from '@/shared/mock-data/index';
+import { AuthProvider } from '@/features/auth/AuthContext';
+import { cleanup, render, screen } from '@testing-library/react';
+import { resetApiSessionForTests } from '@/shared/api/apiSession.js';
+import { CURRENT_USER_QUERY_KEY } from '@/features/auth/api/authApi.js';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { resetRefreshClientForTests } from '@/shared/api/refreshClient.js';
 import { buildTestAuthUser, clearAuthSession, seedAuthSession } from '@tests/renderWithProviders';
 
 afterEach(() => {

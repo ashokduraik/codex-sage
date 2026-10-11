@@ -1,12 +1,13 @@
 import { useState } from 'react';
-import { Plus, Search, Archive, MoreHorizontal, MessageSquare, RotateCcw, Pencil, Trash2 } from 'lucide-react';
+import { cn } from '@/shared/lib/utils';
+import { Input } from '@/shared/ui/input';
+import { Button } from '@/shared/ui/button';
 import { useTranslation } from 'react-i18next';
 import { useAppData } from '@/shared/mock-data';
-import { Button } from '@/shared/ui/button';
-import { Input } from '@/shared/ui/input';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/shared/ui/dropdown-menu';
-import { cn } from '@/shared/lib/utils';
 import { formatRelative } from '@/shared/lib/format';
+import { Plus, Search, Archive, MoreHorizontal, MessageSquare, RotateCcw, Pencil, Trash2 } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/shared/ui/dropdown-menu';
+
 /**
  * Sidebar list of project conversations with rename/archive/delete actions.
  *

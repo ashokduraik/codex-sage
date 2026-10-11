@@ -3,13 +3,13 @@
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  archiveProject,
   createProject,
   deleteProject,
-  PROJECTS_DETAIL_QUERY_ROOT,
-  PROJECTS_LIST_QUERY_ROOT,
-  projectDetailQueryKey,
+  archiveProject,
   restoreProject,
+  projectDetailQueryKey,
+  PROJECTS_LIST_QUERY_ROOT,
+  PROJECTS_DETAIL_QUERY_ROOT,
 } from '@/features/projects/api/projectsApi.js';
 
 /**

@@ -1,17 +1,17 @@
 /**
  * Additional unit/integration coverage for identity edge branches.
  */
-import { createTestOrganization, ensureTestRoles, nextTestUserCode } from '../../identityFixtures.js';
 import mongoose from 'mongoose';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
-import { IDENTITY_MODELS, findRoleByCode } from '../../../src/modules/masters/index.js';
+import { Role } from '../../../src/models/role.model.js';
+import { createMongoHarness } from '../../mongoHarness.js';
+import { SLUG_PATTERN } from '../../../src/models/organization.model.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { findOrganizationById } from '../../../src/modules/masters/organizations.js';
+import { IDENTITY_MODELS, findRoleByCode } from '../../../src/modules/masters/index.js';
+import { createTestOrganization, ensureTestRoles, nextTestUserCode } from '../../identityFixtures.js';
 import { createUserInRepo, findUserById, softDeleteUser } from '../../../src/modules/masters/users.js';
 import { createRoleInRepo, softDeleteRole, softDeleteRoleInRepo, updateRoleInRepo } from '../../../src/modules/masters/roles.js';
-import { Role } from '../../../src/models/role.model.js';
-import { SLUG_PATTERN } from '../../../src/models/organization.model.js';
 
 const harness = createMongoHarness({
   models: [...IDENTITY_MODELS],

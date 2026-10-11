@@ -3,8 +3,8 @@
  */
 import i18n from '@/shared/i18n';
 import { API_BASE_URL } from './apiConfig.js';
-import { ApiError, apiErrorFromNetworkFailure, apiErrorFromResponse, isRequestAbortedError, RequestAbortedError } from './ApiError.js';
 import { clearSession, setAccessToken } from './apiSession.js';
+import { ApiError, apiErrorFromNetworkFailure, apiErrorFromResponse, isRequestAbortedError, RequestAbortedError } from './ApiError.js';
 
 /** Readable CSRF cookie name — must match backend `CSRF_COOKIE_NAME`. */
 export const CSRF_COOKIE_NAME = 'csrfToken';

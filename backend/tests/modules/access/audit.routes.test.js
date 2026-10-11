@@ -1,26 +1,26 @@
 /**
  * Audit HTTP integration tests (list, detail, tenant isolation, retro-fits).
  */
-import { createTestOrganization, ensureTestRoles, nextTestUserCode } from '../../identityFixtures.js';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import mongoose from 'mongoose';
-import { API_BASE_PATH, buildApp } from '../../../src/http/app.js';
-import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
-import { ROW_STATUS_DELETED } from '../../../src/platform/data/index.js';
+import { createMongoHarness } from '../../mongoHarness.js';
+import { API_BASE_PATH, buildApp } from '../../../src/http/app.js';
 import { AUTH_MODELS } from '../../../src/modules/access/index.js';
 import { hashPassword } from '../../../src/modules/access/auth.js';
+import { ROW_STATUS_DELETED } from '../../../src/platform/data/index.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { AUDIT_LIST_PAGE_SIZE_MAX } from '../../../src/modules/access/audit.js';
+import { createTestOrganization, ensureTestRoles, nextTestUserCode } from '../../identityFixtures.js';
+import { AUDIT_MODELS, AuditEvent, insertAuditEvent, listAuditEvents } from '../../../src/modules/access/audit.js';
 import {
-  DEFAULT_ADMIN_EMAIL,
-  DEFAULT_ADMIN_PASSWORD,
-  DEFAULT_ORG_SLUG,
   IDENTITY_MODELS,
   createUserInRepo,
-  findOrganizationBySlug,
+  DEFAULT_ORG_SLUG,
   runBootstrapSeed,
+  DEFAULT_ADMIN_EMAIL,
+  DEFAULT_ADMIN_PASSWORD,
+  findOrganizationBySlug,
 } from '../../../src/modules/masters/index.js';
-import { AUDIT_MODELS, AuditEvent, insertAuditEvent, listAuditEvents } from '../../../src/modules/access/audit.js';
-import { AUDIT_LIST_PAGE_SIZE_MAX } from '../../../src/modules/access/audit.js';
 
 const harness = createMongoHarness({
   models: [...IDENTITY_MODELS, ...AUTH_MODELS, ...AUDIT_MODELS],

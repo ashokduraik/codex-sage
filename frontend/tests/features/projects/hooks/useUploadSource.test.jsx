@@ -1,10 +1,10 @@
 /**
  * Tests for the source upload mutation hook.
  */
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, renderHook, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/shared/api/index';
+import { describe, expect, it, vi } from 'vitest';
+import { act, renderHook, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 vi.mock('@/features/projects/api/sourcesApi.js', () => ({
   uploadProjectSource: vi.fn(),
@@ -12,8 +12,8 @@ vi.mock('@/features/projects/api/sourcesApi.js', () => ({
 }));
 
 import { uploadProjectSource } from '@/features/projects/api/sourcesApi.js';
-import { useUploadSource } from '@/features/projects/hooks/useUploadSource.js';
 import { projectDetailQueryKey } from '@/features/projects/api/projectsApi.js';
+import { useUploadSource } from '@/features/projects/hooks/useUploadSource.js';
 
 /**
  * @param {import('@tanstack/react-query').QueryClient} queryClient Client.

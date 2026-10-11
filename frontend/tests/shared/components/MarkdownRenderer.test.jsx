@@ -1,7 +1,8 @@
-import { cleanup, fireEvent, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, screen } from '@testing-library/react';
 import MarkdownRenderer from '@/shared/components/MarkdownRenderer';
 import { clearAuthSession, renderWithProviders } from '@tests/renderWithProviders';
+
 afterEach(() => {
   cleanup();
   localStorage.clear();

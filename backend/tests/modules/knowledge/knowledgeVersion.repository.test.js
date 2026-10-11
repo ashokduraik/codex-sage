@@ -2,6 +2,12 @@
  * Unit tests for KnowledgeVersion repository helpers.
  */
 import { describe, expect, it, vi, beforeEach } from 'vitest';
+import {
+  insertKnowledgeVersion,
+  findKnowledgeVersionById,
+  countExcludedFromGraphFiles,
+  findActiveKnowledgeVersionForSource,
+} from '../../../src/modules/knowledge/knowledge.js';
 
 const countDocuments = vi.fn();
 const findOne = vi.fn();
@@ -19,13 +25,6 @@ vi.mock('../../../src/models/knowledgeVersion.model.js', () => ({
     create: (...args) => create(...args),
   },
 }));
-
-import {
-  countExcludedFromGraphFiles,
-  findActiveKnowledgeVersionForSource,
-  findKnowledgeVersionById,
-  insertKnowledgeVersion,
-} from '../../../src/modules/knowledge/knowledge.js';
 
 describe('knowledgeVersion.repository', () => {
   beforeEach(() => {

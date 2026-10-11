@@ -4,13 +4,13 @@
 import { useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { projectDetailQueryKey } from '@/features/projects/api/projectsApi.js';
+import { sourceVersionsQueryKey } from '@/features/projects/api/sourcesApi.js';
 import {
-  replaceProjectRepositoryCredential,
   repositoryConnectionQueryKey,
   retestProjectRepositoryConnection,
   revokeProjectRepositoryCredential,
+  replaceProjectRepositoryCredential,
 } from '@/features/projects/api/repositoriesApi.js';
-import { sourceVersionsQueryKey } from '@/features/projects/api/sourcesApi.js';
 
 /**
  * Credential write actions. Token is never stored in mutation variables.

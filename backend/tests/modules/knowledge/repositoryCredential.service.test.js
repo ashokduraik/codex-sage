@@ -1,12 +1,12 @@
 /**
  * Encrypt / decrypt / replace nested repository credentials.
  */
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import mongoose from 'mongoose';
-import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
-import { RepositoryConnection } from '../../../src/models/repositoryConnection.model.js';
+import { createMongoHarness } from '../../mongoHarness.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { insertConnection } from '../../../src/modules/knowledge/repositories.js';
+import { RepositoryConnection } from '../../../src/models/repositoryConnection.model.js';
 import { decryptConnectionToken, replaceEncryptedCredential, storeEncryptedCredential } from '../../../src/modules/knowledge/repositories.js';
 
 const TOKEN_FIXTURE = 'ghp_probe_token_fixture_never_log';

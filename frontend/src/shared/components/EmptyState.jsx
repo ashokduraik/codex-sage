@@ -1,4 +1,5 @@
 import { cn } from '@/shared/lib/utils';
+
 /**
  * Centered empty-state placeholder with optional icon and action.
  * @param props - Empty state props.

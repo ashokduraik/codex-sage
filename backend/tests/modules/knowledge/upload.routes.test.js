@@ -1,33 +1,33 @@
 /**
  * Source upload route integration tests — GridFS, jobs, ACL, idempotency.
  */
-import { nextTestUserCode, ensureTestRoles } from '../../identityFixtures.js';
-import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import mongoose from 'mongoose';
-import { API_BASE_PATH, buildApp } from '../../../src/http/app.js';
-import { createMongoHarness } from '../../mongoHarness.js';
+import { fileURLToPath } from 'node:url';
+import { readFile } from 'node:fs/promises';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
-import { AUDIT_MODELS, listAuditEvents } from '../../../src/modules/access/audit.js';
+import { createMongoHarness } from '../../mongoHarness.js';
+import { API_BASE_PATH, buildApp } from '../../../src/http/app.js';
 import { AUTH_MODELS } from '../../../src/modules/access/index.js';
 import { hashPassword } from '../../../src/modules/access/auth.js';
+import { JOB_MODELS, Job } from '../../../src/modules/masters/jobs.js';
+import { clearSourceFilesBucket } from '../../clearSourceFilesBucket.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { nextTestUserCode, ensureTestRoles } from '../../identityFixtures.js';
+import { IDEMPOTENCY_MODELS } from '../../../src/platform/idempotency/index.js';
+import { addProjectMember } from '../../../src/modules/masters/projectMembers.js';
+import { PROJECT_MODELS, Project } from '../../../src/modules/masters/projects.js';
+import { AUDIT_MODELS, listAuditEvents } from '../../../src/modules/access/audit.js';
+import { SOURCE_MODELS, SourceFile, SourceVersion, getSourceFilesBucket } from '../../../src/modules/knowledge/sources.js';
 import {
-  DEFAULT_ADMIN_EMAIL,
-  DEFAULT_ADMIN_PASSWORD,
+  findRoleByCode,
   IDENTITY_MODELS,
   createUserInRepo,
-  findOrganizationBySlug,
   runBootstrapSeed,
-  findRoleByCode,
+  DEFAULT_ADMIN_EMAIL,
+  DEFAULT_ADMIN_PASSWORD,
+  findOrganizationBySlug,
 } from '../../../src/modules/masters/index.js';
-import { IDEMPOTENCY_MODELS } from '../../../src/platform/idempotency/index.js';
-import { PROJECT_MODELS, Project } from '../../../src/modules/masters/projects.js';
-import { addProjectMember } from '../../../src/modules/masters/projectMembers.js';
-import { JOB_MODELS, Job } from '../../../src/modules/masters/jobs.js';
-import { SOURCE_MODELS, SourceFile, SourceVersion, getSourceFilesBucket } from '../../../src/modules/knowledge/sources.js';
-import { clearSourceFilesBucket } from '../../clearSourceFilesBucket.js';
 
 const fixturesDir = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures');
 

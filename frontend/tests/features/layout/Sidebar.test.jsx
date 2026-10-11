@@ -1,5 +1,7 @@
+import Sidebar from '@/features/layout/Sidebar';
 import { cleanup, fireEvent, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
 
 const listProjects = vi.fn(async (options = {}) => ({
   items: options.q
@@ -62,8 +64,6 @@ vi.mock('@/features/projects/api/projectsApi.js', async (importOriginal) => {
   };
 });
 
-import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
-import Sidebar from '@/features/layout/Sidebar';
 afterEach(() => {
   cleanup();
 });

@@ -1,8 +1,8 @@
 /**
  * Unit tests for the repo_sync worker handler.
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
 import mongoose from 'mongoose';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const findActiveConnection = vi.fn();
 const decryptConnectionToken = vi.fn();

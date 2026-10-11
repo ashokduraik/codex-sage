@@ -1,6 +1,7 @@
+import { TEST_APP_CONFIG } from '../appConfig.js';
 import { describe, it, expect, afterEach } from 'vitest';
 import { API_BASE_PATH, buildApp } from '../../src/http/app.js';
-import { TEST_APP_CONFIG } from '../appConfig.js';
+
 let app;
 afterEach(async () => {
   await app?.close();

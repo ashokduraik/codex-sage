@@ -2,15 +2,15 @@
  * Conversation context — extractive summary, pinned facts, measured metrics,
  * and the Mongo loader Phase 47 calls before `prepareModelInput`. No LLM.
  */
-import { requireProjectPermission } from '../../http/preHandlers/requireProjectPermission.js';
-import { PINNED_FACT_SOURCE_VALUES } from '../../models/conversations.model.js';
-import { Message } from '../../models/messages.model.js';
-import { ApiError } from '../../platform/errors.js';
-import { ROW_STATUS_ACTIVE } from '../../platform/data/index.js';
-import mongoose from 'mongoose';
 import { z } from 'zod';
+import mongoose from 'mongoose';
+import { ApiError } from '../../platform/errors.js';
+import { Message } from '../../models/messages.model.js';
 import { listRecentMessages } from './conversation.helper.js';
+import { ROW_STATUS_ACTIVE } from '../../platform/data/index.js';
+import { PINNED_FACT_SOURCE_VALUES } from '../../models/conversations.model.js';
 import { assertConversationWritable, loadConversationForUser } from './conversation.js';
+import { requireProjectPermission } from '../../http/preHandlers/requireProjectPermission.js';
 
 /** Cap on protected pins stored on one conversation. */
 export const PINNED_FACTS_MAX_COUNT = 20;

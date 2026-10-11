@@ -3,15 +3,15 @@
  */
 import { describe, expect, it } from 'vitest';
 import { ApiError } from '../../../src/platform/errors.js';
+import { LIFECYCLE_STATUS_VALUES } from '../../../src/models/projects.model.js';
 import {
   LIFECYCLE_TRANSITIONS,
-  assertKnowledgeHealthAllowed,
-  assertLifecycleTransitionAllowed,
-  initialLifecycleAfterCreate,
   isKnownKnowledgeHealth,
   isKnownLifecycleStatus,
+  initialLifecycleAfterCreate,
+  assertKnowledgeHealthAllowed,
+  assertLifecycleTransitionAllowed,
 } from '../../../src/modules/masters/projects.helper.js';
-import { LIFECYCLE_STATUS_VALUES } from '../../../src/models/projects.model.js';
 
 describe('projects.lifecycle', () => {
   it('exposes exactly the ten lifecycle states from backend §9', () => {

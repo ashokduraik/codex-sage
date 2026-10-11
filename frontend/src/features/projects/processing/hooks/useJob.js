@@ -2,8 +2,8 @@
  * Job detail query with polling while the job is in flight.
  */
 import { useQuery } from '@tanstack/react-query';
-import { getJob, JOB_DETAIL_POLL_INTERVAL_MS, jobDetailQueryKey } from '../api/jobsApi.js';
 import { isActiveJobStatus } from '../jobProgressMap.js';
+import { getJob, JOB_DETAIL_POLL_INTERVAL_MS, jobDetailQueryKey } from '../api/jobsApi.js';
 
 /**
  * Loads one job by id and polls while pending/retrying/running.

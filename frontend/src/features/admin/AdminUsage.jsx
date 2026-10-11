@@ -2,13 +2,13 @@
  * Admin usage page — observed org totals from GET /usage/organization.
  * Question and token numbers are omitted until those facts exist.
  */
-import { BarChart3, Database, Search } from 'lucide-react';
+import { Button } from '@/shared/ui/button';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { messageFromUnknown } from '@/shared/api';
-import { Button } from '@/shared/ui/button';
+import { BarChart3, Database, Search } from 'lucide-react';
 import { fetchOrganizationUsage, organizationUsageQueryKey } from './api/usageApi.js';
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 /**
  * Usage metrics dashboard from measured backend facts.

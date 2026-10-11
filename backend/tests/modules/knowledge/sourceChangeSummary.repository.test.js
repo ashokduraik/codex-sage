@@ -1,10 +1,10 @@
 /**
  * Persistence tests for source change summaries.
  */
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import mongoose from 'mongoose';
-import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
+import { createMongoHarness } from '../../mongoHarness.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { SourceChangeSummary } from '../../../src/models/sourceChangeSummary.model.js';
 import { findChangeSummaryForVersion, findLatestComputedChangeSummary, upsertChangeSummary } from '../../../src/modules/knowledge/changeSummary.js';
 

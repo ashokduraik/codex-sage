@@ -1,21 +1,21 @@
 /**
  * Login-session repository integration tests.
  */
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import mongoose from 'mongoose';
-import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
+import { createMongoHarness } from '../../mongoHarness.js';
 import { AUTH_MODELS } from '../../../src/modules/access/index.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { hashRefreshToken, mintRefreshToken } from '../../../src/modules/access/auth.js';
 import {
   createLoginSession,
-  findLoginSessionByRefreshTokenHash,
-  isLoginSessionActiveForAccess,
-  isLoginSessionActiveForRefresh,
-  revokeAllLoginSessionsForUser,
   revokeLoginSession,
   rotateLoginSession,
+  isLoginSessionActiveForAccess,
+  revokeAllLoginSessionsForUser,
+  isLoginSessionActiveForRefresh,
+  findLoginSessionByRefreshTokenHash,
 } from '../../../src/modules/access/auth.js';
-import { hashRefreshToken, mintRefreshToken } from '../../../src/modules/access/auth.js';
 
 const harness = createMongoHarness({
   models: [...AUTH_MODELS],

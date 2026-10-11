@@ -1,25 +1,25 @@
 /**
  * Integration tests for worker claim, project lock, lease sweep, and smoke completion.
  */
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import mongoose from 'mongoose';
-import { createMongoHarness } from '../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../appConfig.js';
 import { Job } from '../../src/models/job.model.js';
-import { insertPendingJob } from '../../src/modules/masters/index.js';
 import { listJobEvents } from '../listJobEvents.js';
-import { clearJobHandlersForTests, registerJobHandler } from '../../src/worker/handlerRegistry.js';
+import { createMongoHarness } from '../mongoHarness.js';
 import { claimNextJob } from '../../src/worker/jobClaim.js';
-import { acquireProjectJobLock, releaseProjectJobLock } from '../../src/worker/projectJobLock.js';
-import { ProjectJobLock } from '../../src/models/projectJobLock.model.js';
+import { insertPendingJob } from '../../src/modules/masters/index.js';
 import { sweepExpiredLeases } from '../../src/worker/leaseSweeper.js';
-import { workerSmokeHandlerRegistration } from '../../src/worker/handlers/workerSmokeHandler.js';
 import { startWorkerRuntime } from '../../src/worker/workerRuntime.js';
+import { ProjectJobLock } from '../../src/models/projectJobLock.model.js';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { workerSmokeHandlerRegistration } from '../../src/worker/handlers/workerSmokeHandler.js';
+import { acquireProjectJobLock, releaseProjectJobLock } from '../../src/worker/projectJobLock.js';
+import { clearJobHandlersForTests, registerJobHandler } from '../../src/worker/handlerRegistry.js';
 import {
   WORKER_EVENT_CLAIMED,
+  WORKER_LEASE_EXPIRED_CODE,
   WORKER_EVENT_INTERRUPTED_REQUEUED,
   WORKER_EVENT_PROJECT_BUSY_REQUEUED,
-  WORKER_LEASE_EXPIRED_CODE,
 } from '../../src/worker/worker.events.js';
 
 const harness = createMongoHarness({

@@ -2,8 +2,8 @@
  * Role assignment list for invite and edit-roles dialogs.
  */
 import { useMemo } from 'react';
-import { useTranslation } from 'react-i18next';
 import { cn } from '@/shared/lib/utils';
+import { useTranslation } from 'react-i18next';
 
 /**
  * Multi-select list for assigning organization roles.

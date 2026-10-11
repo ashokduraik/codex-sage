@@ -1,18 +1,18 @@
 /**
  * Project activity recording and usage-summary read tests.
  */
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import mongoose from 'mongoose';
-import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
-import { ProjectActivity } from '../../../src/models/projectActivity.model.js';
+import { createMongoHarness } from '../../mongoHarness.js';
 import { SourceFile } from '../../../src/models/sourceFile.model.js';
+import { ProjectActivity } from '../../../src/models/projectActivity.model.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
+  usageRoutes,
   loadUsageSummary,
   recordProjectActivity,
-  recordProjectActivitiesForJobTerminal,
   sumAcceptedSourceBytes,
-  usageRoutes,
+  recordProjectActivitiesForJobTerminal,
 } from '../../../src/modules/masters/projectActivities.js';
 
 const harness = createMongoHarness({

@@ -2,23 +2,22 @@
  * Unit tests for jobs API mapping.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  getJob,
+  retryJob,
+  cancelJob,
+  listProjectJobs,
+  jobDetailQueryKey,
+  JOB_LIST_PAGE_SIZE,
+  projectJobsQueryKey,
+  projectJobsQueryRoot,
+} from '@/features/projects/processing/api/jobsApi.js';
 
 const apiRequest = vi.fn();
 
 vi.mock('@/shared/api/index', () => ({
   apiRequest: (...args) => apiRequest(...args),
 }));
-
-import {
-  cancelJob,
-  getJob,
-  JOB_LIST_PAGE_SIZE,
-  jobDetailQueryKey,
-  listProjectJobs,
-  projectJobsQueryKey,
-  projectJobsQueryRoot,
-  retryJob,
-} from '@/features/projects/processing/api/jobsApi.js';
 
 describe('jobsApi', () => {
   afterEach(() => {

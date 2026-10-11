@@ -2,9 +2,9 @@
  * React Query mutation for re-processing a stored source version.
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { reingestProjectSource, sourceVersionsQueryKey } from '@/features/projects/api/sourcesApi.js';
 import { projectDetailQueryKey } from '@/features/projects/api/projectsApi.js';
 import { projectJobsQueryRoot } from '@/features/projects/processing/api/jobsApi.js';
+import { reingestProjectSource, sourceVersionsQueryKey } from '@/features/projects/api/sourcesApi.js';
 
 /**
  * Enqueues reingest for a stored source version (same bytes, full S0–S6).

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { loadConfig, parseAppRunningPlatform, parseLogLevel, parsePort, resolveRepositoryCrypto } from '../../src/platform/config.js';
+
 /** Minimal valid env for loadConfig tests. */
 const VALID_ENV = {
   MONGODB_URI: 'mongodb://127.0.0.1:27017/codex_sage?replicaSet=rs0',

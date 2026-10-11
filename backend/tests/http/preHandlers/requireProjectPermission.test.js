@@ -1,8 +1,8 @@
 /**
  * Unit tests for requireProjectPermission preHandler.
  */
-import { describe, expect, it, vi, beforeEach } from 'vitest';
 import mongoose from 'mongoose';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { requireProjectPermission } from '../../../src/http/preHandlers/requireProjectPermission.js';
 
 vi.mock('../../../src/modules/masters/index.js', () => ({

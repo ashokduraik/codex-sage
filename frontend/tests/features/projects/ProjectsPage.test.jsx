@@ -1,8 +1,8 @@
 /**
  * ProjectsPage against a mocked projects API.
  */
-import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
 
 vi.mock('@/features/projects/api/projectsApi.js', async (importOriginal) => {
@@ -21,8 +21,8 @@ vi.mock('@/features/projects/api/projectsApi.js', async (importOriginal) => {
   };
 });
 
-import { listProjects } from '@/features/projects/api/projectsApi.js';
 import ProjectsPage from '@/features/projects/ProjectsPage';
+import { listProjects } from '@/features/projects/api/projectsApi.js';
 
 const SAMPLE = [
   {

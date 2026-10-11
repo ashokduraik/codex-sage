@@ -3,8 +3,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import { ApiError } from '../../../src/platform/errors.js';
-import { ALLOWED_JOB_TRANSITIONS, assertJobTransition, isAllowedJobTransition } from '../../../src/modules/masters/jobs.js';
 import { JOB_STATUS_VALUES } from '../../../src/modules/masters/jobs.helper.js';
+import { ALLOWED_JOB_TRANSITIONS, assertJobTransition, isAllowedJobTransition } from '../../../src/modules/masters/jobs.js';
 
 describe('jobTransitions', () => {
   it('accepts every allowed pair from the matrix', () => {

@@ -1,7 +1,18 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import '@/shared/i18n';
+import { setAccessToken } from '@/shared/api';
+import Header from '@/features/layout/Header';
+import Sidebar from '@/features/layout/Sidebar';
+import AppShell from '@/features/layout/AppShell';
+import { AppDataProvider } from '@/shared/mock-data';
+import { AuthProvider } from '@/features/auth/AuthContext';
+import NotFoundPage from '@/features/not-found/NotFoundPage';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { CURRENT_USER_QUERY_KEY } from '@/features/auth/api/authApi.js';
+import ProcessingIndicator from '@/features/layout/ProcessingIndicator';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { buildTestAuthUser, clearAuthSession, seedAuthSession } from '@tests/renderWithProviders';
 
 const listProjects = vi.fn(async (options = {}) => ({
   items: options.q
@@ -86,18 +97,6 @@ vi.mock('@/features/notifications/api/notificationsApi.js', () => ({
   markAllNotificationsRead: vi.fn(),
   NOTIFICATION_LIST_PAGE_SIZE: 20,
 }));
-
-import { AuthProvider } from '@/features/auth/AuthContext';
-import { CURRENT_USER_QUERY_KEY } from '@/features/auth/api/authApi.js';
-import AppShell from '@/features/layout/AppShell';
-import Header from '@/features/layout/Header';
-import ProcessingIndicator from '@/features/layout/ProcessingIndicator';
-import Sidebar from '@/features/layout/Sidebar';
-import NotFoundPage from '@/features/not-found/NotFoundPage';
-import '@/shared/i18n';
-import { setAccessToken } from '@/shared/api';
-import { AppDataProvider } from '@/shared/mock-data';
-import { buildTestAuthUser, clearAuthSession, seedAuthSession } from '@tests/renderWithProviders';
 
 afterEach(() => {
   cleanup();

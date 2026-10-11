@@ -1,19 +1,18 @@
 /**
  * Identity model and repository integration tests.
  */
-import { createTestOrganization, ensureTestRoles, nextTestUserCode } from '../../identityFixtures.js';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { ROW_STATUS_DELETED } from '../../../src/platform/data/index.js';
-import { createMongoHarness } from '../../mongoHarness.js';
+import mongoose from 'mongoose';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
+import { Role } from '../../../src/models/role.model.js';
+import { User } from '../../../src/models/user.model.js';
+import { createMongoHarness } from '../../mongoHarness.js';
 import { IDENTITY_MODELS } from '../../../src/modules/masters/index.js';
-
+import { Organization } from '../../../src/models/organization.model.js';
+import { ROW_STATUS_DELETED } from '../../../src/platform/data/index.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { createTestOrganization, ensureTestRoles, nextTestUserCode } from '../../identityFixtures.js';
 import { createUserInRepo, findUserByEmail, findUserById, listUsersInRepo, softDeleteUser } from '../../../src/modules/masters/users.js';
 import { createRoleInRepo, listRolesPage, softDeleteRole, softDeleteRoleInRepo, updateRoleInRepo } from '../../../src/modules/masters/roles.js';
-import { User } from '../../../src/models/user.model.js';
-import mongoose from 'mongoose';
-import { Role } from '../../../src/models/role.model.js';
-import { Organization } from '../../../src/models/organization.model.js';
 
 const PLACEHOLDER_ROLE_ID = new mongoose.Types.ObjectId();
 

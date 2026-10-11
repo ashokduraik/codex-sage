@@ -1,24 +1,25 @@
 /**
  * masters/projects.js — merged resource file.
  */
-import { requireProjectPermission } from '../../http/preHandlers/requireProjectPermission.js';
+import { z } from 'zod';
 import { ApiError } from '../../platform/errors.js';
+import { Project } from '../../models/projects.model.js';
 import { buildAuditContextFromRequest, recordAuditEvent } from '../access/index.js';
+import { requireProjectPermission } from '../../http/preHandlers/requireProjectPermission.js';
 import { buildProjectMemberSubdoc, resolveAccessibleProjectFilter } from './projectMembers.js';
 import {
-  assertLifecycleTransitionAllowed,
-  assertKnowledgeHealthAllowed,
-  initialLifecycleAfterCreate,
-  conditionalLifecycleUpdate,
-  createProject as createProjectInRepo,
   findProjectById,
-  listProjects as listProjectsInRepo,
   softDeleteProject,
-  touchProjectLastAccessedAt,
   updateProjectMetadata,
   updateProjectSettings,
+  conditionalLifecycleUpdate,
+  touchProjectLastAccessedAt,
+  initialLifecycleAfterCreate,
+  assertKnowledgeHealthAllowed,
+  assertLifecycleTransitionAllowed,
+  listProjects as listProjectsInRepo,
+  createProject as createProjectInRepo,
 } from './projects.helper.js';
-import { z } from 'zod';
 
 // --- from projects/projects.routes.js ---
 /**
@@ -1000,6 +1001,5 @@ function toIsoOrNull(value) {
   return String(value);
 }
 
-import { Project } from '../../models/projects.model.js';
 export { Project };
 export const PROJECT_MODELS = Object.freeze([Project]);

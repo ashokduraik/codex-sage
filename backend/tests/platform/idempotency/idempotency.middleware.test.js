@@ -1,14 +1,14 @@
 /**
  * Unit tests for idempotency onSend / preHandler edge cases.
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../../../src/platform/errors.js';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  IDEMPOTENCY_BODY_MAX_BYTES,
-  IdempotencyReplay,
-  hashIdempotencyRequestBody,
   idempotencyOnSend,
+  IdempotencyReplay,
   idempotencyPreHandler,
+  hashIdempotencyRequestBody,
+  IDEMPOTENCY_BODY_MAX_BYTES,
   releaseOwnedIdempotencyClaim,
 } from '../../../src/platform/idempotency/idempotency.middleware.js';
 
@@ -23,9 +23,9 @@ vi.mock('../../../src/platform/idempotency/idempotency.repository.js', () => ({
 
 import {
   beginIdempotencyClaim,
+  releaseIdempotencyClaim,
   completeIdempotencyRecord,
   findActiveIdempotencyRecord,
-  releaseIdempotencyClaim,
 } from '../../../src/platform/idempotency/idempotency.repository.js';
 
 describe('idempotencyOnSend', () => {

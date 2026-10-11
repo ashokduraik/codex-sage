@@ -1,6 +1,9 @@
 /**
  * Public surface of the access module (auth, permissions, audit).
  */
+import { AuditEvent } from '../../models/audit.model.js';
+import { LoginSession } from '../../models/loginSession.model.js';
+
 export {
   hashPassword,
   JWT_ACCESS_TOKEN_TTL_SECONDS,
@@ -27,9 +30,6 @@ export {
   permissionsRoutes,
 } from './permissions.js';
 export { buildAuditContextFromRequest, recordAuditEvent, auditRoutes } from './audit.js';
-
-import { AuditEvent } from '../../models/audit.model.js';
-import { LoginSession } from '../../models/loginSession.model.js';
 
 /** Models whose indexes are synced on development API startup. */
 export const AUTH_MODELS = Object.freeze([LoginSession]);

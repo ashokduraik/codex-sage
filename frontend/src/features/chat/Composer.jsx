@@ -1,7 +1,8 @@
+import { cn } from '@/shared/lib/utils';
+import { useTranslation } from 'react-i18next';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowUp, Square, AlertTriangle } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
-import { cn } from '@/shared/lib/utils';
+
 /**
  * Chat composer with auto-growing textarea and send/stop controls.
  *

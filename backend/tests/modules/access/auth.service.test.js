@@ -1,11 +1,11 @@
 /**
  * Auth service unit/integration tests.
  */
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createMongoHarness } from '../../mongoHarness.js';
-import { TEST_APP_CONFIG, TEST_JWT_ACCESS_TOKEN_SECRET } from '../../appConfig.js';
 import { AUTH_MODELS } from '../../../src/modules/access/index.js';
 import { createAuthService } from '../../../src/modules/access/auth.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { TEST_APP_CONFIG, TEST_JWT_ACCESS_TOKEN_SECRET } from '../../appConfig.js';
 import { DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD, IDENTITY_MODELS, runBootstrapSeed } from '../../../src/modules/masters/index.js';
 
 const harness = createMongoHarness({

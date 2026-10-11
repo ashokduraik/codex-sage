@@ -1,9 +1,10 @@
 /**
  * Hook tests for knowledge queries.
  */
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { renderHook, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useKnowledgeFacet, useKnowledgeFacets, useKnowledgeHealth } from '@/features/knowledge/hooks/useKnowledgeFacets.js';
 
 const fetchKnowledgeFacets = vi.fn();
 const fetchKnowledgeHealth = vi.fn();
@@ -24,8 +25,6 @@ vi.mock('@/features/knowledge/api/knowledgeApi.js', async (importOriginal) => {
     fetchKnowledgeSymbols: (...args) => fetchKnowledgeSymbols(...args),
   };
 });
-
-import { useKnowledgeFacet, useKnowledgeFacets, useKnowledgeHealth } from '@/features/knowledge/hooks/useKnowledgeFacets.js';
 
 /**
  * @param {import('react').ReactNode} children Tree.

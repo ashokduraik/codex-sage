@@ -1,8 +1,8 @@
 /**
  * Active repository connection for a project.
  */
-import { useQuery } from '@tanstack/react-query';
 import { ApiError } from '@/shared/api';
+import { useQuery } from '@tanstack/react-query';
 import { getProjectRepositoryConnection, repositoryConnectionQueryKey } from '@/features/projects/api/repositoriesApi.js';
 
 /**

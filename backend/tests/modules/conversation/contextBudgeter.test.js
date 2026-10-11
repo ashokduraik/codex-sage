@@ -2,8 +2,15 @@
  * Context budgeter: measurement, compaction order, and fail-closed accounting.
  * Token counting is mocked via tokenCount.js (no options.tokenizer injection).
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../../../src/platform/errors.js';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  prepareModelInput,
+  EXCERPT_MIN_TOKENS,
+  COMPACTION_MAX_PASSES,
+  getContextBudgetConfig,
+  RESERVED_OUTPUT_TOKENS,
+} from '../../../src/modules/conversation/index.js';
 
 const { countTokensForBudget } = vi.hoisted(() => ({
   countTokensForBudget: vi.fn((text) => {
@@ -15,14 +22,6 @@ const { countTokensForBudget } = vi.hoisted(() => ({
 vi.mock('../../../src/modules/conversation/tokenCount.js', () => ({
   countTokensForBudget: (...args) => countTokensForBudget(...args),
 }));
-
-import {
-  COMPACTION_MAX_PASSES,
-  EXCERPT_MIN_TOKENS,
-  RESERVED_OUTPUT_TOKENS,
-  getContextBudgetConfig,
-  prepareModelInput,
-} from '../../../src/modules/conversation/index.js';
 
 /** Artifact id for tests; production uses the configured model id. */
 const TEST_ARTIFACT_ID = 'test-artifact-id';

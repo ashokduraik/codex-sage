@@ -1,14 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, ChevronRight, Loader2, ScrollText } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
-import { useSearchParams } from 'react-router-dom';
-import { useAuth } from '@/features/auth/AuthContext';
-import { useUsers } from '@/features/admin/api/useUsers.js';
-import { useAuditEvents } from '@/features/admin/api/useAuditEvents.js';
-import { ApiError, correlationFromUnknown, messageFromUnknown } from '@/shared/api';
-import { formatDateTime } from '@/shared/lib/format';
 import { cn } from '@/shared/lib/utils';
 import { Button } from '@/shared/ui/button';
+import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router-dom';
+import { formatDateTime } from '@/shared/lib/format';
+import { useAuth } from '@/features/auth/AuthContext';
+import { useUsers } from '@/features/admin/api/useUsers.js';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useAuditEvents } from '@/features/admin/api/useAuditEvents.js';
+import { ChevronDown, ChevronRight, Loader2, ScrollText } from 'lucide-react';
+import { ApiError, correlationFromUnknown, messageFromUnknown } from '@/shared/api';
 import { DatePicker, parseCalendarDate, toCalendarDateString } from '@/shared/ui/date-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/ui/select';
 

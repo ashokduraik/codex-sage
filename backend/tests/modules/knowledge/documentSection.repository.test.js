@@ -1,22 +1,22 @@
 /**
  * Integration tests for DocumentSection repository soft-delete and insert.
  */
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import mongoose from 'mongoose';
-import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
-import { DocumentSection } from '../../../src/models/documentSection.model.js';
+import { createMongoHarness } from '../../mongoHarness.js';
 import { SourceFile } from '../../../src/models/sourceFile.model.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { DocumentSection } from '../../../src/models/documentSection.model.js';
 import {
-  copySectionsForPaths,
-  countSectionsForVersion,
-  findDocumentSectionById,
-  insertDocumentSections,
-  listDocumentFilesForVersion,
   listSectionsForPath,
+  copySectionsForPaths,
+  insertDocumentSections,
   listSectionsForVersion,
   searchDocumentSections,
+  countSectionsForVersion,
+  findDocumentSectionById,
   softDeleteSectionsForPath,
+  listDocumentFilesForVersion,
   softDeleteSectionsForVersion,
 } from '../../../src/modules/knowledge/documents.js';
 

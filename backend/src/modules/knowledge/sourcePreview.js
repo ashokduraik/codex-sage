@@ -1,14 +1,14 @@
 /**
  * knowledge/sourcePreview.js — merged resource file.
  */
-import { requireProjectPermission } from '../../http/preHandlers/requireProjectPermission.js';
-import { ROW_STATUS_ACTIVE } from '../../platform/data/index.js';
+import { z } from 'zod';
 import { ApiError } from '../../platform/errors.js';
 import { findProjectById } from '../masters/index.js';
 import { findKnowledgeVersionById } from './knowledge.js';
-import { readSourceGridFsBytes, findSourceFileByPath } from './sources.js';
+import { ROW_STATUS_ACTIVE } from '../../platform/data/index.js';
 import { isUnsafeArchivePath, normalizeArchivePath } from './uploads.js';
-import { z } from 'zod';
+import { readSourceGridFsBytes, findSourceFileByPath } from './sources.js';
+import { requireProjectPermission } from '../../http/preHandlers/requireProjectPermission.js';
 
 // --- from sources/sourcePreview.service.js ---
 /**

@@ -1,19 +1,19 @@
 /**
  * Integration tests for knowledge publish + finalize against Mongo.
  */
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import mongoose from 'mongoose';
-import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
-import { AUDIT_MODELS, listAuditEventsForOrg } from '../../../src/modules/access/audit.js';
+import { createMongoHarness } from '../../mongoHarness.js';
 import { Project } from '../../../src/models/projects.model.js';
+import { SourceFile } from '../../../src/models/sourceFile.model.js';
 import { KnowledgeVersion } from '../../../src/models/knowledgeVersion.model.js';
-import { publishKnowledgeVersion } from '../../../src/modules/knowledge/knowledge.js';
-import { assertKnowledgeReadable } from '../../../src/modules/knowledge/knowledge.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { runFinalizeStage } from '../../../src/modules/knowledge/ingest.helper.js';
 import { SOURCE_FILE_STATE_STORED } from '../../../src/modules/knowledge/sources.js';
-import { SourceFile } from '../../../src/models/sourceFile.model.js';
+import { assertKnowledgeReadable } from '../../../src/modules/knowledge/knowledge.js';
+import { publishKnowledgeVersion } from '../../../src/modules/knowledge/knowledge.js';
 import { createIngestCounters } from '../../../src/modules/knowledge/ingest.helper.js';
+import { AUDIT_MODELS, listAuditEventsForOrg } from '../../../src/modules/access/audit.js';
 
 const harness = createMongoHarness({
   models: [...AUDIT_MODELS, Project, KnowledgeVersion, SourceFile],

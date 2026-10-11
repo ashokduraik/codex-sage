@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { FileCode, ChevronDown, ChevronRight, AlertTriangle, RefreshCw, Pencil, Check, X, Loader2, Ban, Clock } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
-import { MarkdownRenderer, AbstainNotice } from '@/shared/components';
-import { Button } from '@/shared/ui/button';
-import { Textarea } from '@/shared/ui/textarea';
 import { cn } from '@/shared/lib/utils';
+import { Button } from '@/shared/ui/button';
+import { useTranslation } from 'react-i18next';
+import { Textarea } from '@/shared/ui/textarea';
+import { MarkdownRenderer, AbstainNotice } from '@/shared/components';
+import { FileCode, ChevronDown, ChevronRight, AlertTriangle, RefreshCw, Pencil, Check, X, Loader2, Ban, Clock } from 'lucide-react';
+
 const STATUS_META = {
   Searching: {
     labelKey: 'chat.searching',

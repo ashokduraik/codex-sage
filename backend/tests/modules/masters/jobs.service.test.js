@@ -1,15 +1,15 @@
 /**
  * Jobs service unit tests for createPendingJob return shape and ACL outcomes.
  */
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import mongoose from 'mongoose';
-import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
 import { Job } from '../../../src/models/job.model.js';
-import { createPendingJob, getJobById } from '../../../src/modules/masters/jobs.js';
-import { findJobById, appendJobEvent, insertPendingJob } from '../../../src/modules/masters/jobs.helper.js';
-import { JOB_EVENT_CODE_ENQUEUED } from '../../../src/modules/masters/jobs.helper.js';
 import { listJobEvents } from '../../listJobEvents.js';
+import { createMongoHarness } from '../../mongoHarness.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { createPendingJob, getJobById } from '../../../src/modules/masters/jobs.js';
+import { JOB_EVENT_CODE_ENQUEUED } from '../../../src/modules/masters/jobs.helper.js';
+import { findJobById, appendJobEvent, insertPendingJob } from '../../../src/modules/masters/jobs.helper.js';
 
 vi.mock('../../../src/modules/masters/projectMembers.js', async (importOriginal) => {
   const actual = await importOriginal();

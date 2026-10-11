@@ -1,10 +1,10 @@
 /**
  * Project mutation invalidation and optimistic archive.
  */
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { renderHook, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/shared/api/index';
+import { describe, expect, it, vi } from 'vitest';
+import { renderHook, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 vi.mock('@/features/projects/api/projectsApi.js', async (importOriginal) => {
   const actual = await importOriginal();
@@ -17,9 +17,9 @@ vi.mock('@/features/projects/api/projectsApi.js', async (importOriginal) => {
   };
 });
 
+import { projectDetailQueryKey, projectsListQueryKey } from '@/features/projects/api/projectsApi.js';
 import { archiveProject, createProject, deleteProject, restoreProject } from '@/features/projects/api/projectsApi.js';
 import { useArchiveProject, useCreateProject, useDeleteProject, useRestoreProject } from '@/features/projects/hooks/useProjectMutations.js';
-import { projectDetailQueryKey, projectsListQueryKey } from '@/features/projects/api/projectsApi.js';
 
 /**
  * @param {import('@tanstack/react-query').QueryClient} queryClient

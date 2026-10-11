@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/shared/api/index';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { SourceUploadDialog } from '@/features/projects/SourceUploadDialog';
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
 
 const mutateAsync = vi.fn();
@@ -35,8 +36,6 @@ vi.mock('@/features/projects/hooks/useUploadSource.js', () => ({
     };
   },
 }));
-
-import { SourceUploadDialog } from '@/features/projects/SourceUploadDialog';
 
 afterEach(() => {
   cleanup();

@@ -1,5 +1,5 @@
-import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '@/features/auth/AuthContext';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 
 /**
  * Default full-screen spinner shown while auth is resolving.

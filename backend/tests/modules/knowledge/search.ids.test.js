@@ -4,15 +4,15 @@
 import { describe, expect, it } from 'vitest';
 import { SEARCH_SNIPPET_MAX_CHARS } from '../../../src/modules/knowledge/search.js';
 import {
-  compareSearchItems,
   decodeOpaqueKey,
-  decodeSearchCursor,
   encodeOpaqueKey,
+  truncateSnippet,
+  compareSearchItems,
+  decodeSearchCursor,
   encodeSearchCursor,
-  encodeSearchResultId,
   isAfterSearchCursor,
   parseSearchResultId,
-  truncateSnippet,
+  encodeSearchResultId,
 } from '../../../src/modules/knowledge/search.js';
 
 describe('search result ids', () => {

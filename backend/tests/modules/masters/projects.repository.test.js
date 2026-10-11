@@ -1,28 +1,28 @@
 /**
  * Project repository — scoping, pagination, soft delete, duplicate names allowed.
  */
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import mongoose from 'mongoose';
-import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
+import { createMongoHarness } from '../../mongoHarness.js';
+import { Project } from '../../../src/models/projects.model.js';
 import { encodeCursor } from '../../../src/platform/data/index.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import {
-  clampProjectsListLimit,
-  conditionalLifecycleUpdate,
+  listProjects,
   createProject,
   findProjectById,
-  listProjects,
   softDeleteProject,
   updateProjectMetadata,
   updateProjectSettings,
-  updateProjectSourceConfig,
-  touchProjectLastAccessedAt,
-  resolveProjectsListSort,
-  adjustProjectConversationCount,
-  PROJECTS_LIST_DEFAULT_LIMIT,
+  clampProjectsListLimit,
   PROJECTS_LIST_MAX_LIMIT,
+  resolveProjectsListSort,
+  updateProjectSourceConfig,
+  conditionalLifecycleUpdate,
+  touchProjectLastAccessedAt,
+  PROJECTS_LIST_DEFAULT_LIMIT,
+  adjustProjectConversationCount,
 } from '../../../src/modules/masters/projects.helper.js';
-import { Project } from '../../../src/models/projects.model.js';
 
 const harness = createMongoHarness({
   models: [Project],

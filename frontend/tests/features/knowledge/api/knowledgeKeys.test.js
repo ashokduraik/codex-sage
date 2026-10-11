@@ -4,11 +4,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   changeSummaryQueryKey,
+  projectSearchQueryKey,
+  sourcePreviewQueryKey,
   knowledgeFacetQueryKey,
   knowledgeFacetsQueryKey,
   knowledgeHealthQueryKey,
-  projectSearchQueryKey,
-  sourcePreviewQueryKey,
 } from '@/features/knowledge/api/knowledgeApi.js';
 
 describe('knowledge query keys', () => {

@@ -1,35 +1,35 @@
 /**
  * Conversation repository scoping, pagination, and searchText writer.
  */
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import mongoose from 'mongoose';
-import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
+import { createMongoHarness } from '../../mongoHarness.js';
+import { Message } from '../../../src/models/messages.model.js';
+import { Conversation } from '../../../src/models/conversations.model.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { encodeCursor, ROW_STATUS_ACTIVE } from '../../../src/platform/data/index.js';
 import { CONVERSATION_DEFAULT_TITLE } from '../../../src/modules/conversation/conversation.helper.js';
-import { Conversation } from '../../../src/models/conversations.model.js';
-import { Message } from '../../../src/models/messages.model.js';
 import {
-  clampMessagesListLimit,
-  archiveOwnConversation,
-  findConversationInProject,
-  findOwnConversation,
-  insertConversation,
-  restoreOwnConversation,
-  softDeleteOwnConversation,
-  updateConversationTitleFields,
-  listMessagesForConversation,
-  listOwnConversations,
-  listRecentMessages,
-  buildOwnConversationFilter,
-  refreshConversationSearchText,
-  searchOwnConversations,
+  MESSAGES_LIST_MAX_LIMIT,
+  MESSAGES_LIST_DEFAULT_LIMIT,
+  CONVERSATIONS_LIST_DEFAULT_LIMIT,
+  CONVERSATION_SEARCH_TEXT_MAX_CHARS,
 } from '../../../src/modules/conversation/conversation.helper.js';
 import {
-  CONVERSATION_SEARCH_TEXT_MAX_CHARS,
-  CONVERSATIONS_LIST_DEFAULT_LIMIT,
-  MESSAGES_LIST_DEFAULT_LIMIT,
-  MESSAGES_LIST_MAX_LIMIT,
+  insertConversation,
+  listRecentMessages,
+  findOwnConversation,
+  listOwnConversations,
+  archiveOwnConversation,
+  clampMessagesListLimit,
+  restoreOwnConversation,
+  searchOwnConversations,
+  findConversationInProject,
+  softDeleteOwnConversation,
+  buildOwnConversationFilter,
+  listMessagesForConversation,
+  refreshConversationSearchText,
+  updateConversationTitleFields,
 } from '../../../src/modules/conversation/conversation.helper.js';
 
 const harness = createMongoHarness({

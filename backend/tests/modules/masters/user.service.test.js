@@ -1,8 +1,8 @@
 /**
  * User service unit tests — guards and conflict mapping.
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { User } from '../../../src/models/user.model.js';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../../src/modules/access/index.js', () => ({
   recordAuditEvent: vi.fn(async () => {}),
@@ -53,10 +53,10 @@ vi.mock('mongoose', async (importOriginal) => {
   };
 });
 
-import { recordAuditEvent, revokeAllLoginSessionsForUser } from '../../../src/modules/access/index.js';
-import { wouldRemoveLastAdmin } from '../../../src/modules/masters/users.helper.js';
-import { createUser, deactivateUser, mapUserToDto, removeUser, updateUserDetails } from '../../../src/modules/masters/users.js';
 import { containsForbiddenSecretKey } from '../../containsForbiddenSecretKey.js';
+import { wouldRemoveLastAdmin } from '../../../src/modules/masters/users.helper.js';
+import { recordAuditEvent, revokeAllLoginSessionsForUser } from '../../../src/modules/access/index.js';
+import { createUser, deactivateUser, mapUserToDto, removeUser, updateUserDetails } from '../../../src/modules/masters/users.js';
 
 /**
  * @param {object | null} doc User document.

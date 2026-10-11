@@ -3,11 +3,11 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import {
-  INGEST_FILE_BATCH_SIZE,
   createIngestCounters,
-  createProgressFlusher,
   derivePartialSuccess,
+  createProgressFlusher,
   toJobProgressCounters,
+  INGEST_FILE_BATCH_SIZE,
 } from '../../../src/modules/knowledge/ingest.helper.js';
 
 describe('ingest.counters', () => {

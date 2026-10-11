@@ -1,14 +1,18 @@
 /**
  * Knowledge explorer tests against mocked browse APIs.
  */
-import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 
 vi.mock('@/features/projects/api/projectsApi.js', async () => {
   const fixtures = await import('@tests/features/projects/test/projectApiFixtures.js');
   return fixtures.defaultProjectsApiMock;
 });
+
+import ProjectDetailPage from '@/features/projects/ProjectDetailPage';
+import KnowledgeExplorer from '@/features/knowledge/KnowledgeExplorer';
+import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
 
 const fetchKnowledgeFacets = vi.fn();
 const fetchKnowledgeHealth = vi.fn();
@@ -33,10 +37,6 @@ vi.mock('@/features/knowledge/api/knowledgeApi.js', async (importOriginal) => {
     fetchSourceSlice: (...args) => fetchSourceSlice(...args),
   };
 });
-
-import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
-import ProjectDetailPage from '@/features/projects/ProjectDetailPage';
-import KnowledgeExplorer from '@/features/knowledge/KnowledgeExplorer';
 
 afterEach(() => {
   cleanup();

@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useLocation, useNavigationType } from 'react-router-dom';
+
 /**
  * Scroll to top on push/replace navigations, or to a hash target when present.
  * Skips browser back/forward (`POP`) so history scroll restoration can apply.

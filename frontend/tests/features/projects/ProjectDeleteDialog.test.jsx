@@ -1,9 +1,9 @@
 /**
  * ProjectDeleteDialog preview and confirm paths.
  */
-import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/shared/api/index';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
 
 vi.mock('@/features/projects/api/projectsApi.js', async (importOriginal) => {
@@ -22,8 +22,8 @@ vi.mock('@/features/projects/api/projectsApi.js', async (importOriginal) => {
   };
 });
 
-import { deleteProject, getProjectDeletionPreview } from '@/features/projects/api/projectsApi.js';
 import { ProjectDeleteDialog } from '@/features/projects/ProjectDeleteDialog';
+import { deleteProject, getProjectDeletionPreview } from '@/features/projects/api/projectsApi.js';
 
 afterEach(() => {
   cleanup();

@@ -1,8 +1,8 @@
 /**
  * Best in-flight job for a project (header chip and overview banner).
  */
-import { flattenJobPages, useProjectJobs } from './useProjectJobs.js';
 import { selectActiveJob } from '../jobProgressMap.js';
+import { flattenJobPages, useProjectJobs } from './useProjectJobs.js';
 
 /**
  * Loads the project job list and picks the preferred active job.

@@ -1,5 +1,6 @@
 import { createRequire } from 'node:module';
 import { checkMongoHealth } from '../platform/mongo.js';
+
 const require = createRequire(import.meta.url);
 const { version: PACKAGE_VERSION } = require('../../package.json');
 /**

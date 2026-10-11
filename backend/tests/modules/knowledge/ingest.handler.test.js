@@ -1,37 +1,37 @@
 /**
  * Integration tests for ingest S0–S3 against Mongo + GridFS.
  */
-import { createHash } from 'node:crypto';
-import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { Readable } from 'node:stream';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import mongoose from 'mongoose';
-import { createMongoHarness } from '../../mongoHarness.js';
+import fs from 'node:fs/promises';
+import { Readable } from 'node:stream';
+import { createHash } from 'node:crypto';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
-import { DocumentSection, countSectionsForVersion, listSectionsForPath } from '../../../src/modules/knowledge/documents.js';
 import { Job } from '../../../src/models/job.model.js';
-import { insertPendingJob } from '../../../src/modules/masters/jobs.helper.js';
 import { listJobEvents } from '../../listJobEvents.js';
+import { createMongoHarness } from '../../mongoHarness.js';
 import { Project } from '../../../src/models/projects.model.js';
-import { KnowledgeVersion } from '../../../src/models/knowledgeVersion.model.js';
-import {
-  SourceChangeSummary,
-  SourceFile,
-  SourceVersion,
-  getSourceFilesBucket,
-  insertSourceFiles,
-  insertSourceVersion,
-} from '../../../src/modules/knowledge/sources.js';
+import { runIngestJob } from '../../../src/modules/knowledge/ingest.js';
+import { clearSourceFilesBucket } from '../../clearSourceFilesBucket.js';
+import { insertPendingJob } from '../../../src/modules/masters/jobs.helper.js';
 import { EXCLUSION_RULESET_ID } from '../../../src/modules/knowledge/uploads.js';
 import { GRIDFS_SOURCE_BUCKET } from '../../../src/modules/knowledge/sources.js';
-import { clearSourceFilesBucket } from '../../clearSourceFilesBucket.js';
-import { runIngestJob } from '../../../src/modules/knowledge/ingest.js';
-import { runStoreFilesStage, INGEST_MAX_FAILED_FILE_RATIO } from '../../../src/modules/knowledge/ingest.helper.js';
-import { runMaterializeDocsStage } from '../../../src/modules/knowledge/ingest.util.js';
+import { KnowledgeVersion } from '../../../src/models/knowledgeVersion.model.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { buildIngestStageContext } from '../../../src/modules/knowledge/ingest.js';
 import { loadSourceVersionForIngest } from '../../../src/modules/knowledge/ingest.js';
+import { runMaterializeDocsStage } from '../../../src/modules/knowledge/ingest.util.js';
+import { runStoreFilesStage, INGEST_MAX_FAILED_FILE_RATIO } from '../../../src/modules/knowledge/ingest.helper.js';
+import { DocumentSection, countSectionsForVersion, listSectionsForPath } from '../../../src/modules/knowledge/documents.js';
+import {
+  SourceFile,
+  SourceVersion,
+  insertSourceFiles,
+  insertSourceVersion,
+  SourceChangeSummary,
+  getSourceFilesBucket,
+} from '../../../src/modules/knowledge/sources.js';
 
 let workspaceRoot;
 

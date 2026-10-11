@@ -2,20 +2,20 @@
  * Unit tests for user-readable ingest JobEvent builders.
  */
 import { describe, expect, it } from 'vitest';
-import {
-  buildCodeRelationshipsAnalyzedEvent,
-  buildDocumentationIdentifiedEvent,
-  buildExclusionsAppliedEvent,
-  buildFilesIdentifiedEvent,
-  buildProjectStructureAnalyzedEvent,
-  buildSourceReceivedEvent,
-  buildSourceValidatedEvent,
-  buildWorkspaceMaterializedEvent,
-  buildKnowledgeUpdatedEvent,
-  buildKnowledgeValidatedEvent,
-  buildKnowledgeReadyEvent,
-} from '../../../src/modules/knowledge/ingest.helper.js';
 import { messageContainsAbsolutePath, messageContainsObjectIdShape, messageContainsRawErrorFragment } from '../../jobEventAssertions.js';
+import {
+  buildKnowledgeReadyEvent,
+  buildSourceReceivedEvent,
+  buildFilesIdentifiedEvent,
+  buildSourceValidatedEvent,
+  buildKnowledgeUpdatedEvent,
+  buildExclusionsAppliedEvent,
+  buildKnowledgeValidatedEvent,
+  buildWorkspaceMaterializedEvent,
+  buildDocumentationIdentifiedEvent,
+  buildProjectStructureAnalyzedEvent,
+  buildCodeRelationshipsAnalyzedEvent,
+} from '../../../src/modules/knowledge/ingest.helper.js';
 
 describe('ingest.events', () => {
   it('builds Source received without identifiers', () => {

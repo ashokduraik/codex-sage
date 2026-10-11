@@ -1,8 +1,8 @@
 /**
  * Conversation lifecycle guard unit tests.
  */
-import { describe, expect, it } from 'vitest';
 import mongoose from 'mongoose';
+import { describe, expect, it } from 'vitest';
 import { ApiError } from '../../../src/platform/errors.js';
 import { assertConversationWritable } from '../../../src/modules/conversation/conversation.js';
 

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
-  WORKER_HEARTBEAT_INTERVAL_MS,
   WORKER_LEASE_TTL_MS,
   assertLeaseExceedsHeartbeat,
   assertWorkerLeaseTimingSafe,
+  WORKER_HEARTBEAT_INTERVAL_MS,
 } from '../../src/worker/worker.constants.js';
 
 describe('worker.constants', () => {

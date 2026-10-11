@@ -1,5 +1,5 @@
-import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
 
 vi.mock('@/features/admin/api/usageApi.js', () => ({
@@ -7,8 +7,8 @@ vi.mock('@/features/admin/api/usageApi.js', () => ({
   fetchOrganizationUsage: vi.fn(),
 }));
 
-import { fetchOrganizationUsage } from '@/features/admin/api/usageApi.js';
 import AdminUsage from '@/features/admin/AdminUsage';
+import { fetchOrganizationUsage } from '@/features/admin/api/usageApi.js';
 
 afterEach(() => {
   cleanup();

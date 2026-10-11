@@ -1,5 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
 import { getAccessToken } from '@/shared/api';
+import { useQuery } from '@tanstack/react-query';
 import { CURRENT_USER_QUERY_KEY, fetchCurrentUser } from './authApi.js';
 
 /** Current-user data is invalidated explicitly on login/logout; avoid idle refetches. */

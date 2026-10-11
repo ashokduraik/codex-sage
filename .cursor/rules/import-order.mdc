@@ -1,0 +1,69 @@
+---
+description: Imports always at file top, sorted by statement character length ascending
+globs: "**/*.{js,jsx}"
+alwaysApply: false
+---
+
+# Import order
+
+## Placement
+
+- All static `import` declarations sit at the **top of the file**, immediately after the
+  file-level JSDoc (if any). No code, exports, or blank sections before them.
+- Do **not** place `import` mid-file or at the bottom (including model re-exports).
+- Dynamic `import()` and `export … from` re-exports are not static imports — leave
+  re-exports with the public export surface.
+
+## Sort key
+
+1. Order **each import statement** by its **full character length** ascending
+   (shortest first). Multi-line imports count the entire statement (all lines).
+2. Inside a multi-line `{ … }` named import list, order **each specifier line** by
+   character length ascending.
+3. Stable for equal length: keep the previous relative order.
+
+```js
+// ❌ BAD — long imports first; import after code
+import { requireProjectPermission } from '../../http/preHandlers/requireProjectPermission.js';
+import { z } from 'zod';
+export function foo() {}
+import { Message } from '../../models/messages.model.js';
+
+// ✅ GOOD — top of file; ascending length
+import { z } from 'zod';
+import mongoose from 'mongoose';
+import { Message } from '../../models/messages.model.js';
+import { requireProjectPermission } from '../../http/preHandlers/requireProjectPermission.js';
+```
+
+## Vitest mock barrier
+
+In tests, top-level `vi.mock(...)` / `vi.hoisted(...)` are **barriers**. Imports that
+belong to a mocked module must stay **after** that block (Vitest binding pattern). Do
+not pull those imports above `vi.mock` / `vi.hoisted`. Sort by length within each
+group (before the barrier, and after it) separately.
+
+```js
+// ✅ GOOD — mocked binding imported after vi.mock
+import { describe, expect, it, vi } from 'vitest';
+import { createAuthenticatePreHandler } from '../../../src/modules/access/auth.js';
+
+vi.mock('../../../src/modules/masters/index.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return { ...actual, findUserById: vi.fn() };
+});
+
+import { findUserById } from '../../../src/modules/masters/index.js';
+```
+
+## Scope
+
+Applies to `backend/` and `frontend/` JavaScript and JSX (`*.js`, `*.jsx`), including
+tests. Do not reorder imports in generated or vendored files.
+
+## Bulk fix
+
+```bash
+node scripts/sort-imports-by-length.mjs
+node scripts/sort-imports-by-length.mjs --check
+```

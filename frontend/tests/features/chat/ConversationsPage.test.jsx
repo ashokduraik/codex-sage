@@ -1,7 +1,8 @@
+import ConversationsPage from '@/features/chat/ConversationsPage';
 import { cleanup, fireEvent, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
-import ConversationsPage from '@/features/chat/ConversationsPage';
+
 afterEach(() => {
   cleanup();
 });

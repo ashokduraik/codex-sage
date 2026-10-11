@@ -8,8 +8,8 @@ import { Message } from '../../../src/models/messages.model.js';
 import { Conversation } from '../../../src/models/conversations.model.js';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { insertConversation } from '../../../src/modules/conversation/conversation.helper.js';
-import { CONVERSATION_TRUNCATED_TITLE_MAX_CHARS } from '../../../src/modules/conversation/conversation.helper.js';
 import { scheduleConversationAutoTitle } from '../../../src/modules/conversation/conversation.js';
+import { CONVERSATION_TRUNCATED_TITLE_MAX_CHARS } from '../../../src/modules/conversation/conversation.helper.js';
 
 const harness = createMongoHarness({
   models: [Conversation, Message],

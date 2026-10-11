@@ -8,8 +8,8 @@ import {
   fetchKnowledgeHealth,
   fetchKnowledgeSummary,
   fetchKnowledgeSymbols,
-  fetchKnowledgeWorkflows,
   knowledgeFacetQueryKey,
+  fetchKnowledgeWorkflows,
   knowledgeFacetsQueryKey,
   knowledgeHealthQueryKey,
 } from '../api/knowledgeApi.js';

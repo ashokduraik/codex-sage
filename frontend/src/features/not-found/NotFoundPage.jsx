@@ -1,6 +1,7 @@
+import { Button } from '@/shared/ui/button';
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation } from 'react-router-dom';
-import { Button } from '@/shared/ui/button';
+
 /**
  * 404 page for unknown routes — no Base44 admin/AI builder hints.
  *

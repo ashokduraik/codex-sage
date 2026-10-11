@@ -1,10 +1,11 @@
 import { Link } from 'react-router-dom';
-import { FolderKanban, Archive, RotateCcw, GitBranch, UploadCloud } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
-import { ProjectStatusBadge, KnowledgeStatusBadge } from '@/shared/components';
 import { Button } from '@/shared/ui/button';
-import { formatRelative } from '@/shared/lib/format';
+import { useTranslation } from 'react-i18next';
 import { useAppData } from '@/shared/mock-data';
+import { formatRelative } from '@/shared/lib/format';
+import { ProjectStatusBadge, KnowledgeStatusBadge } from '@/shared/components';
+import { FolderKanban, Archive, RotateCcw, GitBranch, UploadCloud } from 'lucide-react';
+
 /**
  * Organization-wide project list including archived projects.
  *

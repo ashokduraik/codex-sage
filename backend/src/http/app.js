@@ -4,34 +4,34 @@
  * domain routes. Does not start listening — call `.listen()` on the returned
  * instance (see `index.js`).
  */
-import { randomUUID } from 'node:crypto';
 import Fastify from 'fastify';
+import fjwt from '@fastify/jwt';
 import cors from '@fastify/cors';
 import cookie from '@fastify/cookie';
-import csrf from '@fastify/csrf-protection';
-import fjwt from '@fastify/jwt';
+import { randomUUID } from 'node:crypto';
 import multipart from '@fastify/multipart';
+import csrf from '@fastify/csrf-protection';
+import { registerRoutes } from './routes.js';
+import { healthRoutes } from './health.routes.js';
 import { loadConfig } from '../platform/config.js';
-import { buildLoggerOptions, createRequestChildLogger, registerRequestLogging } from '../platform/logger.js';
 import { registerErrorHandler } from '../platform/errors.js';
+import { configureProjectAclCache } from '../modules/masters/index.js';
+import { registerIdempotency } from '../platform/idempotency/index.js';
+import { registerStaticAssets, resolveProductionDistRoot, tryServeSpaIndex } from './static-spa.js';
+import { buildLoggerOptions, createRequestChildLogger, registerRequestLogging } from '../platform/logger.js';
+import { MULTIPART_MAX_FILES, UPLOAD_MAX_ARCHIVE_BYTES, consumeSourceArchivePreHandler } from '../modules/knowledge/index.js';
 import {
+  JWT_ISSUER,
+  JWT_AUDIENCE,
+  createAuthService,
+  CSRF_SECRET_COOKIE_NAME,
+  createAuthorizePreHandler,
   assertAllRoutesDeclareAccess,
   createAuthenticatePreHandler,
-  createAuthService,
-  createAuthorizePreHandler,
-  CSRF_SECRET_COOKIE_NAME,
-  JWT_AUDIENCE,
-  JWT_ISSUER,
   JWT_ACCESS_TOKEN_TTL_SECONDS,
   JWT_REFRESH_TOKEN_TTL_SECONDS,
   installRouteDeclarationCollector,
 } from '../modules/access/index.js';
-import { registerIdempotency } from '../platform/idempotency/index.js';
-import { configureProjectAclCache } from '../modules/masters/index.js';
-import { MULTIPART_MAX_FILES, UPLOAD_MAX_ARCHIVE_BYTES, consumeSourceArchivePreHandler } from '../modules/knowledge/index.js';
-import { registerRoutes } from './routes.js';
-import { healthRoutes } from './health.routes.js';
-import { registerStaticAssets, resolveProductionDistRoot, tryServeSpaIndex } from './static-spa.js';
 
 /** Versioned API route prefix — product contract, not an env var. */
 export const API_BASE_PATH = '/api/v1';

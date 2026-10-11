@@ -1,7 +1,7 @@
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import pino from 'pino';
+import { fileURLToPath } from 'node:url';
 import createRollStream from 'pino-roll';
+import { dirname, join } from 'node:path';
 import { allowsErrorDetails } from './errorCatalog.js';
 
 /**

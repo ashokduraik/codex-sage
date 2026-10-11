@@ -1,16 +1,16 @@
 import { useState } from 'react';
-import { FolderKanban, GitBranch, UploadCloud, ArrowRight, Loader2 } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
-import { Button } from '@/shared/ui/button';
+import { cn } from '@/shared/lib/utils';
 import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
+import { Button } from '@/shared/ui/button';
+import { useTranslation } from 'react-i18next';
 import { Textarea } from '@/shared/ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/shared/ui/dialog';
-import { cn } from '@/shared/lib/utils';
-import { ConnectRepositoryDialog } from './ConnectRepositoryDialog';
 import { SourceUploadDialog } from './SourceUploadDialog';
 import { useCreateProject } from './hooks/useProjectMutations.js';
+import { ConnectRepositoryDialog } from './ConnectRepositoryDialog';
+import { FolderKanban, GitBranch, UploadCloud, ArrowRight, Loader2 } from 'lucide-react';
 import { correlationFromUnknown, messageFromUnknown, retryAfterFromUnknown } from '@/shared/api';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/shared/ui/dialog';
 
 /**
  * Dialog to create a project and continue into repo connect or upload.

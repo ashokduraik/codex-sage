@@ -1,9 +1,9 @@
 /**
  * Infinite keyset list of jobs for one project.
  */
+import { isActiveJobStatus } from '../jobProgressMap.js';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { JOB_DETAIL_POLL_INTERVAL_MS, JOB_LIST_PAGE_SIZE, listProjectJobs, projectJobsQueryKey } from '../api/jobsApi.js';
-import { isActiveJobStatus } from '../jobProgressMap.js';
 
 /**
  * Lists jobs for a project, polling while any page has an in-flight job.

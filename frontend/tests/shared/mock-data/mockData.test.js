@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { mockAnswerFor, seed, uid } from '@/shared/mock-data/mockData';
+
 describe('mockAnswerFor', () => {
   it('returns an auth answer for authentication questions', () => {
     const answer = mockAnswerFor('How does authentication work?');

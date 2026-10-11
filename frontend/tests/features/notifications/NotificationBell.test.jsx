@@ -10,8 +10,8 @@ vi.mock('@/features/notifications/hooks/useNotifications.js', () => ({
   useNotificationActions: vi.fn(),
 }));
 
-import { useNotificationActions, useNotifications } from '@/features/notifications/hooks/useNotifications.js';
 import NotificationBell, { pathForNotification } from '@/features/notifications/NotificationBell';
+import { useNotificationActions, useNotifications } from '@/features/notifications/hooks/useNotifications.js';
 
 describe('pathForNotification', () => {
   it('routes to processing when a job id is present', () => {

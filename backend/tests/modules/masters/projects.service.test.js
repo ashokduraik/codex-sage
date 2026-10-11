@@ -1,29 +1,29 @@
 /**
  * Project service unit tests (Mongo harness).
  */
-import { createTestOrganization, ensureTestRoles, nextTestUserCode } from '../../identityFixtures.js';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import mongoose from 'mongoose';
-import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
+import { createMongoHarness } from '../../mongoHarness.js';
+import { Project } from '../../../src/models/projects.model.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { findProjectById } from '../../../src/modules/masters/projects.helper.js';
 import { AUDIT_MODELS, listAuditEvents } from '../../../src/modules/access/audit.js';
+import { createTestOrganization, ensureTestRoles, nextTestUserCode } from '../../identityFixtures.js';
 import { IDENTITY_MODELS, createUserInRepo, findRoleByCode } from '../../../src/modules/masters/index.js';
 import {
-  archiveProject,
+  getProject,
+  listProjects,
   createProject,
   deleteProject,
-  getDeletionPreview,
-  getProject,
-  getProjectSettings,
-  listProjects,
-  patchProjectSettings,
-  recordProjectAccess,
-  restoreProject,
-  transitionLifecycle,
   updateProject,
+  archiveProject,
+  restoreProject,
+  getDeletionPreview,
+  getProjectSettings,
+  recordProjectAccess,
+  transitionLifecycle,
+  patchProjectSettings,
 } from '../../../src/modules/masters/projects.js';
-import { Project } from '../../../src/models/projects.model.js';
-import { findProjectById } from '../../../src/modules/masters/projects.helper.js';
 
 const harness = createMongoHarness({
   models: [Project, ...AUDIT_MODELS, ...IDENTITY_MODELS],

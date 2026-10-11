@@ -1,18 +1,18 @@
 /**
  * Repository attach mutation seeds connection cache and strips the token.
  */
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { act, renderHook } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 vi.mock('@/features/projects/api/repositoriesApi.js', () => ({
   attachProjectRepository: vi.fn(),
   repositoryConnectionQueryKey: (projectId) => Object.freeze(['projects', String(projectId), 'repositories', 'connection']),
 }));
 
-import { attachProjectRepository, repositoryConnectionQueryKey } from '@/features/projects/api/repositoriesApi.js';
 import { projectDetailQueryKey } from '@/features/projects/api/projectsApi.js';
 import { useRepositoryAttach } from '@/features/projects/hooks/useRepositoryAttach.js';
+import { attachProjectRepository, repositoryConnectionQueryKey } from '@/features/projects/api/repositoriesApi.js';
 
 /**
  * @param {import('@tanstack/react-query').QueryClient} queryClient Client.

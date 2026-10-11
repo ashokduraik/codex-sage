@@ -1,7 +1,8 @@
+import { seed } from '@/shared/mock-data/mockData';
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AppDataProvider, useAppData } from '@/shared/mock-data/AppDataContext';
-import { seed } from '@/shared/mock-data/mockData';
+
 /**
  * Wrapper that provides AppDataContext for hook tests.
  */

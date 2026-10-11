@@ -1,8 +1,8 @@
-import { BookOpen, ChevronLeft, ChevronRight, FolderKanban, Home, MessageSquare, MessagesSquare, Search, Shield, Sparkles } from 'lucide-react';
+import { cn } from '@/shared/lib/utils';
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { useProject } from '@/features/projects/hooks/useProject.js';
-import { cn } from '@/shared/lib/utils';
+import { BookOpen, ChevronLeft, ChevronRight, FolderKanban, Home, MessageSquare, MessagesSquare, Search, Shield, Sparkles } from 'lucide-react';
 
 const PRIMARY_NAV = [
   { to: '/', labelKey: 'nav.home', icon: Home },

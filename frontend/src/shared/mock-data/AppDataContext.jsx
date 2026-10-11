@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import { KNOWLEDGE_STATES, mockAnswerFor, seed, uid } from '@/shared/mock-data/mockData';
+
 const AppDataContext = createContext(null);
 /**
  * Delay helper used to simulate async answer streaming.

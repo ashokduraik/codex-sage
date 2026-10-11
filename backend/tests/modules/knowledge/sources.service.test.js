@@ -1,14 +1,14 @@
 /**
  * Reingest enqueue service tests.
  */
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import mongoose from 'mongoose';
-import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
+import { createMongoHarness } from '../../mongoHarness.js';
 import { JOB_MODELS, Job } from '../../../src/modules/masters/jobs.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { insertSourceVersion } from '../../../src/modules/knowledge/sources.js';
 import { EXCLUSION_RULESET_ID } from '../../../src/modules/knowledge/uploads.js';
 import { SourceFile, SourceVersion } from '../../../src/modules/knowledge/sources.js';
-import { insertSourceVersion } from '../../../src/modules/knowledge/sources.js';
 import { enqueueSourceReingest, mapSourceVersionToListDto } from '../../../src/modules/knowledge/sources.js';
 
 const harness = createMongoHarness({

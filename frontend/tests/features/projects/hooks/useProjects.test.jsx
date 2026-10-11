@@ -1,9 +1,9 @@
 /**
  * useProjects infinite query.
  */
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { act, renderHook, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 vi.mock('@/features/projects/api/projectsApi.js', async (importOriginal) => {
   const actual = await importOriginal();
@@ -14,8 +14,8 @@ vi.mock('@/features/projects/api/projectsApi.js', async (importOriginal) => {
 });
 
 import { listProjects } from '@/features/projects/api/projectsApi.js';
-import { flattenProjectPages, useProjects } from '@/features/projects/hooks/useProjects.js';
 import { projectsListQueryKey } from '@/features/projects/api/projectsApi.js';
+import { flattenProjectPages, useProjects } from '@/features/projects/hooks/useProjects.js';
 
 /**
  * @param {import('@tanstack/react-query').QueryClient} queryClient

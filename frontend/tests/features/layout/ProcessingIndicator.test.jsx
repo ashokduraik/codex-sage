@@ -1,7 +1,7 @@
 import { cleanup, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
 import ProcessingIndicator from '@/features/layout/ProcessingIndicator';
+import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
 
 afterEach(() => {
   cleanup();

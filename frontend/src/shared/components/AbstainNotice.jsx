@@ -1,6 +1,7 @@
-import { Info, RefreshCw, Search } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
 import { Button } from '@/shared/ui/button';
+import { useTranslation } from 'react-i18next';
+import { Info, RefreshCw, Search } from 'lucide-react';
+
 /**
  * Notice shown when the assistant abstains due to insufficient project evidence.
  * @param props - Abstain notice props.

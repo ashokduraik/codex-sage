@@ -1,8 +1,8 @@
-import { QueryClientProvider } from '@tanstack/react-query';
-import { AuthProvider } from '@/features/auth/AuthContext';
-import { queryClientInstance } from '@/shared/lib/query-client';
-import { AppDataProvider } from '@/shared/mock-data';
 import { Toaster } from '@/shared/ui/sonner';
+import { AppDataProvider } from '@/shared/mock-data';
+import { AuthProvider } from '@/features/auth/AuthContext';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClientInstance } from '@/shared/lib/query-client';
 
 /**
  * Root provider tree: React Query, auth, mock app data, and toast host.

@@ -2,8 +2,8 @@
  * Unit tests for per-entry upload path decisions.
  */
 import { describe, expect, it } from 'vitest';
-import { GRAPH_FILE_MAX_BYTES } from '../../../src/modules/knowledge/uploads.js';
 import { evaluateUploadEntry } from '../../../src/modules/knowledge/uploads.js';
+import { GRAPH_FILE_MAX_BYTES } from '../../../src/modules/knowledge/uploads.js';
 
 describe('evaluateUploadEntry', () => {
   it('accepts allowlisted source under the graph size cap', () => {

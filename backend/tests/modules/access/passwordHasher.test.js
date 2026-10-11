@@ -4,13 +4,13 @@
 import argon2 from 'argon2';
 import { describe, expect, it } from 'vitest';
 import {
-  ARGON2_MEMORY_COST_KIB,
-  ARGON2_PARALLELISM,
-  ARGON2_TIME_COST,
-  getDummyPasswordHash,
-  hashPassword,
   needsRehash,
+  hashPassword,
   verifyPassword,
+  ARGON2_TIME_COST,
+  ARGON2_PARALLELISM,
+  getDummyPasswordHash,
+  ARGON2_MEMORY_COST_KIB,
 } from '../../../src/modules/access/auth.js';
 
 describe('passwordHasher', () => {

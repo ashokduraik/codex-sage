@@ -1,10 +1,10 @@
-import { renderHook, waitFor } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setAccessToken } from '@/shared/api/index';
-import { resetApiSessionForTests } from '@/shared/api/apiSession.js';
-import { usePermissionsCatalog } from '@/features/admin/api/usePermissionsCatalog.js';
 import { useRoles } from '@/features/admin/api/useRoles.js';
+import { renderHook, waitFor } from '@testing-library/react';
+import { resetApiSessionForTests } from '@/shared/api/apiSession.js';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { usePermissionsCatalog } from '@/features/admin/api/usePermissionsCatalog.js';
 
 afterEach(() => {
   resetApiSessionForTests();

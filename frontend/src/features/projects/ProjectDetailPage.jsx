@@ -1,40 +1,40 @@
+import { cn } from '@/shared/lib/utils';
+import { useMemo, useState } from 'react';
+import { Button } from '@/shared/ui/button';
+import { useTranslation } from 'react-i18next';
+import { useAppData } from '@/shared/mock-data';
+import { useProject } from './hooks/useProject.js';
+import { ProjectDeleteDialog } from './ProjectDeleteDialog.jsx';
+import { useRecordProjectAccess } from './hooks/useRecordProjectAccess.js';
+import { Popover, PopoverContent, PopoverTrigger } from '@/shared/ui/popover';
+import { Link, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useArchiveProject, useRestoreProject } from './hooks/useProjectMutations.js';
+import { ProjectLifecycleBadge, isProjectArchived, isProjectAskable } from '@/shared/components/StatusBadge.jsx';
+import { correlationFromUnknown, isForbiddenApiError, isNotFoundApiError, messageFromUnknown, retryAfterFromUnknown } from '@/shared/api';
 import {
-  Archive,
-  BookOpen,
-  Database,
-  GitCompare,
-  HeartPulse,
-  LayoutDashboard,
-  Loader2,
-  MessageSquare,
-  MoreHorizontal,
-  RotateCcw,
   Search,
   Trash2,
+  Archive,
+  Loader2,
+  BookOpen,
+  Database,
+  RotateCcw,
+  GitCompare,
+  HeartPulse,
+  MessageSquare,
+  MoreHorizontal,
+  LayoutDashboard,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
-import { useTranslation } from 'react-i18next';
-import { Link, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ProjectLifecycleBadge, isProjectArchived, isProjectAskable } from '@/shared/components/StatusBadge.jsx';
-import { useAppData } from '@/shared/mock-data';
-import { cn } from '@/shared/lib/utils';
 import {
   AlertDialog,
+  AlertDialogTitle,
   AlertDialogAction,
   AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogTitle,
+  AlertDialogContent,
+  AlertDialogDescription,
 } from '@/shared/ui/alert-dialog';
-import { Button } from '@/shared/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '@/shared/ui/popover';
-import { ProjectDeleteDialog } from './ProjectDeleteDialog.jsx';
-import { useProject } from './hooks/useProject.js';
-import { useArchiveProject, useRestoreProject } from './hooks/useProjectMutations.js';
-import { useRecordProjectAccess } from './hooks/useRecordProjectAccess.js';
-import { correlationFromUnknown, isForbiddenApiError, isNotFoundApiError, messageFromUnknown, retryAfterFromUnknown } from '@/shared/api';
 
 const PROJECT_TABS = [
   { to: '', labelKey: 'projects.overview', icon: LayoutDashboard },

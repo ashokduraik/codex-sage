@@ -1,11 +1,11 @@
-import { useOutletContext, Link } from 'react-router-dom';
-import { Boxes, Workflow, Component, Plug, Database, ArrowRight, MessageSquare, BookOpen } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
-import { EmptyState, KnowledgeHealthBadge } from '@/shared/components';
 import { Button } from '@/shared/ui/button';
-import { useActiveProjectJob } from '@/features/projects/processing/hooks/useActiveProjectJob.js';
-import { jobTypeLabelKey, stageLabelKey } from '@/features/projects/processing/jobProgressMap.js';
+import { useTranslation } from 'react-i18next';
+import { useOutletContext, Link } from 'react-router-dom';
+import { EmptyState, KnowledgeHealthBadge } from '@/shared/components';
 import { isProjectAskable } from '@/shared/components/StatusBadge.jsx';
+import { jobTypeLabelKey, stageLabelKey } from '@/features/projects/processing/jobProgressMap.js';
+import { useActiveProjectJob } from '@/features/projects/processing/hooks/useActiveProjectJob.js';
+import { Boxes, Workflow, Component, Plug, Database, ArrowRight, MessageSquare, BookOpen } from 'lucide-react';
 
 const SECTION_DEFS = [
   { key: 'Workflow', labelKey: 'projects.workflows', icon: Workflow },

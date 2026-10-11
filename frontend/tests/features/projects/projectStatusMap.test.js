@@ -3,8 +3,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
-  isProjectArchived,
   isProjectAskable,
+  isProjectArchived,
   mapKnowledgeHealth,
   mapLifecycleStatus,
   KNOWLEDGE_HEALTH_MAP,

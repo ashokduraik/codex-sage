@@ -1,8 +1,20 @@
 /**
  * Unit tests for knowledge, search, preview, and changes fetchers.
  */
-import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/shared/api/index';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  fetchSourceSlice,
+  fetchChangeSummary,
+  fetchKnowledgeApis,
+  fetchProjectSearch,
+  fetchKnowledgeFacets,
+  fetchKnowledgeHealth,
+  fetchKnowledgeSummary,
+  fetchKnowledgeSymbols,
+  fetchKnowledgeWorkflows,
+  fetchSourceFileMetadata,
+} from '@/features/knowledge/api/knowledgeApi.js';
 
 const apiRequest = vi.fn();
 
@@ -13,19 +25,6 @@ vi.mock('@/shared/api/index', async () => {
     apiRequest: (...args) => apiRequest(...args),
   };
 });
-
-import {
-  fetchChangeSummary,
-  fetchKnowledgeApis,
-  fetchKnowledgeFacets,
-  fetchKnowledgeHealth,
-  fetchKnowledgeSummary,
-  fetchKnowledgeSymbols,
-  fetchKnowledgeWorkflows,
-  fetchProjectSearch,
-  fetchSourceFileMetadata,
-  fetchSourceSlice,
-} from '@/features/knowledge/api/knowledgeApi.js';
 
 describe('knowledge HTTP fetchers', () => {
   afterEach(() => {

@@ -1,8 +1,8 @@
-import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
 import { API_BASE_URL } from '@/shared/api/index';
 import AdminUsers from '@/features/admin/AdminUsers';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
+import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
 
 /**
  * @param {object} body

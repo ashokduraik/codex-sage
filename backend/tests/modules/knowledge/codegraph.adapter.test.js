@@ -1,20 +1,20 @@
 /**
  * Unit tests for the CodeGraph adapter (mocked library).
  */
-import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import fs from 'node:fs/promises';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { resetWriterLocksForTests } from '../../../src/modules/knowledge/codegraph.js';
 import {
+  inspectQuerySurface,
+  createCodegraphAdapter,
+  mapCodegraphLibraryError,
   CODEGRAPH_TELEMETRY_ENV_KEYS,
   configureCodegraphTelemetryOff,
-  createCodegraphAdapter,
-  inspectQuerySurface,
   isCodegraphTelemetryConfigured,
-  mapCodegraphLibraryError,
   resetCodegraphTelemetryConfiguredFlag,
 } from '../../../src/modules/knowledge/codegraph.js';
-import { resetWriterLocksForTests } from '../../../src/modules/knowledge/codegraph.js';
 
 describe('codegraph.adapter', () => {
   /** @type {string[]} */

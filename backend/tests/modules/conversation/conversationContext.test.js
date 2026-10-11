@@ -1,44 +1,44 @@
 /**
  * Conversation context — extractive summary, pins, measured metrics, GET /context.
  */
-import { nextTestUserCode } from '../../identityFixtures.js';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import mongoose from 'mongoose';
-import { API_BASE_PATH, buildApp } from '../../../src/http/app.js';
-import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
-import { AUDIT_MODELS } from '../../../src/modules/access/audit.js';
+import { createMongoHarness } from '../../mongoHarness.js';
+import { nextTestUserCode } from '../../identityFixtures.js';
+import { API_BASE_PATH, buildApp } from '../../../src/http/app.js';
 import { AUTH_MODELS } from '../../../src/modules/access/index.js';
 import { hashPassword } from '../../../src/modules/access/auth.js';
+import { AUDIT_MODELS } from '../../../src/modules/access/audit.js';
+import { KNOWLEDGE_MODELS } from '../../../src/modules/knowledge/index.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { IDEMPOTENCY_MODELS } from '../../../src/platform/idempotency/index.js';
+import { KnowledgeVersion } from '../../../src/models/knowledgeVersion.model.js';
+import { addProjectMember } from '../../../src/modules/masters/projectMembers.js';
+import { PROJECT_MODELS, createProjectInRepo } from '../../../src/modules/masters/projects.js';
+import { getConversationContextView } from '../../../src/modules/conversation/conversationContext.js';
+import { archiveOwnConversation, insertConversation } from '../../../src/modules/conversation/conversation.helper.js';
 import {
-  DEFAULT_ADMIN_EMAIL,
-  DEFAULT_ADMIN_PASSWORD,
+  findRoleByCode,
   IDENTITY_MODELS,
   createRoleInRepo,
   createUserInRepo,
-  findOrganizationBySlug,
   runBootstrapSeed,
-  findRoleByCode,
+  DEFAULT_ADMIN_EMAIL,
+  DEFAULT_ADMIN_PASSWORD,
+  findOrganizationBySlug,
 } from '../../../src/modules/masters/index.js';
-import { PROJECT_MODELS, createProjectInRepo } from '../../../src/modules/masters/projects.js';
-import { addProjectMember } from '../../../src/modules/masters/projectMembers.js';
-import { archiveOwnConversation, insertConversation } from '../../../src/modules/conversation/conversation.helper.js';
-import { KnowledgeVersion } from '../../../src/models/knowledgeVersion.model.js';
-import { KNOWLEDGE_MODELS } from '../../../src/modules/knowledge/index.js';
 import {
-  CONVERSATION_MODELS,
   Message,
-  PINNED_FACTS_MAX_COUNT,
-  SUMMARY_TEXT_MAX_CHARS,
-  applySummaryFromCompaction,
-  buildConversationContext,
-  persistMessageContextMetrics,
   pinFact,
   unpinFact,
+  CONVERSATION_MODELS,
+  PINNED_FACTS_MAX_COUNT,
+  SUMMARY_TEXT_MAX_CHARS,
+  buildConversationContext,
   updateConversationSummary,
+  applySummaryFromCompaction,
+  persistMessageContextMetrics,
 } from '../../../src/modules/conversation/index.js';
-import { getConversationContextView } from '../../../src/modules/conversation/conversationContext.js';
 
 const serviceHarness = createMongoHarness({
   models: [...PROJECT_MODELS, ...CONVERSATION_MODELS, ...KNOWLEDGE_MODELS],

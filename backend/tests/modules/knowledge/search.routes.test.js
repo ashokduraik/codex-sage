@@ -1,30 +1,30 @@
 /**
  * Knowledge search route integration tests.
  */
-import { nextTestUserCode } from '../../identityFixtures.js';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import mongoose from 'mongoose';
-import { API_BASE_PATH, buildApp } from '../../../src/http/app.js';
-import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
-import { AUDIT_MODELS } from '../../../src/modules/access/audit.js';
+import { createMongoHarness } from '../../mongoHarness.js';
+import { nextTestUserCode } from '../../identityFixtures.js';
+import { Project } from '../../../src/models/projects.model.js';
+import { API_BASE_PATH, buildApp } from '../../../src/http/app.js';
 import { AUTH_MODELS } from '../../../src/modules/access/index.js';
 import { hashPassword } from '../../../src/modules/access/auth.js';
-import {
-  DEFAULT_ADMIN_EMAIL,
-  DEFAULT_ADMIN_PASSWORD,
-  IDENTITY_MODELS,
-  createRoleInRepo,
-  createUserInRepo,
-  findOrganizationBySlug,
-  runBootstrapSeed,
-} from '../../../src/modules/masters/index.js';
-import { IDEMPOTENCY_MODELS } from '../../../src/platform/idempotency/index.js';
+import { AUDIT_MODELS } from '../../../src/modules/access/audit.js';
 import { PROJECT_MODELS } from '../../../src/modules/masters/projects.js';
-import { Project } from '../../../src/models/projects.model.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { IDEMPOTENCY_MODELS } from '../../../src/platform/idempotency/index.js';
 import { addProjectMember } from '../../../src/modules/masters/projectMembers.js';
 import { DOCUMENT_MODELS, insertDocumentSections } from '../../../src/modules/knowledge/documents.js';
 import { KNOWLEDGE_MODELS, insertKnowledgeVersion } from '../../../src/modules/knowledge/knowledge.js';
+import {
+  IDENTITY_MODELS,
+  createRoleInRepo,
+  createUserInRepo,
+  runBootstrapSeed,
+  DEFAULT_ADMIN_EMAIL,
+  DEFAULT_ADMIN_PASSWORD,
+  findOrganizationBySlug,
+} from '../../../src/modules/masters/index.js';
 
 const harness = createMongoHarness({
   models: [...IDENTITY_MODELS, ...AUTH_MODELS, ...AUDIT_MODELS, ...IDEMPOTENCY_MODELS, ...PROJECT_MODELS, ...KNOWLEDGE_MODELS, ...DOCUMENT_MODELS],

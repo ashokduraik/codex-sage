@@ -1,9 +1,9 @@
 /**
  * Source-versions infinite query hook.
  */
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { renderHook, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 vi.mock('@/features/projects/api/sourcesApi.js', () => ({
   SOURCE_VERSION_LIST_PAGE_SIZE: 20,

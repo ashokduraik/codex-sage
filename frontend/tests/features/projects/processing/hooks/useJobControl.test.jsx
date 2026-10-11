@@ -1,10 +1,10 @@
 /**
  * Tests for retry/cancel mutations.
  */
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, renderHook } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/shared/api/index';
+import { describe, expect, it, vi } from 'vitest';
+import { act, renderHook } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 vi.mock('@/features/projects/processing/api/jobsApi.js', async (importOriginal) => {
   const actual = await importOriginal();
@@ -15,8 +15,8 @@ vi.mock('@/features/projects/processing/api/jobsApi.js', async (importOriginal) 
   };
 });
 
-import { cancelJob, jobDetailQueryKey, projectJobsQueryRoot, retryJob } from '@/features/projects/processing/api/jobsApi.js';
 import { useJobControl } from '@/features/projects/processing/hooks/useJobControl.js';
+import { cancelJob, jobDetailQueryKey, projectJobsQueryRoot, retryJob } from '@/features/projects/processing/api/jobsApi.js';
 
 /**
  * @param {import('@tanstack/react-query').QueryClient} queryClient Client.

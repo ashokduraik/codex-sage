@@ -3,10 +3,10 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
-  mapAnonymousLookupStatus,
-  mapAuthenticatedLookupStatus,
   mapOutboundThrown,
+  mapAnonymousLookupStatus,
   mapTransportOrUnexpected,
+  mapAuthenticatedLookupStatus,
 } from '../../../src/modules/knowledge/repositories.helper.js';
 
 describe('probeErrorMap', () => {

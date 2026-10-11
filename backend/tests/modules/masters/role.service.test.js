@@ -1,8 +1,8 @@
 /**
  * Role service unit tests — catalog guards and dynamic ADMIN updates.
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Role } from '../../../src/models/role.model.js';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../../src/modules/access/index.js', async (importOriginal) => {
   const actual = await importOriginal();

@@ -1,7 +1,7 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import i18n from '@/shared/i18n/index';
 import { I18nextProvider } from 'react-i18next';
 import { afterEach, describe, expect, it } from 'vitest';
-import i18n from '@/shared/i18n/index';
+import { cleanup, render, screen } from '@testing-library/react';
 import { InlineErrorAlert } from '@/features/admin/InlineErrorAlert';
 
 afterEach(() => {

@@ -1,10 +1,10 @@
 /**
  * ProjectDetailPage against mocked detail/mutations.
  */
-import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
+import { ApiError } from '@/shared/api/index';
 import { Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ApiError } from '@/shared/api/index';
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
 
 vi.mock('@/features/projects/processing/api/jobsApi.js', async (importOriginal) => {
@@ -48,9 +48,9 @@ vi.mock('@/features/projects/api/projectsApi.js', async (importOriginal) => {
   };
 });
 
-import { archiveProject, getProject, getProjectDeletionPreview, recordProjectAccess, restoreProject } from '@/features/projects/api/projectsApi.js';
-import ProjectDetailPage from '@/features/projects/ProjectDetailPage';
 import ProjectOverview from '@/features/projects/ProjectOverview';
+import ProjectDetailPage from '@/features/projects/ProjectDetailPage';
+import { archiveProject, getProject, getProjectDeletionPreview, recordProjectAccess, restoreProject } from '@/features/projects/api/projectsApi.js';
 
 afterEach(() => {
   cleanup();

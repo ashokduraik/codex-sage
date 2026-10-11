@@ -3,13 +3,13 @@
  */
 import mongoose from 'mongoose';
 import { loadConfig } from '../src/platform/config.js';
+import { syncSchemaIndexes } from '../src/platform/data/index.js';
 import {
   MONGODB_MAX_POOL_SIZE,
   MONGODB_MIN_POOL_SIZE,
-  MONGODB_SERVER_SELECTION_TIMEOUT_MS,
   MONGODB_SOCKET_TIMEOUT_MS,
+  MONGODB_SERVER_SELECTION_TIMEOUT_MS,
 } from '../src/platform/mongo.js';
-import { syncSchemaIndexes } from '../src/platform/data/index.js';
 
 /** Database name substituted into MONGODB_URI for integration tests. */
 export const TEST_DATABASE_NAME = 'codex_sage_test';

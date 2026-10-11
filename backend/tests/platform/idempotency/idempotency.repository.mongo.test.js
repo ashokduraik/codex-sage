@@ -1,17 +1,17 @@
 /**
  * Integration tests for idempotency repository claim / complete / release.
  */
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import mongoose from 'mongoose';
-import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
+import { createMongoHarness } from '../../mongoHarness.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
-  IDEMPOTENCY_MODELS,
   IdempotencyRecord,
+  IDEMPOTENCY_MODELS,
   beginIdempotencyClaim,
+  releaseIdempotencyClaim,
   completeIdempotencyRecord,
   findActiveIdempotencyRecord,
-  releaseIdempotencyClaim,
 } from '../../../src/platform/idempotency/index.js';
 
 const harness = createMongoHarness({

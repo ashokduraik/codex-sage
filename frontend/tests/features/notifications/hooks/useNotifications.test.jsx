@@ -1,9 +1,9 @@
 /**
  * Inbox query and mark-read mutation hooks.
  */
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { act, renderHook, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 vi.mock('@/features/notifications/api/notificationsApi.js', () => ({
   notificationsQueryKey: (filters = {}) => Object.freeze(['notifications', { unreadOnly: filters.unreadOnly === true }]),
@@ -12,8 +12,8 @@ vi.mock('@/features/notifications/api/notificationsApi.js', () => ({
   markAllNotificationsRead: vi.fn(),
 }));
 
-import { listNotifications, markAllNotificationsRead, markNotificationRead } from '@/features/notifications/api/notificationsApi.js';
 import { useNotificationActions, useNotifications } from '@/features/notifications/hooks/useNotifications.js';
+import { listNotifications, markAllNotificationsRead, markNotificationRead } from '@/features/notifications/api/notificationsApi.js';
 
 /**
  * @param {import('@tanstack/react-query').QueryClient} queryClient Client.

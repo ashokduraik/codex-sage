@@ -2,22 +2,21 @@
  * Repository probe/attach API mapping.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  probeProjectRepository,
+  attachProjectRepository,
+  repositoryConnectionQueryKey,
+  getProjectRepositoryConnection,
+  retestProjectRepositoryConnection,
+  revokeProjectRepositoryCredential,
+  replaceProjectRepositoryCredential,
+} from '@/features/projects/api/repositoriesApi.js';
 
 const apiRequest = vi.fn();
 
 vi.mock('@/shared/api/index', () => ({
   apiRequest: (...args) => apiRequest(...args),
 }));
-
-import {
-  attachProjectRepository,
-  getProjectRepositoryConnection,
-  probeProjectRepository,
-  replaceProjectRepositoryCredential,
-  repositoryConnectionQueryKey,
-  retestProjectRepositoryConnection,
-  revokeProjectRepositoryCredential,
-} from '@/features/projects/api/repositoriesApi.js';
 
 describe('repositoriesApi', () => {
   afterEach(() => {

@@ -1,10 +1,11 @@
 /**
  * Conversation service unit tests for loaders and title validation.
  */
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import mongoose from 'mongoose';
-import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
+import { createMongoHarness } from '../../mongoHarness.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { insertConversation } from '../../../src/modules/conversation/conversation.helper.js';
 import { PROJECT_MODELS, createProjectInRepo } from '../../../src/modules/masters/projects.js';
 import { CONVERSATION_MODELS, Message } from '../../../src/modules/conversation/conversation.js';
 import {
@@ -13,7 +14,6 @@ import {
   loadConversationForUser,
   updateConversationTitle,
 } from '../../../src/modules/conversation/conversation.js';
-import { insertConversation } from '../../../src/modules/conversation/conversation.helper.js';
 
 const harness = createMongoHarness({
   models: [...PROJECT_MODELS, ...CONVERSATION_MODELS],

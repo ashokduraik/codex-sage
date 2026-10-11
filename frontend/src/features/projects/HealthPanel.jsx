@@ -1,10 +1,10 @@
-import { Link, useOutletContext } from 'react-router-dom';
-import { AlertTriangle, BookOpen, CheckCircle2, FileWarning, HeartPulse, MessageSquare } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
-import { KnowledgeHealthBadge } from '@/shared/components';
 import { Button } from '@/shared/ui/button';
+import { useTranslation } from 'react-i18next';
+import { Link, useOutletContext } from 'react-router-dom';
+import { KnowledgeHealthBadge } from '@/shared/components';
 import { useRepositoryConnection } from './hooks/useRepositoryConnection.js';
 import { isProjectAskable, mapKnowledgeHealth } from '@/shared/components/StatusBadge.jsx';
+import { AlertTriangle, BookOpen, CheckCircle2, FileWarning, HeartPulse, MessageSquare } from 'lucide-react';
 
 /**
  * Knowledge health checks and status for the current project.

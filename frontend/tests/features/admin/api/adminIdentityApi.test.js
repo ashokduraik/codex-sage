@@ -1,21 +1,21 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { API_BASE_URL, setAccessToken } from '@/shared/api/index';
 import { resetApiSessionForTests } from '@/shared/api/apiSession.js';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetRefreshClientForTests } from '@/shared/api/refreshClient.js';
 import {
-  activateUser,
-  createRole,
-  createUser,
-  deactivateUser,
-  fetchPermissionsCatalog,
-  listAllRoles,
-  listRolesPage,
   listUsers,
   patchRole,
   patchUser,
+  createRole,
+  createUser,
   removeRole,
   removeUser,
+  activateUser,
+  listAllRoles,
+  listRolesPage,
+  deactivateUser,
   resetUserPassword,
+  fetchPermissionsCatalog,
 } from '@/features/admin/api/adminIdentityApi.js';
 
 /**

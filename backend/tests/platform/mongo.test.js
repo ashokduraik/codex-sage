@@ -1,16 +1,17 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import mongoose from 'mongoose';
 import { TEST_APP_CONFIG } from '../appConfig.js';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
-  checkMongoHealth,
   connectMongo,
-  describeMongoUri,
-  disconnectMongo,
   mapReadyState,
+  disconnectMongo,
+  checkMongoHealth,
+  describeMongoUri,
+  MONGODB_MAX_POOL_SIZE,
   MONGO_UNAVAILABLE_CODE,
   resetMongoListenersForTests,
-  MONGODB_MAX_POOL_SIZE,
 } from '../../src/platform/mongo.js';
+
 vi.mock('mongoose', () => {
   const connection = {
     readyState: 0,

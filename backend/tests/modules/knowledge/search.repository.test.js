@@ -2,6 +2,7 @@
  * Unit tests for document FTS mapping.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { searchProjectDocuments } from '../../../src/modules/knowledge/search.js';
 
 const { searchDocumentSections } = vi.hoisted(() => ({
   searchDocumentSections: vi.fn(),
@@ -10,8 +11,6 @@ const { searchDocumentSections } = vi.hoisted(() => ({
 vi.mock('../../../src/modules/knowledge/documents.js', () => ({
   searchDocumentSections,
 }));
-
-import { searchProjectDocuments } from '../../../src/modules/knowledge/search.js';
 
 describe('searchProjectDocuments', () => {
   beforeEach(() => {

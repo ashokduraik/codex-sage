@@ -1,14 +1,14 @@
-import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FolderKanban, Plus, Search, Archive, GitBranch, UploadCloud, Loader2 } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
-import { EmptyState, KnowledgeHealthBadge, ProjectLifecycleBadge } from '@/shared/components';
-import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
+import { Button } from '@/shared/ui/button';
+import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { formatRelative } from '@/shared/lib/format';
 import { CreateProjectDialog } from './CreateProjectDialog';
 import { flattenProjectPages, useProjects } from './hooks/useProjects.js';
+import { EmptyState, KnowledgeHealthBadge, ProjectLifecycleBadge } from '@/shared/components';
 import { correlationFromUnknown, messageFromUnknown, retryAfterFromUnknown } from '@/shared/api';
+import { FolderKanban, Plus, Search, Archive, GitBranch, UploadCloud, Loader2 } from 'lucide-react';
 
 /**
  * Projects list with server search, archive toggle, and create dialog.

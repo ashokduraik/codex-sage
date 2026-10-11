@@ -2,8 +2,8 @@
  * Unit tests for idempotency repository helpers (no Mongo).
  */
 import { describe, expect, it } from 'vitest';
-import { isMongoDuplicateKeyError } from '../../../src/platform/idempotency/idempotency.repository.js';
 import { IdempotencyReplay } from '../../../src/platform/idempotency/idempotency.middleware.js';
+import { isMongoDuplicateKeyError } from '../../../src/platform/idempotency/idempotency.repository.js';
 
 describe('isMongoDuplicateKeyError', () => {
   it('detects Mongo duplicate key code 11000', () => {

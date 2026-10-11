@@ -3,8 +3,9 @@
  * The only module that talks to Mongoose's connection API.
  */
 import mongoose from 'mongoose';
-import { MONGO_UNAVAILABLE_CODE } from './errorCatalog.js';
 import { caughtErrorFields } from './errors.js';
+import { MONGO_UNAVAILABLE_CODE } from './errorCatalog.js';
+
 /** Connection pool upper bound. */
 export const MONGODB_MAX_POOL_SIZE = 20;
 /** Connection pool lower bound. */

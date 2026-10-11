@@ -1,25 +1,25 @@
 /**
  * Additional S3 materialize_docs cases (skipPaths, document parse warnings).
  */
-import { createHash } from 'node:crypto';
-import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { Readable } from 'node:stream';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import mongoose from 'mongoose';
-import { createMongoHarness } from '../../mongoHarness.js';
+import fs from 'node:fs/promises';
+import { Readable } from 'node:stream';
+import { createHash } from 'node:crypto';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
+import { Job } from '../../../src/models/job.model.js';
+import { createMongoHarness } from '../../mongoHarness.js';
+import { clearSourceFilesBucket } from '../../clearSourceFilesBucket.js';
 import * as documents from '../../../src/modules/knowledge/documents.js';
 import { DocumentSection } from '../../../src/modules/knowledge/documents.js';
-import { Job } from '../../../src/models/job.model.js';
 import { insertPendingJob } from '../../../src/modules/masters/jobs.helper.js';
-import { SourceFile, SourceVersion, getSourceFilesBucket, insertSourceFiles, insertSourceVersion } from '../../../src/modules/knowledge/sources.js';
-import { clearSourceFilesBucket } from '../../clearSourceFilesBucket.js';
 import { EXCLUSION_RULESET_ID } from '../../../src/modules/knowledge/uploads.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { buildIngestStageContext } from '../../../src/modules/knowledge/ingest.js';
 import { loadSourceVersionForIngest } from '../../../src/modules/knowledge/ingest.js';
 import { runMaterializeDocsStage, WORKSPACE_MATERIALIZE_BATCH_SIZE } from '../../../src/modules/knowledge/ingest.util.js';
+import { SourceFile, SourceVersion, getSourceFilesBucket, insertSourceFiles, insertSourceVersion } from '../../../src/modules/knowledge/sources.js';
 
 let workspaceRoot;
 

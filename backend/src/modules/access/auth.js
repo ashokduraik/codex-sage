@@ -1,16 +1,16 @@
 /**
  * access/auth.js — merged resource file.
  */
-import { LoginSession } from '../../models/loginSession.model.js';
-import { assertOrgId, ROW_STATUS_ACTIVE } from '../../platform/data/index.js';
-import { ApiError, apiErrorFromCaught } from '../../platform/errors.js';
-import { findUserById, findActiveUsersByEmailWithPassword, touchLastLoginAt, updateUserPasswordHash } from '../masters/index.js';
-import { resolveEffectivePermissions } from './permissions.js';
+import { z } from 'zod';
 import argon2 from 'argon2';
-import { createSigner, createVerifier, TokenError } from 'fast-jwt';
 import mongoose from 'mongoose';
 import { createHash, randomBytes } from 'node:crypto';
-import { z } from 'zod';
+import { resolveEffectivePermissions } from './permissions.js';
+import { LoginSession } from '../../models/loginSession.model.js';
+import { createSigner, createVerifier, TokenError } from 'fast-jwt';
+import { ApiError, apiErrorFromCaught } from '../../platform/errors.js';
+import { assertOrgId, ROW_STATUS_ACTIVE } from '../../platform/data/index.js';
+import { findUserById, findActiveUsersByEmailWithPassword, touchLastLoginAt, updateUserPasswordHash } from '../masters/index.js';
 
 // --- from auth/passwordHasher.js ---
 /**

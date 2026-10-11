@@ -1,7 +1,7 @@
-import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import LoginPage, { safeReturnTo } from '@/features/auth/LoginPage';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetRefreshClientForTests } from '@/shared/api/refreshClient.js';
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { buildTestAuthUser, clearAuthSession, renderWithProviders } from '@tests/renderWithProviders';
 
 afterEach(() => {

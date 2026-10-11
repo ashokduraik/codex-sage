@@ -3,23 +3,23 @@
  * six-name registry, tenant scope, evidence ids, and budgeter hand-off.
  */
 import { ApiError } from '../../platform/errors.js';
-import { ROW_STATUS_ACTIVE } from '../../platform/data/index.js';
 import { findProjectById } from '../masters/index.js';
+import { prepareModelInput } from './contextBudgeter.js';
+import { ROW_STATUS_ACTIVE } from '../../platform/data/index.js';
 import {
-  SEARCH_DOC_MAX_RESULTS,
-  SEARCH_GRAPH_MAX_RESULTS,
-  SEARCH_SNIPPET_MAX_CHARS,
-  assertKnowledgeReadable,
-  createCodegraphAdapter,
-  findKnowledgeVersionById,
   isDocumentPath,
-  listDocumentFilesForVersion,
   listSectionsForPath,
   loadSourceFileSlice,
-  resolveProjectWorkspacePath,
+  createCodegraphAdapter,
+  SEARCH_DOC_MAX_RESULTS,
   searchDocumentSections,
+  assertKnowledgeReadable,
+  findKnowledgeVersionById,
+  SEARCH_GRAPH_MAX_RESULTS,
+  SEARCH_SNIPPET_MAX_CHARS,
+  listDocumentFilesForVersion,
+  resolveProjectWorkspacePath,
 } from '../knowledge/index.js';
-import { prepareModelInput } from './contextBudgeter.js';
 
 /** Page size for list_documents (matches source-version list default). */
 export const LIST_DOCUMENTS_PAGE_SIZE = 20;

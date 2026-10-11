@@ -1,6 +1,9 @@
-import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/shared/api/index';
+import { buildJobDetail, buildListJob } from './test/jobFixtures.js';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
+import ProcessingCenterPage from '@/features/projects/processing/ProcessingCenterPage';
+import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
 
 const listProjectJobs = vi.fn();
 const getJob = vi.fn();
@@ -22,10 +25,6 @@ vi.mock('@/features/projects/api/projectsApi.js', async () => {
   const fixtures = await import('@tests/features/projects/test/projectApiFixtures.js');
   return fixtures.defaultProjectsApiMock;
 });
-
-import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
-import { buildJobDetail, buildListJob } from './test/jobFixtures.js';
-import ProcessingCenterPage from '@/features/projects/processing/ProcessingCenterPage';
 
 afterEach(() => {
   cleanup();

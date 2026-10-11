@@ -1,7 +1,7 @@
-import { cleanup, screen } from '@testing-library/react';
 import { Route, Routes } from 'react-router-dom';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, screen } from '@testing-library/react';
 import ProtectedRoute from '@/features/auth/ProtectedRoute';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetRefreshClientForTests } from '@/shared/api/refreshClient.js';
 import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
 

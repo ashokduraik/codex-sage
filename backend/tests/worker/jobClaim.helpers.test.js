@@ -1,27 +1,27 @@
 /**
  * Integration coverage for jobClaim finish / requeue / cancel / checkpoint helpers.
  */
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import mongoose from 'mongoose';
-import { createMongoHarness } from '../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../appConfig.js';
 import { Job } from '../../src/models/job.model.js';
+import { createMongoHarness } from '../mongoHarness.js';
 import { insertPendingJob } from '../../src/modules/masters/index.js';
-import {
-  claimNextJob,
-  finishJobCancelled,
-  finishJobCompleted,
-  finishJobFailed,
-  requeueJobTemporaryFailure,
-  releaseJobOnShutdown,
-  resolveNextDueAt,
-  saveJobCheckpoint,
-  saveJobProgress,
-} from '../../src/worker/jobClaim.js';
 import { ProjectJobLock } from '../../src/models/projectJobLock.model.js';
+import { acquireProjectJobLock } from '../../src/worker/projectJobLock.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createJobLogger, buildJobLogBindings } from '../../src/worker/workerLogger.js';
 import { runWorkerSmokeHandler } from '../../src/worker/handlers/workerSmokeHandler.js';
-import { acquireProjectJobLock } from '../../src/worker/projectJobLock.js';
+import {
+  claimNextJob,
+  finishJobFailed,
+  saveJobProgress,
+  resolveNextDueAt,
+  saveJobCheckpoint,
+  finishJobCancelled,
+  finishJobCompleted,
+  releaseJobOnShutdown,
+  requeueJobTemporaryFailure,
+} from '../../src/worker/jobClaim.js';
 
 const harness = createMongoHarness({
   models: [Job, ProjectJobLock],

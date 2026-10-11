@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { attachShutdownSignals, registerShutdownHook, resetShutdownForTests, runShutdown, SHUTDOWN_TIMEOUT_MS } from '../../src/platform/shutdown.js';
+
 describe('shutdown', () => {
   const log = {
     info: vi.fn(),

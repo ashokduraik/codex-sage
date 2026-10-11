@@ -1,12 +1,12 @@
 /**
  * masters/organizations.js — merged resource file.
  */
+import mongoose from 'mongoose';
+import { hashPassword } from '../access/index.js';
 import { Organization } from '../../models/organization.model.js';
 import { ApiError, apiErrorFromCaught, caughtErrorFields } from '../../platform/errors.js';
-import { hashPassword } from '../access/index.js';
 import { ADMIN_ROLE_CODE, duplicateKeyField, ensureAdminRole, isDuplicateKeyError } from './roles.js';
 import { createUserInRepo, findUserByEmail, findUserByIdWithPassword, setPasswordHashIfMissing, updateUser } from './users.js';
-import mongoose from 'mongoose';
 
 // --- from identity/organization.repository.js ---
 /**

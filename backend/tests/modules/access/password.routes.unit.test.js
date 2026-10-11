@@ -41,6 +41,8 @@ vi.mock('../../../src/modules/access/audit.js', async (importOriginal) => {
 import argon2 from 'argon2';
 import { User } from '../../../src/models/user.model.js';
 import { verifyPassword } from '../../../src/modules/access/auth.js';
+import { recordAuditEvent } from '../../../src/modules/access/audit.js';
+import { passwordRoutes } from '../../../src/modules/access/password.js';
 
 /**
  * @param {object | null} doc User document.
@@ -57,8 +59,6 @@ function mockUserLookup(doc) {
     exec: vi.fn().mockResolvedValue(doc),
   });
 }
-import { recordAuditEvent } from '../../../src/modules/access/audit.js';
-import { passwordRoutes } from '../../../src/modules/access/password.js';
 
 /**
  * Builds a minimal Fastify-like app that captures the registered handler.

@@ -1,7 +1,7 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { API_BASE_URL, getAccessToken, setAccessToken } from '@/shared/api/index';
 import { resetApiSessionForTests } from '@/shared/api/apiSession.js';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetRefreshClientForTests } from '@/shared/api/refreshClient.js';
+import { API_BASE_URL, getAccessToken, setAccessToken } from '@/shared/api/index';
 import { changePassword, fetchCurrentUser, login, logout } from '@/features/auth/api/authApi.js';
 
 /**

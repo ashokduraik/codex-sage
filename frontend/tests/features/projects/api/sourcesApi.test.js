@@ -14,11 +14,11 @@ vi.mock('@/shared/api/index', () => ({
 import { apiRequest } from '@/shared/api/index';
 import { apiUpload } from '@/shared/api/apiUpload.js';
 import {
-  SOURCE_VERSION_LIST_PAGE_SIZE,
-  listProjectSourceVersions,
+  uploadProjectSource,
   reingestProjectSource,
   sourceVersionsQueryKey,
-  uploadProjectSource,
+  listProjectSourceVersions,
+  SOURCE_VERSION_LIST_PAGE_SIZE,
 } from '@/features/projects/api/sourcesApi.js';
 
 describe('uploadProjectSource', () => {

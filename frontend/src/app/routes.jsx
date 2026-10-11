@@ -1,29 +1,29 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { AppShell } from '@/features/layout';
+import HomePage from '@/features/home/HomePage';
+import LoginPage from '@/features/auth/LoginPage';
 import AdminAudit from '@/features/admin/AdminAudit';
-import AdminLayout from '@/features/admin/AdminLayout';
-import AdminProjects from '@/features/admin/AdminProjects';
-import AdminRetention from '@/features/admin/AdminRetention';
 import AdminRoles from '@/features/admin/AdminRoles';
 import AdminUsage from '@/features/admin/AdminUsage';
 import AdminUsers from '@/features/admin/AdminUsers';
-import ChangePasswordPage from '@/features/auth/ChangePasswordPage';
-import LoginPage from '@/features/auth/LoginPage';
-import ProtectedRoute from '@/features/auth/ProtectedRoute';
+import AdminLayout from '@/features/admin/AdminLayout';
 import ChatWorkspace from '@/features/chat/ChatWorkspace';
-import ConversationsPage from '@/features/chat/ConversationsPage';
-import HomePage from '@/features/home/HomePage';
-import KnowledgeExplorer from '@/features/knowledge/KnowledgeExplorer';
-import SearchPanel from '@/features/knowledge/SearchPanel';
-import { AppShell } from '@/features/layout';
-import NotFoundPage from '@/features/not-found/NotFoundPage';
-import ProcessingCenterPage from '@/features/projects/processing/ProcessingCenterPage';
-import ChangesPanel from '@/features/knowledge/ChangesPanel';
 import HealthPanel from '@/features/projects/HealthPanel';
-import ProjectDetailPage from '@/features/projects/ProjectDetailPage';
-import ProjectOverview from '@/features/projects/ProjectOverview';
-import ProjectPickerPage from '@/features/projects/ProjectPickerPage';
+import { Navigate, Route, Routes } from 'react-router-dom';
+import AdminProjects from '@/features/admin/AdminProjects';
+import SearchPanel from '@/features/knowledge/SearchPanel';
 import ProjectsPage from '@/features/projects/ProjectsPage';
+import ProtectedRoute from '@/features/auth/ProtectedRoute';
 import SourcesPanel from '@/features/projects/SourcesPanel';
+import AdminRetention from '@/features/admin/AdminRetention';
+import ChangesPanel from '@/features/knowledge/ChangesPanel';
+import NotFoundPage from '@/features/not-found/NotFoundPage';
+import ConversationsPage from '@/features/chat/ConversationsPage';
+import ProjectOverview from '@/features/projects/ProjectOverview';
+import ChangePasswordPage from '@/features/auth/ChangePasswordPage';
+import ProjectDetailPage from '@/features/projects/ProjectDetailPage';
+import ProjectPickerPage from '@/features/projects/ProjectPickerPage';
+import KnowledgeExplorer from '@/features/knowledge/KnowledgeExplorer';
+import ProcessingCenterPage from '@/features/projects/processing/ProcessingCenterPage';
 
 /**
  * Application route tree matching the Base44 App structure.

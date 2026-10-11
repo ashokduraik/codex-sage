@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useLocation, useOutletContext, useSearchParams } from 'react-router-dom';
-import { PanelLeftOpen, Sparkles } from 'lucide-react';
+import { Composer } from './Composer';
+import { MessageItem } from './MessageItem';
 import { useTranslation } from 'react-i18next';
 import { useAppData } from '@/shared/mock-data';
 import { ConversationList } from './ConversationList';
-import { MessageItem } from './MessageItem';
-import { Composer } from './Composer';
+import { PanelLeftOpen, Sparkles } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useLocation, useOutletContext, useSearchParams } from 'react-router-dom';
+
 const KEYWORDS = [
   'auth',
   'login',

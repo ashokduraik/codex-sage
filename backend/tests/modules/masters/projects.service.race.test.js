@@ -21,15 +21,15 @@ vi.mock('../../../src/modules/access/index.js', () => ({
   recordAuditEvent: vi.fn(async () => undefined),
 }));
 
+import * as repo from '../../../src/modules/masters/projects.helper.js';
 import {
-  archiveProject,
   deleteProject,
-  patchProjectSettings,
+  updateProject,
+  archiveProject,
   restoreProject,
   transitionLifecycle,
-  updateProject,
+  patchProjectSettings,
 } from '../../../src/modules/masters/projects.js';
-import * as repo from '../../../src/modules/masters/projects.helper.js';
 
 describe('projects.service race branches', () => {
   beforeEach(() => {

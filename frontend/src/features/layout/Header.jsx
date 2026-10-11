@@ -1,22 +1,22 @@
-import { ChevronDown, FolderKanban, KeyRound, LogOut, Search, Settings, User as UserIcon } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { useAuth } from '@/features/auth/AuthContext';
-import { flattenProjectPages, useProjects } from '@/features/projects/hooks/useProjects.js';
-import { useProject } from '@/features/projects/hooks/useProject.js';
-import { useActiveProjectJob } from '@/features/projects/processing/hooks/useActiveProjectJob.js';
 import { useAppData } from '@/shared/mock-data';
+import { useAuth } from '@/features/auth/AuthContext';
+import ProcessingIndicator from './ProcessingIndicator';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useProject } from '@/features/projects/hooks/useProject.js';
+import NotificationBell from '@/features/notifications/NotificationBell';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { flattenProjectPages, useProjects } from '@/features/projects/hooks/useProjects.js';
+import { useActiveProjectJob } from '@/features/projects/processing/hooks/useActiveProjectJob.js';
+import { ChevronDown, FolderKanban, KeyRound, LogOut, Search, Settings, User as UserIcon } from 'lucide-react';
 import {
   DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
+  DropdownMenuContent,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from '@/shared/ui/dropdown-menu';
-import NotificationBell from '@/features/notifications/NotificationBell';
-import ProcessingIndicator from './ProcessingIndicator';
 
 /**
  * Picks a project id from the processing query string or a project route.

@@ -2,8 +2,8 @@
  * Acquire / refresh / release project writer locks for exclusive job types.
  */
 import mongoose from 'mongoose';
-import { ROW_STATUS_ACTIVE, ROW_STATUS_DELETED } from '../platform/data/index.js';
 import { ProjectJobLock } from '../models/projectJobLock.model.js';
+import { ROW_STATUS_ACTIVE, ROW_STATUS_DELETED } from '../platform/data/index.js';
 import { PROJECT_JOB_LOCK_SCOPE, WORKER_LEASE_TTL_MS } from './worker.constants.js';
 
 /**

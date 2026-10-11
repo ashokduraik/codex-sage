@@ -1,23 +1,23 @@
 import 'dotenv/config';
 import { buildApp } from './http/app.js';
-import { AUDIT_MODELS } from './modules/access/index.js';
+import { loadConfig } from './platform/config.js';
+import { createAppLogger } from './platform/logger.js';
 import { AUTH_MODELS } from './modules/access/index.js';
-import { assertRolePermissionsInCatalog } from './modules/access/index.js';
-import { IDENTITY_MODELS, runBootstrapSeed } from './modules/masters/index.js';
+import { AUDIT_MODELS } from './modules/access/index.js';
+import { caughtErrorFields } from './platform/errors.js';
 import { PROJECT_MODELS } from './modules/masters/index.js';
-import { JOB_MODELS, NOTIFICATION_MODELS, PROJECT_ACTIVITY_MODELS } from './modules/masters/index.js';
 import { SOURCE_MODELS } from './modules/knowledge/index.js';
+import { syncSchemaIndexes } from './platform/data/index.js';
 import { DOCUMENT_MODELS } from './modules/knowledge/index.js';
 import { KNOWLEDGE_MODELS } from './modules/knowledge/index.js';
 import { REPOSITORY_MODELS } from './modules/knowledge/index.js';
-import { CONVERSATION_MODELS, assertLlmAvailable } from './modules/conversation/index.js';
 import { ProjectJobLock } from './models/projectJobLock.model.js';
-import { loadConfig } from './platform/config.js';
-import { syncSchemaIndexes } from './platform/data/index.js';
-import { IDEMPOTENCY_MODELS } from './platform/idempotency/index.js';
-import { caughtErrorFields } from './platform/errors.js';
-import { createAppLogger } from './platform/logger.js';
 import { connectMongo, disconnectMongo } from './platform/mongo.js';
+import { IDEMPOTENCY_MODELS } from './platform/idempotency/index.js';
+import { assertRolePermissionsInCatalog } from './modules/access/index.js';
+import { IDENTITY_MODELS, runBootstrapSeed } from './modules/masters/index.js';
+import { CONVERSATION_MODELS, assertLlmAvailable } from './modules/conversation/index.js';
+import { JOB_MODELS, NOTIFICATION_MODELS, PROJECT_ACTIVITY_MODELS } from './modules/masters/index.js';
 import { attachShutdownSignals, registerProcessHandlers, registerShutdownHook } from './platform/shutdown.js';
 
 /**

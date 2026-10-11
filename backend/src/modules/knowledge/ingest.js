@@ -1,34 +1,34 @@
 /**
  * knowledge/ingest.js — merged resource file.
  */
+import mongoose from 'mongoose';
+import { recordAuditEvent } from '../access/index.js';
 import { SourceFile } from '../../models/sourceFile.model.js';
+import { runCodegraphUpdateWithRecovery } from './knowledge.js';
 import { SourceVersion } from '../../models/sourceVersion.model.js';
+import { findProjectById, transitionLifecycle } from '../masters/index.js';
 import { assertOrgId, ROW_STATUS_ACTIVE } from '../../platform/data/index.js';
 import { createJobFailureError, classifyThrownFailure, decideFailureOutcome } from '../../worker/retryPolicy.js';
-import { recordAuditEvent } from '../access/index.js';
-import { findProjectById, transitionLifecycle } from '../masters/index.js';
+import { runMaterializeDocsStage, applySourceDiffAfterValidate, hydrateSourceDiffCarry } from './ingest.util.js';
 import {
+  markGridFsFilesOrphaned,
+  findSourceGridFsFileById,
+  SOURCE_FILE_STATE_STORED,
+  SOURCE_FILE_STATE_CORRUPT,
+  SOURCE_FILE_STATE_MISSING,
+  listSourceGridFsFilesForVersion,
+} from './sources.js';
+import {
+  runFinalizeStage,
+  runStoreFilesStage,
   createIngestCounters,
+  derivePartialSuccess,
+  runExcludeApplyStage,
   createProgressFlusher,
   toJobProgressCounters,
   runValidateUploadStage,
-  runStoreFilesStage,
-  runExcludeApplyStage,
   runKnowledgePublishStage,
-  runFinalizeStage,
-  derivePartialSuccess,
 } from './ingest.helper.js';
-import { runMaterializeDocsStage, applySourceDiffAfterValidate, hydrateSourceDiffCarry } from './ingest.util.js';
-import { runCodegraphUpdateWithRecovery } from './knowledge.js';
-import {
-  SOURCE_FILE_STATE_CORRUPT,
-  SOURCE_FILE_STATE_MISSING,
-  SOURCE_FILE_STATE_STORED,
-  findSourceGridFsFileById,
-  listSourceGridFsFilesForVersion,
-  markGridFsFilesOrphaned,
-} from './sources.js';
-import mongoose from 'mongoose';
 
 // --- from ingest/ingest.repository.js ---
 /**

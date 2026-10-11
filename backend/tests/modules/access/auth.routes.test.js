@@ -1,29 +1,29 @@
 /**
  * Auth route integration tests via app.inject.
  */
-import { nextTestUserCode, ensureTestRoles } from '../../identityFixtures.js';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { API_BASE_PATH, buildApp } from '../../../src/http/app.js';
-import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
+import { User } from '../../../src/models/user.model.js';
+import { createMongoHarness } from '../../mongoHarness.js';
+import { API_BASE_PATH, buildApp } from '../../../src/http/app.js';
 import { AUTH_MODELS } from '../../../src/modules/access/index.js';
+import { hashPassword } from '../../../src/modules/access/auth.js';
 import { CSRF_COOKIE_NAME } from '../../../src/modules/access/auth.js';
+import { revokeLoginSession } from '../../../src/modules/access/auth.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { nextTestUserCode, ensureTestRoles } from '../../identityFixtures.js';
+import { REFRESH_COOKIE_NAME, createTokenService } from '../../../src/modules/access/auth.js';
 import {
+  findRoleByCode,
+  softDeleteUser,
+  findUserByEmail,
+  IDENTITY_MODELS,
+  createUserInRepo,
+  runBootstrapSeed,
   DEFAULT_ADMIN_EMAIL,
   DEFAULT_ADMIN_PASSWORD,
-  IDENTITY_MODELS,
   findOrganizationBySlug,
-  findUserByEmail,
-  createUserInRepo,
-  softDeleteUser,
   updateUserPasswordHash,
-  runBootstrapSeed,
-  findRoleByCode,
 } from '../../../src/modules/masters/index.js';
-import { User } from '../../../src/models/user.model.js';
-import { hashPassword } from '../../../src/modules/access/auth.js';
-import { REFRESH_COOKIE_NAME, createTokenService } from '../../../src/modules/access/auth.js';
-import { revokeLoginSession } from '../../../src/modules/access/auth.js';
 
 const harness = createMongoHarness({
   models: [...IDENTITY_MODELS, ...AUTH_MODELS],

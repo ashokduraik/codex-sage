@@ -2,7 +2,6 @@
  * Unit tests for audit route validation edge paths.
  */
 import { describe, expect, it } from 'vitest';
-
 import { assertAuditListDateRange, auditRoutes } from '../../../src/modules/access/audit.js';
 
 /**

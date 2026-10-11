@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { UploadCloud, File, Loader2, AlertCircle, X } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
 import { ApiError } from '@/shared/api';
-import { Button } from '@/shared/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/shared/ui/dialog';
 import { cn } from '@/shared/lib/utils';
+import { Button } from '@/shared/ui/button';
+import { useTranslation } from 'react-i18next';
 import { useUploadSource } from './hooks/useUploadSource.js';
+import { UploadCloud, File, Loader2, AlertCircle, X } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/shared/ui/dialog';
 
 /**
  * Dialog that uploads a ZIP archive to the backend (HTTP progress only).

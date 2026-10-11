@@ -1,13 +1,13 @@
 /**
  * Conversation DTO mapping unit tests.
  */
-import { describe, expect, it } from 'vitest';
 import mongoose from 'mongoose';
+import { describe, expect, it } from 'vitest';
 import {
+  mapMessageToDto,
   mapConversationToDto,
   mapConversationToListDto,
   mapConversationToSearchDto,
-  mapMessageToDto,
 } from '../../../src/modules/conversation/conversation.js';
 
 describe('conversations.types', () => {

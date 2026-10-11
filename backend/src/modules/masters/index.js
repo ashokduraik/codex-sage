@@ -1,13 +1,13 @@
 /**
  * Public surface of the masters module (org, users, roles, projects, jobs).
  */
-import { userRoutes } from './users.js';
 import { roleRoutes } from './roles.js';
+import { userRoutes } from './users.js';
 import { Job } from '../../models/job.model.js';
-import { Organization } from '../../models/organization.model.js';
-import { Project } from '../../models/projects.model.js';
 import { Role } from '../../models/role.model.js';
 import { User } from '../../models/user.model.js';
+import { Project } from '../../models/projects.model.js';
+import { Organization } from '../../models/organization.model.js';
 
 export {
   DEFAULT_ORG_SLUG,

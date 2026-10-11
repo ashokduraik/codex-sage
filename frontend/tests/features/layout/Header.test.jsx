@@ -1,5 +1,7 @@
 import { cleanup, fireEvent, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import Header, { resolveProcessingProjectId } from '@/features/layout/Header';
+import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
 
 const listProjects = vi.fn(async (options = {}) => ({
   items: options.q
@@ -85,8 +87,6 @@ vi.mock('@/features/notifications/api/notificationsApi.js', () => ({
   NOTIFICATION_LIST_PAGE_SIZE: 20,
 }));
 
-import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
-import Header, { resolveProcessingProjectId } from '@/features/layout/Header';
 afterEach(() => {
   cleanup();
 });

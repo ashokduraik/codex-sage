@@ -1,26 +1,26 @@
 /**
  * Tests for repository sync orchestration.
  */
-import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import mongoose from 'mongoose';
-import { createMongoHarness } from '../../mongoHarness.js';
+import { fileURLToPath } from 'node:url';
+import { readFile } from 'node:fs/promises';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
+import { createMongoHarness } from '../../mongoHarness.js';
+import { clearSourceFilesBucket } from '../../clearSourceFilesBucket.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { insertConnection } from '../../../src/modules/knowledge/repositories.js';
 import { AUDIT_MODELS, listAuditEvents } from '../../../src/modules/access/audit.js';
 import { JOB_MODELS, Job, insertPendingJob } from '../../../src/modules/masters/jobs.js';
-import { SOURCE_MODELS, SourceVersion } from '../../../src/modules/knowledge/sources.js';
-import { clearSourceFilesBucket } from '../../clearSourceFilesBucket.js';
-import { insertConnection } from '../../../src/modules/knowledge/repositories.js';
 import { RepositoryConnection } from '../../../src/models/repositoryConnection.model.js';
+import { SOURCE_MODELS, SourceVersion } from '../../../src/modules/knowledge/sources.js';
 import {
-  createArchiveRootRewriter,
   deferRepoSyncJob,
-  enqueueManualRepositorySync,
   isProjectSyncBlocked,
-  markConnectionSyncFailed,
   markConnectionSynced,
+  markConnectionSyncFailed,
+  createArchiveRootRewriter,
+  enqueueManualRepositorySync,
   persistRepositorySourceVersion,
 } from '../../../src/modules/knowledge/repoSync.js';
 

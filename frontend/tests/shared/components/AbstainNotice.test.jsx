@@ -1,7 +1,8 @@
-import { cleanup, fireEvent, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import AbstainNotice from '@/shared/components/AbstainNotice';
+import { cleanup, fireEvent, screen } from '@testing-library/react';
 import { clearAuthSession, renderWithProviders } from '@tests/renderWithProviders';
+
 afterEach(() => {
   cleanup();
   localStorage.clear();

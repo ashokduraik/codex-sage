@@ -1,5 +1,5 @@
-import { useInfiniteQuery } from '@tanstack/react-query';
 import { ApiError } from '@/shared/api';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { adminAuditEventsQueryKey, listAuditEvents } from './auditApi.js';
 
 /**

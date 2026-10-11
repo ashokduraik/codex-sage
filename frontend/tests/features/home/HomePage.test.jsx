@@ -1,9 +1,10 @@
 /**
  * HomePage recent projects from API.
  */
-import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/shared/api/index';
+import HomePage from '@/features/home/HomePage';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
 
 const listProjects = vi.fn();
@@ -23,8 +24,6 @@ vi.mock('@/features/projects/api/projectsApi.js', async (importOriginal) => {
     recordProjectAccess: vi.fn(),
   };
 });
-
-import HomePage from '@/features/home/HomePage';
 
 afterEach(() => {
   cleanup();

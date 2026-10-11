@@ -2,8 +2,8 @@
  * Bounded source preview drawer.
  */
 import { useTranslation } from 'react-i18next';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/shared/ui/sheet';
 import { useSourcePreview } from './hooks/useSourcePreview.js';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/shared/ui/sheet';
 
 /**
  * @param {{

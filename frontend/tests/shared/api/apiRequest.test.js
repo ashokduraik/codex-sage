@@ -1,9 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiRequest } from '@/shared/api/apiRequest.js';
-import { getAccessToken, resetApiSessionForTests, setAccessToken, subscribeSessionCleared } from '@/shared/api/apiSession.js';
-import { resetRefreshClientForTests } from '@/shared/api/refreshClient.js';
 import { API_BASE_URL } from '@/shared/api/apiConfig.js';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RequestAbortedError } from '@/shared/api/ApiError.js';
+import { resetRefreshClientForTests } from '@/shared/api/refreshClient.js';
+import { getAccessToken, resetApiSessionForTests, setAccessToken, subscribeSessionCleared } from '@/shared/api/apiSession.js';
 
 /**
  * Builds a mock fetch Response.

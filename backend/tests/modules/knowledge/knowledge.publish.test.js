@@ -2,8 +2,9 @@
  * Unit tests for knowledge publish helpers.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { KnowledgeVersion } from '../../../src/models/knowledgeVersion.model.js';
 import { SourceFile } from '../../../src/models/sourceFile.model.js';
+import { KnowledgeVersion } from '../../../src/models/knowledgeVersion.model.js';
+import { publishKnowledgeVersion, resolvePublishedHealth, sanitizeGraphIdentityForPublish } from '../../../src/modules/knowledge/knowledge.js';
 
 const recordAuditEvent = vi.fn();
 
@@ -14,8 +15,6 @@ vi.mock('../../../src/modules/access/index.js', async (importOriginal) => {
     recordAuditEvent: (...args) => recordAuditEvent(...args),
   };
 });
-
-import { publishKnowledgeVersion, resolvePublishedHealth, sanitizeGraphIdentityForPublish } from '../../../src/modules/knowledge/knowledge.js';
 
 const ORG_ID = '665f1c9d4b2a8e0012a4f010';
 const PROJECT_ID = '665f1c9d4b2a8e0012a4f011';
