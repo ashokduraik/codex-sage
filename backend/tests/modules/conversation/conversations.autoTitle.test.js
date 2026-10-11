@@ -1,15 +1,15 @@
 /**
  * Auto-title stub — truncated user text only when titleSource is default.
  */
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import mongoose from 'mongoose';
-import { createMongoHarness } from '../../mongoHarness.js';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
-import { CONVERSATION_TRUNCATED_TITLE_MAX_CHARS } from '../../../src/modules/conversation/conversation.helper.js';
-import { scheduleConversationAutoTitle, truncateUserTextTitle } from '../../../src/modules/conversation/conversation.js';
-import { Conversation } from '../../../src/models/conversations.model.js';
+import { createMongoHarness } from '../../mongoHarness.js';
 import { Message } from '../../../src/models/messages.model.js';
+import { Conversation } from '../../../src/models/conversations.model.js';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { insertConversation } from '../../../src/modules/conversation/conversation.helper.js';
+import { CONVERSATION_TRUNCATED_TITLE_MAX_CHARS } from '../../../src/modules/conversation/conversation.helper.js';
+import { scheduleConversationAutoTitle } from '../../../src/modules/conversation/conversation.js';
 
 const harness = createMongoHarness({
   models: [Conversation, Message],
@@ -29,11 +29,39 @@ describe('conversations.autoTitle', () => {
     await harness.afterAll();
   });
 
-  it('collapses whitespace and caps truncated titles', () => {
-    expect(truncateUserTextTitle('  hello   world  ', 20)).toBe('hello world');
-    expect(truncateUserTextTitle('   ', 10)).toBe('');
+  it('collapses whitespace and caps truncated titles when titleSource is default', async () => {
+    const orgId = new mongoose.Types.ObjectId();
+    const projectId = new mongoose.Types.ObjectId();
+    const owner = new mongoose.Types.ObjectId();
+    const spaced = await insertConversation({
+      orgId,
+      projectId,
+      ownerUserId: owner,
+    });
+    await scheduleConversationAutoTitle({
+      orgId,
+      projectId: String(projectId),
+      conversationId: String(spaced._id),
+      firstUserContent: '  hello   world  ',
+    });
+    const spacedUpdated = await Conversation.findById(spaced._id);
+    expect(spacedUpdated.title).toBe('hello world');
+    expect(spacedUpdated.titleSource).toBe('truncated_user_text');
+
+    const longRow = await insertConversation({
+      orgId,
+      projectId,
+      ownerUserId: owner,
+    });
     const long = 'a'.repeat(CONVERSATION_TRUNCATED_TITLE_MAX_CHARS + 10);
-    expect(truncateUserTextTitle(long, CONVERSATION_TRUNCATED_TITLE_MAX_CHARS).length).toBe(CONVERSATION_TRUNCATED_TITLE_MAX_CHARS);
+    await scheduleConversationAutoTitle({
+      orgId,
+      projectId: String(projectId),
+      conversationId: String(longRow._id),
+      firstUserContent: long,
+    });
+    const longUpdated = await Conversation.findById(longRow._id);
+    expect(longUpdated.title.length).toBe(CONVERSATION_TRUNCATED_TITLE_MAX_CHARS);
   });
 
   it('sets a truncated title only when titleSource is still default', async () => {

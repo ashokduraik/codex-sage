@@ -1,42 +1,113 @@
 /**
- * Conversation search query and snippet unit tests.
+ * Conversation search query validation and snippet shaping via searchConversations.
  */
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CONVERSATION_SEARCH_SNIPPET_MAX_CHARS } from '../../../src/modules/conversation/conversation.helper.js';
-import { buildConversationSnippet, parseConversationSearchQuery } from '../../../src/modules/conversation/conversation.js';
+
+const searchOwnConversations = vi.hoisted(() => vi.fn());
+
+vi.mock('../../../src/modules/conversation/conversation.helper.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    searchOwnConversations,
+  };
+});
+
+import { searchConversations } from '../../../src/modules/conversation/conversation.js';
 
 describe('conversations.search', () => {
-  it('rejects missing or short queries', () => {
-    try {
-      parseConversationSearchQuery(undefined);
-      throw new Error('expected VALIDATION_ERROR');
-    } catch (err) {
-      expect(err.code).toBe('VALIDATION_ERROR');
-    }
-    try {
-      parseConversationSearchQuery('a');
-    } catch (err) {
-      expect(err.code).toBe('VALIDATION_ERROR');
-    }
-    expect(parseConversationSearchQuery('  ab  ')).toBe('ab');
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
-  it('prefers the title when it contains the query and caps length', () => {
+  it('rejects missing or short queries', async () => {
+    await expect(
+      searchConversations({
+        orgId: 'o1',
+        projectId: 'p1',
+        userId: 'u1',
+        q: undefined,
+      }),
+    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    await expect(
+      searchConversations({
+        orgId: 'o1',
+        projectId: 'p1',
+        userId: 'u1',
+        q: 'a',
+      }),
+    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    expect(searchOwnConversations).not.toHaveBeenCalled();
+  });
+
+  it('trims the query, prefers a matching title, and caps the snippet', async () => {
     const longTitle = `${'checkout flow '.repeat(20)}extra`;
-    const snippet = buildConversationSnippet({ title: longTitle, searchText: 'payment fails when card declines' }, 'checkout');
-    expect(snippet.startsWith('checkout')).toBe(true);
-    expect(snippet.length).toBeLessThanOrEqual(CONVERSATION_SEARCH_SNIPPET_MAX_CHARS);
-    expect(snippet.endsWith('...')).toBe(true);
+    searchOwnConversations.mockResolvedValue({
+      items: [
+        {
+          _id: 'c1',
+          title: longTitle,
+          searchText: 'payment fails when card declines',
+          titleSource: 'user',
+          updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ],
+      nextCursor: null,
+    });
+    const result = await searchConversations({
+      orgId: 'o1',
+      projectId: 'p1',
+      userId: 'u1',
+      q: '  checkout  ',
+    });
+    expect(searchOwnConversations).toHaveBeenCalledWith(expect.objectContaining({ q: 'checkout' }));
+    expect(result.items[0].snippet.startsWith('checkout')).toBe(true);
+    expect(result.items[0].snippet.length).toBeLessThanOrEqual(CONVERSATION_SEARCH_SNIPPET_MAX_CHARS);
+    expect(result.items[0].snippet.endsWith('...')).toBe(true);
   });
 
-  it('falls back to searchText when the title does not match', () => {
-    const snippet = buildConversationSnippet({ title: 'Other', searchText: 'payment fails when card declines' }, 'payment');
-    expect(snippet).toBe('payment fails when card declines');
+  it('falls back to searchText when the title does not match', async () => {
+    searchOwnConversations.mockResolvedValue({
+      items: [
+        {
+          _id: 'c1',
+          title: 'Other',
+          searchText: 'payment fails when card declines',
+          titleSource: 'user',
+          updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ],
+      nextCursor: null,
+    });
+    const result = await searchConversations({
+      orgId: 'o1',
+      projectId: 'p1',
+      userId: 'u1',
+      q: 'payment',
+    });
+    expect(result.items[0].snippet).toBe('payment fails when card declines');
   });
 
-  it('returns the source unchanged when under the cap and handles tiny caps', () => {
-    expect(buildConversationSnippet({ title: 'Hi' }, 'hi')).toBe('Hi');
-    expect(buildConversationSnippet({ title: 'abcdef' }, 'ab', 2)).toBe('ab');
-    expect(buildConversationSnippet({ title: '' }, 'nope')).toBe('');
+  it('returns a short title unchanged when under the snippet cap', async () => {
+    searchOwnConversations.mockResolvedValue({
+      items: [
+        {
+          _id: 'c1',
+          title: 'Hi',
+          searchText: '',
+          titleSource: 'user',
+          updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ],
+      nextCursor: null,
+    });
+    const result = await searchConversations({
+      orgId: 'o1',
+      projectId: 'p1',
+      userId: 'u1',
+      q: 'hi',
+    });
+    expect(result.items[0].snippet).toBe('Hi');
   });
 });

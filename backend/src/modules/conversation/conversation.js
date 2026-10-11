@@ -1,31 +1,33 @@
 /**
  * conversation/conversation.js — merged resource file.
  */
-import { requireProjectPermission } from '../../http/preHandlers/requireProjectPermission.js';
-import { ApiError } from '../../platform/errors.js';
-import { buildAuditContextFromRequest, recordAuditEvent } from '../access/index.js';
-import { adjustProjectConversationCount } from '../masters/index.js';
+import { z } from 'zod';
 import mongoose from 'mongoose';
+import { ApiError } from '../../platform/errors.js';
+import { Message } from '../../models/messages.model.js';
+import { Conversation } from '../../models/conversations.model.js';
+import { adjustProjectConversationCount } from '../masters/index.js';
+import { buildAuditContextFromRequest, recordAuditEvent } from '../access/index.js';
+import { requireProjectPermission } from '../../http/preHandlers/requireProjectPermission.js';
 import {
+  insertConversation,
+  findOwnConversation,
+  listOwnConversations,
+  archiveOwnConversation,
+  restoreOwnConversation,
+  searchOwnConversations,
+  findConversationInProject,
+  softDeleteOwnConversation,
+  listMessagesForConversation,
   CONVERSATION_TITLE_MAX_LENGTH,
-  CONVERSATION_AUTO_TITLE_MAX_INPUT_CHARS,
+  refreshConversationSearchText,
+  updateConversationTitleFields,
   CONVERSATION_SEARCH_MIN_QUERY_LENGTH,
   CONVERSATION_SEARCH_SNIPPET_MAX_CHARS,
   CONVERSATION_TRUNCATED_TITLE_MAX_CHARS,
-  archiveOwnConversation,
-  findConversationInProject,
-  findOwnConversation,
-  insertConversation,
-  listMessagesForConversation,
-  listOwnConversations,
+  CONVERSATION_AUTO_TITLE_MAX_INPUT_CHARS,
   listRecentMessages as listRecentMessagesInRepo,
-  refreshConversationSearchText,
-  restoreOwnConversation,
-  searchOwnConversations,
-  softDeleteOwnConversation,
-  updateConversationTitleFields,
 } from './conversation.helper.js';
-import { z } from 'zod';
 
 // --- from conversations/conversations.routes.js ---
 /**
@@ -423,71 +425,6 @@ export function assertConversationWritable(conversation, userId) {
 }
 
 /**
- * Normalizes and validates a search query string.
- * @param {unknown} raw Raw `q` value.
- * @returns {string}
- * @throws {import('../../platform/errors.js').ApiError} VALIDATION_ERROR
- */
-export function parseConversationSearchQuery(raw) {
-  if (typeof raw !== 'string') {
-    throw ApiError.fromCode('VALIDATION_ERROR', {
-      details: [{ path: 'q', message: 'q is required' }],
-    });
-  }
-  const query = raw.trim();
-  if (query.length < CONVERSATION_SEARCH_MIN_QUERY_LENGTH) {
-    throw ApiError.fromCode('VALIDATION_ERROR', {
-      details: [
-        {
-          path: 'q',
-          message: `q must be at least ${CONVERSATION_SEARCH_MIN_QUERY_LENGTH} characters`,
-        },
-      ],
-    });
-  }
-  return query;
-}
-
-/**
- * Builds a plain-text snippet from title or searchText, capped and ellipsized.
- * @param {{ title?: string, searchText?: string }} conversation Conversation fields.
- * @param {string} query Search query.
- * @param {number} [maxChars] Snippet cap.
- * @returns {string}
- */
-export function buildConversationSnippet(conversation, query, maxChars) {
-  const cap = maxChars ?? CONVERSATION_SEARCH_SNIPPET_MAX_CHARS;
-  const title = typeof conversation.title === 'string' ? conversation.title : '';
-  const searchText = typeof conversation.searchText === 'string' ? conversation.searchText : '';
-  const needle = query.toLowerCase();
-  const source = title.toLowerCase().includes(needle) ? title : searchText || title;
-  if (source.length <= cap) {
-    return source;
-  }
-  if (cap <= 3) {
-    return source.slice(0, cap);
-  }
-  return `${source.slice(0, cap - 3)}...`;
-}
-
-/**
- * Truncates user text into a title-safe string.
- * @param {string} text Source text.
- * @param {number} maxChars Cap.
- * @returns {string}
- */
-export function truncateUserTextTitle(text, maxChars) {
-  const collapsed = text.replace(/\s+/g, ' ').trim();
-  if (!collapsed) {
-    return '';
-  }
-  if (collapsed.length <= maxChars) {
-    return collapsed;
-  }
-  return collapsed.slice(0, maxChars).trimEnd();
-}
-
-/**
  * Sets a truncated first-user-message title when the row still has the default title.
  * Does not call a model. Missing rows and non-default titles are no-ops so `done` is never blocked.
  * @param {{
@@ -501,7 +438,12 @@ export function truncateUserTextTitle(text, maxChars) {
  */
 export async function scheduleConversationAutoTitle(input) {
   const raw = typeof input.firstUserContent === 'string' ? input.firstUserContent.slice(0, CONVERSATION_AUTO_TITLE_MAX_INPUT_CHARS) : '';
-  const title = truncateUserTextTitle(raw, CONVERSATION_TRUNCATED_TITLE_MAX_CHARS);
+  const collapsed = raw.replace(/\s+/g, ' ').trim();
+  let title = '';
+  if (collapsed) {
+    title =
+      collapsed.length <= CONVERSATION_TRUNCATED_TITLE_MAX_CHARS ? collapsed : collapsed.slice(0, CONVERSATION_TRUNCATED_TITLE_MAX_CHARS).trimEnd();
+  }
   if (!title) {
     return;
   }
@@ -894,7 +836,22 @@ export async function updateConversationTitle(input) {
  * @returns {Promise<{ items: object[], nextCursor: string | null }>}
  */
 export async function searchConversations(input) {
-  const q = parseConversationSearchQuery(input.q);
+  if (typeof input.q !== 'string') {
+    throw ApiError.fromCode('VALIDATION_ERROR', {
+      details: [{ path: 'q', message: 'q is required' }],
+    });
+  }
+  const q = input.q.trim();
+  if (q.length < CONVERSATION_SEARCH_MIN_QUERY_LENGTH) {
+    throw ApiError.fromCode('VALIDATION_ERROR', {
+      details: [
+        {
+          path: 'q',
+          message: `q must be at least ${CONVERSATION_SEARCH_MIN_QUERY_LENGTH} characters`,
+        },
+      ],
+    });
+  }
   const page = await searchOwnConversations({
     orgId: input.orgId,
     projectId: input.projectId,
@@ -905,7 +862,15 @@ export async function searchConversations(input) {
     archived: input.archived,
   });
   return {
-    items: page.items.map((row) => mapConversationToSearchDto(row, buildConversationSnippet(row, q))),
+    items: page.items.map((row) => {
+      const title = typeof row.title === 'string' ? row.title : '';
+      const searchText = typeof row.searchText === 'string' ? row.searchText : '';
+      const needle = q.toLowerCase();
+      const source = title.toLowerCase().includes(needle) ? title : searchText || title;
+      const cap = CONVERSATION_SEARCH_SNIPPET_MAX_CHARS;
+      const snippet = source.length <= cap ? source : `${source.slice(0, cap - 3)}...`;
+      return mapConversationToSearchDto(row, snippet);
+    }),
     nextCursor: page.nextCursor,
   };
 }
@@ -959,7 +924,5 @@ export {
   refreshConversationSearchText,
 } from './conversation.helper.js';
 
-import { Conversation } from '../../models/conversations.model.js';
-import { Message } from '../../models/messages.model.js';
 export { Conversation, Message };
 export const CONVERSATION_MODELS = Object.freeze([Conversation, Message]);

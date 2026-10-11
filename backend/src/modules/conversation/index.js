@@ -1,6 +1,9 @@
 /**
  * Public surface of the conversation module.
  */
+import { Message } from '../../models/messages.model.js';
+import { Conversation } from '../../models/conversations.model.js';
+
 export {
   refreshConversationSearchText,
   archiveConversation,
@@ -19,7 +22,6 @@ export {
   restoreConversation,
   scheduleConversationAutoTitle,
   searchConversations,
-  truncateUserTextTitle,
   updateConversationTitle,
   conversationRoutes,
 } from './conversation.js';
@@ -46,9 +48,6 @@ export {
   updateConversationSummary,
 } from './conversationContext.js';
 export { Message } from '../../models/messages.model.js';
-
-import { Conversation } from '../../models/conversations.model.js';
-import { Message } from '../../models/messages.model.js';
 
 /** Models whose indexes are synced on development API startup. */
 export const CONVERSATION_MODELS = Object.freeze([Conversation, Message]);
