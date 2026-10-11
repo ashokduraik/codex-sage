@@ -140,8 +140,15 @@ describe('runBootstrapSeed', () => {
     });
     await expect(runBootstrapSeed(log)).rejects.toMatchObject({
       code: 'BOOTSTRAP_FAILED',
+      cause: expect.objectContaining({ message: 'mongo exploded' }),
     });
-    expect(log.error).toHaveBeenCalled();
+    expect(log.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        errMessage: 'mongo exploded',
+        errStack: expect.stringContaining('mongo exploded'),
+      }),
+      expect.any(String),
+    );
     spy.mockRestore();
   });
 });

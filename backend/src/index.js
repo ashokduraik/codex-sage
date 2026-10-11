@@ -15,6 +15,7 @@ import { ProjectJobLock } from './models/projectJobLock.model.js';
 import { loadConfig } from './platform/config.js';
 import { syncSchemaIndexes } from './platform/data/index.js';
 import { IDEMPOTENCY_MODELS } from './platform/idempotency/index.js';
+import { caughtErrorFields } from './platform/errors.js';
 import { createAppLogger } from './platform/logger.js';
 import { connectMongo, disconnectMongo } from './platform/mongo.js';
 import { attachShutdownSignals, registerProcessHandlers, registerShutdownHook } from './platform/shutdown.js';
@@ -87,27 +88,23 @@ async function start() {
         ProjectJobLock,
       ]);
     } catch (err) {
-      shutdownLog.error({ errName: err instanceof Error ? err.name : 'Error' }, 'schema index sync failed');
+      shutdownLog.error(caughtErrorFields(err), 'schema index sync failed');
       process.exit(1);
     }
   }
 
   try {
     await runBootstrapSeed(shutdownLog);
-  } catch {
+  } catch (err) {
+    // Bootstrap already logged the original; exit without dropping the failure silently.
+    shutdownLog.error?.(caughtErrorFields(err), 'bootstrap seed failed');
     process.exit(1);
   }
 
   try {
     await assertRolePermissionsInCatalog();
   } catch (err) {
-    shutdownLog.error(
-      {
-        errName: err instanceof Error ? err.name : 'Error',
-        errMessage: err instanceof Error ? err.message : String(err),
-      },
-      'role permission catalog audit failed',
-    );
+    shutdownLog.error(caughtErrorFields(err), 'role permission catalog audit failed');
     process.exit(1);
   }
 

@@ -39,3 +39,10 @@ Create a constant only when the code reads it. Do not invent unused constants.
 - That module validates the env subset. It does not re-export constants.
 - Document new env keys in `.env.example` and mirror into `.env` (`env-example-sync.mdc`).
 - Never log or print `.env` values.
+
+## Validate once at process start — not per request
+
+Required env (e.g. `LLM_BASE_URL`, `LLM_MODEL_ID`) is validated when `loadConfig` runs and
+when startup probes run (`assertLlmAvailable`). Do **not** re-trim / re-null-check that
+slice on every API call — the process config does not change per request. Fail the
+process at boot when invalid; request handlers use `loadConfig().…` as already-valid.

@@ -5,6 +5,17 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import mongoose from 'mongoose';
 
+const { countTokensForBudget } = vi.hoisted(() => ({
+  countTokensForBudget: vi.fn((text) => {
+    const trimmed = String(text ?? '').trim();
+    return trimmed === '' ? 0 : trimmed.split(/\s+/).length;
+  }),
+}));
+
+vi.mock('../../../src/modules/conversation/tokenCount.js', () => ({
+  countTokensForBudget: (...args) => countTokensForBudget(...args),
+}));
+
 vi.mock('../../../src/modules/masters/index.js', async (importOriginal) => {
   const actual = await importOriginal();
   return {
@@ -28,7 +39,7 @@ import { DocumentSection } from '../../../src/models/documentSection.model.js';
 import { insertDocumentSections } from '../../../src/modules/knowledge/documents.js';
 import { findProjectById } from '../../../src/modules/masters/index.js';
 import { findKnowledgeVersionById, resolveProjectWorkspacePath } from '../../../src/modules/knowledge/index.js';
-import { createTokenizerAdapter, executeTool } from '../../../src/modules/conversation/index.js';
+import { executeTool } from '../../../src/modules/conversation/index.js';
 
 const harness = createMongoHarness({
   models: [DocumentSection],
@@ -44,10 +55,7 @@ function budgetState() {
   return {
     modelArtifactRef: MODEL,
     options: {
-      tokenizer: createTokenizerAdapter({
-        countTokens: (text) => (String(text).trim() === '' ? 0 : String(text).trim().split(/\s+/).length),
-        expectedArtifactId: MODEL,
-      }),
+      llm: { contextCapacity: 10_000, artifactId: MODEL },
       validatedContextCapacity: 10_000,
       reservedOutputTokens: 0,
     },

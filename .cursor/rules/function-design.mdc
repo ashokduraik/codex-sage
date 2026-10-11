@@ -110,9 +110,45 @@ export async function executeTool(input) {
 async function runExploreCodeTool(args, scope) { /* … */ }
 ```
 
-Do **not** create a function for one or two lines used in a single place. A one-call-site
-helper that is a small wrapper (roughly ≤15 lines, no multi-branch domain logic) **must** be
-inlined at the call site.
+Do **not** create a function for one or two lines. A small wrapper (roughly ≤15 lines, no
+multi-branch domain logic) **must** be inlined at the call site — even when two sibling
+exports would repeat the same one-liner.
+
+**No one-line getters / resolvers.** Do **not** wrap a lazy singleton, nullish assign, or
+`a || b` / `a ?? b` in a named function. Write the expression at the call site.
+
+```js
+// ❌ BAD
+function resolveInferenceQueue() {
+  defaultInferenceQueue ??= createInferenceQueue();
+  return defaultInferenceQueue;
+}
+const queue = resolveInferenceQueue();
+
+// ✅ GOOD — keep the module binding so the singleton is actually stored
+const queue = (defaultInferenceQueue ??= createInferenceQueue());
+```
+
+**No rename / preflight / invoke wrappers.** Do **not** extract a private function whose
+body is essentially a gate (config load, null check, early throw) plus **one** call to an
+existing function, then return. Call that function from the export (or runner) directly.
+Duplicating a short gate+call block in two sibling exports is better than a third name that
+only exists to call the second.
+
+```js
+// ❌ BAD — preflight/invoke that only loads config and calls prepareModelInput
+function preflightModelInput(request) {
+  const llm = loadConfig().llm;
+  return { prepared: prepareModelInput({ /* … */, options: { llm } }), llm };
+}
+
+// ✅ GOOD — call prepareModelInput in the export; env LLM is validated at process start
+export async function generateText(request) {
+  const llm = loadConfig().llm;
+  const prepared = prepareModelInput({ /* … */, options: { llm } });
+  // …
+}
+```
 
 ## Module-level private runners (exclusive to one export)
 
@@ -160,9 +196,15 @@ helper must not declare another nested function inside it.
 
 ## Shared module-level helpers
 
-Extract a **module-level** named function when the same logic is used in **two or more**
-places (e.g. `toolRejection`, `allocateRunEvidenceId`, `readVersionFileSliceAsEvidence`).
-Place shared helpers **after** the export’s exclusive runners.
+Extract a **module-level** named function when the same **non-trivial** logic is used in
+**two or more** places (e.g. `toolRejection`, `allocateRunEvidenceId`,
+`readVersionFileSliceAsEvidence`). Place shared helpers **after** the export’s exclusive
+runners.
+
+Call-count alone is **not** enough. Do **not** extract when the shared body is only a
+thin gate plus one existing callee (see “No rename / preflight / invoke wrappers” above).
+Shared helpers must own branching, mapping, or domain work that would be painful to keep
+correct in two places — not a renamed hop.
 
 An extracted module-level function lives in the resource file unless `file-colocation.mdc`
 allows a `.helper.js` / `.util.js` overflow file.

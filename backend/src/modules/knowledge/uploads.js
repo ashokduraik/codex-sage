@@ -2,7 +2,7 @@
  * knowledge/uploads.js — merged resource file.
  */
 import { requireProjectPermission } from '../../http/preHandlers/requireProjectPermission.js';
-import { ApiError } from '../../platform/errors.js';
+import { ApiError, apiErrorFromCaught } from '../../platform/errors.js';
 import { recordAuditEvent, buildAuditContextFromRequest } from '../access/index.js';
 import { createPendingJob, findProjectById, transitionLifecycle } from '../masters/index.js';
 import {
@@ -427,9 +427,15 @@ export async function inspectZip(input) {
     }
     const message = error instanceof Error ? error.message : String(error);
     if (/invalid filename|absolute path|\\\\|\.\./i.test(message)) {
-      return ApiError.fromCode('SOURCE_ZIP_SLIP');
+      return apiErrorFromCaught('SOURCE_ZIP_SLIP', error, {
+        logLevel: 'warn',
+        logMessage: 'zip open mapped to path-slip failure',
+      });
     }
-    return ApiError.fromCode('SOURCE_ZIP_INTEGRITY');
+    return apiErrorFromCaught('SOURCE_ZIP_INTEGRITY', error, {
+      logLevel: 'warn',
+      logMessage: 'zip open mapped to integrity failure',
+    });
   }
 }
 
@@ -576,8 +582,11 @@ export async function storeAcceptedZipEntries(input) {
       validateEntrySizes: true,
       strictFileNames: false,
     });
-  } catch {
-    throw ApiError.fromCode('SOURCE_ZIP_INTEGRITY');
+  } catch (err) {
+    throw apiErrorFromCaught('SOURCE_ZIP_INTEGRITY', err, {
+      logLevel: 'warn',
+      logMessage: 'zip fromBuffer failed',
+    });
   }
 
   try {

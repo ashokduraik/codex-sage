@@ -87,11 +87,19 @@ describe('connectMongo / disconnectMongo', () => {
     expect(logged).not.toContain(TEST_APP_CONFIG.mongo.uri);
   });
   it('logs and rethrows when the first connect fails', async () => {
-    vi.mocked(mongoose.connect).mockRejectedValue(new Error('ECONNREFUSED secret-host'));
+    vi.mocked(mongoose.connect).mockRejectedValue(new Error('ECONNREFUSED'));
     await expect(connectMongo(TEST_APP_CONFIG, log)).rejects.toThrow(/ECONNREFUSED/);
-    expect(log.error).toHaveBeenCalledWith(expect.objectContaining({ errName: 'Error', database: 'codex_sage_test' }), 'mongo connect failed');
+    expect(log.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        errName: 'Error',
+        errMessage: 'ECONNREFUSED',
+        errStack: expect.stringContaining('ECONNREFUSED'),
+        database: 'codex_sage_test',
+      }),
+      'mongo connect failed',
+    );
     const logged = JSON.stringify(log.error.mock.calls);
-    expect(logged).not.toContain('secret-host');
+    expect(logged).not.toContain(TEST_APP_CONFIG.mongo.uri);
   });
   it('disconnectMongo is idempotent when already disconnected', async () => {
     mockConnection().readyState = 0;
@@ -130,7 +138,14 @@ describe('connectMongo / disconnectMongo', () => {
     handlers['error']?.(new Error('socket hang up'));
     expect(log.warn).toHaveBeenCalledWith({}, 'mongo disconnected');
     expect(log.info).toHaveBeenCalledWith({}, 'mongo reconnected');
-    expect(log.error).toHaveBeenCalledWith({ errName: 'Error' }, 'mongo connection error');
+    expect(log.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        errName: 'Error',
+        errMessage: 'socket hang up',
+        errStack: expect.stringContaining('socket hang up'),
+      }),
+      'mongo connection error',
+    );
     // Second connect must not re-attach listeners.
     await connectMongo(TEST_APP_CONFIG, log);
     expect(onMock.mock.calls.length).toBe(3);
@@ -138,7 +153,13 @@ describe('connectMongo / disconnectMongo', () => {
   it('logs non-Error connect failures without leaking details', async () => {
     vi.mocked(mongoose.connect).mockRejectedValue('boom-string');
     await expect(connectMongo(TEST_APP_CONFIG, log)).rejects.toBe('boom-string');
-    expect(log.error).toHaveBeenCalledWith(expect.objectContaining({ errName: 'Error' }), 'mongo connect failed');
+    expect(log.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        errName: 'Error',
+        errMessage: 'boom-string',
+      }),
+      'mongo connect failed',
+    );
   });
 });
 describe('checkMongoHealth', () => {

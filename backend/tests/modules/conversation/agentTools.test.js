@@ -4,6 +4,17 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+const { countTokensForBudget } = vi.hoisted(() => ({
+  countTokensForBudget: vi.fn((text) => {
+    const trimmed = String(text ?? '').trim();
+    return trimmed === '' ? 0 : trimmed.split(/\s+/).length;
+  }),
+}));
+
+vi.mock('../../../src/modules/conversation/tokenCount.js', () => ({
+  countTokensForBudget: (...args) => countTokensForBudget(...args),
+}));
+
 vi.mock('../../../src/modules/masters/index.js', async (importOriginal) => {
   const actual = await importOriginal();
   return {
@@ -42,19 +53,9 @@ import {
 } from '../../../src/modules/knowledge/index.js';
 import { ApiError } from '../../../src/platform/errors.js';
 import { LIST_DOCUMENTS_PAGE_SIZE } from '../../../src/modules/conversation/agentTools.js';
-import { createTokenizerAdapter, executeTool, listToolDefinitionsForSchema } from '../../../src/modules/conversation/index.js';
+import { executeTool, listToolDefinitionsForSchema } from '../../../src/modules/conversation/index.js';
 
 const MODEL = 'test-model';
-
-/**
- * Word-count tokenizer so budget tests stay deterministic.
- * @param {string} text Segment text.
- * @returns {number}
- */
-function countWords(text) {
-  const trimmed = String(text ?? '').trim();
-  return trimmed === '' ? 0 : trimmed.split(/\s+/).length;
-}
 
 /**
  * Generous budget that will not compact typical fixtures.
@@ -62,17 +63,16 @@ function countWords(text) {
  * @returns {object}
  */
 function budgetState(overrides = {}) {
+  const { options: optionOverrides, ...rest } = overrides;
   return {
     modelArtifactRef: MODEL,
     options: {
-      tokenizer: createTokenizerAdapter({
-        countTokens: countWords,
-        expectedArtifactId: MODEL,
-      }),
       validatedContextCapacity: 10_000,
       reservedOutputTokens: 0,
+      ...optionOverrides,
+      llm: optionOverrides?.llm ?? { contextCapacity: 10_000, artifactId: MODEL },
     },
-    ...overrides,
+    ...rest,
   };
 }
 
@@ -124,6 +124,10 @@ function documentPathByExtension(filePath) {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  countTokensForBudget.mockImplementation((text) => {
+    const trimmed = String(text ?? '').trim();
+    return trimmed === '' ? 0 : trimmed.split(/\s+/).length;
+  });
   findProjectById.mockResolvedValue(readyProject());
   findKnowledgeVersionById.mockResolvedValue({ sourceVersionId: 'sv1' });
   resolveProjectWorkspacePath.mockReturnValue('/tmp/workspaces/o1/p1');
@@ -524,10 +528,6 @@ describe('budgeter', () => {
   it('drops the lowest-ranked oversized excerpt and reports usage', async () => {
     const tight = budgetState({
       options: {
-        tokenizer: createTokenizerAdapter({
-          countTokens: countWords,
-          expectedArtifactId: MODEL,
-        }),
         validatedContextCapacity: 7,
         reservedOutputTokens: 0,
       },

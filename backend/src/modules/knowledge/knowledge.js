@@ -9,7 +9,7 @@ import { assertOrgId, ROW_STATUS_ACTIVE } from '../../platform/data/index.js';
 import { getCatalogEntry } from '../../platform/errorCatalog.js';
 import { ApiError } from '../../platform/errors.js';
 import { hasActiveProjectWriterLock } from '../../worker/projectJobLock.js';
-import { createJobFailureError } from '../../worker/retryPolicy.js';
+import { createJobFailureError, createJobFailureFromCaught } from '../../worker/retryPolicy.js';
 import { recordAuditEvent } from '../access/index.js';
 import { findProjectById } from '../masters/index.js';
 import { resolveCodegraphDir, createCodegraphAdapter } from './codegraph.js';
@@ -403,11 +403,15 @@ export async function runCodegraphUpdateWithRecovery(ctx) {
 
     const priorAttempts = Number(ctx.checkpoint?.cursor?.recoveryAttempts ?? 0);
     if (priorAttempts >= KNOWLEDGE_RECOVERY_MAX_ATTEMPTS) {
-      throw createJobFailureError({
-        failureClass: 'permanent',
-        code: 'CODEGRAPH_RECOVERY_EXHAUSTED',
-        message: 'Code index recovery retries were exhausted.',
-      });
+      throw createJobFailureFromCaught(
+        {
+          failureClass: 'permanent',
+          code: 'CODEGRAPH_RECOVERY_EXHAUSTED',
+          message: 'Code index recovery retries were exhausted.',
+        },
+        err,
+        { log: ctx.logger, logMessage: 'codegraph recovery exhausted' },
+      );
     }
 
     const nextAttempts = priorAttempts + 1;

@@ -4,6 +4,7 @@
  */
 import mongoose from 'mongoose';
 import { MONGO_UNAVAILABLE_CODE } from './errorCatalog.js';
+import { caughtErrorFields } from './errors.js';
 /** Connection pool upper bound. */
 export const MONGODB_MAX_POOL_SIZE = 20;
 /** Connection pool lower bound. */
@@ -89,8 +90,7 @@ export async function connectMongo(config, log = defaultLog) {
       'mongo connected',
     );
   } catch (err) {
-    const errName = err instanceof Error ? err.name : 'Error';
-    log.error({ ...summary, errName }, 'mongo connect failed');
+    log.error({ ...summary, ...caughtErrorFields(err) }, 'mongo connect failed');
     throw err;
   }
 
@@ -110,7 +110,7 @@ export async function connectMongo(config, log = defaultLog) {
       log.info({}, 'mongo reconnected');
     });
     mongoose.connection.on('error', (err) => {
-      log.error({ errName: err.name }, 'mongo connection error');
+      log.error(caughtErrorFields(err), 'mongo connection error');
     });
   }
 }

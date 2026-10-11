@@ -1,7 +1,7 @@
 /**
  * knowledge/ingest.helper.js — merged resource file.
  */
-import { createJobFailureError } from '../../worker/retryPolicy.js';
+import { createJobFailureError, createJobFailureFromCaught } from '../../worker/retryPolicy.js';
 import { renderJobEventMessage, findProjectById, transitionLifecycle } from '../masters/index.js';
 import {
   countSourceFilesForVersion,
@@ -607,12 +607,16 @@ export async function runExcludeApplyStage(ctx) {
   const version = ctx.carry.sourceVersion;
   try {
     assertKnownExclusionRulesetId(version?.exclusionRulesetId);
-  } catch {
-    throw createJobFailureError({
-      failureClass: 'permanent',
-      code: 'SOURCE_UNKNOWN_EXCLUSION_RULESET',
-      message: 'The exclusion ruleset recorded on this upload is no longer supported.',
-    });
+  } catch (err) {
+    throw createJobFailureFromCaught(
+      {
+        failureClass: 'permanent',
+        code: 'SOURCE_UNKNOWN_EXCLUSION_RULESET',
+        message: 'The exclusion ruleset recorded on this upload is no longer supported.',
+      },
+      err,
+      { log: ctx.logger, logMessage: 'exclusion ruleset unsupported' },
+    );
   }
 
   const files = await listSourceFilesOrdered({

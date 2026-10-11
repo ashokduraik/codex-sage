@@ -2,7 +2,7 @@
  * knowledge/repoSync.js — merged resource file.
  */
 import { loadConfig } from '../../platform/config.js';
-import { ApiError } from '../../platform/errors.js';
+import { ApiError, caughtErrorFields, logCaughtError } from '../../platform/errors.js';
 import { hasActiveProjectWriterLock } from '../../worker/projectJobLock.js';
 import { recordAuditEvent } from '../access/index.js';
 import { insertPendingJob, findActiveJobForProjectByTypes, createPendingJob, deferRunningJob } from '../masters/index.js';
@@ -128,13 +128,14 @@ export async function outboundDownload(input) {
       });
     } catch (err) {
       if (err && typeof err === 'object' && err.name === 'AbortError') {
-        throw Object.assign(new Error('Repository archive download timed out.'), {
+        logCaughtError(null, err, 'repository archive download timed out');
+        throw Object.assign(new Error('Repository archive download timed out.', { cause: err }), {
           code: 'PROBE_TIMEOUT',
         });
       }
-      throw Object.assign(new Error('Repository host could not be reached.'), {
+      logCaughtError(null, err, 'repository archive download network failure');
+      throw Object.assign(new Error('Repository host could not be reached.', { cause: err }), {
         code: 'PROBE_NETWORK',
-        cause: err,
       });
     } finally {
       clearTimeout(timer);
@@ -236,7 +237,7 @@ export async function resolveRemoteHead(input) {
     if (isMappedSyncError(err)) {
       throw err;
     }
-    throwMapped(mapOutboundThrown(err), input.token);
+    throwMapped(mapOutboundThrown(err), { cause: err, token: input.token });
   }
 
   /**
@@ -252,7 +253,9 @@ export async function resolveRemoteHead(input) {
       timeoutMs: REPO_SYNC_FETCH_TIMEOUT_MS,
     });
     if (response.status !== 200 || !response.json || typeof response.json.sha !== 'string') {
-      throwMapped(input.token ? mapAuthenticatedLookupStatus(response.status) : mapAnonymousLookupStatus(response.status), input.token);
+      throwMapped(input.token ? mapAuthenticatedLookupStatus(response.status) : mapAnonymousLookupStatus(response.status), {
+        token: input.token,
+      });
     }
     const message = typeof response.json.commit?.message === 'string' ? response.json.commit.message : null;
     return { commitSha: response.json.sha, commitMessage: message };
@@ -271,7 +274,9 @@ export async function resolveRemoteHead(input) {
       timeoutMs: REPO_SYNC_FETCH_TIMEOUT_MS,
     });
     if (response.status !== 200 || !response.json || typeof response.json.id !== 'string') {
-      throwMapped(input.token ? mapAuthenticatedLookupStatus(response.status) : mapAnonymousLookupStatus(response.status), input.token);
+      throwMapped(input.token ? mapAuthenticatedLookupStatus(response.status) : mapAnonymousLookupStatus(response.status), {
+        token: input.token,
+      });
     }
     const message = typeof response.json.message === 'string' ? response.json.message : null;
     return { commitSha: response.json.id, commitMessage: message };
@@ -293,7 +298,7 @@ export async function downloadRepositoryArchive(input) {
     if (isMappedSyncError(err)) {
       throw err;
     }
-    throwMapped(mapOutboundThrown(err), input.token);
+    throwMapped(mapOutboundThrown(err), { cause: err, token: input.token });
   }
 
   /**
@@ -310,7 +315,9 @@ export async function downloadRepositoryArchive(input) {
       timeoutMs: REPO_SYNC_FETCH_TIMEOUT_MS,
     });
     if (response.status !== 200 || !response.buffer.length) {
-      throwMapped(input.token ? mapAuthenticatedLookupStatus(response.status) : mapAnonymousLookupStatus(response.status), input.token);
+      throwMapped(input.token ? mapAuthenticatedLookupStatus(response.status) : mapAnonymousLookupStatus(response.status), {
+        token: input.token,
+      });
     }
     return { archiveBuffer: response.buffer };
   }
@@ -328,7 +335,9 @@ export async function downloadRepositoryArchive(input) {
       timeoutMs: REPO_SYNC_FETCH_TIMEOUT_MS,
     });
     if (response.status !== 200 || !response.buffer.length) {
-      throwMapped(input.token ? mapAuthenticatedLookupStatus(response.status) : mapAnonymousLookupStatus(response.status), input.token);
+      throwMapped(input.token ? mapAuthenticatedLookupStatus(response.status) : mapAnonymousLookupStatus(response.status), {
+        token: input.token,
+      });
     }
     return { archiveBuffer: response.buffer };
   }
@@ -341,7 +350,7 @@ export async function downloadRepositoryArchive(input) {
 export function splitGithubFullName(fullName) {
   const slash = fullName.indexOf('/');
   if (slash <= 0 || slash === fullName.length - 1) {
-    throwMapped(mapAnonymousLookupStatus(404), null);
+    throwMapped(mapAnonymousLookupStatus(404));
   }
   return {
     owner: fullName.slice(0, slash),
@@ -398,7 +407,7 @@ export async function enqueueDueRepositorySyncs(input = {}) {
         {
           orgId,
           projectId,
-          errName: err instanceof Error ? err.name : 'Error',
+          ...caughtErrorFields(err),
         },
         'repo_sync scheduler failed for connection',
       );
@@ -894,14 +903,18 @@ function isMappedSyncError(err) {
 /**
  * @param {{ probeStatus: string, reason: { code: string, message: string } }} mapped
  *   Probe mapping.
- * @param {string | null | undefined} token Token presence for class.
+ * @param {{ cause?: unknown, token?: string | null }} [options] Optional original failure + token.
  * @returns {never}
  */
-function throwMapped(mapped, token) {
+function throwMapped(mapped, options = {}) {
   const temporaryCodes = new Set(['network_unreachable', 'provider_unavailable', 'provider_rate_limited']);
   const failureClass = temporaryCodes.has(mapped.reason.code) ? 'temporary' : 'user_action_required';
-  void token;
-  throw Object.assign(new Error(mapped.reason.message), {
+  void options.token;
+  if (options.cause !== undefined) {
+    logCaughtError(null, options.cause, `repo sync mapped to ${mapped.reason.code}`);
+  }
+  const error = options.cause !== undefined ? new Error(mapped.reason.message, { cause: options.cause }) : new Error(mapped.reason.message);
+  throw Object.assign(error, {
     failureClass,
     code: mapped.reason.code,
     probeStatus: mapped.probeStatus,

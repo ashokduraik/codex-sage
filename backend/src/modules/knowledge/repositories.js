@@ -5,7 +5,7 @@ import { requireProjectPermission } from '../../http/preHandlers/requireProjectP
 import { RepositoryConnection } from '../../models/repositoryConnection.model.js';
 import { resolveRepositoryCrypto } from '../../platform/config.js';
 import { assertOrgId, ROW_STATUS_ACTIVE, ROW_STATUS_DELETED } from '../../platform/data/index.js';
-import { ApiError } from '../../platform/errors.js';
+import { ApiError, apiErrorFromCaught } from '../../platform/errors.js';
 import { decryptSecret, encryptSecret } from '../../platform/secretCrypto.js';
 import { recordAuditEvent } from '../access/index.js';
 import { findProjectById, mapProjectToDto, transitionLifecycle, updateProjectSourceConfig } from '../masters/index.js';
@@ -170,8 +170,10 @@ export async function decryptConnectionToken(credential) {
       },
       crypto.encryptionKey,
     );
-  } catch {
-    throw ApiError.fromCode('CREDENTIAL_DECRYPT_FAILED');
+  } catch (err) {
+    throw apiErrorFromCaught('CREDENTIAL_DECRYPT_FAILED', err, {
+      logMessage: 'repository credential decrypt failed',
+    });
   }
 }
 
@@ -308,7 +310,10 @@ export async function attachRepository(input) {
         );
       } catch (err) {
         if (err && typeof err === 'object' && 'code' in err && err.code === 11000) {
-          throw ApiError.fromCode('CONFLICT');
+          throw apiErrorFromCaught('CONFLICT', err, {
+            logLevel: 'warn',
+            logMessage: 'repository connection conflict',
+          });
         }
         throw err;
       }

@@ -15,6 +15,7 @@ import { KNOWLEDGE_MODELS } from '../modules/knowledge/index.js';
 import { REPOSITORY_MODELS } from '../modules/knowledge/index.js';
 import { CONVERSATION_MODELS } from '../modules/conversation/index.js';
 import { AUDIT_MODELS } from '../modules/access/index.js';
+import { caughtErrorFields } from '../platform/errors.js';
 import { attachShutdownSignals, registerProcessHandlers, registerShutdownHook } from '../platform/shutdown.js';
 import { clearJobHandlersForTests, registerJobHandler } from './handlerRegistry.js';
 import { workerSmokeHandlerRegistration } from './handlers/workerSmokeHandler.js';
@@ -71,16 +72,17 @@ export async function startWorker(deps = {}) {
   const config = (deps.loadConfig ?? loadConfig)();
   try {
     await (deps.connectMongo ?? connectMongo)(config, log);
-  } catch {
+  } catch (err) {
+    log.error?.(caughtErrorFields(err), 'worker mongo connect failed');
     (deps.exit ?? ((code) => process.exit(code)))(1);
-    throw new Error('worker mongo connect failed');
+    throw new Error('worker mongo connect failed', { cause: err });
   }
 
   if (!config.env?.isProduction) {
     try {
       await (deps.syncSchemaIndexes ?? syncSchemaIndexes)(WORKER_MODELS);
     } catch (err) {
-      log.error({ errName: err instanceof Error ? err.name : 'Error' }, 'worker schema index sync failed');
+      log.error(caughtErrorFields(err), 'worker schema index sync failed');
       (deps.exit ?? ((code) => process.exit(code)))(1);
       throw new Error('worker index sync failed', { cause: err });
     }
@@ -133,12 +135,12 @@ export async function startWorker(deps = {}) {
     const enqueueRetention = deps.enqueueDueRetentionJobs ?? enqueueDueRetentionJobs;
     const repoTick = () => {
       enqueueDue({ log }).catch((err) => {
-        log.error?.({ errName: err instanceof Error ? err.name : 'Error' }, 'repo_sync scheduler tick failed');
+        log.error?.(caughtErrorFields(err), 'repo_sync scheduler tick failed');
       });
     };
     const retentionTick = () => {
       enqueueRetention({ log }).catch((err) => {
-        log.error?.({ errName: err instanceof Error ? err.name : 'Error' }, 'retention scheduler tick failed');
+        log.error?.(caughtErrorFields(err), 'retention scheduler tick failed');
       });
     };
     repoTick();

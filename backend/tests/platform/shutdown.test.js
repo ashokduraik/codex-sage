@@ -50,7 +50,9 @@ describe('shutdown', () => {
     expect(log.error).toHaveBeenCalledWith(
       expect.objectContaining({
         hook: 'slow',
+        errName: expect.any(String),
         errMessage: expect.stringContaining('timed out'),
+        errStack: expect.any(String),
       }),
       'shutdown hook failed',
     );

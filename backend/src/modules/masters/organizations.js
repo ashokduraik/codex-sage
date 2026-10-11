@@ -2,7 +2,7 @@
  * masters/organizations.js — merged resource file.
  */
 import { Organization } from '../../models/organization.model.js';
-import { ApiError } from '../../platform/errors.js';
+import { ApiError, apiErrorFromCaught, caughtErrorFields } from '../../platform/errors.js';
 import { hashPassword } from '../access/index.js';
 import { ADMIN_ROLE_CODE, duplicateKeyField, ensureAdminRole, isDuplicateKeyError } from './roles.js';
 import { createUserInRepo, findUserByEmail, findUserByIdWithPassword, setPasswordHashIfMissing, updateUser } from './users.js';
@@ -71,7 +71,10 @@ export async function createOrganization(input, options = {}) {
     return doc;
   } catch (err) {
     if (isDuplicateKeyError(err) && duplicateKeyField(err) === 'code') {
-      throw ApiError.fromCode('IDENTITY_DUPLICATE_ORG_CODE');
+      throw apiErrorFromCaught('IDENTITY_DUPLICATE_ORG_CODE', err, {
+        logLevel: 'warn',
+        logMessage: 'organization code conflict',
+      });
     }
     throw err;
   }
@@ -270,14 +273,15 @@ export async function runBootstrapSeed(log) {
     });
   } catch (err) {
     if (err instanceof ApiError && err.code === 'BOOTSTRAP_FAILED') {
-      log.error?.({ code: err.code }, err.message);
+      log.error?.({ code: err.code, ...caughtErrorFields(err) }, err.message);
       throw err;
     }
-    const wrapped = ApiError.fromCode('BOOTSTRAP_FAILED', {
+    throw apiErrorFromCaught('BOOTSTRAP_FAILED', err, {
       message: 'Bootstrap seed failed.',
+      log,
+      logMessage: 'Bootstrap seed failed.',
+      fields: { code: 'BOOTSTRAP_FAILED' },
     });
-    log.error?.({ code: wrapped.code, errName: err instanceof Error ? err.name : 'Error' }, wrapped.message);
-    throw wrapped;
   } finally {
     await session.endSession();
   }

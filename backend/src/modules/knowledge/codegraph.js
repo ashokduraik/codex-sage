@@ -1,6 +1,7 @@
 /**
  * knowledge/codegraph.js — merged resource file.
  */
+import { logCaughtError } from '../../platform/errors.js';
 import { hasActiveProjectWriterLock } from '../../worker/projectJobLock.js';
 import { assertPathInsideRoot } from './sources.js';
 import { createHash } from 'node:crypto';
@@ -538,10 +539,10 @@ export function createCodegraphAdapter(config = {}) {
         }
         const mapped = mapCodegraphLibraryError(err);
         if (mapped.failureClass !== 'temporary' || attempt === maxRetryAttempts) {
-          throw Object.assign(new Error(mapped.message), {
+          logCaughtError(null, err, `codegraph library error mapped to ${mapped.code}`);
+          throw Object.assign(new Error(mapped.message, { cause: err }), {
             failureClass: mapped.failureClass,
             code: mapped.code,
-            cause: err,
           });
         }
       }

@@ -9,7 +9,7 @@ import { z } from 'zod';
 import { ProjectActivity, PROJECT_ACTIVITY_KIND_VALUES } from '../../models/projectActivity.model.js';
 import { SourceFile } from '../../models/sourceFile.model.js';
 import { assertOrgId, ROW_STATUS_ACTIVE } from '../../platform/data/index.js';
-import { ApiError } from '../../platform/errors.js';
+import { ApiError, caughtErrorFields } from '../../platform/errors.js';
 
 /** Default lookback in days for usage GET. */
 export const USAGE_DEFAULT_LOOKBACK_DAYS = 30;
@@ -83,7 +83,7 @@ export async function recordProjectActivity(input) {
     }
     return true;
   } catch (err) {
-    input.log?.error?.({ errName: err instanceof Error ? err.name : 'Error' }, 'project activity record failed');
+    input.log?.error?.(caughtErrorFields(err), 'project activity record failed');
     return false;
   }
 }

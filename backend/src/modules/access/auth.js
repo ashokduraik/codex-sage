@@ -3,7 +3,7 @@
  */
 import { LoginSession } from '../../models/loginSession.model.js';
 import { assertOrgId, ROW_STATUS_ACTIVE } from '../../platform/data/index.js';
-import { ApiError } from '../../platform/errors.js';
+import { ApiError, apiErrorFromCaught } from '../../platform/errors.js';
 import { findUserById, findActiveUsersByEmailWithPassword, touchLastLoginAt, updateUserPasswordHash } from '../masters/index.js';
 import { resolveEffectivePermissions } from './permissions.js';
 import argon2 from 'argon2';
@@ -463,9 +463,17 @@ export function createAuthenticatePreHandler(tokenService) {
       claims = tokenService.verifyAccessToken(token);
     } catch (err) {
       if (err && typeof err === 'object' && err.code === 'SESSION_EXPIRED') {
-        throw ApiError.fromCode('SESSION_EXPIRED');
+        throw apiErrorFromCaught('SESSION_EXPIRED', err, {
+          log: request.log,
+          logLevel: 'warn',
+          logMessage: 'access token expired',
+        });
       }
-      throw ApiError.fromCode('UNAUTHENTICATED');
+      throw apiErrorFromCaught('UNAUTHENTICATED', err, {
+        log: request.log,
+        logLevel: 'warn',
+        logMessage: 'access token rejected',
+      });
     }
 
     const user = await findUserById(claims.org, claims.sub);

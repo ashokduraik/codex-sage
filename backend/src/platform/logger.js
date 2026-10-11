@@ -107,6 +107,10 @@ export function serializeError(err, options = {}) {
   if (typeof err.code === 'string' && allowsErrorDetails(err.code) && err.details !== undefined) {
     out.details = err.details;
   }
+  // Keep wrapped originals (Error.cause) so catalog ApiErrors stay debuggable in api.log.
+  if (err.cause !== undefined && err.cause !== null) {
+    out.cause = serializeError(err.cause, options);
+  }
   return out;
 }
 

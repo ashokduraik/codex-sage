@@ -20,6 +20,8 @@ Complements `backend-api-standards.mdc` and `ui-action-feedback.mdc`.
   context (req id / method / path). Unexpected 500s use a **stable client message**
   (`Internal server error`); put real detail in logs only.
 - Error codes live only in `backend/src/platform/errorCatalog.js`. Prefer `ApiError.fromCode`.
+- **Never discard the original failure** when mapping to a catalog `ApiError` — log
+  message + stack and set `cause`. See `error-diagnostics.mdc` (always apply).
 - Never send a second response when headers are already sent.
 - Every response (including successes) carries `X-Correlation-Id` equal to `request.id` /
   `error.reference`.

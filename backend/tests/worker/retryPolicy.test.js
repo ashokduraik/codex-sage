@@ -1,6 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../../src/platform/errors.js';
-import { classifyThrownFailure, computeRetryBackoffMs, createJobFailureError, decideFailureOutcome } from '../../src/worker/retryPolicy.js';
+import {
+  classifyThrownFailure,
+  computeRetryBackoffMs,
+  createJobFailureError,
+  createJobFailureFromCaught,
+  decideFailureOutcome,
+} from '../../src/worker/retryPolicy.js';
 import { WORKER_RETRY_BACKOFF_BASE_MS, WORKER_RETRY_BACKOFF_MAX_MS } from '../../src/worker/worker.constants.js';
 
 describe('retryPolicy', () => {
@@ -69,6 +75,30 @@ describe('retryPolicy', () => {
       code: 'BAD',
       unclassified: false,
     });
+  });
+
+  it('createJobFailureFromCaught logs the original and attaches cause', () => {
+    const log = { error: vi.fn() };
+    const cause = new Error('disk full');
+    const err = createJobFailureFromCaught(
+      {
+        failureClass: 'temporary',
+        code: 'WORKSPACE_IO_ERROR',
+        message: 'volume unavailable',
+      },
+      cause,
+      { log, logMessage: 'workspace volume IO failure' },
+    );
+    expect(err.cause).toBe(cause);
+    expect(err.code).toBe('WORKSPACE_IO_ERROR');
+    expect(log.error).toHaveBeenCalledWith(
+      {
+        errName: 'Error',
+        errMessage: 'disk full',
+        errStack: cause.stack,
+      },
+      'workspace volume IO failure',
+    );
   });
 
   it('grows backoff exponentially, respects the ceiling, and stays positive with jitter', () => {

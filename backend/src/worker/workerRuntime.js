@@ -21,6 +21,7 @@ import {
 import { heartbeatInFlightJob } from './jobHeartbeat.js';
 import { sweepExpiredLeases } from './leaseSweeper.js';
 import { acquireProjectJobLock, releaseProjectJobLock } from './projectJobLock.js';
+import { caughtErrorFields } from '../platform/errors.js';
 import { classifyThrownFailure, decideFailureOutcome } from './retryPolicy.js';
 import {
   WORKER_DRAIN_TIMEOUT_MS,
@@ -121,8 +122,7 @@ export function startWorkerRuntime(options) {
       log.error?.(
         {
           workerId,
-          errName: error instanceof Error ? error.name : 'Error',
-          errMessage: error instanceof Error ? error.message : String(error),
+          ...caughtErrorFields(error),
         },
         'worker poll failed',
       );
@@ -334,7 +334,7 @@ export function startWorkerRuntime(options) {
         }
         const classified = classifyThrownFailure(error);
         if (classified.unclassified) {
-          jobLog.error?.({ handler: handler.type, errMessage: classified.message }, 'unclassified handler error treated as temporary');
+          jobLog.error?.({ handler: handler.type, ...caughtErrorFields(error) }, 'unclassified handler error treated as temporary');
         }
         const decision = decideFailureOutcome({
           failure: classified,
@@ -378,12 +378,7 @@ export function startWorkerRuntime(options) {
               jobId: job._id,
             });
           } catch (releaseError) {
-            jobLog.error?.(
-              {
-                errName: releaseError instanceof Error ? releaseError.name : 'Error',
-              },
-              'failed to release project job lock',
-            );
+            jobLog.error?.(caughtErrorFields(releaseError), 'failed to release project job lock');
           }
         }
         inFlight.delete(jobId);
@@ -426,7 +421,7 @@ export function startWorkerRuntime(options) {
           {
             workerId,
             jobId,
-            errName: error instanceof Error ? error.name : 'Error',
+            ...caughtErrorFields(error),
           },
           'heartbeat failed; aborting job',
         );
@@ -446,7 +441,7 @@ export function startWorkerRuntime(options) {
       log.error?.(
         {
           workerId,
-          errName: error instanceof Error ? error.name : 'Error',
+          ...caughtErrorFields(error),
         },
         'lease sweeper failed',
       );
@@ -503,7 +498,7 @@ export function startWorkerRuntime(options) {
           {
             workerId,
             jobId,
-            errName: error instanceof Error ? error.name : 'Error',
+            ...caughtErrorFields(error),
           },
           'failed to release job on shutdown',
         );

@@ -2,7 +2,7 @@
  * Public surface for shared data-layer helpers.
  */
 import mongoose from 'mongoose';
-import { ApiError } from '../errors.js';
+import { ApiError, apiErrorFromCaught } from '../errors.js';
 
 /** Leftover collection from before members lived on `projects`. */
 const PROJECT_MEMBERS_COLLECTION_NAME = 'project_members';
@@ -51,7 +51,10 @@ export function decodeCursor(cursor) {
     if (err instanceof ApiError) {
       throw err;
     }
-    throw ApiError.fromCode('INVALID_CURSOR');
+    throw apiErrorFromCaught('INVALID_CURSOR', err, {
+      logLevel: 'warn',
+      logMessage: 'cursor decode failed',
+    });
   }
 }
 

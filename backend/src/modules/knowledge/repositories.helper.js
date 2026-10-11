@@ -2,7 +2,7 @@
  * knowledge/repositories.helper.js — merged resource file.
  */
 import { loadConfig } from '../../platform/config.js';
-import { ApiError } from '../../platform/errors.js';
+import { ApiError, apiErrorFromCaught, logCaughtError } from '../../platform/errors.js';
 import { isIP } from 'node:net';
 
 // --- from repositories/providers/outboundHttp.js ---
@@ -111,13 +111,14 @@ export async function outboundGet(input) {
       });
     } catch (err) {
       if (err && typeof err === 'object' && err.name === 'AbortError') {
-        throw Object.assign(new Error('Repository probe timed out.'), {
+        logCaughtError(null, err, 'repository probe timed out');
+        throw Object.assign(new Error('Repository probe timed out.', { cause: err }), {
           code: 'PROBE_TIMEOUT',
         });
       }
-      throw Object.assign(new Error('Repository host could not be reached.'), {
+      logCaughtError(null, err, 'repository probe network failure');
+      throw Object.assign(new Error('Repository host could not be reached.', { cause: err }), {
         code: 'PROBE_NETWORK',
-        cause: err,
       });
     } finally {
       clearTimeout(timer);
@@ -198,8 +199,9 @@ export function assertHostAllowed(rawUrl, allowPrivateHosts) {
   let url;
   try {
     url = new URL(rawUrl);
-  } catch {
-    throw Object.assign(new Error('Repository host is not allowed.'), {
+  } catch (err) {
+    logCaughtError(null, err, 'repository host URL parse failed');
+    throw Object.assign(new Error('Repository host is not allowed.', { cause: err }), {
       code: 'PROBE_HOST_NOT_ALLOWED',
     });
   }
@@ -334,9 +336,9 @@ export function resolveRepositoryUrl(rawUrl) {
   try {
     parsed = parseRepositoryInput(trimmed);
   } catch (err) {
-    throw Object.assign(new Error('repositoryUrl is not a supported repository URL.'), {
+    logCaughtError(null, err, 'repositoryUrl parse failed');
+    throw Object.assign(new Error('repositoryUrl is not a supported repository URL.', { cause: err }), {
       code: 'VALIDATION_ERROR',
-      cause: err,
     });
   }
 
@@ -742,8 +744,10 @@ export async function probeRepository(input) {
   try {
     resolved = resolveRepositoryUrl(input.repositoryUrl);
   } catch (err) {
-    throw ApiError.fromCode('VALIDATION_ERROR', {
+    throw apiErrorFromCaught('VALIDATION_ERROR', err, {
       message: err instanceof Error ? err.message : 'repositoryUrl is invalid.',
+      logLevel: 'warn',
+      logMessage: 'repositoryUrl probe validation failed',
     });
   }
 

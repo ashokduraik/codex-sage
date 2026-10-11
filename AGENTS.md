@@ -53,9 +53,12 @@ Additional docs and ADRs live under [`docs/`](./docs/).
   abstain / clarify — never hallucinate.
 - Soft-delete user-facing resources (`status = 'D'`); every table has row `status` `A`|`D`
   (see `.cursor/rules/soft-delete.mdc` and `row-status.mdc`).
+- **Never discard original failures** when mapping to catalog/`ApiError` — log message +
+  stack and set `cause` (see `.cursor/rules/error-diagnostics.mdc`).
 - **Secrets never get committed.** Document variables in `.env.example`. Env vars are
   only for values that must differ per environment; tunables are named constants
-  (see `.cursor/rules/env-config.mdc`).
+  (see `.cursor/rules/env-config.mdc`). Validate required env once at process start,
+  not per request.
 
 ## Before you finish a change
 

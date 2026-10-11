@@ -1,10 +1,11 @@
 /**
  * Conversation context budgeter — measure assembled prompt segments with a
- * tokenizer that matches the live or injected artifact id, compact in
- * solution §1.2 order, and fail closed when counting is unavailable. No HTTP;
- * callers are future LLM / tool / loader code in this module.
+ * tokenizer that matches the live artifact id, compact in solution §1.2 order,
+ * and fail closed when counting is unavailable. No HTTP; callers are LLM /
+ * tool / loader code in this module.
  */
-import { ApiError } from '../../platform/errors.js';
+import { ApiError, apiErrorFromCaught } from '../../platform/errors.js';
+import { countTokensForBudget } from './tokenCount.js';
 
 /**
  * Reserved completion tokens (DRAFT eval_count 201 + margin 256) from the
@@ -26,7 +27,7 @@ const TOOL_RESULT_KIND = 'tool_result';
 const SUMMARY_KIND = 'summary';
 
 /**
- * Compaction constants plus caller-supplied capacity and live/injected artifact id.
+ * Compaction constants plus caller-supplied capacity and live artifact id.
  * @param {{ contextCapacity?: number, artifactId?: string }} llm Runtime llm slice.
  * @returns {{
  *   validatedContextCapacity: number,
@@ -53,14 +54,9 @@ export function getContextBudgetConfig(llm) {
 }
 
 /**
- * Builds a tokenizer adapter. Production has no npm tokenizer until a package
- * proves parity with the evaluation fixtures — the default count function fails
- * closed. Tests inject `countTokens` / `assertArtifactMatch`.
- * @param {{
- *   countTokens?: (text: string) => number,
- *   assertArtifactMatch?: (modelArtifactId: string) => void,
- *   expectedArtifactId?: string,
- * }} [config] Optional seams.
+ * Builds a tokenizer adapter that counts via `countTokensForBudget` and checks
+ * the expected model artifact id.
+ * @param {{ expectedArtifactId?: string }} [config] Artifact id from the live llm slice.
  * @returns {{
  *   countTokens: (text: string) => number,
  *   countMessage: (message: { content?: string }) => number,
@@ -77,10 +73,7 @@ export function createTokenizerAdapter(config = {}) {
    * @returns {number}
    */
   function countTokens(text) {
-    if (config.countTokens) {
-      return config.countTokens(text ?? '');
-    }
-    throwAccountingUnavailable('tokenizer_unavailable');
+    return countTokensForBudget(text ?? '');
   }
 
   /**
@@ -96,10 +89,6 @@ export function createTokenizerAdapter(config = {}) {
    * @returns {void}
    */
   function assertArtifactMatch(modelArtifactId) {
-    if (config.assertArtifactMatch) {
-      config.assertArtifactMatch(modelArtifactId);
-      return;
-    }
     if (!expectedArtifactId || !modelArtifactId || String(modelArtifactId) !== String(expectedArtifactId)) {
       throwAccountingUnavailable('tokenizer_artifact_mismatch');
     }
@@ -116,7 +105,6 @@ export function createTokenizerAdapter(config = {}) {
  *   summarySegment?: object,
  *   toolSchemaTokenOverhead?: number,
  *   options?: {
- *     tokenizer?: ReturnType<typeof createTokenizerAdapter>,
  *     llm?: { contextCapacity: number, artifactId: string },
  *     validatedContextCapacity?: number | null,
  *     reservedOutputTokens?: number | null,
@@ -152,18 +140,16 @@ export function prepareModelInput(input) {
     throwAccountingUnavailable('evaluation_config_missing');
   }
 
-  const tokenizer =
-    options.tokenizer ??
-    createTokenizerAdapter({
-      expectedArtifactId: defaults?.artifactId,
-    });
+  const tokenizer = createTokenizerAdapter({
+    expectedArtifactId: defaults?.artifactId,
+  });
   try {
     tokenizer.assertArtifactMatch(input.modelArtifactRef);
   } catch (error) {
     if (error instanceof ApiError && error.code === 'CONTEXT_ACCOUNTING_UNAVAILABLE') {
       throw error;
     }
-    throwAccountingUnavailable('tokenizer_artifact_mismatch');
+    throwAccountingUnavailable('tokenizer_artifact_mismatch', error);
   }
 
   const working = (input.segments ?? []).map((segment) => ({ ...segment, content: segment.content ?? '' }));
@@ -176,7 +162,7 @@ export function prepareModelInput(input) {
     if (error instanceof ApiError && error.code === 'CONTEXT_ACCOUNTING_UNAVAILABLE') {
       throw error;
     }
-    throwAccountingUnavailable('tokenizer_unavailable');
+    throwAccountingUnavailable('tokenizer_unavailable', error);
   }
 
   const maximumInputBudget = validatedContextCapacity - reservedOutputTokens - systemAndToolSchemaTokens;
@@ -473,9 +459,17 @@ function measureCompetingInput(segments, countTokens) {
 /**
  * Throws the fail-closed accounting error (never returns guessed sizes).
  * @param {string} reason Machine-readable reason for logs / callers.
+ * @param {unknown} [cause] Original failure when mapping from a catch.
  * @returns {never}
  */
-function throwAccountingUnavailable(reason) {
+function throwAccountingUnavailable(reason, cause) {
+  if (cause !== undefined) {
+    throw apiErrorFromCaught('CONTEXT_ACCOUNTING_UNAVAILABLE', cause, {
+      details: { reason },
+      logMessage: 'context accounting unavailable',
+      fields: { reason },
+    });
+  }
   throw ApiError.fromCode('CONTEXT_ACCOUNTING_UNAVAILABLE', {
     details: { reason },
   });

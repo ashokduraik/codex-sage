@@ -2,6 +2,7 @@
  * Requeues or fails running jobs whose lease expired (crash recovery).
  */
 import { ROW_STATUS_ACTIVE } from '../platform/data/index.js';
+import { caughtErrorFields } from '../platform/errors.js';
 import { Job } from '../models/job.model.js';
 import { failJobLeaseExpired, requeueJobInterrupted } from './jobClaim.js';
 import { releaseProjectJobLock } from './projectJobLock.js';
@@ -70,7 +71,7 @@ export async function sweepExpiredLeases(options = {}) {
       log?.error?.(
         {
           jobId: String(job._id),
-          errName: error instanceof Error ? error.name : 'Error',
+          ...caughtErrorFields(error),
         },
         'lease sweeper failed for job',
       );

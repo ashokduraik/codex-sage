@@ -69,7 +69,8 @@ export class ApiError extends Error {
   /**
    * Builds an ApiError from a catalog code (status and default message from the catalog).
    * @param {string} code Catalog error code.
-   * @param {{ message?: string, details?: unknown }} [options] Optional overrides.
+   * @param {{ message?: string, details?: unknown, cause?: unknown }} [options] Optional overrides.
+   *   Pass `cause` when wrapping a lower-level failure so logs keep the original error.
    * @returns {ApiError}
    * @throws {Error} When `code` is not in the catalog (programming defect).
    */
@@ -78,8 +79,76 @@ export class ApiError extends Error {
     if (!entry) {
       throw new Error(`Unknown error code: ${code}`);
     }
-    return new ApiError(entry.httpStatus, code, options.message ?? entry.message, options.details);
+    const error = new ApiError(entry.httpStatus, code, options.message ?? entry.message, options.details);
+    if (options.cause !== undefined) {
+      error.cause = options.cause;
+    }
+    return error;
   }
+}
+
+/**
+ * Structured fields for a caught failure so logs keep name, message, and stack.
+ * @param {unknown} error Thrown value.
+ * @returns {{ errName: string, errMessage: string, errStack?: string }}
+ */
+export function caughtErrorFields(error) {
+  return {
+    errName: error instanceof Error ? error.name : 'Error',
+    errMessage: error instanceof Error ? error.message : String(error),
+    errStack: error instanceof Error ? error.stack : undefined,
+  };
+}
+
+/**
+ * Logs a caught failure with name, message, and stack (stderr fallback when no logger).
+ * @param {{ error?: Function, warn?: Function, info?: Function, debug?: Function } | null | undefined} log
+ *   Structured logger (Pino-style). When omitted, writes JSON to stderr/stdout.
+ * @param {unknown} error Thrown value.
+ * @param {string} message Log message explaining the mapping / failure context.
+ * @param {{ logLevel?: 'error' | 'warn' | 'info' | 'debug', fields?: Record<string, unknown> }} [options]
+ * @returns {void}
+ */
+export function logCaughtError(log, error, message, options = {}) {
+  const logLevel = options.logLevel ?? 'error';
+  const payload = { ...caughtErrorFields(error), ...(options.fields ?? {}) };
+  if (log && typeof log[logLevel] === 'function') {
+    log[logLevel](payload, message);
+    return;
+  }
+  const line = JSON.stringify({ level: logLevel, msg: message, ...payload });
+  if (logLevel === 'warn' || logLevel === 'info' || logLevel === 'debug') {
+    console.warn(line);
+    return;
+  }
+  console.error(line);
+}
+
+/**
+ * Builds a catalog ApiError from a caught failure: logs the original, attaches `cause`.
+ * Use at every `catch` that maps to {@link ApiError.fromCode}.
+ * @param {string} code Catalog error code.
+ * @param {unknown} cause Original failure (kept on the ApiError and in logs).
+ * @param {{
+ *   message?: string,
+ *   details?: unknown,
+ *   log?: { error?: Function, warn?: Function, info?: Function, debug?: Function } | null,
+ *   logMessage?: string,
+ *   logLevel?: 'error' | 'warn' | 'info' | 'debug',
+ *   fields?: Record<string, unknown>,
+ * }} [options] Catalog overrides plus logging.
+ * @returns {ApiError}
+ */
+export function apiErrorFromCaught(code, cause, options = {}) {
+  logCaughtError(options.log, cause, options.logMessage ?? `failure mapped to ${code}`, {
+    logLevel: options.logLevel,
+    fields: options.fields,
+  });
+  return ApiError.fromCode(code, {
+    message: options.message,
+    details: options.details,
+    cause,
+  });
 }
 
 /**

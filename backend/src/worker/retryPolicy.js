@@ -2,6 +2,7 @@
  * Failure classification and exponential backoff for temporary failures.
  */
 import { getCatalogEntry } from '../platform/errorCatalog.js';
+import { logCaughtError } from '../platform/errors.js';
 import { WORKER_MAX_ATTEMPTS, WORKER_RETRY_BACKOFF_BASE_MS, WORKER_RETRY_BACKOFF_MAX_MS } from './worker.constants.js';
 
 /** @typedef {'temporary' | 'permanent' | 'user_action_required'} FailureClass */
@@ -26,15 +27,38 @@ import { WORKER_MAX_ATTEMPTS, WORKER_RETRY_BACKOFF_BASE_MS, WORKER_RETRY_BACKOFF
 
 /**
  * Builds a classified job failure error handlers throw into the loop.
- * @param {{ failureClass: FailureClass, code: string, message: string }} input Failure fields.
+ * @param {{ failureClass: FailureClass, code: string, message: string, cause?: unknown }} input Failure fields.
  * @returns {Error & ClassifiedFailure}
  */
 export function createJobFailureError(input) {
-  const error = /** @type {Error & ClassifiedFailure} */ (new Error(input.message));
+  const error =
+    input.cause !== undefined
+      ? /** @type {Error & ClassifiedFailure} */ (new Error(input.message, { cause: input.cause }))
+      : /** @type {Error & ClassifiedFailure} */ (new Error(input.message));
   error.failureClass = input.failureClass;
   error.code = input.code;
   error.name = 'JobFailureError';
   return error;
+}
+
+/**
+ * Logs a caught failure then builds a job failure error with `cause` attached.
+ * @param {{ failureClass: FailureClass, code: string, message: string }} input Failure fields.
+ * @param {unknown} cause Original failure.
+ * @param {{
+ *   log?: { error?: Function, warn?: Function } | null,
+ *   logMessage?: string,
+ *   logLevel?: 'error' | 'warn',
+ *   fields?: Record<string, unknown>,
+ * }} [options] Logging overrides.
+ * @returns {Error & ClassifiedFailure}
+ */
+export function createJobFailureFromCaught(input, cause, options = {}) {
+  logCaughtError(options.log, cause, options.logMessage ?? `job failure mapped to ${input.code}`, {
+    logLevel: options.logLevel ?? 'error',
+    fields: options.fields,
+  });
+  return createJobFailureError({ ...input, cause });
 }
 
 /**

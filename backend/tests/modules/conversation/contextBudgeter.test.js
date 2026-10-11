@@ -1,8 +1,21 @@
 /**
  * Context budgeter: measurement, compaction order, and fail-closed accounting.
+ * Token counting is mocked via tokenCount.js (no options.tokenizer injection).
  */
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../../../src/platform/errors.js';
+
+const { countTokensForBudget } = vi.hoisted(() => ({
+  countTokensForBudget: vi.fn((text) => {
+    const trimmed = String(text ?? '').trim();
+    return trimmed === '' ? 0 : trimmed.split(/\s+/).length;
+  }),
+}));
+
+vi.mock('../../../src/modules/conversation/tokenCount.js', () => ({
+  countTokensForBudget: (...args) => countTokensForBudget(...args),
+}));
+
 import {
   COMPACTION_MAX_PASSES,
   EXCERPT_MIN_TOKENS,
@@ -12,44 +25,41 @@ import {
   prepareModelInput,
 } from '../../../src/modules/conversation/index.js';
 
-/** Injected artifact id for tests; production uses the configured model id. */
+/** Artifact id for tests; production uses the configured model id. */
 const TEST_ARTIFACT_ID = 'test-artifact-id';
-
-/**
- * Word-count tokenizer so tests can size budgets without a production package.
- * @param {string} text Segment text.
- * @returns {number}
- */
-function countWords(text) {
-  const trimmed = String(text ?? '').trim();
-  return trimmed === '' ? 0 : trimmed.split(/\s+/).length;
-}
 
 /**
  * @param {object} [overrides] Extra prepareModelInput fields.
  * @returns {object}
  */
 function baseInput(overrides = {}) {
+  const { options: optionOverrides, ...rest } = overrides;
   return {
     modelArtifactRef: TEST_ARTIFACT_ID,
     purpose: 'draft',
     segments: [],
     options: {
-      tokenizer: createTokenizerAdapter({
-        countTokens: countWords,
-        expectedArtifactId: TEST_ARTIFACT_ID,
-      }),
       validatedContextCapacity: 40,
       reservedOutputTokens: 4,
       excerptMinTokens: 2,
       compactionMaxPasses: COMPACTION_MAX_PASSES,
+      ...optionOverrides,
+      llm: optionOverrides?.llm ?? { contextCapacity: 40, artifactId: TEST_ARTIFACT_ID },
     },
-    ...overrides,
+    ...rest,
   };
 }
 
+beforeEach(() => {
+  countTokensForBudget.mockReset();
+  countTokensForBudget.mockImplementation((text) => {
+    const trimmed = String(text ?? '').trim();
+    return trimmed === '' ? 0 : trimmed.split(/\s+/).length;
+  });
+});
+
 describe('getContextBudgetConfig', () => {
-  it('returns compaction constants plus injected capacity and artifact id', () => {
+  it('returns compaction constants plus llm capacity and artifact id', () => {
     expect(
       getContextBudgetConfig({
         contextCapacity: 131072,
@@ -80,31 +90,14 @@ describe('getContextBudgetConfig', () => {
 });
 
 describe('createTokenizerAdapter', () => {
-  it('fails closed when no production countTokens is wired', () => {
-    const adapter = createTokenizerAdapter();
-    expect(() => adapter.countTokens('hello')).toThrow(ApiError);
-    try {
-      adapter.countTokens('hello');
-    } catch (error) {
-      expect(error.code).toBe('CONTEXT_ACCOUNTING_UNAVAILABLE');
-      expect(error.details.reason).toBe('tokenizer_unavailable');
-    }
-  });
-
-  it('countMessage uses injected countTokens', () => {
-    const adapter = createTokenizerAdapter({
-      countTokens: countWords,
-      expectedArtifactId: TEST_ARTIFACT_ID,
-    });
+  it('counts via countTokensForBudget', () => {
+    const adapter = createTokenizerAdapter({ expectedArtifactId: TEST_ARTIFACT_ID });
     expect(adapter.countMessage({ content: 'one two three' })).toBe(3);
     expect(adapter.countMessage({})).toBe(0);
   });
 
   it('rejects an id that is not the expected artifact', () => {
-    const adapter = createTokenizerAdapter({
-      countTokens: countWords,
-      expectedArtifactId: TEST_ARTIFACT_ID,
-    });
+    const adapter = createTokenizerAdapter({ expectedArtifactId: TEST_ARTIFACT_ID });
     expect(() => adapter.assertArtifactMatch('other')).toThrow(ApiError);
     try {
       adapter.assertArtifactMatch('');
@@ -113,26 +106,14 @@ describe('createTokenizerAdapter', () => {
     }
   });
 
-  it('fails closed when no expected artifact id is injected', () => {
-    const adapter = createTokenizerAdapter({ countTokens: countWords });
+  it('fails closed when no expected artifact id is set', () => {
+    const adapter = createTokenizerAdapter();
     expect(() => adapter.assertArtifactMatch(TEST_ARTIFACT_ID)).toThrow(ApiError);
   });
 
-  it('accepts the injected artifact id and a custom assertArtifactMatch seam', () => {
-    const adapter = createTokenizerAdapter({
-      countTokens: countWords,
-      expectedArtifactId: TEST_ARTIFACT_ID,
-    });
+  it('accepts the expected artifact id', () => {
+    const adapter = createTokenizerAdapter({ expectedArtifactId: TEST_ARTIFACT_ID });
     expect(() => adapter.assertArtifactMatch(TEST_ARTIFACT_ID)).not.toThrow();
-    let seen = '';
-    const custom = createTokenizerAdapter({
-      countTokens: countWords,
-      assertArtifactMatch: (id) => {
-        seen = id;
-      },
-    });
-    custom.assertArtifactMatch('injected');
-    expect(seen).toBe('injected');
   });
 });
 
@@ -170,10 +151,6 @@ describe('prepareModelInput', () => {
           { id: 't3', kind: 'turn', role: 'user', content: 'Second old user turn text extra' },
         ],
         options: {
-          tokenizer: createTokenizerAdapter({
-            countTokens: countWords,
-            expectedArtifactId: TEST_ARTIFACT_ID,
-          }),
           validatedContextCapacity: 20,
           reservedOutputTokens: 2,
           excerptMinTokens: 2,
@@ -201,10 +178,6 @@ describe('prepareModelInput', () => {
           { id: 't3', kind: 'turn', content: 'gggggggg hhhhhhhh iiiiiiii' },
         ],
         options: {
-          tokenizer: createTokenizerAdapter({
-            countTokens: countWords,
-            expectedArtifactId: TEST_ARTIFACT_ID,
-          }),
           validatedContextCapacity: 5,
           reservedOutputTokens: 1,
           excerptMinTokens: 1,
@@ -239,10 +212,6 @@ describe('prepareModelInput', () => {
           },
         ],
         options: {
-          tokenizer: createTokenizerAdapter({
-            countTokens: countWords,
-            expectedArtifactId: TEST_ARTIFACT_ID,
-          }),
           validatedContextCapacity: 10,
           reservedOutputTokens: 1,
           excerptMinTokens: 2,
@@ -265,10 +234,6 @@ describe('prepareModelInput', () => {
           { id: 'ex1', kind: 'excerpt', shrinkable: true, content: paragraph },
         ],
         options: {
-          tokenizer: createTokenizerAdapter({
-            countTokens: countWords,
-            expectedArtifactId: TEST_ARTIFACT_ID,
-          }),
           validatedContextCapacity: 14,
           reservedOutputTokens: 1,
           excerptMinTokens: 3,
@@ -295,10 +260,6 @@ describe('prepareModelInput', () => {
           },
         ],
         options: {
-          tokenizer: createTokenizerAdapter({
-            countTokens: countWords,
-            expectedArtifactId: TEST_ARTIFACT_ID,
-          }),
           validatedContextCapacity: 8,
           reservedOutputTokens: 1,
           excerptMinTokens: 2,
@@ -321,10 +282,6 @@ describe('prepareModelInput', () => {
           { id: 't1', kind: 'turn', content: 'old turn one two three four five six' },
         ],
         options: {
-          tokenizer: createTokenizerAdapter({
-            countTokens: countWords,
-            expectedArtifactId: TEST_ARTIFACT_ID,
-          }),
           validatedContextCapacity: 18,
           reservedOutputTokens: 2,
           excerptMinTokens: 2,
@@ -340,10 +297,6 @@ describe('prepareModelInput', () => {
       baseInput({
         segments: [{ id: 't1', kind: 'turn', role: 'assistant', content: 'Prior answer.' }],
         options: {
-          tokenizer: createTokenizerAdapter({
-            countTokens: countWords,
-            expectedArtifactId: TEST_ARTIFACT_ID,
-          }),
           validatedContextCapacity: 20,
           reservedOutputTokens: 1,
         },
@@ -358,10 +311,6 @@ describe('prepareModelInput', () => {
         baseInput({
           segments: [{ id: 'q1', kind: 'user_question', content: 'Q?', protected: true }],
           options: {
-            tokenizer: createTokenizerAdapter({
-              countTokens: countWords,
-              expectedArtifactId: TEST_ARTIFACT_ID,
-            }),
             validatedContextCapacity: null,
             reservedOutputTokens: 4,
           },
@@ -372,10 +321,6 @@ describe('prepareModelInput', () => {
       prepareModelInput(
         baseInput({
           options: {
-            tokenizer: createTokenizerAdapter({
-              countTokens: countWords,
-              expectedArtifactId: TEST_ARTIFACT_ID,
-            }),
             validatedContextCapacity: 0,
             reservedOutputTokens: 4,
           },
@@ -388,7 +333,12 @@ describe('prepareModelInput', () => {
     }
   });
 
-  it('fails closed when the default tokenizer has no production implementation', () => {
+  it('fails closed when countTokensForBudget is unavailable', () => {
+    countTokensForBudget.mockImplementation(() => {
+      throw ApiError.fromCode('CONTEXT_ACCOUNTING_UNAVAILABLE', {
+        details: { reason: 'tokenizer_unavailable' },
+      });
+    });
     try {
       prepareModelInput({
         modelArtifactRef: TEST_ARTIFACT_ID,
@@ -404,7 +354,7 @@ describe('prepareModelInput', () => {
     }
   });
 
-  it('fails closed on artifact mismatch and wraps unexpected assert errors', () => {
+  it('fails closed on artifact mismatch', () => {
     try {
       prepareModelInput(
         baseInput({
@@ -417,40 +367,17 @@ describe('prepareModelInput', () => {
       expect(error.code).toBe('CONTEXT_ACCOUNTING_UNAVAILABLE');
       expect(error.details.reason).toBe('tokenizer_artifact_mismatch');
     }
-
-    try {
-      prepareModelInput(
-        baseInput({
-          options: {
-            tokenizer: createTokenizerAdapter({
-              countTokens: countWords,
-              assertArtifactMatch: () => {
-                throw new Error('boom');
-              },
-            }),
-            validatedContextCapacity: 20,
-            reservedOutputTokens: 1,
-          },
-        }),
-      );
-    } catch (error) {
-      expect(error.code).toBe('CONTEXT_ACCOUNTING_UNAVAILABLE');
-      expect(error.details.reason).toBe('tokenizer_artifact_mismatch');
-    }
   });
 
   it('wraps unexpected tokenizer throws as CONTEXT_ACCOUNTING_UNAVAILABLE', () => {
+    countTokensForBudget.mockImplementation(() => {
+      throw new Error('parity failed');
+    });
     try {
       prepareModelInput(
         baseInput({
           segments: [{ id: 'q1', kind: 'user_question', content: 'Q?', protected: true }],
           options: {
-            tokenizer: createTokenizerAdapter({
-              countTokens: () => {
-                throw new Error('parity failed');
-              },
-              expectedArtifactId: TEST_ARTIFACT_ID,
-            }),
             validatedContextCapacity: 20,
             reservedOutputTokens: 1,
           },
@@ -476,10 +403,6 @@ describe('prepareModelInput', () => {
             },
           ],
           options: {
-            tokenizer: createTokenizerAdapter({
-              countTokens: countWords,
-              expectedArtifactId: TEST_ARTIFACT_ID,
-            }),
             validatedContextCapacity: 12,
             reservedOutputTokens: 6,
             excerptMinTokens: 2,
@@ -505,10 +428,6 @@ describe('prepareModelInput', () => {
             { id: 't3', kind: 'turn', content: 'fifteen sixteen seventeen eighteen nineteen' },
           ],
           options: {
-            tokenizer: createTokenizerAdapter({
-              countTokens: countWords,
-              expectedArtifactId: TEST_ARTIFACT_ID,
-            }),
             validatedContextCapacity: 6,
             reservedOutputTokens: 1,
             excerptMinTokens: 2,
@@ -523,15 +442,11 @@ describe('prepareModelInput', () => {
     }
   });
 
-  it('uses the injected llm capacity when options omit capacity overrides', () => {
+  it('uses the llm capacity when options omit capacity overrides', () => {
     const result = prepareModelInput({
       modelArtifactRef: TEST_ARTIFACT_ID,
       segments: [{ id: 'q1', kind: 'user_question', content: 'Short ask', protected: true }],
       options: {
-        tokenizer: createTokenizerAdapter({
-          countTokens: countWords,
-          expectedArtifactId: TEST_ARTIFACT_ID,
-        }),
         llm: { contextCapacity: 131072, artifactId: TEST_ARTIFACT_ID },
       },
     });
@@ -545,10 +460,6 @@ describe('prepareModelInput', () => {
       prepareModelInput(
         baseInput({
           options: {
-            tokenizer: createTokenizerAdapter({
-              countTokens: countWords,
-              expectedArtifactId: TEST_ARTIFACT_ID,
-            }),
             validatedContextCapacity: 20,
             reservedOutputTokens: -1,
           },
@@ -568,10 +479,6 @@ describe('prepareModelInput', () => {
           { id: 't1', kind: 'turn', content: 'aaaaaaaa bbbbbbbb cccccccc dddddddd eeeeeeee ffffffff' },
         ],
         options: {
-          tokenizer: createTokenizerAdapter({
-            countTokens: countWords,
-            expectedArtifactId: TEST_ARTIFACT_ID,
-          }),
           validatedContextCapacity: 8,
           reservedOutputTokens: 2,
           excerptMinTokens: 1,
@@ -593,10 +500,6 @@ describe('prepareModelInput', () => {
           },
         ],
         options: {
-          tokenizer: createTokenizerAdapter({
-            countTokens: countWords,
-            expectedArtifactId: TEST_ARTIFACT_ID,
-          }),
           validatedContextCapacity: 8,
           reservedOutputTokens: 1,
           excerptMinTokens: 3,
@@ -616,10 +519,6 @@ describe('prepareModelInput', () => {
             { id: 'ex1', kind: 'excerpt', content: 'Word' },
           ],
           options: {
-            tokenizer: createTokenizerAdapter({
-              countTokens: countWords,
-              expectedArtifactId: TEST_ARTIFACT_ID,
-            }),
             validatedContextCapacity: 8,
             reservedOutputTokens: 4,
             excerptMinTokens: 1,

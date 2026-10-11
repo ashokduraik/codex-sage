@@ -11,7 +11,7 @@ import { Role } from '../../models/role.model.js';
 import { SourceVersion } from '../../models/sourceVersion.model.js';
 import { User } from '../../models/user.model.js';
 import { assertOrgId, decodeCursor, encodeCursor, includeDeleted } from '../../platform/data/index.js';
-import { ApiError } from '../../platform/errors.js';
+import { ApiError, apiErrorFromCaught, logCaughtError } from '../../platform/errors.js';
 import mongoose from 'mongoose';
 import { z } from 'zod';
 
@@ -356,8 +356,10 @@ export async function listAuditEvents(orgId, filters = {}) {
       decoded = decodeCursor(filters.cursor);
     } catch (err) {
       if (err instanceof ApiError && err.code === 'INVALID_CURSOR') {
-        throw ApiError.fromCode('VALIDATION_ERROR', {
+        throw apiErrorFromCaught('VALIDATION_ERROR', err, {
           details: [{ path: 'cursor', message: 'cursor is malformed' }],
+          logLevel: 'warn',
+          logMessage: 'audit list cursor malformed',
         });
       }
       throw err;
@@ -518,15 +520,9 @@ export async function recordAuditEvent(input, options = {}) {
       context: sanitizeAuditContext(input.context ?? undefined),
     });
   } catch (err) {
-    const payload = {
-      correlationId: input?.correlationId,
-      err: err instanceof Error ? { name: err.name, message: err.message } : { message: String(err) },
-    };
-    if (typeof options.log?.error === 'function') {
-      options.log.error(payload, 'audit write failed');
-    } else {
-      console.error(JSON.stringify({ level: 'error', msg: 'audit write failed', ...payload }));
-    }
+    logCaughtError(options.log, err, 'audit write failed', {
+      fields: { correlationId: input?.correlationId },
+    });
   }
 }
 

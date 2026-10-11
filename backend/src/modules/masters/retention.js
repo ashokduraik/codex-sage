@@ -16,6 +16,7 @@ import { SourceFile } from '../../models/sourceFile.model.js';
 import { SourceVersion } from '../../models/sourceVersion.model.js';
 import { ProjectActivity } from '../../models/projectActivity.model.js';
 import { includeDeleted, ROW_STATUS_ACTIVE, ROW_STATUS_DELETED } from '../../platform/data/index.js';
+import { caughtErrorFields } from '../../platform/errors.js';
 import { insertPendingJob } from './jobs.helper.js';
 
 /** Ready source versions kept per project. */
@@ -229,7 +230,7 @@ export async function enqueueDueRetentionJobs(input = {}) {
       enqueued += 1;
     } catch (err) {
       skipped += 1;
-      input.log?.error?.({ orgId, errName: err instanceof Error ? err.name : 'Error' }, 'retention enqueue failed');
+      input.log?.error?.({ orgId, ...caughtErrorFields(err) }, 'retention enqueue failed');
     }
   }
   return { enqueued, skipped };

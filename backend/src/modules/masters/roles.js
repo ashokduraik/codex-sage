@@ -3,7 +3,7 @@
  */
 import { Role } from '../../models/role.model.js';
 import { assertOrgId, decodeCursor, encodeCursor, includeDeleted, softDelete } from '../../platform/data/index.js';
-import { ApiError } from '../../platform/errors.js';
+import { ApiError, apiErrorFromCaught } from '../../platform/errors.js';
 import { ALL_PERMISSION_KEYS, isKnownPermissionKey, invalidateRole, recordAuditEvent, buildAuditContextFromRequest } from '../access/index.js';
 import { bumpProjectAclVersion } from './projectMembers.js';
 import { isRoleReferencedByActiveUser } from './users.js';
@@ -115,8 +115,10 @@ export async function listRolesPage(orgId, filters = {}) {
       decoded = decodeCursor(filters.cursor);
     } catch (err) {
       if (err instanceof ApiError && err.code === 'INVALID_CURSOR') {
-        throw ApiError.fromCode('VALIDATION_ERROR', {
+        throw apiErrorFromCaught('VALIDATION_ERROR', err, {
           details: [{ path: 'cursor', message: 'cursor is malformed' }],
+          logLevel: 'warn',
+          logMessage: 'role list cursor malformed',
         });
       }
       throw err;
@@ -228,7 +230,10 @@ export async function createRoleInRepo(orgId, input, options = {}) {
     return created;
   } catch (err) {
     if (isDuplicateKeyError(err)) {
-      throw ApiError.fromCode(duplicateKeyField(err) === 'code' ? 'IDENTITY_DUPLICATE_ROLE_CODE' : 'IDENTITY_DUPLICATE_ROLE_NAME');
+      throw apiErrorFromCaught(duplicateKeyField(err) === 'code' ? 'IDENTITY_DUPLICATE_ROLE_CODE' : 'IDENTITY_DUPLICATE_ROLE_NAME', err, {
+        logLevel: 'warn',
+        logMessage: 'role create conflict',
+      });
     }
     throw err;
   }
@@ -341,7 +346,10 @@ export async function updateRoleInRepo(orgId, roleId, patch, options = {}) {
     await role.save(options.session ? { session: options.session } : undefined);
   } catch (err) {
     if (isDuplicateKeyError(err)) {
-      throw ApiError.fromCode(duplicateKeyField(err) === 'code' ? 'IDENTITY_DUPLICATE_ROLE_CODE' : 'IDENTITY_DUPLICATE_ROLE_NAME');
+      throw apiErrorFromCaught(duplicateKeyField(err) === 'code' ? 'IDENTITY_DUPLICATE_ROLE_CODE' : 'IDENTITY_DUPLICATE_ROLE_NAME', err, {
+        logLevel: 'warn',
+        logMessage: 'role update conflict',
+      });
     }
     throw err;
   }

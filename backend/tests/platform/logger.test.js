@@ -277,6 +277,15 @@ describe('serializeError', () => {
   it('stringifies non-object errors', () => {
     expect(serializeError('boom')).toEqual({ message: 'boom' });
   });
+
+  it('includes nested cause so wrapped catalog errors stay debuggable', () => {
+    const cause = new Error('upstream 500');
+    const wrapped = ApiError.fromCode('LLM_PROVIDER_ERROR', { cause });
+    const out = serializeError(wrapped);
+    expect(out.code).toBe('LLM_PROVIDER_ERROR');
+    expect(out.cause).toMatchObject({ type: 'Error', message: 'upstream 500' });
+    expect(out.cause.stack).toEqual(expect.stringContaining('upstream 500'));
+  });
 });
 
 describe('shouldIncludeStack', () => {

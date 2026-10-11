@@ -3,7 +3,7 @@
  */
 import { User } from '../../models/user.model.js';
 import { assertOrgId, decodeCursor, encodeCursor, softDelete } from '../../platform/data/index.js';
-import { ApiError } from '../../platform/errors.js';
+import { ApiError, apiErrorFromCaught } from '../../platform/errors.js';
 import {
   adminSetPassword,
   buildAuditContextFromRequest,
@@ -391,8 +391,10 @@ export async function listUsersInRepo(orgId, filters = {}) {
       decoded = decodeCursor(filters.cursor);
     } catch (err) {
       if (err instanceof ApiError && err.code === 'INVALID_CURSOR') {
-        throw ApiError.fromCode('VALIDATION_ERROR', {
+        throw apiErrorFromCaught('VALIDATION_ERROR', err, {
           details: [{ path: 'cursor', message: 'cursor is malformed' }],
+          logLevel: 'warn',
+          logMessage: 'user list cursor malformed',
         });
       }
       throw err;
@@ -528,7 +530,10 @@ export async function createUser(input) {
         );
       } catch (err) {
         if (isDuplicateKeyError(err)) {
-          throw ApiError.fromCode(duplicateKeyField(err) === 'code' ? 'IDENTITY_DUPLICATE_USER_CODE' : 'IDENTITY_DUPLICATE_EMAIL');
+          throw apiErrorFromCaught(duplicateKeyField(err) === 'code' ? 'IDENTITY_DUPLICATE_USER_CODE' : 'IDENTITY_DUPLICATE_EMAIL', err, {
+            logLevel: 'warn',
+            logMessage: 'user create conflict',
+          });
         }
         throw err;
       }
@@ -676,7 +681,10 @@ export async function updateUserDetails(input) {
             );
           } catch (err) {
             if (isDuplicateKeyError(err)) {
-              throw ApiError.fromCode('IDENTITY_DUPLICATE_EMAIL');
+              throw apiErrorFromCaught('IDENTITY_DUPLICATE_EMAIL', err, {
+                logLevel: 'warn',
+                logMessage: 'user email conflict',
+              });
             }
             throw err;
           }
@@ -700,7 +708,10 @@ export async function updateUserDetails(input) {
       });
     } catch (err) {
       if (isDuplicateKeyError(err)) {
-        throw ApiError.fromCode('IDENTITY_DUPLICATE_EMAIL');
+        throw apiErrorFromCaught('IDENTITY_DUPLICATE_EMAIL', err, {
+          logLevel: 'warn',
+          logMessage: 'user email conflict',
+        });
       }
       throw err;
     }

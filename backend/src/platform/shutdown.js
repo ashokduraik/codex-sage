@@ -1,6 +1,8 @@
 /**
  * Ordered graceful-shutdown hook registry for API and worker entrypoints.
  */
+import { caughtErrorFields } from './errors.js';
+
 /** Per-hook shutdown budget. */
 export const SHUTDOWN_TIMEOUT_MS = 10_000;
 const hooks = [];
@@ -46,8 +48,13 @@ export async function runShutdown(signal, deps) {
       deps.log.info({ hook: hook.name }, 'shutdown hook completed');
     } catch (err) {
       failed = true;
-      const errMessage = err instanceof Error ? err.message : String(err);
-      deps.log.error({ hook: hook.name, errMessage }, 'shutdown hook failed');
+      deps.log.error(
+        {
+          hook: hook.name,
+          ...caughtErrorFields(err),
+        },
+        'shutdown hook failed',
+      );
     }
   }
   exitFn(failed ? 1 : 0);

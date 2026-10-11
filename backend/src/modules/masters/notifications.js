@@ -11,7 +11,7 @@ import { z } from 'zod';
 import { Notification, NOTIFICATION_TYPE_VALUES } from '../../models/notification.model.js';
 import { User } from '../../models/user.model.js';
 import { assertOrgId, decodeCursor, encodeCursor, ROW_STATUS_ACTIVE } from '../../platform/data/index.js';
-import { ApiError } from '../../platform/errors.js';
+import { ApiError, apiErrorFromCaught, caughtErrorFields } from '../../platform/errors.js';
 import { hasRequiredPermissions } from '../access/index.js';
 import { listProjectMembers, resolveProjectPermissions } from './projectMembers.js';
 import { findProjectById } from './projects.helper.js';
@@ -164,7 +164,7 @@ export async function emitProjectNotification(input) {
     }
     return recipients.length;
   } catch (err) {
-    input.log?.error?.({ errName: err instanceof Error ? err.name : 'Error' }, 'notification emit failed; job already terminal');
+    input.log?.error?.(caughtErrorFields(err), 'notification emit failed; job already terminal');
     return 0;
   }
 
@@ -298,9 +298,11 @@ export async function listNotificationsForUser(orgId, userId, query = {}) {
     let decoded;
     try {
       decoded = decodeCursor(query.cursor);
-    } catch {
-      throw ApiError.fromCode('VALIDATION_ERROR', {
+    } catch (err) {
+      throw apiErrorFromCaught('VALIDATION_ERROR', err, {
         details: [{ path: 'cursor', message: 'cursor is malformed' }],
+        logLevel: 'warn',
+        logMessage: 'notification list cursor malformed',
       });
     }
     const createdAt = new Date(decoded.t);

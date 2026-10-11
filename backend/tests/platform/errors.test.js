@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { ApiError, buildErrorEnvelope, canSendJsonError } from '../../src/platform/errors.js';
+import { ApiError, apiErrorFromCaught, buildErrorEnvelope, canSendJsonError, caughtErrorFields, logCaughtError } from '../../src/platform/errors.js';
 import { buildApp, CORRELATION_ID_HEADER } from '../../src/http/app.js';
 import { TEST_APP_CONFIG } from '../appConfig.js';
 
@@ -27,8 +27,62 @@ describe('ApiError', () => {
     expect(err.message).toBe('You do not have permission to perform this action.');
   });
 
+  it('fromCode attaches cause when provided', () => {
+    const cause = new Error('provider down');
+    const err = ApiError.fromCode('LLM_PROVIDER_ERROR', { cause });
+    expect(err.cause).toBe(cause);
+  });
+
   it('fromCode throws for unknown codes', () => {
     expect(() => ApiError.fromCode('NOT_A_CODE')).toThrow(/Unknown error code/);
+  });
+});
+
+describe('caughtErrorFields', () => {
+  it('exposes name, message, and stack for Error values', () => {
+    const cause = new Error('boom');
+    expect(caughtErrorFields(cause)).toEqual({
+      errName: 'Error',
+      errMessage: 'boom',
+      errStack: cause.stack,
+    });
+  });
+
+  it('stringifies non-Error thrown values', () => {
+    expect(caughtErrorFields('plain')).toEqual({
+      errName: 'Error',
+      errMessage: 'plain',
+      errStack: undefined,
+    });
+  });
+});
+
+describe('logCaughtError / apiErrorFromCaught', () => {
+  it('logs name, message, and stack then returns ApiError with cause', () => {
+    const log = { error: vi.fn(), warn: vi.fn() };
+    const cause = new Error('sdk failed');
+    const mapped = apiErrorFromCaught('LLM_PROVIDER_ERROR', cause, {
+      log,
+      logMessage: 'llm provider call failed',
+    });
+    expect(mapped).toBeInstanceOf(ApiError);
+    expect(mapped.code).toBe('LLM_PROVIDER_ERROR');
+    expect(mapped.cause).toBe(cause);
+    expect(log.error).toHaveBeenCalledWith(
+      {
+        errName: 'Error',
+        errMessage: 'sdk failed',
+        errStack: cause.stack,
+      },
+      'llm provider call failed',
+    );
+  });
+
+  it('uses warn when logLevel is warn', () => {
+    const log = { error: vi.fn(), warn: vi.fn() };
+    logCaughtError(log, new Error('bad cursor'), 'cursor decode failed', { logLevel: 'warn' });
+    expect(log.warn).toHaveBeenCalledOnce();
+    expect(log.error).not.toHaveBeenCalled();
   });
 });
 

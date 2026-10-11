@@ -2,7 +2,8 @@
  * knowledge/ingest.util.js — merged resource file.
  */
 import { loadConfig } from '../../platform/config.js';
-import { createJobFailureError } from '../../worker/retryPolicy.js';
+import { caughtErrorFields } from '../../platform/errors.js';
+import { createJobFailureError, createJobFailureFromCaught } from '../../worker/retryPolicy.js';
 import { findProjectById } from '../masters/index.js';
 import { codegraphIndexExists, createCodegraphAdapter } from './codegraph.js';
 import {
@@ -147,11 +148,15 @@ export async function runMaterializeDocsStage(ctx) {
     workspacePath = resolveProjectWorkspacePath(workspaceRoot, ctx.scope.orgId, ctx.scope.projectId);
   } catch (err) {
     const code = err && typeof err === 'object' && 'code' in err ? String(/** @type {{ code?: unknown }} */ (err).code) : 'WORKSPACE_PATH_UNSAFE';
-    throw createJobFailureError({
-      failureClass: 'permanent',
-      code,
-      message: 'Workspace path resolution failed for this job scope.',
-    });
+    throw createJobFailureFromCaught(
+      {
+        failureClass: 'permanent',
+        code,
+        message: 'Workspace path resolution failed for this job scope.',
+      },
+      err,
+      { log: ctx.logger, logMessage: 'workspace path resolution failed' },
+    );
   }
   ctx.carry.workspacePath = workspacePath;
 
@@ -166,25 +171,33 @@ export async function runMaterializeDocsStage(ctx) {
       try {
         await resetProjectWorkspaceSubtree(workspacePath, workspaceRoot);
       } catch (err) {
-        const mapped = temporaryIoFailureOrNull(err);
+        const mapped = temporaryIoFailureOrNull(err, ctx.logger);
         if (mapped) {
           throw mapped;
         }
         if (err && typeof err === 'object' && 'code' in err) {
           const unsafe = String(/** @type {{ code?: unknown }} */ (err).code);
           if (unsafe === 'WORKSPACE_PATH_UNSAFE') {
-            throw createJobFailureError({
-              failureClass: 'permanent',
-              code: 'WORKSPACE_PATH_UNSAFE',
-              message: 'Workspace reset refused an unsafe path.',
-            });
+            throw createJobFailureFromCaught(
+              {
+                failureClass: 'permanent',
+                code: 'WORKSPACE_PATH_UNSAFE',
+                message: 'Workspace reset refused an unsafe path.',
+              },
+              err,
+              { log: ctx.logger, logMessage: 'workspace reset path unsafe' },
+            );
           }
         }
-        throw createJobFailureError({
-          failureClass: 'temporary',
-          code: 'WORKSPACE_IO_ERROR',
-          message: 'Failed to reset the project workspace before materialization.',
-        });
+        throw createJobFailureFromCaught(
+          {
+            failureClass: 'temporary',
+            code: 'WORKSPACE_IO_ERROR',
+            message: 'Failed to reset the project workspace before materialization.',
+          },
+          err,
+          { log: ctx.logger, logMessage: 'workspace reset failed' },
+        );
       }
       await softDeleteSectionsForVersion({
         orgId: ctx.scope.orgId,
@@ -196,25 +209,33 @@ export async function runMaterializeDocsStage(ctx) {
         try {
           await deleteWorkspaceRelativePath(workspacePath, removedPath);
         } catch (err) {
-          const mapped = temporaryIoFailureOrNull(err);
+          const mapped = temporaryIoFailureOrNull(err, ctx.logger);
           if (mapped) {
             throw mapped;
           }
           if (err && typeof err === 'object' && 'code' in err) {
             const unsafe = String(/** @type {{ code?: unknown }} */ (err).code);
             if (unsafe === 'WORKSPACE_PATH_UNSAFE') {
-              throw createJobFailureError({
-                failureClass: 'permanent',
-                code: 'WORKSPACE_PATH_UNSAFE',
-                message: 'A removed path failed workspace path-safety checks.',
-              });
+              throw createJobFailureFromCaught(
+                {
+                  failureClass: 'permanent',
+                  code: 'WORKSPACE_PATH_UNSAFE',
+                  message: 'A removed path failed workspace path-safety checks.',
+                },
+                err,
+                { log: ctx.logger, logMessage: 'removed path unsafe' },
+              );
             }
           }
-          throw createJobFailureError({
-            failureClass: 'temporary',
-            code: 'WORKSPACE_IO_ERROR',
-            message: 'Failed to delete a removed path from the workspace.',
-          });
+          throw createJobFailureFromCaught(
+            {
+              failureClass: 'temporary',
+              code: 'WORKSPACE_IO_ERROR',
+              message: 'Failed to delete a removed path from the workspace.',
+            },
+            err,
+            { log: ctx.logger, logMessage: 'removed path delete failed' },
+          );
         }
       }
     }
@@ -264,7 +285,7 @@ export async function runMaterializeDocsStage(ctx) {
           pathsWritten += 1;
         }
       } catch (err) {
-        const mapped = temporaryIoFailureOrNull(err);
+        const mapped = temporaryIoFailureOrNull(err, ctx.logger);
         if (mapped) {
           if (lastPath) {
             await ctx.saveInProgressCursor({ path: lastPath }, 'materialize_docs');
@@ -275,13 +296,24 @@ export async function runMaterializeDocsStage(ctx) {
         if (err && typeof err === 'object' && 'code' in err) {
           const code = String(/** @type {{ code?: unknown }} */ (err).code);
           if (code === 'WORKSPACE_PATH_UNSAFE') {
-            throw createJobFailureError({
-              failureClass: 'permanent',
-              code: 'WORKSPACE_PATH_UNSAFE',
-              message: 'A source path failed workspace path-safety checks.',
-            });
+            throw createJobFailureFromCaught(
+              {
+                failureClass: 'permanent',
+                code: 'WORKSPACE_PATH_UNSAFE',
+                message: 'A source path failed workspace path-safety checks.',
+              },
+              err,
+              { log: ctx.logger, logMessage: 'materialize path unsafe' },
+            );
           }
         }
+        ctx.logger?.error?.(
+          {
+            path: file.path,
+            ...caughtErrorFields(err),
+          },
+          'gridfs materialize failed; continuing',
+        );
         warnings.push({ code: 'GRIDFS_READ_FAILED', path: file.path });
         ctx.counters.filesFailed += 1;
       }
@@ -298,7 +330,7 @@ export async function runMaterializeDocsStage(ctx) {
         gridFsId: file.gridFsId,
       });
     } catch (err) {
-      const mapped = temporaryIoFailureOrNull(err);
+      const mapped = temporaryIoFailureOrNull(err, ctx.logger);
       if (mapped) {
         if (lastPath) {
           await ctx.saveInProgressCursor({ path: lastPath }, 'materialize_docs');
@@ -309,13 +341,24 @@ export async function runMaterializeDocsStage(ctx) {
       if (err && typeof err === 'object' && 'code' in err) {
         const code = String(/** @type {{ code?: unknown }} */ (err).code);
         if (code === 'WORKSPACE_PATH_UNSAFE') {
-          throw createJobFailureError({
-            failureClass: 'permanent',
-            code: 'WORKSPACE_PATH_UNSAFE',
-            message: 'A source path failed workspace path-safety checks.',
-          });
+          throw createJobFailureFromCaught(
+            {
+              failureClass: 'permanent',
+              code: 'WORKSPACE_PATH_UNSAFE',
+              message: 'A source path failed workspace path-safety checks.',
+            },
+            err,
+            { log: ctx.logger, logMessage: 'materialize path unsafe' },
+          );
         }
       }
+      ctx.logger?.error?.(
+        {
+          path: file.path,
+          ...caughtErrorFields(err),
+        },
+        'gridfs materialize failed; continuing',
+      );
       warnings.push({ code: 'GRIDFS_READ_FAILED', path: file.path });
       ctx.counters.filesFailed += 1;
       ctx.counters.filesProcessed += 1;
@@ -393,16 +436,21 @@ export async function runMaterializeDocsStage(ctx) {
 /**
  * Maps a thrown value to a temporary workspace IO failure when appropriate.
  * @param {unknown} err Thrown value.
+ * @param {{ error?: Function } | null | undefined} [log] Optional logger.
  * @returns {Error & { failureClass: string, code: string } | null}
  */
-function temporaryIoFailureOrNull(err) {
+function temporaryIoFailureOrNull(err, log) {
   const code = err && typeof err === 'object' && 'code' in err ? String(/** @type {{ code?: unknown }} */ (err).code) : '';
   if (code === 'ENOSPC' || code === 'EACCES' || code === 'EROFS' || code === 'EPERM') {
-    return createJobFailureError({
-      failureClass: 'temporary',
-      code: 'WORKSPACE_IO_ERROR',
-      message: 'The workspace volume is not writable or is out of space.',
-    });
+    return createJobFailureFromCaught(
+      {
+        failureClass: 'temporary',
+        code: 'WORKSPACE_IO_ERROR',
+        message: 'The workspace volume is not writable or is out of space.',
+      },
+      err,
+      { log, logMessage: 'workspace volume IO failure' },
+    );
   }
   return null;
 }
@@ -452,12 +500,16 @@ export async function runCodegraphUpdateStage(ctx) {
   let workspaceRoot;
   try {
     workspaceRoot = resolveWorkspaceRoot(ctx);
-  } catch {
-    throw createJobFailureError({
-      failureClass: 'permanent',
-      code: 'WORKSPACE_ROOT_INVALID',
-      message: 'Workspace root is not configured for CodeGraph indexing.',
-    });
+  } catch (err) {
+    throw createJobFailureFromCaught(
+      {
+        failureClass: 'permanent',
+        code: 'WORKSPACE_ROOT_INVALID',
+        message: 'Workspace root is not configured for CodeGraph indexing.',
+      },
+      err,
+      { log: ctx.logger, logMessage: 'workspace root invalid' },
+    );
   }
 
   let workspacePath;
@@ -465,11 +517,15 @@ export async function runCodegraphUpdateStage(ctx) {
     workspacePath = resolveProjectWorkspacePath(workspaceRoot, ctx.scope.orgId, ctx.scope.projectId);
   } catch (err) {
     const code = err && typeof err === 'object' && 'code' in err ? String(/** @type {{ code?: unknown }} */ (err).code) : 'WORKSPACE_PATH_UNSAFE';
-    throw createJobFailureError({
-      failureClass: 'permanent',
-      code,
-      message: 'Workspace path resolution failed for this job scope.',
-    });
+    throw createJobFailureFromCaught(
+      {
+        failureClass: 'permanent',
+        code,
+        message: 'Workspace path resolution failed for this job scope.',
+      },
+      err,
+      { log: ctx.logger, logMessage: 'workspace path resolution failed' },
+    );
   }
   ctx.carry.workspacePath = workspacePath;
 
@@ -534,17 +590,25 @@ export async function runCodegraphUpdateStage(ctx) {
       }
     } catch (err) {
       if (err && typeof err === 'object' && 'failureClass' in err && 'code' in err) {
-        throw createJobFailureError({
-          failureClass: /** @type {'temporary' | 'permanent' | 'user_action_required'} */ (err.failureClass),
-          code: String(err.code),
-          message: err instanceof Error ? err.message : 'Code index update failed.',
-        });
+        throw createJobFailureFromCaught(
+          {
+            failureClass: /** @type {'temporary' | 'permanent' | 'user_action_required'} */ (err.failureClass),
+            code: String(err.code),
+            message: err instanceof Error ? err.message : 'Code index update failed.',
+          },
+          err,
+          { log: ctx.logger, logMessage: 'code index update remapped' },
+        );
       }
-      throw createJobFailureError({
-        failureClass: 'temporary',
-        code: 'CODEGRAPH_LIBRARY_ERROR',
-        message: 'Code index update failed.',
-      });
+      throw createJobFailureFromCaught(
+        {
+          failureClass: 'temporary',
+          code: 'CODEGRAPH_LIBRARY_ERROR',
+          message: 'Code index update failed.',
+        },
+        err,
+        { log: ctx.logger, logMessage: 'code index update failed' },
+      );
     }
 
     liveGraph = updateResult.graph ?? null;
@@ -570,12 +634,16 @@ export async function runCodegraphUpdateStage(ctx) {
         graphPath: updateResult.graphPath,
         graphHash: updateResult.graphHash,
       });
-    } catch {
-      throw createJobFailureError({
-        failureClass: 'temporary',
-        code: 'CODEGRAPH_VALIDATION_FAILED',
-        message: 'Code index validation failed.',
-      });
+    } catch (err) {
+      throw createJobFailureFromCaught(
+        {
+          failureClass: 'temporary',
+          code: 'CODEGRAPH_VALIDATION_FAILED',
+          message: 'Code index validation failed.',
+        },
+        err,
+        { log: ctx.logger, logMessage: 'code index validation threw' },
+      );
     }
 
     if (validation.hardFail || !validation.ok) {

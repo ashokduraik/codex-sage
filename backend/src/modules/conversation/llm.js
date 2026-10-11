@@ -1,12 +1,11 @@
 /**
- * Conversation LLM client — one createOpenAI factory for the startup GET /models
- * probe, generateText, and streamText. Every generate/stream call is budgeted
- * then queued. No HTTP responses, no model pull.
+ * Conversation LLM client — startup GET /models probe plus budgeted, queued
+ * generateText and streamText. No HTTP responses, no model pull.
  */
 import { createOpenAI } from '@ai-sdk/openai';
 import { generateText as sdkGenerateText, Output, streamText as sdkStreamText } from 'ai';
 import { loadConfig } from '../../platform/config.js';
-import { ApiError } from '../../platform/errors.js';
+import { ApiError, apiErrorFromCaught, caughtErrorFields } from '../../platform/errors.js';
 import { prepareModelInput } from './contextBudgeter.js';
 
 /** Fail the probe if the provider does not answer within this window. */
@@ -29,34 +28,30 @@ const defaultLog = {
   error: (obj, msg) => console.error(JSON.stringify({ level: 'error', msg, ...obj })),
 };
 
-/** Default queue for the API process (per worker). Tests inject their own limits. */
+/** Default queue for the API process (per worker). */
 let defaultInferenceQueue;
 
-/** Cached queue on a reused `{ maxDepth, maxConcurrency }` object so concurrent calls share it. */
-const QUEUE_INSTANCE = Symbol('inferenceQueue');
-
 /**
- * Whether URL + model id are present (startup probe already attached artifactId).
+ * Env LLM slice status. baseUrl/modelId are required by loadConfig; the process
+ * fails closed at startup via assertLlmAvailable — not re-checked per request.
  * @param {{ baseUrl?: string, modelId?: string }} [llm] Connection slice; defaults to loadConfig().
  * @returns {{ ready: boolean, modelId: string | null }}
  */
 export function getLlmConfigStatus(llm) {
   const slice = llm ?? loadConfig().llm;
-  const configured = readConfiguredLlm(slice);
-  return { ready: Boolean(configured), modelId: configured?.modelId ?? null };
+  return { ready: true, modelId: slice.modelId ?? null };
 }
 
 /**
  * Proves the OpenAI-compatible host is up and the configured model id is listed.
- * Uses the same createOpenAI factory as generate/stream; GET /models goes through
- * that factory's fetch + baseURL + auth. No generate, no pull.
+ * GET /models uses the same baseURL and Bearer rules as createOpenAI for generate/stream.
+ * No generate, no pull.
  * @param {{ baseUrl: string, modelId: string, apiKey?: string | null }} llm Env-backed connection slice.
- * @param {{ info: Function, error: Function }} [log] Structured logger.
- * @param {{ fetch?: typeof fetch }} [options] Injected fetch (tests) or global fetch.
+ * @param {{ info: Function, error: Function }} [log] Structured logger (startup / boot).
  * @returns {Promise<{ artifactId: string }>}
  * @throws {Error} When the host is down or the model id is missing from GET /models.
  */
-export async function assertLlmAvailable(llm, log = defaultLog, options = {}) {
+export async function assertLlmAvailable(llm, log = defaultLog) {
   let host;
   try {
     host = new URL(llm.baseUrl).host;
@@ -64,15 +59,13 @@ export async function assertLlmAvailable(llm, log = defaultLog, options = {}) {
     host = '(unparseable)';
   }
   const modelId = llm.modelId;
-  const fetchFn = options.fetch ?? globalThis.fetch;
   const modelsRoot = llm.baseUrl.endsWith('/') ? llm.baseUrl : `${llm.baseUrl}/`;
   const headers = { accept: 'application/json' };
   if (typeof llm.apiKey === 'string' && llm.apiKey !== '') {
     headers.authorization = `Bearer ${llm.apiKey}`;
   }
   try {
-    createLlmProvider(llm, { fetch: fetchFn });
-    const response = await fetchFn(new URL('models', modelsRoot).href, {
+    const response = await globalThis.fetch(new URL('models', modelsRoot).href, {
       headers,
       signal: AbortSignal.timeout(LLM_PROBE_TIMEOUT_MS),
     });
@@ -94,8 +87,7 @@ export async function assertLlmAvailable(llm, log = defaultLog, options = {}) {
     log.info({ host, modelId }, 'llm available');
     return { artifactId: modelId };
   } catch (error) {
-    const errName = error instanceof Error ? error.name : 'Error';
-    log.error({ host, modelId, errName }, 'llm probe failed');
+    log.error({ host, modelId, ...caughtErrorFields(error) }, 'llm probe failed');
     throw error;
   }
 }
@@ -110,13 +102,6 @@ export async function assertLlmAvailable(llm, log = defaultLog, options = {}) {
  *   abortSignal?: AbortSignal,
  *   outputSchema?: object,
  * }} request Assembly for prepareModelInput plus optional abort/schema.
- * @param {{
- *   llm?: object,
- *   tokenizer?: object,
- *   fetch?: typeof fetch,
- *   generateTextImpl?: Function,
- *   queue?: { enqueue?: Function, maxDepth?: number, maxConcurrency?: number },
- * }} [options] Config + test seams.
  * @returns {Promise<{
  *   text: string,
  *   usage: object | null,
@@ -126,13 +111,34 @@ export async function assertLlmAvailable(llm, log = defaultLog, options = {}) {
  * }>}
  * @throws When config, budget, queue, or the provider fails.
  */
-export async function generateText(request, options = {}) {
-  const prepared = preflightModelInput(request, options);
-  const queue = resolveQueue(options.queue);
+export async function generateText(request) {
+  const llm = loadConfig().llm;
+  const prepared = prepareModelInput({
+    modelArtifactRef: llm.artifactId ?? llm.modelId,
+    purpose: request.purpose,
+    segments: request.segments,
+    summarySegment: request.summarySegment,
+    toolSchemaTokenOverhead: request.toolSchemaTokenOverhead,
+    options: { llm },
+  });
+  const queue = (defaultInferenceQueue ??= createInferenceQueue());
   try {
     const { text, usage, durationMs } = await queue.enqueue(async () => {
       const startedAt = Date.now();
-      const result = await invokeSdkCall('generate', request, prepared, options);
+      const provider = createOpenAI({
+        baseURL: llm.baseUrl,
+        apiKey: llm.apiKey || 'not-needed',
+      });
+      const call = {
+        model: provider.chat(llm.modelId),
+        messages: prepared.messages,
+        abortSignal: request.abortSignal,
+        maxRetries: 0,
+      };
+      if (request.outputSchema) {
+        call.output = Output.json({ schema: request.outputSchema });
+      }
+      const result = await sdkGenerateText(call);
       return {
         text: typeof result?.text === 'string' ? result.text : '',
         usage: mapUsage(result?.usage),
@@ -143,11 +149,17 @@ export async function generateText(request, options = {}) {
       text,
       usage,
       durationMs,
-      modelId: options.llm.modelId,
+      modelId: llm.modelId,
       contextMetrics: contextMetricsFromPrepared(prepared),
     };
   } catch (error) {
-    throwProviderError(error);
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    throw apiErrorFromCaught('LLM_PROVIDER_ERROR', error, {
+      log: defaultLog,
+      logMessage: 'llm provider call failed',
+    });
   }
 }
 
@@ -161,13 +173,6 @@ export async function generateText(request, options = {}) {
  *   abortSignal?: AbortSignal,
  *   outputSchema?: object,
  * }} request Assembly for prepareModelInput plus optional abort/schema.
- * @param {{
- *   llm?: object,
- *   tokenizer?: object,
- *   fetch?: typeof fetch,
- *   streamTextImpl?: Function,
- *   queue?: { enqueue?: Function, maxDepth?: number, maxConcurrency?: number },
- * }} [options] Config + test seams.
  * @returns {Promise<{
  *   textStream: AsyncIterable<string>,
  *   usage: Promise<object | null>,
@@ -177,9 +182,17 @@ export async function generateText(request, options = {}) {
  * }>}
  * @throws When config, budget, queue, or starting the provider fails.
  */
-export async function streamText(request, options = {}) {
-  const prepared = preflightModelInput(request, options);
-  const queue = resolveQueue(options.queue);
+export async function streamText(request) {
+  const llm = loadConfig().llm;
+  const prepared = prepareModelInput({
+    modelArtifactRef: llm.artifactId ?? llm.modelId,
+    purpose: request.purpose,
+    segments: request.segments,
+    summarySegment: request.summarySegment,
+    toolSchemaTokenOverhead: request.toolSchemaTokenOverhead,
+    options: { llm },
+  });
+  const queue = (defaultInferenceQueue ??= createInferenceQueue());
   let usageResolve;
   let durationResolve;
   const usagePromise = new Promise((resolve) => {
@@ -194,10 +207,29 @@ export async function streamText(request, options = {}) {
   try {
     sdkResult = await queue.enqueue(async () => {
       startedAt = Date.now();
-      return invokeSdkCall('stream', request, prepared, options);
+      const provider = createOpenAI({
+        baseURL: llm.baseUrl,
+        apiKey: llm.apiKey || 'not-needed',
+      });
+      const call = {
+        model: provider.chat(llm.modelId),
+        messages: prepared.messages,
+        abortSignal: request.abortSignal,
+        maxRetries: 0,
+      };
+      if (request.outputSchema) {
+        call.output = Output.json({ schema: request.outputSchema });
+      }
+      return sdkStreamText(call);
     });
   } catch (error) {
-    throwProviderError(error);
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    throw apiErrorFromCaught('LLM_PROVIDER_ERROR', error, {
+      log: defaultLog,
+      logMessage: 'llm provider call failed',
+    });
   }
 
   const textStream = (async function* consumeSdkStream() {
@@ -238,97 +270,51 @@ export async function streamText(request, options = {}) {
     textStream,
     usage: usagePromise,
     durationMs: durationPromise,
-    modelId: options.llm.modelId,
+    modelId: llm.modelId,
     contextMetrics: contextMetricsFromPrepared(prepared),
   };
 }
 
 /**
- * Shared OpenAI-compatible provider. generate/stream use `provider.chat` (not Responses).
- * @param {{ baseUrl: string, apiKey?: string | null }} llm Env-backed connection slice.
- * @param {{ fetch?: typeof fetch }} [options] Injected fetch for tests.
- * @returns {ReturnType<typeof createOpenAI>}
- */
-function createLlmProvider(llm, options = {}) {
-  return createOpenAI({
-    baseURL: llm.baseUrl,
-    apiKey: llm.apiKey || 'not-needed',
-    fetch: options.fetch,
-  });
-}
-
-/**
- * Uses an injected queue, a limits object, or the process default.
- * @param {{ enqueue?: Function, maxDepth?: number, maxConcurrency?: number } | undefined} queueOption Test seam.
+ * FIFO queue with a concurrency cap. Rejects before enqueue when full.
  * @returns {{ enqueue: (task: () => Promise<unknown>) => Promise<unknown> }}
  */
-function resolveQueue(queueOption) {
-  if (queueOption && typeof queueOption.enqueue === 'function') {
-    return queueOption;
-  }
-  if (queueOption && (queueOption.maxDepth != null || queueOption.maxConcurrency != null)) {
-    queueOption[QUEUE_INSTANCE] ??= createInferenceQueue(queueOption);
-    return queueOption[QUEUE_INSTANCE];
-  }
-  defaultInferenceQueue ??= createInferenceQueue();
-  return defaultInferenceQueue;
+function createInferenceQueue() {
+  const maxDepth = INFERENCE_QUEUE_MAX_DEPTH;
+  const maxConcurrency = INFERENCE_QUEUE_MAX_CONCURRENCY;
+  let running = 0;
+  const waiting = [];
 
-  /**
-   * FIFO queue with a concurrency cap. Rejects before enqueue when full.
-   * Drain runs as a method on the returned object (not a nested function declaration).
-   * @param {{ maxDepth?: number, maxConcurrency?: number }} [limits] Production constants or a test override.
-   * @returns {{ enqueue: (task: () => Promise<unknown>) => Promise<unknown> }}
-   */
-  function createInferenceQueue(limits = {}) {
-    const maxDepth = limits.maxDepth ?? INFERENCE_QUEUE_MAX_DEPTH;
-    const maxConcurrency = limits.maxConcurrency ?? INFERENCE_QUEUE_MAX_CONCURRENCY;
-    let running = 0;
-    const waiting = [];
-
-    const queue = {
-      /**
-       * @param {() => Promise<unknown>} task Work that talks to the SDK.
-       * @returns {Promise<unknown>}
-       */
-      enqueue(task) {
-        if (waiting.length + running >= maxDepth) {
-          return Promise.reject(ApiError.fromCode('LLM_QUEUE_FULL'));
-        }
-        return new Promise((resolve, reject) => {
-          waiting.push({ task, resolve, reject });
-          queue.drain();
-        });
-      },
-      /** Starts queued work while a concurrency slot is free. */
-      drain() {
-        while (running < maxConcurrency && waiting.length > 0) {
-          const item = waiting.shift();
-          running += 1;
-          Promise.resolve()
-            .then(() => item.task())
-            .then(item.resolve, item.reject)
-            .finally(() => {
-              running -= 1;
-              queue.drain();
-            });
-        }
-      },
-    };
-    return { enqueue: (task) => queue.enqueue(task) };
-  }
-}
-
-/**
- * @param {{ baseUrl?: string, modelId?: string } | undefined} llm Connection slice.
- * @returns {{ baseUrl: string, modelId: string } | null}
- */
-function readConfiguredLlm(llm) {
-  const baseUrl = typeof llm?.baseUrl === 'string' ? llm.baseUrl.trim() : '';
-  const modelId = typeof llm?.modelId === 'string' ? llm.modelId.trim() : '';
-  if (!baseUrl || !modelId) {
-    return null;
-  }
-  return { baseUrl, modelId };
+  const queue = {
+    /**
+     * @param {() => Promise<unknown>} task Work that talks to the SDK.
+     * @returns {Promise<unknown>}
+     */
+    enqueue(task) {
+      if (waiting.length + running >= maxDepth) {
+        return Promise.reject(ApiError.fromCode('LLM_QUEUE_FULL'));
+      }
+      return new Promise((resolve, reject) => {
+        waiting.push({ task, resolve, reject });
+        queue.drain();
+      });
+    },
+    /** Starts queued work while a concurrency slot is free. */
+    drain() {
+      while (running < maxConcurrency && waiting.length > 0) {
+        const item = waiting.shift();
+        running += 1;
+        Promise.resolve()
+          .then(() => item.task())
+          .then(item.resolve, item.reject)
+          .finally(() => {
+            running -= 1;
+            queue.drain();
+          });
+      }
+    },
+  };
+  return { enqueue: (task) => queue.enqueue(task) };
 }
 
 /**
@@ -366,67 +352,4 @@ function contextMetricsFromPrepared(prepared) {
     validatedContextCapacity: prepared.validatedContextCapacity,
     compactionActions: prepared.compactionActions,
   };
-}
-
-/**
- * @param {unknown} error Thrown value.
- * @returns {never}
- */
-function throwProviderError(error) {
-  if (error instanceof ApiError) {
-    throw error;
-  }
-  throw ApiError.fromCode('LLM_PROVIDER_ERROR');
-}
-
-/**
- * Chat Completions via injected impl or provider.chat. Shared by generate and stream.
- * @param {'generate' | 'stream'} method Which SDK entry to call.
- * @param {object} request Caller's generate/stream request.
- * @param {object} prepared Budgeter output.
- * @param {object} options Client options.
- * @returns {Promise<object>}
- */
-async function invokeSdkCall(method, request, prepared, options) {
-  const impl = method === 'generate' ? options.generateTextImpl : options.streamTextImpl;
-  if (impl) {
-    return impl({
-      messages: prepared.messages,
-      abortSignal: request.abortSignal,
-      outputSchema: request.outputSchema,
-    });
-  }
-  const llm = options.llm;
-  const provider = createLlmProvider(llm, { fetch: options.fetch });
-  const call = {
-    model: provider.chat(llm.modelId),
-    messages: prepared.messages,
-    abortSignal: request.abortSignal,
-    maxRetries: 0,
-  };
-  if (request.outputSchema) {
-    call.output = Output.json({ schema: request.outputSchema });
-  }
-  return method === 'generate' ? sdkGenerateText(call) : sdkStreamText(call);
-}
-
-/**
- * @param {object} request Caller's generate/stream request.
- * @param {object} options Injection + llm slice.
- * @returns {object} prepareModelInput result.
- */
-function preflightModelInput(request, options) {
-  const llm = options.llm ?? loadConfig().llm;
-  if (!readConfiguredLlm(llm)) {
-    throw ApiError.fromCode('LLM_CONFIG_UNAVAILABLE');
-  }
-  options.llm = llm;
-  return prepareModelInput({
-    modelArtifactRef: llm.artifactId ?? llm.modelId,
-    purpose: request.purpose,
-    segments: request.segments,
-    summarySegment: request.summarySegment,
-    toolSchemaTokenOverhead: request.toolSchemaTokenOverhead,
-    options: { tokenizer: options.tokenizer, llm },
-  });
 }
