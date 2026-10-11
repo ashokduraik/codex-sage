@@ -4,7 +4,7 @@ import path from 'node:path';
 import { afterEach, describe, expect, it, vi, beforeEach } from 'vitest';
 import { API_BASE_PATH, buildApp, CORRELATION_ID_HEADER } from '../../src/http/app.js';
 import { TEST_APP_CONFIG } from '../appConfig.js';
-import { assertFrontendDistPresent, FRONTEND_DIST_ROOT, isApiUrlPath } from '../../src/http/static-spa.js';
+import { FRONTEND_DIST_ROOT, isApiUrlPath, resolveProductionDistRoot } from '../../src/http/static-spa.js';
 
 vi.mock('../../src/platform/mongo.js', async (importOriginal) => {
   const actual = await importOriginal();
@@ -36,11 +36,15 @@ describe('isApiUrlPath', () => {
   });
 });
 
-describe('assertFrontendDistPresent', () => {
+describe('resolveProductionDistRoot', () => {
   it('throws a readable error when dist or index.html is missing', () => {
     const missing = path.join(tmpdir(), `codex-sage-missing-${Date.now()}`);
-    expect(() => assertFrontendDistPresent(missing)).toThrow(/Production SPA dist is missing/);
-    expect(() => assertFrontendDistPresent(missing)).toThrow(missing);
+    expect(() => resolveProductionDistRoot({ isProduction: true, frontendDistRoot: missing })).toThrow(/Production SPA dist is missing/);
+    expect(() => resolveProductionDistRoot({ isProduction: true, frontendDistRoot: missing })).toThrow(missing);
+  });
+
+  it('returns undefined when not production', () => {
+    expect(resolveProductionDistRoot({ isProduction: false })).toBeUndefined();
   });
 
   it('exposes FRONTEND_DIST_ROOT as an absolute path ending in frontend/dist', () => {

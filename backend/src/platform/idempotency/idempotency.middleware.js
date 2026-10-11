@@ -6,7 +6,6 @@ import { createHash } from 'node:crypto';
 import { ApiError, setIdempotencyErrorHooks } from '../errors.js';
 import {
   beginIdempotencyClaim,
-  buildIdempotencyRouteLabel,
   completeIdempotencyRecord,
   findActiveIdempotencyRecord,
   IDEMPOTENCY_POLL_INTERVAL_MS,
@@ -136,7 +135,7 @@ export async function idempotencyPreHandler(request) {
   const key = readIdempotencyKey(request);
   const requestHash = hashIdempotencyRequestBody(request.body);
   const pathTemplate = request.routeOptions?.url ?? request.url;
-  const route = buildIdempotencyRouteLabel(request.method, pathTemplate);
+  const route = `${String(request.method).toUpperCase()} ${pathTemplate}`;
 
   const claim = await beginIdempotencyClaim({
     orgId: principal.orgId,

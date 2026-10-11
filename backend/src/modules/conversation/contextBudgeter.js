@@ -1,8 +1,7 @@
 /**
- * Conversation context budgeter — measure assembled prompt segments with a
- * tokenizer that matches the live artifact id, compact in solution §1.2 order,
- * and fail closed when counting is unavailable. No HTTP; callers are LLM /
- * tool / loader code in this module.
+ * Conversation context budgeter — measure assembled prompt segments with
+ * countTokensForBudget, compact in solution §1.2 order, and fail closed when
+ * counting is unavailable. No HTTP; callers are LLM / tool / loader code.
  */
 import { ApiError, apiErrorFromCaught } from '../../platform/errors.js';
 import { countTokensForBudget } from './tokenCount.js';
@@ -54,48 +53,6 @@ export function getContextBudgetConfig(llm) {
 }
 
 /**
- * Builds a tokenizer adapter that counts via `countTokensForBudget` and checks
- * the expected model artifact id.
- * @param {{ expectedArtifactId?: string }} [config] Artifact id from the live llm slice.
- * @returns {{
- *   countTokens: (text: string) => number,
- *   countMessage: (message: { content?: string }) => number,
- *   assertArtifactMatch: (modelArtifactId: string) => void,
- * }}
- */
-export function createTokenizerAdapter(config = {}) {
-  const expectedArtifactId = typeof config.expectedArtifactId === 'string' ? config.expectedArtifactId.trim() : '';
-
-  return { countTokens, countMessage, assertArtifactMatch };
-
-  /**
-   * @param {string} text Raw segment or message text.
-   * @returns {number}
-   */
-  function countTokens(text) {
-    return countTokensForBudget(text ?? '');
-  }
-
-  /**
-   * @param {{ content?: string }} message Prompt part.
-   * @returns {number}
-   */
-  function countMessage(message) {
-    return countTokens(typeof message?.content === 'string' ? message.content : '');
-  }
-
-  /**
-   * @param {string} modelArtifactId Model id from the caller.
-   * @returns {void}
-   */
-  function assertArtifactMatch(modelArtifactId) {
-    if (!expectedArtifactId || !modelArtifactId || String(modelArtifactId) !== String(expectedArtifactId)) {
-      throwAccountingUnavailable('tokenizer_artifact_mismatch');
-    }
-  }
-}
-
-/**
  * Measures assembled segments, compacts when over budget, and returns a sendable
  * payload. Throws catalog errors — never returns fabricated token counts.
  * @param {{
@@ -140,24 +97,17 @@ export function prepareModelInput(input) {
     throwAccountingUnavailable('evaluation_config_missing');
   }
 
-  const tokenizer = createTokenizerAdapter({
-    expectedArtifactId: defaults?.artifactId,
-  });
-  try {
-    tokenizer.assertArtifactMatch(input.modelArtifactRef);
-  } catch (error) {
-    if (error instanceof ApiError && error.code === 'CONTEXT_ACCOUNTING_UNAVAILABLE') {
-      throw error;
-    }
-    throwAccountingUnavailable('tokenizer_artifact_mismatch', error);
+  const expectedArtifactId = defaults?.artifactId ?? '';
+  if (!expectedArtifactId || !input.modelArtifactRef || String(input.modelArtifactRef) !== String(expectedArtifactId)) {
+    throwAccountingUnavailable('tokenizer_artifact_mismatch');
   }
 
   const working = (input.segments ?? []).map((segment) => ({ ...segment, content: segment.content ?? '' }));
   let systemAndToolSchemaTokens;
   let competingInput;
   try {
-    systemAndToolSchemaTokens = measureSystemAndToolSchema(working, tokenizer.countTokens, input.toolSchemaTokenOverhead ?? 0);
-    competingInput = measureCompetingInput(working, tokenizer.countTokens);
+    systemAndToolSchemaTokens = measureSystemAndToolSchema(working, countTokensForBudget, input.toolSchemaTokenOverhead ?? 0);
+    competingInput = measureCompetingInput(working, countTokensForBudget);
   } catch (error) {
     if (error instanceof ApiError && error.code === 'CONTEXT_ACCOUNTING_UNAVAILABLE') {
       throw error;
@@ -171,14 +121,14 @@ export function prepareModelInput(input) {
     compactionActions = compactSegments({
       working,
       summarySegment: input.summarySegment,
-      countTokens: tokenizer.countTokens,
+      countTokens: countTokensForBudget,
       inputBudget: maximumInputBudget,
       excerptMinTokens,
       compactionMaxPasses,
     });
   }
 
-  const measuredInputTokens = measureCompetingInput(working, tokenizer.countTokens);
+  const measuredInputTokens = measureCompetingInput(working, countTokensForBudget);
   return {
     messages: working.map(mapSegmentToMessage),
     measuredInputTokens,

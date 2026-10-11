@@ -423,32 +423,6 @@ export function assertConversationWritable(conversation, userId) {
 }
 
 /**
- * Throws unless the conversation can move to archived.
- * @param {object} conversation Loaded conversation row.
- * @throws {import('../../platform/errors.js').ApiError} INVALID_STATE_TRANSITION
- */
-export function assertConversationArchiveAllowed(conversation) {
-  if (conversation.lifecycleStatus !== 'active') {
-    throw ApiError.fromCode('INVALID_STATE_TRANSITION', {
-      details: { from: conversation.lifecycleStatus, to: 'archived' },
-    });
-  }
-}
-
-/**
- * Throws unless the conversation can move back to active.
- * @param {object} conversation Loaded conversation row.
- * @throws {import('../../platform/errors.js').ApiError} INVALID_STATE_TRANSITION
- */
-export function assertConversationRestoreAllowed(conversation) {
-  if (conversation.lifecycleStatus !== 'archived') {
-    throw ApiError.fromCode('INVALID_STATE_TRANSITION', {
-      details: { from: conversation.lifecycleStatus, to: 'active' },
-    });
-  }
-}
-
-/**
  * Normalizes and validates a search query string.
  * @param {unknown} raw Raw `q` value.
  * @returns {string}
@@ -705,7 +679,11 @@ export async function listRecentMessages(orgId, projectId, conversationId, limit
  */
 export async function archiveConversation(input) {
   const conversation = await loadConversationForUser(input.orgId, input.projectId, input.conversationId, input.actorUserId);
-  assertConversationArchiveAllowed(conversation);
+  if (conversation.lifecycleStatus !== 'active') {
+    throw ApiError.fromCode('INVALID_STATE_TRANSITION', {
+      details: { from: conversation.lifecycleStatus, to: 'archived' },
+    });
+  }
   const updated = await archiveOwnConversation({
     orgId: input.orgId,
     projectId: input.projectId,
@@ -751,7 +729,11 @@ export async function archiveConversation(input) {
  */
 export async function restoreConversation(input) {
   const conversation = await loadConversationForUser(input.orgId, input.projectId, input.conversationId, input.actorUserId);
-  assertConversationRestoreAllowed(conversation);
+  if (conversation.lifecycleStatus !== 'archived') {
+    throw ApiError.fromCode('INVALID_STATE_TRANSITION', {
+      details: { from: conversation.lifecycleStatus, to: 'active' },
+    });
+  }
   const updated = await restoreOwnConversation({
     orgId: input.orgId,
     projectId: input.projectId,

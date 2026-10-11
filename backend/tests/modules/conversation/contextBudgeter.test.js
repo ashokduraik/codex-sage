@@ -20,7 +20,6 @@ import {
   COMPACTION_MAX_PASSES,
   EXCERPT_MIN_TOKENS,
   RESERVED_OUTPUT_TOKENS,
-  createTokenizerAdapter,
   getContextBudgetConfig,
   prepareModelInput,
 } from '../../../src/modules/conversation/index.js';
@@ -86,34 +85,6 @@ describe('getContextBudgetConfig', () => {
       expect(error.code).toBe('CONTEXT_ACCOUNTING_UNAVAILABLE');
       expect(error.details.reason).toBe('evaluation_config_missing');
     }
-  });
-});
-
-describe('createTokenizerAdapter', () => {
-  it('counts via countTokensForBudget', () => {
-    const adapter = createTokenizerAdapter({ expectedArtifactId: TEST_ARTIFACT_ID });
-    expect(adapter.countMessage({ content: 'one two three' })).toBe(3);
-    expect(adapter.countMessage({})).toBe(0);
-  });
-
-  it('rejects an id that is not the expected artifact', () => {
-    const adapter = createTokenizerAdapter({ expectedArtifactId: TEST_ARTIFACT_ID });
-    expect(() => adapter.assertArtifactMatch('other')).toThrow(ApiError);
-    try {
-      adapter.assertArtifactMatch('');
-    } catch (error) {
-      expect(error.details.reason).toBe('tokenizer_artifact_mismatch');
-    }
-  });
-
-  it('fails closed when no expected artifact id is set', () => {
-    const adapter = createTokenizerAdapter();
-    expect(() => adapter.assertArtifactMatch(TEST_ARTIFACT_ID)).toThrow(ApiError);
-  });
-
-  it('accepts the expected artifact id', () => {
-    const adapter = createTokenizerAdapter({ expectedArtifactId: TEST_ARTIFACT_ID });
-    expect(() => adapter.assertArtifactMatch(TEST_ARTIFACT_ID)).not.toThrow();
   });
 });
 

@@ -195,14 +195,6 @@ export function createProjectAclCache(options = {}) {
 export const projectAclCache = createProjectAclCache({ enabled: false });
 
 /**
- * Invalidates every cached project ACL entry for an organization.
- * @param {string} orgId Tenant id.
- */
-export function invalidateProjectAclCache(orgId) {
-  projectAclCache.invalidateOrganization(orgId);
-}
-
-/**
  * Applies environment policy to the process-wide project ACL cache.
  * @param {{ isTest: boolean }} env Validated env flags from config.
  */
@@ -218,7 +210,7 @@ export function configureProjectAclCache(env) {
  */
 export async function bumpProjectAclVersion(orgId, options = {}) {
   await bumpOrganizationAclVersion(orgId, options);
-  invalidateProjectAclCache(String(orgId));
+  projectAclCache.invalidateOrganization(String(orgId));
 }
 
 // --- from projectMembers/projectAccess.js ---

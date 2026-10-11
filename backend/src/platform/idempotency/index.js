@@ -16,12 +16,11 @@ export {
   IdempotencyReplay,
   releaseOwnedIdempotencyClaim,
 } from './idempotency.middleware.js';
-export { isIdempotencyReplayError, releaseIdempotencyClaimOnError, setIdempotencyErrorHooks, resetIdempotencyErrorHooks } from '../errors.js';
+export { setIdempotencyErrorHooks, resetIdempotencyErrorHooks } from '../errors.js';
 export { IDEMPOTENCY_POLL_INTERVAL_MS, IDEMPOTENCY_RECORD_TTL_MS, IDEMPOTENCY_WAIT_MS } from './idempotency.repository.js';
 export { IDEMPOTENCY_MODELS, IdempotencyRecord } from '../../models/idempotency.model.js';
 export {
   beginIdempotencyClaim,
-  buildIdempotencyRouteLabel,
   completeIdempotencyRecord,
   findActiveIdempotencyRecord,
   isMongoDuplicateKeyError,

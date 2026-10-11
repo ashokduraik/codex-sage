@@ -142,15 +142,6 @@ export function isKnownAuditAction(action) {
 }
 
 /**
- * Returns the resourceType paired with a known action.
- * @param {string} action Catalog action.
- * @returns {AuditResourceType | undefined}
- */
-export function resourceTypeForAction(action) {
-  return AUDIT_ACTION_RESOURCE_TYPES[action];
-}
-
-/**
  * Sanitizes optional User-Agent header text.
  * @param {unknown} userAgent Raw header.
  * @returns {string | undefined}
@@ -495,7 +486,7 @@ export async function recordAuditEvent(input, options = {}) {
     if (!input.action || !isKnownAuditAction(input.action)) {
       throw new Error(`unknown audit action: ${input?.action}`);
     }
-    const expectedType = resourceTypeForAction(input.action);
+    const expectedType = AUDIT_ACTION_RESOURCE_TYPES[input.action];
     const resourceType = input.resourceType ?? expectedType;
     if (!resourceType) {
       throw new Error('resourceType is required');

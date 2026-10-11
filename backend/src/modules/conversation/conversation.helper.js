@@ -91,30 +91,12 @@ export function buildOwnConversationFilter(orgId, projectId, userId) {
 }
 
 /**
- * Clamps a conversation list page size.
- * @param {unknown} limit Raw limit.
- * @returns {number}
- */
-export function clampConversationsListLimit(limit) {
-  return clampLimit(limit, CONVERSATIONS_LIST_DEFAULT_LIMIT, CONVERSATIONS_LIST_MAX_LIMIT);
-}
-
-/**
  * Clamps a message list page size.
  * @param {unknown} limit Raw limit.
  * @returns {number}
  */
 export function clampMessagesListLimit(limit) {
   return clampLimit(limit, MESSAGES_LIST_DEFAULT_LIMIT, MESSAGES_LIST_MAX_LIMIT);
-}
-
-/**
- * Clamps a search page size.
- * @param {unknown} limit Raw limit.
- * @returns {number}
- */
-export function clampConversationSearchLimit(limit) {
-  return clampLimit(limit, CONVERSATION_SEARCH_DEFAULT_LIMIT, CONVERSATION_SEARCH_MAX_LIMIT);
 }
 
 /**
@@ -208,7 +190,7 @@ export async function listOwnConversations(orgId, projectId, userId, filters = {
     return { items: [], nextCursor: null };
   }
 
-  const limit = clampConversationsListLimit(filters.limit);
+  const limit = clampLimit(filters.limit, CONVERSATIONS_LIST_DEFAULT_LIMIT, CONVERSATIONS_LIST_MAX_LIMIT);
   /** @type {Record<string, unknown>} */
   const query = {
     ...buildOwnConversationFilter(orgId, projectId, userId),
@@ -510,7 +492,7 @@ export async function searchOwnConversations(input) {
   if (!mongoose.isValidObjectId(input.projectId)) {
     return { items: [], nextCursor: null };
   }
-  const limit = clampConversationSearchLimit(input.limit);
+  const limit = clampLimit(input.limit, CONVERSATION_SEARCH_DEFAULT_LIMIT, CONVERSATION_SEARCH_MAX_LIMIT);
   /** @type {Record<string, unknown>} */
   const query = {
     ...buildOwnConversationFilter(input.orgId, input.projectId, input.userId),

@@ -56,13 +56,6 @@ export function mapReadyState(readyState) {
   }
 }
 /**
- * Returns the current Mongoose connection state.
- * @returns Named connection state.
- */
-export function getMongoConnectionState() {
-  return mapReadyState(mongoose.connection.readyState);
-}
-/**
  * Opens the Mongoose connection and awaits the first successful connect.
  * Fails fast: callers should exit non-zero if this rejects.
  * @param config - Application config containing `mongo.uri`.
@@ -85,7 +78,7 @@ export async function connectMongo(config, log = defaultLog) {
       {
         ...summary,
         poolSize: MONGODB_MAX_POOL_SIZE,
-        state: getMongoConnectionState(),
+        state: mapReadyState(mongoose.connection.readyState),
       },
       'mongo connected',
     );

@@ -31,24 +31,6 @@ export function resetIdempotencyErrorHooks() {
 }
 
 /**
- * True when the thrown value is an idempotency replay signal.
- * @param {unknown} error Thrown value.
- * @returns {boolean}
- */
-export function isIdempotencyReplayError(error) {
-  return isReplayError(error);
-}
-
-/**
- * Releases an owned in-flight claim when present on the request.
- * @param {import('fastify').FastifyRequest} request Incoming request.
- * @returns {Promise<void>}
- */
-export async function releaseIdempotencyClaimOnError(request) {
-  await releaseOwnedClaim(request);
-}
-
-/**
  * Intentional API error. Prefer {@link ApiError.fromCode} so status/class stay catalog-aligned.
  */
 export class ApiError extends Error {
@@ -281,7 +263,7 @@ export function registerErrorHandler(app, options = {}) {
   );
 
   app.setErrorHandler(async (error, request, reply) => {
-    if (isIdempotencyReplayError(error)) {
+    if (isReplayError(error)) {
       if (!canSendJsonError(reply)) {
         request.log.error({ reqId: request.id }, 'idempotency replay after headers sent — skipping body');
         return;
@@ -291,7 +273,7 @@ export function registerErrorHandler(app, options = {}) {
     }
 
     try {
-      await releaseIdempotencyClaimOnError(request);
+      await releaseOwnedClaim(request);
     } catch (releaseErr) {
       request.log.warn({ err: releaseErr }, 'failed to release idempotency claim');
     }

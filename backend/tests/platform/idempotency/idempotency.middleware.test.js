@@ -2,7 +2,7 @@
  * Unit tests for idempotency onSend / preHandler edge cases.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ApiError, isIdempotencyReplayError, setIdempotencyErrorHooks } from '../../../src/platform/errors.js';
+import { ApiError } from '../../../src/platform/errors.js';
 import {
   IDEMPOTENCY_BODY_MAX_BYTES,
   IdempotencyReplay,
@@ -14,7 +14,6 @@ import {
 
 vi.mock('../../../src/platform/idempotency/idempotency.repository.js', () => ({
   beginIdempotencyClaim: vi.fn(),
-  buildIdempotencyRouteLabel: vi.fn((method, path) => `${String(method).toUpperCase()} ${path}`),
   completeIdempotencyRecord: vi.fn(),
   findActiveIdempotencyRecord: vi.fn(),
   releaseIdempotencyClaim: vi.fn(async () => {}),
@@ -307,16 +306,5 @@ describe('releaseOwnedIdempotencyClaim', () => {
     releaseIdempotencyClaim.mockClear();
     await releaseOwnedIdempotencyClaim({ idempotency: null });
     expect(releaseIdempotencyClaim).not.toHaveBeenCalled();
-  });
-});
-
-describe('idempotencyErrorHooks defaults', () => {
-  it('detects IdempotencyReplay by name before hooks are wired', () => {
-    setIdempotencyErrorHooks({
-      isReplayError: (error) => Boolean(error && typeof error === 'object' && error.name === 'IdempotencyReplay'),
-      releaseOwnedClaim: async () => {},
-    });
-    expect(isIdempotencyReplayError(new IdempotencyReplay(201, {}))).toBe(true);
-    expect(isIdempotencyReplayError(new Error('x'))).toBe(false);
   });
 });

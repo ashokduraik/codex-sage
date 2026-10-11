@@ -24,16 +24,6 @@ export function isMongoDuplicateKeyError(err) {
 }
 
 /**
- * Builds the unique route label for an idempotency record.
- * @param {string} method HTTP method.
- * @param {string} pathTemplate Fastify route path template.
- * @returns {string}
- */
-export function buildIdempotencyRouteLabel(method, pathTemplate) {
-  return `${String(method).toUpperCase()} ${pathTemplate}`;
-}
-
-/**
  * Finds an active, non-expired idempotency record.
  * @param {{
  *   orgId: string | import('mongoose').Types.ObjectId,

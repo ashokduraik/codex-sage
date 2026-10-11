@@ -3,12 +3,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { ApiError } from '../../../src/platform/errors.js';
-import {
-  assertSafeArchivePath,
-  createDuplicatePathGuard,
-  isUnsafeArchivePath,
-  normalizeArchivePath,
-} from '../../../src/modules/knowledge/uploads.js';
+import { createDuplicatePathGuard, isUnsafeArchivePath, normalizeArchivePath } from '../../../src/modules/knowledge/uploads.js';
 
 describe('normalizeArchivePath', () => {
   it('converts backslashes and strips leading ./', () => {
@@ -22,7 +17,7 @@ describe('normalizeArchivePath', () => {
   });
 });
 
-describe('isUnsafeArchivePath / assertSafeArchivePath', () => {
+describe('isUnsafeArchivePath', () => {
   it('rejects absolute, drive-letter, and parent-segment paths', () => {
     expect(isUnsafeArchivePath('')).toBe(true);
     expect(isUnsafeArchivePath('/abs/path.js')).toBe(true);
@@ -30,16 +25,6 @@ describe('isUnsafeArchivePath / assertSafeArchivePath', () => {
     expect(isUnsafeArchivePath('../secret')).toBe(true);
     expect(isUnsafeArchivePath('a/../../b')).toBe(true);
     expect(isUnsafeArchivePath('src/a.js')).toBe(false);
-  });
-
-  it('throws SOURCE_ZIP_SLIP for unsafe paths', () => {
-    expect(() => assertSafeArchivePath('../x')).toThrow(ApiError);
-    try {
-      assertSafeArchivePath('/etc/passwd');
-    } catch (error) {
-      expect(error).toBeInstanceOf(ApiError);
-      expect(/** @type {ApiError} */ (error).code).toBe('SOURCE_ZIP_SLIP');
-    }
   });
 });
 

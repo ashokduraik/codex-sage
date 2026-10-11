@@ -10,8 +10,6 @@ import { CONVERSATION_DEFAULT_TITLE } from '../../../src/modules/conversation/co
 import { Conversation } from '../../../src/models/conversations.model.js';
 import { Message } from '../../../src/models/messages.model.js';
 import {
-  clampConversationSearchLimit,
-  clampConversationsListLimit,
   clampMessagesListLimit,
   archiveOwnConversation,
   findConversationInProject,
@@ -28,11 +26,8 @@ import {
   searchOwnConversations,
 } from '../../../src/modules/conversation/conversation.helper.js';
 import {
-  CONVERSATION_SEARCH_DEFAULT_LIMIT,
-  CONVERSATION_SEARCH_MAX_LIMIT,
   CONVERSATION_SEARCH_TEXT_MAX_CHARS,
   CONVERSATIONS_LIST_DEFAULT_LIMIT,
-  CONVERSATIONS_LIST_MAX_LIMIT,
   MESSAGES_LIST_DEFAULT_LIMIT,
   MESSAGES_LIST_MAX_LIMIT,
 } from '../../../src/modules/conversation/conversation.helper.js';
@@ -55,15 +50,28 @@ describe('conversations.repository', () => {
     await harness.afterAll();
   });
 
-  it('clamps list and search limits', () => {
-    expect(clampConversationsListLimit(undefined)).toBe(CONVERSATIONS_LIST_DEFAULT_LIMIT);
-    expect(clampConversationsListLimit(0)).toBe(CONVERSATIONS_LIST_DEFAULT_LIMIT);
-    expect(clampConversationsListLimit(999)).toBe(CONVERSATIONS_LIST_MAX_LIMIT);
+  it('clamps message list limits', () => {
     expect(clampMessagesListLimit(3)).toBe(3);
     expect(clampMessagesListLimit(9999)).toBe(MESSAGES_LIST_MAX_LIMIT);
     expect(clampMessagesListLimit(null)).toBe(MESSAGES_LIST_DEFAULT_LIMIT);
-    expect(clampConversationSearchLimit('')).toBe(CONVERSATION_SEARCH_DEFAULT_LIMIT);
-    expect(clampConversationSearchLimit(500)).toBe(CONVERSATION_SEARCH_MAX_LIMIT);
+  });
+
+  it('applies default conversation list limit for invalid limit values', async () => {
+    const orgId = new mongoose.Types.ObjectId();
+    const projectId = new mongoose.Types.ObjectId();
+    const owner = new mongoose.Types.ObjectId();
+    for (let index = 0; index < CONVERSATIONS_LIST_DEFAULT_LIMIT + 1; index += 1) {
+      await insertConversation({
+        orgId,
+        projectId,
+        ownerUserId: owner,
+        title: `Limit ${index}`,
+        titleSource: 'user',
+      });
+    }
+    const page = await listOwnConversations(orgId, String(projectId), owner, { limit: 0 });
+    expect(page.items).toHaveLength(CONVERSATIONS_LIST_DEFAULT_LIMIT);
+    expect(page.nextCursor).toBeTruthy();
   });
 
   it('inserts with the default title and hides other owners', async () => {

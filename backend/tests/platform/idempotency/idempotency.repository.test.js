@@ -2,14 +2,8 @@
  * Unit tests for idempotency repository helpers (no Mongo).
  */
 import { describe, expect, it } from 'vitest';
-import { buildIdempotencyRouteLabel, isMongoDuplicateKeyError } from '../../../src/platform/idempotency/idempotency.repository.js';
+import { isMongoDuplicateKeyError } from '../../../src/platform/idempotency/idempotency.repository.js';
 import { IdempotencyReplay } from '../../../src/platform/idempotency/idempotency.middleware.js';
-
-describe('buildIdempotencyRouteLabel', () => {
-  it('uppercases the method and keeps the path template', () => {
-    expect(buildIdempotencyRouteLabel('post', '/users')).toBe('POST /users');
-  });
-});
 
 describe('isMongoDuplicateKeyError', () => {
   it('detects Mongo duplicate key code 11000', () => {

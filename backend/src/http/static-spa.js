@@ -26,30 +26,22 @@ export function isApiUrlPath(urlPath) {
 }
 
 /**
- * Asserts the production dist directory contains `index.html`.
- * @param {string} distRoot Absolute path to `frontend/dist`.
- * @throws {Error} When the directory or index.html is missing.
- */
-export function assertFrontendDistPresent(distRoot) {
-  const indexPath = path.join(distRoot, 'index.html');
-  if (!existsSync(distRoot) || !existsSync(indexPath)) {
-    throw new Error(
-      `Production SPA dist is missing. Expected index.html at ${indexPath}. ` + 'Run `npm run build` in frontend/ before starting the API.',
-    );
-  }
-}
-
-/**
  * Resolves the dist root for production, asserting `index.html` exists.
  * @param {{ isProduction: boolean, frontendDistRoot?: string }} envConfig Env flags + optional test root.
  * @returns {string | undefined} Dist root when production; otherwise undefined.
+ * @throws {Error} When production dist or index.html is missing.
  */
 export function resolveProductionDistRoot(envConfig) {
   if (!envConfig.isProduction) {
     return undefined;
   }
   const distRoot = envConfig.frontendDistRoot ?? FRONTEND_DIST_ROOT;
-  assertFrontendDistPresent(distRoot);
+  const indexPath = path.join(distRoot, 'index.html');
+  if (!existsSync(distRoot) || !existsSync(indexPath)) {
+    throw new Error(
+      `Production SPA dist is missing. Expected index.html at ${indexPath}. ` + 'Run `npm run build` in frontend/ before starting the API.',
+    );
+  }
   return distRoot;
 }
 

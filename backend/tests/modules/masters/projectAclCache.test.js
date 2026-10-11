@@ -2,7 +2,7 @@
  * Unit tests for project ACL cache helpers.
  */
 import { describe, expect, it } from 'vitest';
-import { createProjectAclCache, invalidateProjectAclCache, projectAclCache } from '../../../src/modules/masters/projectMembers.js';
+import { createProjectAclCache, projectAclCache } from '../../../src/modules/masters/projectMembers.js';
 
 describe('projectAclCache', () => {
   it('stores, returns, and expires entries; respects aclVersion', () => {
@@ -47,6 +47,6 @@ describe('projectAclCache', () => {
     projectAclCache.setEnabled(false);
     expect(projectAclCache.isEnabled()).toBe(false);
     expect(projectAclCache.size()).toBe(0);
-    invalidateProjectAclCache('any');
+    projectAclCache.invalidateOrganization('any');
   });
 });

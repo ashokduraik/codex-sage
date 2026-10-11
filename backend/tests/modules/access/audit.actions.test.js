@@ -2,7 +2,7 @@
  * Audit action catalog unit tests.
  */
 import { describe, expect, it } from 'vitest';
-import { AUDIT_ACTION_RESOURCE_TYPES, AUDIT_ACTIONS, isKnownAuditAction, resourceTypeForAction } from '../../../src/modules/access/audit.js';
+import { AUDIT_ACTION_RESOURCE_TYPES, AUDIT_ACTIONS, isKnownAuditAction } from '../../../src/modules/access/audit.js';
 
 describe('audit.actions', () => {
   it('exposes the curated action list', () => {
@@ -60,22 +60,22 @@ describe('audit.actions', () => {
   });
 
   it('pairs each action with a resource type', () => {
-    expect(resourceTypeForAction('user.password_changed')).toBe('user');
-    expect(resourceTypeForAction('role.create')).toBe('role');
-    expect(resourceTypeForAction('membership.update')).toBe('membership');
-    expect(resourceTypeForAction('authz.denied')).toBe('route');
-    expect(resourceTypeForAction('project.create')).toBe('project');
-    expect(resourceTypeForAction('job.retry')).toBe('job');
-    expect(resourceTypeForAction('job.cancel')).toBe('job');
-    expect(resourceTypeForAction('source.upload')).toBe('source');
-    expect(resourceTypeForAction('knowledge.completed')).toBe('knowledge');
-    expect(resourceTypeForAction('knowledge.failed')).toBe('knowledge');
-    expect(resourceTypeForAction('repository.connected')).toBe('repository');
-    expect(resourceTypeForAction('repository.branch_changed')).toBe('repository');
-    expect(resourceTypeForAction('repository.credential_replaced')).toBe('repository');
-    expect(resourceTypeForAction('repository.credential_revoked')).toBe('repository');
-    expect(resourceTypeForAction('repository.sync_triggered')).toBe('repository');
-    expect(resourceTypeForAction('conversation.created')).toBe('conversation');
-    expect(resourceTypeForAction('conversation.title_changed')).toBe('conversation');
+    expect(AUDIT_ACTION_RESOURCE_TYPES['user.password_changed']).toBe('user');
+    expect(AUDIT_ACTION_RESOURCE_TYPES['role.create']).toBe('role');
+    expect(AUDIT_ACTION_RESOURCE_TYPES['membership.update']).toBe('membership');
+    expect(AUDIT_ACTION_RESOURCE_TYPES['authz.denied']).toBe('route');
+    expect(AUDIT_ACTION_RESOURCE_TYPES['project.create']).toBe('project');
+    expect(AUDIT_ACTION_RESOURCE_TYPES['job.retry']).toBe('job');
+    expect(AUDIT_ACTION_RESOURCE_TYPES['job.cancel']).toBe('job');
+    expect(AUDIT_ACTION_RESOURCE_TYPES['source.upload']).toBe('source');
+    expect(AUDIT_ACTION_RESOURCE_TYPES['knowledge.completed']).toBe('knowledge');
+    expect(AUDIT_ACTION_RESOURCE_TYPES['knowledge.failed']).toBe('knowledge');
+    expect(AUDIT_ACTION_RESOURCE_TYPES['repository.connected']).toBe('repository');
+    expect(AUDIT_ACTION_RESOURCE_TYPES['repository.branch_changed']).toBe('repository');
+    expect(AUDIT_ACTION_RESOURCE_TYPES['repository.credential_replaced']).toBe('repository');
+    expect(AUDIT_ACTION_RESOURCE_TYPES['repository.credential_revoked']).toBe('repository');
+    expect(AUDIT_ACTION_RESOURCE_TYPES['repository.sync_triggered']).toBe('repository');
+    expect(AUDIT_ACTION_RESOURCE_TYPES['conversation.created']).toBe('conversation');
+    expect(AUDIT_ACTION_RESOURCE_TYPES['conversation.title_changed']).toBe('conversation');
   });
 });

@@ -6,7 +6,6 @@ import {
   connectMongo,
   describeMongoUri,
   disconnectMongo,
-  getMongoConnectionState,
   mapReadyState,
   MONGO_UNAVAILABLE_CODE,
   resetMongoListenersForTests,
@@ -44,17 +43,13 @@ describe('describeMongoUri', () => {
     });
   });
 });
-describe('mapReadyState / getMongoConnectionState', () => {
+describe('mapReadyState', () => {
   it('maps every Mongoose readyState value', () => {
     expect(mapReadyState(0)).toBe('disconnected');
     expect(mapReadyState(1)).toBe('connected');
     expect(mapReadyState(2)).toBe('connecting');
     expect(mapReadyState(3)).toBe('disconnecting');
     expect(mapReadyState(99)).toBe('disconnected');
-  });
-  it('reads readyState from mongoose.connection', () => {
-    mockConnection().readyState = 1;
-    expect(getMongoConnectionState()).toBe('connected');
   });
 });
 describe('connectMongo / disconnectMongo', () => {
@@ -80,7 +75,11 @@ describe('connectMongo / disconnectMongo', () => {
     expect(mongoose.set).toHaveBeenCalledWith('autoIndex', false);
     expect(mongoose.connect).toHaveBeenCalledWith(TEST_APP_CONFIG.mongo.uri, expect.objectContaining({ maxPoolSize: MONGODB_MAX_POOL_SIZE }));
     expect(log.info).toHaveBeenCalledWith(
-      expect.objectContaining({ database: 'codex_sage_test', poolSize: MONGODB_MAX_POOL_SIZE }),
+      expect.objectContaining({
+        database: 'codex_sage_test',
+        poolSize: MONGODB_MAX_POOL_SIZE,
+        state: 'connected',
+      }),
       'mongo connected',
     );
     const logged = JSON.stringify(log.info.mock.calls);

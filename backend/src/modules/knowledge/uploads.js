@@ -148,18 +148,6 @@ export function isUnsafeArchivePath(normalizedPath) {
 }
 
 /**
- * Asserts that a normalized path is safe for extraction; throws SOURCE_ZIP_SLIP otherwise.
- * @param {string} normalizedPath Normalized entry path.
- * @returns {void}
- * @throws {ApiError}
- */
-export function assertSafeArchivePath(normalizedPath) {
-  if (isUnsafeArchivePath(normalizedPath)) {
-    throw ApiError.fromCode('SOURCE_ZIP_SLIP');
-  }
-}
-
-/**
  * Tracks seen normalized paths and throws on collision.
  * @returns {{ remember: (normalizedPath: string) => void }}
  */
@@ -354,7 +342,9 @@ export async function inspectZip(input) {
       }
 
       const normalizedPath = normalizeArchivePath(rawName);
-      assertSafeArchivePath(normalizedPath);
+      if (isUnsafeArchivePath(normalizedPath)) {
+        throw ApiError.fromCode('SOURCE_ZIP_SLIP');
+      }
       duplicateGuard.remember(normalizedPath);
 
       entries.push({
