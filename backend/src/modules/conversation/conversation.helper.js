@@ -3,8 +3,8 @@
  */
 import mongoose from 'mongoose';
 import { ApiError } from '../../platform/errors.js';
-import { Message, MESSAGE_ROLE_VALUES, MESSAGE_STATUS_VALUES, MESSAGE_SUPPORT_LEVEL_VALUES } from '../../models/messages.model.js';
 import { assertOrgId, decodeCursor, encodeCursor, softDelete, ROW_STATUS_ACTIVE } from '../../platform/data/index.js';
+import { Message, MESSAGE_ROLE_VALUES, MESSAGE_STATUS_VALUES, MESSAGE_SUPPORT_LEVEL_VALUES } from '../../models/messages.model.js';
 import {
   Conversation,
   CONVERSATION_TITLE_MAX_LENGTH,
@@ -564,6 +564,111 @@ function encodeRowCursor(row, stampField) {
     t: stamp instanceof Date ? stamp.toISOString() : String(stamp),
     i: String(row._id),
   });
+}
+
+/**
+ * Inserts the user question and a pending assistant placeholder in one transaction.
+ * Bumps conversation `messageCount` by 2 and sets `lastMessageAt`.
+ * @param {{
+ *   orgId: import('mongoose').Types.ObjectId | string,
+ *   projectId: string,
+ *   conversationId: string,
+ *   actorUserId: string,
+ *   content: string,
+ *   knowledgeVersionId?: string | null,
+ * }} input Turn fields.
+ * @param {{ session?: import('mongoose').ClientSession }} [options] Optional Mongo session (tests).
+ * @returns {Promise<{ userMessage: import('mongoose').Document, assistantMessage: import('mongoose').Document }>}
+ * @throws {import('../../platform/errors.js').ApiError} When ids are invalid.
+ */
+export async function insertChatTurnPair(input, options = {}) {
+  assertOrgId(input.orgId);
+  if (!mongoose.isValidObjectId(input.projectId) || !mongoose.isValidObjectId(input.conversationId) || !mongoose.isValidObjectId(input.actorUserId)) {
+    throw ApiError.fromCode('VALIDATION_ERROR', {
+      details: [{ path: 'conversationId', message: 'org/project/conversation/actor ids must be valid ObjectIds' }],
+    });
+  }
+
+  const orgId = input.orgId;
+  const projectId = new mongoose.Types.ObjectId(String(input.projectId));
+  const conversationId = new mongoose.Types.ObjectId(String(input.conversationId));
+  const actorUserId = new mongoose.Types.ObjectId(String(input.actorUserId));
+  const knowledgeVersionId =
+    input.knowledgeVersionId && mongoose.isValidObjectId(input.knowledgeVersionId)
+      ? new mongoose.Types.ObjectId(String(input.knowledgeVersionId))
+      : null;
+  const now = new Date();
+
+  const runInsert = async (session) => {
+    const userDocs = [
+      {
+        orgId,
+        projectId,
+        conversationId,
+        role: 'user',
+        content: input.content,
+        messageStatus: 'accepted',
+        knowledgeVersionId,
+        parentMessageId: null,
+        createdBy: actorUserId,
+        updatedBy: actorUserId,
+      },
+    ];
+    // Mongoose String `required` rejects ''; use ZWSP until DRAFT/VERIFY finalize overwrites.
+    const assistantDocs = [
+      {
+        orgId,
+        projectId,
+        conversationId,
+        role: 'assistant',
+        content: '\u200b',
+        messageStatus: 'generating',
+        knowledgeVersionId,
+        parentMessageId: null,
+        createdBy: actorUserId,
+        updatedBy: actorUserId,
+      },
+    ];
+    const [userMessage] = session ? await Message.create(userDocs, { session }) : await Message.create(userDocs);
+    assistantDocs[0].parentMessageId = userMessage._id;
+    const [assistantMessage] = session ? await Message.create(assistantDocs, { session }) : await Message.create(assistantDocs);
+    const update = Conversation.updateOne(
+      {
+        _id: conversationId,
+        orgId,
+        projectId,
+        status: ROW_STATUS_ACTIVE,
+      },
+      {
+        $inc: { messageCount: 2 },
+        $set: { lastMessageAt: now, updatedBy: actorUserId },
+      },
+    );
+    if (session) {
+      update.session(session);
+    }
+    await update.exec();
+    return { userMessage, assistantMessage };
+  };
+
+  if (options.session) {
+    return runInsert(options.session);
+  }
+
+  const mongoSession = await mongoose.startSession();
+  try {
+    /** @type {{ userMessage: import('mongoose').Document, assistantMessage: import('mongoose').Document } | undefined} */
+    let pair;
+    await mongoSession.withTransaction(async () => {
+      pair = await runInsert(mongoSession);
+    });
+    if (!pair) {
+      throw ApiError.fromCode('INTERNAL_ERROR');
+    }
+    return pair;
+  } finally {
+    await mongoSession.endSession();
+  }
 }
 
 /**

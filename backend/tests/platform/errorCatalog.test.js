@@ -73,6 +73,14 @@ describe('ERROR_CATALOG', () => {
     expect(allowsErrorDetails('UNKNOWN')).toBe(false);
   });
 
+  it('registers NOT_ACCEPTABLE for chat SSE Accept negotiation', () => {
+    expect(ERROR_CATALOG.NOT_ACCEPTABLE).toMatchObject({
+      class: 'user',
+      httpStatus: 406,
+      retryability: 'user_action_required',
+    });
+  });
+
   it('registers password-lifecycle codes used by Phase 08', () => {
     expect(ERROR_CATALOG.INVALID_CURRENT_PASSWORD.httpStatus).toBe(403);
     expect(ERROR_CATALOG.PASSWORD_POLICY_VIOLATION.httpStatus).toBe(422);

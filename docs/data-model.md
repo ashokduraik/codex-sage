@@ -328,8 +328,9 @@ Conversations do not write `KnowledgeVersion` or other project knowledge.
 
 One row per chat turn (Phase 41 schema; HTTP create is Phase 50). Fields:
 `projectId`, `conversationId`, `role` (`user` \| `assistant` \| `system`), `content`,
-`messageStatus` (`completed` \| `abstained` \| `failed`; Phase 50 may add interrupted /
-awaiting-clarification), `knowledgeVersionId`, `parentMessageId` (reserved for Phase 53),
+`messageStatus` (`accepted` \| `generating` \| `awaiting_clarification` \| `completed` \|
+`abstained` \| `failed` \| `interrupted`; `queued` is Phase 51), `knowledgeVersionId`,
+`parentMessageId` (reserved for Phase 53),
 optional `evidence` / `usage` / `contextMetrics` / `supportLevel` /
 `durationMs` / `modelId` / `trace` (null until written), plus base fields.
 `supportLevel` is `evidence_backed` \| `insufficient` \| `conflict` \| `partial`.

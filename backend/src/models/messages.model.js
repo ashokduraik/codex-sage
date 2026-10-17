@@ -9,8 +9,19 @@ import { createBaseSchema, ROW_STATUS_ACTIVE } from '../platform/data/index.js';
 const ObjectId = mongoose.Schema.Types.ObjectId;
 
 export const MESSAGE_ROLE_VALUES = Object.freeze(['user', 'assistant', 'system']);
-/** Terminal answer outcomes for this phase; interrupted / clarify statuses arrive in phase 50. */
-export const MESSAGE_STATUS_VALUES = Object.freeze(['completed', 'abstained', 'failed']);
+/**
+ * Turn lifecycle for chat SSE (phase 50). `queued` arrives in phase 51.
+ * `interrupted` is reserved for cancel/crash — disconnect-continue does not set it.
+ */
+export const MESSAGE_STATUS_VALUES = Object.freeze([
+  'accepted',
+  'generating',
+  'awaiting_clarification',
+  'completed',
+  'abstained',
+  'failed',
+  'interrupted',
+]);
 /** How strongly an assistant answer is backed by project evidence (backend §60). */
 export const MESSAGE_SUPPORT_LEVEL_VALUES = Object.freeze(['evidence_backed', 'insufficient', 'conflict', 'partial']);
 
@@ -23,7 +34,7 @@ const messageSchema = createBaseSchema({
   role: { type: String, enum: MESSAGE_ROLE_VALUES, required: true },
   // Visible text of the question or answer
   content: { type: String, required: true, default: '' },
-  // Terminal outcome of this turn (completed answer, abstain, or failed run)
+  // User accepted / assistant generating / clarify pause / terminal outcome
   messageStatus: { type: String, enum: MESSAGE_STATUS_VALUES, required: true, default: 'completed' },
   // Knowledge snapshot the assistant used to answer
   knowledgeVersionId: { type: ObjectId, ref: 'KnowledgeVersion', default: null },

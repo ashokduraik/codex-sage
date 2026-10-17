@@ -10,260 +10,218 @@
 
 ## 1. Goal
 
-After this phase clients can **`POST /api/v1/conversations/:conversationId/messages`** with
+After this phase clients can
+**`POST /api/v1/projects/:projectId/conversations/:conversationId/messages`** with
 **`Accept: text/event-stream`**, permission **`chat.ask`**, and project ACL to receive a grounded
-answer stream. The handler enforces the **knowledge gate** (ready/partial → SSE; failed → structured
-error; updating/recovering → **mention** queued 202 behaviour owned by **phase 51** but do not
-implement queue persistence or 202 body details here). The handler saves the user message, starts the
-phase 47–49 LangGraph run **in the API process**, maps graph hooks to SSE events
-(`status`, `delta`, `clarification`, `evidence`, `done`, `error` — architecture §9), and honours
-**`Idempotency-Key`** on message create (phase 12). If the client **disconnects**, the run **continues**
-until persist completes; the UI reloads the assistant message by id (backend §96, §119, solution §5.8).
-You can see it working with `curl -N` or an integration test: stream shows stage statuses and deltas,
-terminal `done` with `messageId`, or `error` with correlation id from phase 02.
+answer stream. The handler enforces the knowledge gate (`ready` / `partially_available` → SSE;
+`failed` / unreadable → `KNOWLEDGE_UNAVAILABLE`; updating → `KNOWLEDGE_UPDATING` JSON until phase
+51). It saves the user + pending assistant messages, runs the phase 47–49 LangGraph in the **API
+process**, maps graph hooks to SSE events (`status`, `delta`, `clarification`, `evidence`, `done`,
+`error`), and honours **`Idempotency-Key`**. On client disconnect the run **continues** until
+persist completes; the UI reloads the assistant message by id.
 
 ## 2. Why this phase is here
 
-The graph (47–49) is useless to the frontend without a transport. Architecture §6.1 places SSE on the
-chat POST in the **API process** — not the worker — so this phase is the boundary React (55) consumes.
-It depends on 49 so every stream terminates with persisted state. It depends on 12 so duplicate POSTs
-from retries do not spawn duplicate runs. Queued questions during index updates (51) and clarification
-POST (52) need a live stream path first for the happy path.
+The graph (47–49) needs an HTTP transport. Architecture §6.1 places SSE on the chat POST in the
+API process. Phase 12 prevents duplicate runs on retries. Queued questions (51) and clarification
+POST (52) need this happy-path stream first.
 
 ## 3. Scope
 
 ### In scope
 
-- Route registration under `/api/v1` (phase 4 ADR prefix).
-- Auth: JWT → org, user; **`chat.ask`** + project membership (phase 18).
-- Load conversation `status: 'A'`, tenant-scoped; reject cross-tenant ids (ADR 0014 style 404).
-- **Knowledge gate** (phase 28 helper): `ready` / `partially_available` → proceed with SSE;
-  `failed` → persist user message or reject per PROPOSED policy → `KNOWLEDGE_UNAVAILABLE`; 
-  `updating` / recovering → **stop before SSE** with note that **phase 51** implements
-  `202 { messageId, jobId }` + queued message — in 50 either return **501/503 with catalog code**
-  or minimal stub that documents the handoff (**do not** implement queue job wiring here).
-- Create user message (`accepted` or equivalent status from phase 41).
-- **`Idempotency-Key`**: duplicate key returns same stream outcome / same message ids without second
-  graph run (phase 12 store).
-- Open SSE response; emit initial `status` `{ stage: 'accepted', knowledgeHealth? }` (solution §5.1).
-- Invoke compiled graph with phase 49 callbacks wired to SSE writer.
-- **`clarification` event:** full question list payload when graph interrupts (shape from phase 47);
-  resume is **not** this phase — 52 POST resumes checkpoint.
-- Terminal frames: `done`, or `error` via `buildStreamErrorEvent` (phase 02) with catalog fields.
-- **Disconnect:** detect aborted request; stop forwarding deltas to client; **do not abort** graph
-  unless product requires cancel-on-disconnect — architecture says run finishes in Mongo (default:
-  continue run).
-- **Stream interruption semantics** (backend §120): persisted message reflects completed vs
-  interrupted/failed for UI reload.
-- Correlation id on all responses and error events.
+- Route under `/api/v1/projects/:projectId/conversations/:conversationId/messages`.
+- Auth: JWT → org, user; **`chat.ask`** + project membership.
+- Load conversation `status: 'A'`, owner-scoped; reject cross-tenant / cross-owner as
+  `CONVERSATION_NOT_FOUND`.
+- Knowledge gate via `assertKnowledgeReadable`:
+  - `allow` → SSE
+  - `deny` → JSON `KNOWLEDGE_UNAVAILABLE` (no message persist)
+  - `queue` → JSON `KNOWLEDGE_UPDATING` (no SSE, no persist; phase 51 owns 202 + queued rows)
+- Insert user (`accepted`) + assistant (`generating`) in one transaction.
+- **`Idempotency-Key` required**; completion stores JSON outcome; replay returns that JSON (no second
+  graph run / no SSE replay).
+- Require `Accept` containing `text/event-stream`; else `NOT_ACCEPTABLE` (406).
+- Open SSE; emit `status` `{ stage: 'accepted', knowledgeHealth }`; wire graph hooks to SSE.
+- Clarification interrupt → `clarification` event; assistant `awaiting_clarification`; stream ends;
+  resume is phase 52.
+- Terminal `done` / `error` via `buildStreamErrorEvent`.
+- Disconnect: stop SSE writes; **do not** abort the graph.
+- Correlation id on responses and SSE `error.reference`.
+- `buildStreamErrorEvent` in `platform/streamErrors.js` (phase 02 deferred here).
 
 ### Out of scope (owner phase)
 
-- Queued message persistence, expiry, resume after publish — **phase 51**.
-- `POST .../clarifications/.../answers` — **phase 52**.
-- Message edit / retry routes — **phase 53**.
+- Queued message persistence / 202 — **phase 51**.
+- Clarification answers POST — **phase 52**.
+- Message edit / retry / cancel-on-disconnect — **phase 53**.
 - Frontend EventSource — **phase 55**.
-- In-app rate limiting — none (architecture §10, phase 12).
-- Worker execution of chat — forbidden for this flow.
+- Ask-about-this body fields — later phase; body is `{ content }` only.
+- In-app rate limiting — none.
+- Worker execution of chat — forbidden.
 
 ## 4. Design
 
 ### 4.1 Request flow
 
 ```text
-POST /api/v1/conversations/:conversationId/messages
-Headers: Authorization, Accept: text/event-stream, Idempotency-Key?
-Body: { content: string, ... optional ask-about-this refs from 38 — PROPOSED }
+POST /api/v1/projects/:projectId/conversations/:conversationId/messages
+Headers: Authorization, Accept: text/event-stream, Idempotency-Key
+Body: { content: string }
 
 1. Auth + chat.ask + project ACL
-2. Idempotency lookup → short-circuit if completed run exists
-3. Load project knowledge health + gate
-4. If updating/recovering → defer to phase 51 (see §3)
-5. Insert user Message
-6. Set SSE headers; emit status accepted
-7. Build runContext + compile graph invoke
-8. Map hooks → SSE events until done/error/interrupt
-9. On interrupt (clarification): emit clarification event; close stream; persist awaiting state
-10. On complete: emit evidence (if not already), done, end stream
-11. Idempotency record completion
+2. Accept check → NOT_ACCEPTABLE if missing text/event-stream
+3. Idempotency claim (phase 12); replay JSON if completed
+4. Load conversation (writable) + assertKnowledgeReadable
+5. deny → KNOWLEDGE_UNAVAILABLE; queue → KNOWLEDGE_UPDATING
+6. Insert user + assistant messages
+7. SSE headers; status accepted; keepalive comments
+8. invokeChatGraph with writeSse hooks (writes no-op after disconnect)
+9. Interrupt → clarification event; awaiting_clarification; complete idempotency; end
+10. Complete → evidence/done already from persist hooks; complete idempotency
+11. Error → SSE error frame; complete idempotency with failed
 ```
-
-LangGraph runs synchronously on the request async handler **until** interrupt or completion — still
-non-blocking for **ingest** (worker rule applies to heavy ingest, not this architecture decision).
 
 ### 4.2 SSE envelope
 
-Use standard SSE: `event:` + `data:` JSON lines. Event names **exactly**:
-
-| Event | When | Data (minimal PROPOSED) |
-|-------|------|-------------------------|
+| Event | When | Data |
+|-------|------|------|
 | `status` | Stage changes | `{ stage: string, knowledgeHealth?: string }` |
 | `delta` | Draft tokens | `{ text: string }` |
-| `clarification` | CLARIFY_SET | `{ clarificationSetId, questions: [...] }` |
+| `clarification` | Graph interrupt | `{ clarificationSetId, questions: [...] }` |
 | `evidence` | Before done | `{ items: EvidenceRecord[] }` |
 | `done` | Success | `{ messageId: string }` |
-| `error` | Terminal failure | phase 02 five-field object |
+| `error` | Terminal failure | `{ code, class, retryability, message, reference }` |
 
-Allowed `stage` values include those from backend §66 that map to real operations:
-`understanding_question`, `searching_code`, `reviewing_sources`, `generating_answer`,
-`verifying_answer`, `accepted`. **No** chain-of-thought fields (backend §67).
-
-Database-query stages (§66 examples) are **out of scope** — do not emit.
+Allowed stages include: `accepted`, `understanding_question`, `searching_code`,
+`reviewing_sources`, `generating_answer`, `verifying_answer`, `awaiting_clarification`,
+`abstain_early`. No chain-of-thought. No database-query stages.
 
 ### 4.3 Handler owns `reply`
 
-`chatStream.service.js` returns an async iterator or runs with injected `writeSse(event, data)` —
-the **route handler** calls Fastify `reply.raw` / `@fastify/sse` (if adopted) — helpers never take
-`reply` (workspace rule). Service throws; handler maps to SSE `error` if headers not sent, else JSON
-error envelope.
+`runChatMessageStream` receives `writeSse` / `isClientConnected` — never `reply`. The route
+handler owns `reply.raw`.
 
 ### 4.4 Idempotency
 
-Scope key: org + user + conversation + idempotency key + route (phase 12). Stored outcome:
+Stored completion body:
 
-- `messageId`, `assistantMessageId?`, `status: completed | failed | awaiting_clarification`
-- Replay: if completed, return **200** with SSE that immediately sends `done` **or** JSON pointing
-  client to GET message — **open question** §12 (PROPOSED: non-stream JSON replay for idempotent
-  retry).
+```json
+{
+  "userMessageId": "…",
+  "assistantMessageId": "…",
+  "messageStatus": "completed|abstained|failed|awaiting_clarification"
+}
+```
 
-### 4.5 Knowledge gate (partial implementation)
+Replay: **200** JSON (not SSE). Stream path completes the claim explicitly so `onSend` does not
+mis-store a raw stream payload.
 
-| Health | Phase 50 behaviour |
-|--------|-------------------|
-| ready / partially_available | SSE run |
-| failed | No SSE; JSON error `KNOWLEDGE_UNAVAILABLE` (retryability temporary) |
-| updating / recovering | **Not in scope:** document handoff to 51; return structured response placeholder agreed in §6 |
+### 4.5 Disconnect
 
-### 4.6 Disconnect and recovery
+`request.raw.on('close')` → `clientConnected = false`; `writeSse` no-ops; graph continues.
+Final `messageStatus` comes from persist (`completed` / `abstained` / `failed` /
+`awaiting_clarification`). Do **not** set `interrupted` on disconnect alone.
 
-- Register `request.raw.on('close')` → set flag; stop `writeSse`; graph continues (architecture §6.1).
-- Phase 49 persist sets `messageStatus` so GET message shows completed/failed/interrupted (§119).
-- No indefinitely `generating` without lease timeout — optional sweeper **open** (62).
+### 4.6 Keepalive
 
-## 5. Data model changes
+SSE comment lines (`: keepalive\n\n`) every `SSE_KEEPALIVE_INTERVAL_MS` while the stream is open.
 
-**None** required if phase 41 messages and phase 12 idempotency records exist. May add
-`assistantMessageId` on idempotency payload — PROPOSED.
+## 5. Schema changes (needs explicit user approval before model code)
 
-## 6. API contract — PROPOSED (needs approval before implementation)
+**Collection purpose:** `messages` stores each chat turn. Phase 50 needs non-terminal statuses so
+the UI can reload a mid-run or clarify-paused assistant (§119–§120).
 
-### `POST /api/v1/conversations/:conversationId/messages`
+**Collection / model:** `messages` / `Message`
+
+| Field | Change | Purpose |
+| --- | --- | --- |
+| `messageStatus` enum | Expand to `accepted\|generating\|awaiting_clarification\|completed\|abstained\|failed\|interrupted` | User accepted; assistant in flight; clarify pause; terminals; `interrupted` reserved for cancel/crash |
+
+**Indexes:** none new.
+
+**Out of scope:** `queued` and queue job fields — phase 51.
+
+**Approval gate:** model edits wait for an explicit yes to this exact list in the implementing
+conversation.
+
+## 6. API contract
+
+### `POST /api/v1/projects/:projectId/conversations/:conversationId/messages`
 
 | | |
 |---|---|
 | **Permission** | `chat.ask` + project membership |
-| **Headers** | `Authorization: Bearer …`, `Accept: text/event-stream`, optional `Idempotency-Key` |
-| **Body** | `{ "content": "string (required, max length constant)" }` |
-| **Success** | `200`/`201` with `Content-Type: text/event-stream` — event sequence ending in `done` or `error` |
-| **Clarification interrupt** | Stream ends after `clarification` event; message `awaiting_clarification` |
-
-**Knowledge updating (phase 51 — not implemented in 50):**
-
-```http
-HTTP/1.1 202 Accepted
-Content-Type: application/json
-
-{ "messageId": "…", "jobId": "…", "status": "queued" }
-```
-
-Phase 50 doc **references** this shape; implementation waits for 51.
+| **Headers** | `Authorization`, `Accept: text/event-stream`, `Idempotency-Key` (required) |
+| **Body** | `{ "content": "string" }` (required, max length constant) |
+| **Success** | `200` `Content-Type: text/event-stream` ending in `done`, `clarification`, or `error` |
+| **Idempotent replay** | `200` `application/json` with stored message ids + `messageStatus` |
 
 **Errors (JSON, before SSE headers):**
 
 | Code | When |
 |------|------|
-| `KNOWLEDGE_UNAVAILABLE` | Graph failed / unreadable |
-| `CONTEXT_ACCOUNTING_UNAVAILABLE` | Budgeter fail closed |
-| `VALIDATION_ERROR` | Missing content |
-| `FORBIDDEN` / `NOT_FOUND` | ACL / tenant |
+| `NOT_ACCEPTABLE` | Accept does not include `text/event-stream` |
+| `KNOWLEDGE_UNAVAILABLE` | Gate deny |
+| `KNOWLEDGE_UPDATING` | Gate queue (phase 51 will replace with 202) |
+| `CONTEXT_ACCOUNTING_UNAVAILABLE` | Budgeter fail closed (may also be mid-stream SSE error) |
+| `VALIDATION_ERROR` | Missing/invalid content |
+| `CONVERSATION_NOT_FOUND` | Missing / wrong tenant / not owner |
+| `FORBIDDEN` | Missing `chat.ask` |
 
-Mid-stream failures → SSE `error` event only (phase 02).
-
-### SSE example (illustrative)
-
-```text
-event: status
-data: {"stage":"accepted","knowledgeHealth":"ready"}
-
-event: status
-data: {"stage":"understanding_question"}
-
-event: delta
-data: {"text":"Checkout "}
-
-event: evidence
-data: {"items":[...]}
-
-event: done
-data: {"messageId":"507f1f77bcf86cd799439011"}
-```
+Mid-stream failures → SSE `error` only.
 
 ## 7. Configuration & environment variables
 
-**None.** Max message body length, SSE heartbeat interval (if any) — named constants in chat routes
-module. No rate-limit env vars.
+**None.** `CHAT_MESSAGE_CONTENT_MAX_LENGTH`, `SSE_KEEPALIVE_INTERVAL_MS` are named constants in
+`chatStream.js`.
 
 ## 8. Files to create or change
 
 | Path | Purpose |
 |---|---|
-| `backend/src/modules/conversation/chatStream.js` (+ `.test.js`) | POST messages SSE route + stream service (overflow helper if needed) |
-| `backend/src/http/routes.js` | Register conversation chat-stream routes |
-| `backend/src/modules/knowledge/` (28) | `assertKnowledgeReadable` / health gate |
-| Idempotency (phase 12) | Message create idempotency |
-| `backend/src/platform/streamErrors.js` (02) | Terminal error payload |
-| `backend/src/modules/conversation/chatGraph.js` (47–49) | Invoke entry |
+| `backend/src/modules/conversation/chatStream.js` | POST SSE route + orchestration |
+| `backend/src/modules/conversation/conversation.helper.js` | `insertChatTurnPair` |
+| `backend/src/modules/conversation/index.js` | Export routes |
+| `backend/src/http/routes.js` | Register `chatStreamRoutes` |
+| `backend/src/platform/streamErrors.js` | `buildStreamErrorEvent` |
+| `backend/src/platform/errorCatalog.js` | `NOT_ACCEPTABLE` |
+| `backend/src/models/messages.model.js` | Enum expand (after approval) |
+| `docs/architecture.md` | Project-scoped path §6.1 |
+| `docs/data-model.md` | Enum sync (after approval) |
 
 Do **not** add `backend/src/modules/chat/`.
 
 ## 9. Tests (≥ 80% line and branch)
 
-### Unit
-
-- sseWriter formats event lines; no CoT fields in mapped payloads.
-- Gate: ready → invoke graph; failed → throws KNOWLEDGE_UNAVAILABLE without graph.
-- Idempotency: second call same key does not double-invoke graph mock.
-- Disconnect flag stops writes; graph mock still completes persist callback.
-
-### Integration (`app.inject` or supertest with stream consumer)
-
-- Authorized POST → receives `status` then `done` with valid messageId in Mongo.
-- Missing `chat.ask` → 403 JSON, no SSE.
-- Wrong org conversation → 404.
-- Mid-stream provider error → `error` event with `reference` matching header.
-- Clarification interrupt → `clarification` event; stream ends; message status awaiting.
-
-### Unhappy paths
-
-- Accept header not event-stream → **406 or JSON fallback** — open question §12.
-- Headers already sent then throw → no second HTTP response.
-- Partial knowledge: `knowledgeHealth` in first status event.
+- Unit: SSE formatter; `buildStreamErrorEvent`; gate branches; disconnect suppresses writes.
+- Integration: happy path `status`→`done`; 403 without `chat.ask`; 404 wrong conversation;
+  406 Accept; mid-stream SSE `error` with matching `reference`; clarification interrupt;
+  idempotent JSON replay without second graph invoke; updating → `KNOWLEDGE_UPDATING`.
 
 ## 10. Definition of Done
 
-- [ ] POST route live at `/api/v1/conversations/:id/messages` with SSE accept path.
-- [ ] `chat.ask`, project ACL, tenant scope enforced.
-- [ ] Knowledge gate for ready/partial/failed; updating path documented for 51, not fully implemented.
-- [ ] Six SSE event types only (`status`, `delta`, `clarification`, `evidence`, `done`, `error`).
-- [ ] Idempotency-Key on message create wired to phase 12.
-- [ ] Disconnect continues graph run; message recoverable by id (§96, §119).
-- [ ] No in-app rate limiting added.
-- [ ] Handler owns reply; services return data/throw only.
-- [ ] LangGraph runs in API process, not worker.
-- [ ] `npm run lint`, `npm test` pass; coverage ≥ 80% line and branch.
+- [ ] Project-scoped POST messages SSE path live.
+- [ ] `chat.ask`, project ACL, tenant/owner scope enforced.
+- [ ] Knowledge gate allow / deny / queue as locked above.
+- [ ] Six SSE event types only.
+- [ ] Idempotency-Key required; JSON replay on duplicate.
+- [ ] Disconnect continues graph; message recoverable by id.
+- [ ] Handler owns reply; services never take `reply`.
+- [ ] LangGraph in API process, not worker.
+- [ ] `npm run lint`, `npm test` pass; coverage ≥ 80% line and branch on touched code.
 
 ## 11. Documentation & ADR updates
 
-- `docs/architecture.md` §6.1: confirm step numbering matches handler.
-- `docs/architecture.md` §9 SSE list matches implementation.
-- Frontend requirements cross-link when PROPOSED contract approved.
+- `docs/architecture.md` §6.1 path + §9 event list.
+- `docs/data-model.md` `messageStatus` enum (with schema approval).
+- Frontend / phase 55 consumes this contract (no FE code in this phase).
 
-## 12. Risks & open questions
+## 12. Locked decisions (no open options)
 
-1. **Updating/recovering gate in 50:** return 501, 503, or temporary 202 stub until 51 ships?
-2. **Idempotent replay:** re-open SSE stream vs JSON pointing to GET message?
-3. **Accept header mandatory** or negotiate JSON async job response for non-browser clients?
-4. **Cancel on disconnect:** architecture default continue — confirm no stop button requirement in 53
-   for in-flight generation.
-5. **SSE heartbeat / proxy timeouts** — constant keep-alive needed for local dev only?
-6. **Ask-about-this** body fields from phase 38 — include in POST schema now or later phase?
+1. Updating gate → `KNOWLEDGE_UPDATING` JSON (not 501/202 stub).
+2. Idempotent replay → JSON pointing at message ids (not re-opened SSE).
+3. Accept must include `text/event-stream` → else `NOT_ACCEPTABLE`.
+4. Disconnect → continue run; no cancel-on-disconnect in this phase.
+5. SSE comment keepalive via named constant.
+6. Body is `{ content }` only (no ask-about-this fields).

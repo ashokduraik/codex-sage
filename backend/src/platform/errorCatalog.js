@@ -386,6 +386,12 @@ export const ERROR_CATALOG = Object.freeze({
     retryability: 'user_action_required',
     message: 'No change summary is available for this project.',
   }),
+  NOT_ACCEPTABLE: Object.freeze({
+    class: 'user',
+    httpStatus: 406,
+    retryability: 'user_action_required',
+    message: 'This endpoint requires Accept: text/event-stream.',
+  }),
   UNSUPPORTED_MEDIA_TYPE: Object.freeze({
     class: 'source',
     httpStatus: 415,

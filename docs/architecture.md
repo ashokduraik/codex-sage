@@ -286,7 +286,8 @@ next stage boundary. A sweeper requeues or fails jobs whose heartbeat expired.
 
 ### 6.1 HTTP / SSE (API process)
 
-`POST /api/v1/conversations/:id/messages` with `Accept: text/event-stream`.
+`POST /api/v1/projects/:projectId/conversations/:conversationId/messages` with
+`Accept: text/event-stream`.
 
 ```text
  1  Browser     POST { content }

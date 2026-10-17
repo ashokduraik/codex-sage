@@ -9,13 +9,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   invokeChatGraph,
   compileChatGraph,
+  MAX_VERIFY_REVISE,
   buildChatGraphThreadId,
   parseChatGraphThreadId,
+  runDeterministicVerify,
   CLARIFICATION_MAX_ROUNDS,
-  MAX_VERIFY_REVISE,
   toolChoiceDecisionSchema,
   understandDecisionSchema,
-  runDeterministicVerify,
   resumeChatGraphFromClarification,
 } from '../../../src/modules/conversation/chatGraph.js';
 

@@ -27,6 +27,14 @@ export {
   updateConversationTitle,
   conversationRoutes,
 } from './conversation.js';
+export {
+  CHAT_MESSAGE_CONTENT_MAX_LENGTH,
+  SSE_KEEPALIVE_INTERVAL_MS,
+  acceptIncludesEventStream,
+  chatStreamRoutes,
+  formatSseEvent,
+  runChatMessageStream,
+} from './chatStream.js';
 export { COMPACTION_MAX_PASSES, EXCERPT_MIN_TOKENS, RESERVED_OUTPUT_TOKENS, getContextBudgetConfig, prepareModelInput } from './contextBudgeter.js';
 export {
   INFERENCE_QUEUE_MAX_CONCURRENCY,

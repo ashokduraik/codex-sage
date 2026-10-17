@@ -1,6 +1,6 @@
 import { healthRoutes } from './health.routes.js';
-import { conversationContextRoutes, conversationRoutes } from '../modules/conversation/index.js';
 import { authRoutes, passwordRoutes, permissionsRoutes, auditRoutes } from '../modules/access/index.js';
+import { chatStreamRoutes, conversationContextRoutes, conversationRoutes } from '../modules/conversation/index.js';
 import { identityRoutes, projectRoutes, projectMemberRoutes, jobRoutes, notificationRoutes, usageRoutes } from '../modules/masters/index.js';
 import {
   searchRoutes,
@@ -35,6 +35,7 @@ export async function registerRoutes(app) {
   await app.register(knowledgeBrowseRoutes);
   await app.register(searchRoutes);
   await app.register(conversationRoutes);
+  await app.register(chatStreamRoutes);
   await app.register(conversationContextRoutes);
   await app.register(notificationRoutes);
   await app.register(usageRoutes);
