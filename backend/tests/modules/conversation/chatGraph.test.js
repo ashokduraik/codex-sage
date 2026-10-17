@@ -505,6 +505,7 @@ describe('invokeChatGraph', () => {
       id: 'custom',
       type: 'multi_select',
       prompt: 'Pick',
+      required: true,
       options: ['a', 'b'],
     });
     expect(interrupted.__interrupt__[0].value.questions[1].id).toBe('q2');

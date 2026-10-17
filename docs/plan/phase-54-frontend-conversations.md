@@ -23,8 +23,8 @@ soft-delete, select a thread without leaving the workspace, and read persisted m
 `GET` endpoints — including empty, loading, and error states on mobile and desktop.
 
 Streaming answers, clarification UI, evidence panels, metrics, and message edit/retry stay out of
-scope; the composer may remain disabled or show a “connect in Phase 55” guard until Phase 55 lands,
-but **conversation list and message history must not use mock data**.
+scope; the composer is **disabled** with a Phase 55 guard, but **conversation list and message
+history must not use mock data**.
 
 You can see it working by opening Project → Chat: `[+ New Chat]` creates a row via the API, the
 sidebar lists only **your** conversations (frontend §106), search returns backend snippets, and
@@ -45,34 +45,32 @@ work — one reviewable PR for list/history/lifecycle keeps D9 intact.
 
 ### In scope
 
-- `conversations` API module + React Query hooks: list (recent + archived), detail with messages,
-  create, patch title, archive, restore, soft-delete, project-scoped search.
-- Rewire `ConversationList`, `ConversationsPage` routing glue, and `ChatWorkspace` **history +
-  message list** to server state; remove `useAppData()` from those paths (decision D7).
-- URL or outlet state for `activeConversationId` (preserve selection across refresh where the
-  router already supports `?conversation=` — match existing `ChatWorkspace` pattern).
+- `conversations` API module + React Query hooks: list (recent + archived), detail header,
+  paginated messages, create, rename, archive, restore, soft-delete, project-scoped search.
+- Rewire `ConversationList`, `ConversationsPage`, and `ChatWorkspace` **history + message list**
+  to server state; remove `useAppData()` from those paths (decision D7).
+- URL selection via existing `?conv=` (outlet `activeConvId` sync).
 - Privacy copy and behavior: never show another user’s threads; no UI implying conversations are
-  project knowledge (frontend §106, backend §2396 area).
+  project knowledge (frontend §106).
 - Empty / skeleton / error states for no conversations, search no results, detail `404`, `403`.
 - i18n for all new strings; action feedback on rename, archive, restore, delete (loader,
   `aria-busy`, inline `role="alert"` from `error.message`).
 - Responsive layout: two-panel desktop (frontend §32), collapsible history on mobile (§92);
   no horizontal scroll at 375 / 768 / 1280 px.
-- Read-only rendering of persisted user/assistant messages (plain text or minimal markdown preview
-  **without** live SSE — full markdown/streaming is Phase 55).
+- Read-only rendering of persisted user/assistant messages (static markdown; no live SSE).
+- Global `/conversations` page: privacy note + CTA to `/projects` (no cross-project list API).
 
 ### Out of scope (owner phase)
 
-- `POST …/messages` SSE send, incremental answer, stop, stream recovery — **Phase 55**.
+- `POST …/streamMessage` SSE send, incremental answer, stop, stream recovery — **Phase 55**.
 - Clarification one-at-a-time UI and answers POST — **Phase 56**.
-- Evidence list, preview drawer, abstain styling, context metrics, knowledge-version banner —
-  **Phase 57**.
-- Message edit, downstream replace, assistant retry — **Phase 53** (BE) + a later FE slice or
-  folded into 55/57 per product call; **not** this phase.
+- Evidence preview drawer, abstain styling polish, context metrics, knowledge-version banner —
+  **Phase 57** (static evidence list may still render when present on a message DTO).
+- Message edit, downstream replace, assistant retry — **Phase 53** (BE) + later FE; **not** this
+  phase.
 - Queued-message `202` handling during knowledge updates — **Phase 51** + **Phase 55** (this
   phase may show static banner text from project `knowledgeHealth` only).
-- Home dashboard “recent conversations” — still mock until this or a tiny follow-up wires Home;
-  **optional stretch** only if time remains (see §12).
+- Home dashboard “recent conversations” — remains mock until a follow-up.
 - Playwright — **Phase 63**.
 
 ## 4. Design
@@ -83,32 +81,34 @@ work — one reviewable PR for list/history/lifecycle keeps D9 intact.
 frontend/src/features/chat/
   api/conversationsApi.js       HTTP functions (Phase 13 client)
   api/conversationTypes.js      DTO unions (known codes + string fallback)
-  hooks/useConversations.js     list + archived toggle
-  hooks/useConversation.js      detail + messages (paginated if BE offers cursor)
+  hooks/useConversations.js     infinite list + archived toggle
+  hooks/useConversation.js      detail header
+  hooks/useConversationMessages.js  paginated messages (auto-page to end)
   hooks/useConversationSearch.js  debounced search query
-  hooks/useConversationMutations.js  create, patch, archive, restore, delete
+  hooks/useConversationMutations.js  create, rename, archive, restore, delete
   conversationQueryKeys.js      shared key factory
-  ChatWorkspace.jsx             rewire list + messages; composer stub or read-only
+  ChatWorkspace.jsx             rewire list + messages; composer disabled
   ConversationList.jsx          React Query + server search
-  ConversationsPage.jsx         outlet / mobile history toggle
-  MessageItem.jsx               static render for persisted rows (streaming attrs unused)
+  ConversationsPage.jsx         privacy + project CTA
+  MessageItem.jsx               static render for persisted rows
 ```
 
-React Query keys (illustrative):
+React Query keys:
 
 ```text
 ['conversations', 'list', projectId, { archived }]
-['conversations', 'detail', conversationId]
-['conversations', 'search', projectId, { q, cursor }]
+['conversations', 'detail', projectId, conversationId]
+['conversations', 'messages', projectId, conversationId]
+['conversations', 'search', projectId, { q, archived }]
 ```
 
-Mutations invalidate list + detail keys; selecting a conversation prefetches detail.
+Mutations invalidate list + detail + search (+ messages on delete); selecting a conversation
+loads detail + messages.
 
 ### 4.2 Privacy and tenancy
 
 - All hooks take `projectId` from the Phase 19 outlet; never send a client-only org id.
-- List and search results are **author-owned** per Phase 41/42 PROPOSED contracts; the UI does not
-  offer “team inbox” or merge another user’s threads.
+- List and search results are **owner-only** (AS-BUILT BE); the UI does not offer a team inbox.
 - Copy in `en.json` states that chat history is private to the signed-in user while project
   **knowledge** is shared (frontend §106).
 
@@ -122,97 +122,96 @@ Mutations invalidate list + detail keys; selecting a conversation prefetches det
 | Restore | Archived menu | Back to Recent | Alert |
 | Delete | `··· → Delete` confirm | Soft-delete; clear selection if active | Alert |
 
-Archived conversations remain openable; composer may be disabled when project not askable
-(`isProjectAskable` from Phase 19) with existing i18n patterns.
+Archived conversations remain openable; composer stays disabled until Phase 55. When the project
+is not askable (`isProjectAskable`), show existing archived/unavailable copy.
+
+Permission gates (from `me.permissions`):
+
+- Search UI requires `conversations.search`.
+- Archive / restore / delete require `conversations.archive`.
+- Create / rename / list / get / messages require `chat.ask` (project route already gates chat).
 
 ### 4.4 Search
 
-- Debounced input calls `GET …/conversations/search` (Phase 42 PROPOSED), not local filter-only.
+- Debounced input calls `GET …/conversation/conversation/search/:projectId` when `q` non-empty.
 - Results show `title`, `snippet`, `updatedAt`; selecting sets active id and loads detail.
 - Empty search → dedicated empty state, not “No data found” (frontend §88).
 
 ### 4.5 Message list (pre-stream)
 
-- Load messages with conversation detail or nested `GET …/messages` if Phase 41 splits them —
-  **follow approved Phase 41 shape**; do not invent fields.
-- Order oldest → newest; scroll container preserves position on prepend when pagination added.
-- Assistant rows without streaming show stored `content` markdown as **static** render (reuse
-  Phase 55 markdown component only if extracted early; otherwise plain pre-wrap with note in 55).
+- `GET …/listMessages/:projectId/:conversationId` with keyset (`items`, `nextCursor`).
+- Order oldest → newest; on select, auto-fetch pages until `nextCursor` is null (capped).
+- Assistant rows show stored `content` via existing `MarkdownRenderer` (static).
 
 ### 4.6 Knowledge-update banner (read-only)
 
-When `knowledgeHealth` is `updating` or project lifecycle is `updating`, show frontend §35 copy
-near the composer (“queued” explanation) using project detail from Phase 19 — **do not** simulate
+When `knowledgeHealth` is `updating` or project `lifecycleStatus` is `updating`, show frontend
+§35 / `chat.queuedNotice` near the composer using project detail from Phase 19 — do not simulate
 queue state without Phase 51/55.
 
 ### 4.7 Accessibility
 
-- History panel: roving tabindex or listbox pattern; `aria-current` on selected conversation.
-- Mobile history drawer: focus trap while open, return focus to toggle on close.
+- History panel: listbox pattern; `aria-current` on selected conversation.
+- Mobile history drawer: return focus to toggle on close.
 - Delete confirm: destructive control not default-focused.
 
 ## 5. Data model changes
 
 **None.** Frontend-only; consumes Phase 41–42 collections via HTTP.
 
-## 6. API contract — PROPOSED (needs approval before implementation)
+## 6. API contract — AS-BUILT
 
-Endpoints are **owned by Phases 41 and 42**; shapes below are consumed as-is once those phases’
-section 6 documents are approved. This phase defines **no new backend routes**.
+**Runtime truth:** [`backend/src/http/route.js`](../../backend/src/http/route.js) under
+`API_BASE_PATH` (`/api/v1`). Older phase-41/42 docs may still show `/projects/.../conversations`
+paths — do not reintroduce those. This phase defines **no new backend routes**.
 
-### Phase 41 — conversations (PROPOSED)
+| Method | Path | Permission | Body / query | Response |
+|---|---|---|---|---|
+| `POST` | `/conversation/conversation/create/:projectId` | `chat.ask` + `Idempotency-Key` | `{ title? }` | conversation DTO (201) |
+| `GET` | `/conversation/conversation/list/:projectId` | `chat.ask` | `archived`, `cursor`, `limit` | `{ items, nextCursor }` list DTOs |
+| `GET` | `/conversation/conversation/search/:projectId` | `conversations.search` | `q`, `archived`, `cursor`, `limit` | `{ items: [{ id, title, snippet, updatedAt, titleSource }], nextCursor }` |
+| `GET` | `/conversation/conversation/get/:projectId/:conversationId` | `chat.ask` | — | header DTO |
+| `GET` | `/conversation/conversation/listMessages/:projectId/:conversationId` | `chat.ask` | `cursor`, `limit` | `{ items, nextCursor }` message DTOs |
+| `PATCH` | `/conversation/conversation/rename/:projectId/:conversationId` | `chat.ask` | `{ title }` | conversation DTO |
+| `POST` | `/conversation/conversation/archive/:projectId/:conversationId` | `conversations.archive` | — | conversation DTO |
+| `POST` | `/conversation/conversation/restore/:projectId/:conversationId` | `conversations.archive` | — | conversation DTO |
+| `DELETE` | `/conversation/conversation/delete/:projectId/:conversationId` | `conversations.archive` | — | 204 |
 
-| Method | Path | Permission | Purpose |
-|---|---|---|---|
-| `POST` | `/api/v1/projects/:projectId/conversations` | `chat.ask` | Create `{ title? }` → `{ id, title, lifecycleStatus, … }` |
-| `GET` | `/api/v1/projects/:projectId/conversations` | `conversations.view` or `chat.ask` | List `{ items[], nextCursor }`; query `archived`, `cursor` |
-| `GET` | `/api/v1/conversations/:conversationId` | owner + project ACL | Detail + messages or message sub-resource |
-| `PATCH` | `/api/v1/conversations/:conversationId` | owner | `{ title }` |
-| `POST` | `/api/v1/conversations/:conversationId/archive` | owner | Archive |
-| `POST` | `/api/v1/conversations/:conversationId/restore` | owner | Restore |
-| `DELETE` | `/api/v1/conversations/:conversationId` | owner | Soft-delete `status: 'D'` |
+Conversation header DTO fields include: `id`, `projectId`, `title`, `titleSource`,
+`lifecycleStatus`, `ownerUserId`, `messageCount`, `lastMessageAt`, `archivedAt`, `createdAt`,
+`updatedAt`. List items omit `ownerUserId` / `archivedAt` / `projectId`.
 
-Message rows (read): `{ id, role, content, messageStatus, createdAt, … }` — no client-side
-fabrication of `messageStatus`.
+Message DTO fields include: `id`, `role`, `content`, `messageStatus`, `createdAt`, plus optional
+`evidence`, `error`, queue stamps, etc. when present — no client fabrication of `messageStatus`.
 
-Errors: standard envelope (ADR 0010); `404` cross-tenant; `403` missing permission.
+Errors: standard envelope (ADR 0010); `404` cross-tenant / missing; `403` missing permission.
 
-### Phase 42 — search (PROPOSED)
-
-| Method | Path | Permission | Purpose |
-|---|---|---|---|
-| `GET` | `/api/v1/projects/:projectId/conversations/search?q=&cursor=` | `conversations.search` or `chat.ask` | `{ items: [{ id, title, snippet, updatedAt }], nextCursor }` |
-
-Search scope (own vs org_admin all-in-project) is **not decided here** — see §12 question 1.
+Search scope: **own conversations only** (BE `buildOwnConversationFilter`).
 
 ## 7. Configuration & environment variables
 
-**None new.** API base URL from Phase 13. Page sizes and debounce ms are **named constants** in
-`useConversationSearch.js` (not env).
+**None new.** API base URL from Phase 13. Page sizes and debounce ms are **named constants** next
+to the API/hooks modules (not env).
 
 ## 8. Files to create or change
 
 | Path | Purpose |
 |---|---|
 | `frontend/src/features/chat/api/conversationsApi.js` | **New:** CRUD + search request functions |
-| `frontend/src/features/chat/api/conversationTypes.js` | **New:** DTO types with `string` fallback for enums |
+| `frontend/src/features/chat/api/conversationTypes.js` | **New:** DTO typedefs with `string` fallback |
 | `frontend/src/features/chat/conversationQueryKeys.js` | **New:** React Query key helpers |
 | `frontend/src/features/chat/hooks/useConversations.js` | **New:** list queries |
-| `frontend/src/features/chat/hooks/useConversation.js` | **New:** detail + messages |
+| `frontend/src/features/chat/hooks/useConversation.js` | **New:** detail header |
+| `frontend/src/features/chat/hooks/useConversationMessages.js` | **New:** message pages |
 | `frontend/src/features/chat/hooks/useConversationSearch.js` | **New:** debounced search |
-| `frontend/src/features/chat/hooks/useConversationMutations.js` | **New:** create/patch/archive/restore/delete |
-| `frontend/src/features/chat/hooks/*.test.js` | **New:** hook behavior + error paths |
+| `frontend/src/features/chat/hooks/useConversationMutations.js` | **New:** create/rename/archive/restore/delete |
+| `frontend/tests/features/chat/**` | Hook + component tests |
 | `frontend/src/features/chat/ConversationList.jsx` | Drop `useAppData`; server list + search |
-| `frontend/src/features/chat/ConversationList.test.jsx` | Rewrite for API mocks |
-| `frontend/src/features/chat/ChatWorkspace.jsx` | Server messages; remove mock `askQuestion` path |
-| `frontend/src/features/chat/ChatWorkspace.test.jsx` | Empty, error, selection, mobile drawer |
-| `frontend/src/features/chat/ConversationsPage.jsx` | Wire project id + permissions |
-| `frontend/src/features/chat/ConversationsPage.test.jsx` | Routing smoke |
-| `frontend/src/features/chat/MessageItem.jsx` | Persisted message render (non-streaming) |
-| `frontend/src/features/chat/MessageItem.test.jsx` | User vs assistant rows |
-| `frontend/src/features/chat/index.js` | Export hooks/api |
-| `frontend/src/shared/i18n/locales/en.json` | Privacy, search, lifecycle, error keys |
-| `frontend/src/features/projects/ProjectDetailPage.jsx` | Pass askable flag into chat outlet if needed |
+| `frontend/src/features/chat/ChatWorkspace.jsx` | Server messages; disabled composer |
+| `frontend/src/features/chat/ConversationsPage.jsx` | Privacy + CTA to projects |
+| `frontend/src/features/chat/MessageItem.jsx` | BE `messageStatus` mapping |
+| `frontend/src/shared/i18n/locales/en.json` | Privacy, search, lifecycle, Phase 55 guard |
+| `frontend/src/features/projects/ProjectDetailPage.jsx` | Chat uses API project (no mock for threads) |
 
 Do **not** delete `shared/mock-data/` until no feature imports it (D7); after this phase chat
 must not import mock conversation helpers.
@@ -223,7 +222,8 @@ must not import mock conversation helpers.
 
 - Query keys include `projectId` and `archived` flag.
 - Mutations invalidate correct keys on success; surface `error.message` on failure.
-- Unknown `lifecycleStatus` on a conversation does not crash list render.
+- Unknown `lifecycleStatus` / `messageStatus` does not crash render.
+- Create sends `Idempotency-Key`.
 
 ### Component (`*.test.jsx`, mocked API)
 
@@ -231,13 +231,14 @@ must not import mock conversation helpers.
 - List fetch error → `role="alert"` + retry.
 - Search with no results → dedicated empty state.
 - Select conversation loads messages; skeleton while pending.
-- Archive moves item out of Recent (mock API sequence).
-- Restore returns item to Recent.
+- Archive / restore list transitions.
 - Delete clears selection when deleting active thread.
-- `403` on detail shows forbidden copy, not raw code.
-- `404` on detail shows not-found panel.
+- `403` / `404` on detail show copy, not raw codes.
+- Composer disabled with Phase 55 guard.
+- ConversationsPage CTA to projects.
 - Mobile viewport 375px: history toggle opens/closes without horizontal overflow.
-- Unauthorized list (`401`) handled by Phase 13 session gate — not re-tested deeply here.
+- Search hidden without `conversations.search`; archive actions hidden without
+  `conversations.archive`.
 
 ### Unhappy paths (required)
 
@@ -255,25 +256,23 @@ must not import mock conversation helpers.
 - [ ] Search uses backend search endpoint when `q` non-empty.
 - [ ] Layouts pass 375 / 768 / 1280 without horizontal scroll.
 - [ ] `npm run lint` and `npm test` in `frontend/` with ≥ 80% line+branch on touched files.
-- [ ] Section 6 endpoints treated as PROPOSED until Phases 41–42 approved.
+- [ ] Section 6 matches AS-BUILT `http/route.js`.
 
 ## 11. Documentation & ADR updates
 
 - No ADR expected.
-- When Phase 41/42 contracts change, update this file’s section 6 references in the same PR as
-  hook type adjustments — do not drift silently.
+- This file’s section 6 is AS-BUILT; when conversation routes change, update this file in the
+  same PR as hook adjustments. Runtime catalog remains `backend/src/http/route.js`.
 
-## 12. Risks & open questions
+## 12. Locked decisions
 
-Ask the user; do not assume (`.cursor/rules/no-assumptions.mdc`).
-
-1. **Search scope:** Phase 42 README question — own conversations only vs org_admin all in project;
-   affects empty states and permission errors in UI.
-2. **Messages pagination:** Does Phase 41 return all messages on detail or paginate? Infinite
-   scroll vs “load older” must match BE.
-3. **Composer in 54:** Ship read-only composer with explanation, or feature-flag send until 55
-   merges in the same sprint?
-4. **Home recent conversations:** Wire in this phase or defer to avoid scope creep?
-5. **Auto-title display:** Phase 42 may update title after first answer (Phase 49); should list
-   poll/refetch on window focus, or rely on mutation invalidation from 55 only?
-6. **Shared conversations:** Requirements allow future sharing; confirm no “shared” badge in MVP.
+1. **Search scope:** own conversations only (matches BE).
+2. **Messages:** separate `listMessages` keyset; auto-fetch pages to end (capped); limit 50.
+3. **Composer:** disabled with Phase 55 i18n guard; no mock send/stream.
+4. **Home recent conversations:** deferred (leave mock).
+5. **Auto-title refresh:** `refetchOnWindowFocus` on list/detail; no polling.
+6. **Shared badge:** none in MVP.
+7. **Global `/conversations`:** privacy + CTA to `/projects`; no invented cross-project list.
+8. **Edit/retry:** wired off (`canEdit={false}`, no retry handlers).
+9. **Create:** always send `Idempotency-Key: crypto.randomUUID()`.
+10. **Permissions:** gate search / archive menus on `me.permissions` as above.

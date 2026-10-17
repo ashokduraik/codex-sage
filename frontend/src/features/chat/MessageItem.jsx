@@ -1,12 +1,52 @@
+/**
+ * Single chat message row for persisted user/assistant turns (static; no streaming).
+ */
 import { useState } from 'react';
 import { cn } from '@/shared/lib/utils';
 import { Button } from '@/shared/ui/button';
 import { useTranslation } from 'react-i18next';
 import { Textarea } from '@/shared/ui/textarea';
 import { MarkdownRenderer, AbstainNotice } from '@/shared/components';
-import { FileCode, ChevronDown, ChevronRight, AlertTriangle, RefreshCw, Pencil, Check, X, Loader2, Ban, Clock } from 'lucide-react';
+import { X, Ban, Check, Clock, Pencil, Loader2, FileCode, RefreshCw, ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react';
 
 const STATUS_META = {
+  queued: {
+    labelKey: 'chat.statusQueued',
+    icon: Clock,
+    spin: false,
+    tone: 'text-blue-600',
+  },
+  accepted: {
+    labelKey: 'chat.searching',
+    icon: Loader2,
+    spin: true,
+    tone: 'text-muted-foreground',
+  },
+  generating: {
+    labelKey: 'chat.generating',
+    icon: Loader2,
+    spin: true,
+    tone: 'text-muted-foreground',
+  },
+  awaiting_clarification: {
+    labelKey: 'chat.awaitingClarification',
+    icon: AlertTriangle,
+    spin: false,
+    tone: 'text-amber-600',
+  },
+  completed: { labelKey: 'chat.statusCompleted', icon: null, tone: '' },
+  abstained: { labelKey: 'chat.statusAbstained', icon: Ban, tone: 'text-muted-foreground' },
+  failed: {
+    labelKey: 'chat.statusFailed',
+    icon: AlertTriangle,
+    tone: 'text-destructive',
+  },
+  interrupted: {
+    labelKey: 'chat.statusInterrupted',
+    icon: Ban,
+    tone: 'text-amber-600',
+  },
+  // Legacy mock display strings (tests / transitional props)
   Searching: {
     labelKey: 'chat.searching',
     icon: Loader2,
@@ -41,6 +81,22 @@ const STATUS_META = {
     tone: 'text-blue-600',
   },
 };
+
+/**
+ * Resolves the display status code from a message DTO.
+ * @param {object} message Message row.
+ * @returns {string}
+ */
+function resolveMessageStatus(message) {
+  if (typeof message?.messageStatus === 'string' && message.messageStatus) {
+    return message.messageStatus;
+  }
+  if (typeof message?.status === 'string' && message.status) {
+    return message.status;
+  }
+  return 'completed';
+}
+
 /**
  * Collapsible evidence list attached to a completed assistant message.
  *
@@ -50,7 +106,8 @@ const STATUS_META = {
 function EvidenceSources({ evidence }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
-  if (!evidence?.length) return null;
+  const items = Array.isArray(evidence) ? evidence : [];
+  if (items.length === 0) return null;
   return (
     <div className="mt-3 border-t border-border pt-2.5">
       <button
@@ -59,27 +116,35 @@ function EvidenceSources({ evidence }) {
         className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
       >
         {open ? <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" /> : <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />}
-        {t('chat.sourceCount', { count: evidence.length })}
+        {t('chat.sourceCount', { count: items.length })}
       </button>
       {open && (
         <div className="mt-2 space-y-2">
-          {evidence.map((item, index) => (
-            <div key={`${item.file}-${index}`} className="rounded-lg border border-border bg-muted/30 p-2.5">
-              <div className="flex items-center gap-1.5 text-xs font-medium text-foreground">
-                <FileCode className="h-3.5 w-3.5 text-brand" aria-hidden="true" />
-                <span className="font-mono">{item.file}</span>
-                {item.location && <span className="text-muted-foreground">· {item.location}</span>}
+          {items.map((item, index) => {
+            const file = item.file ?? item.path ?? item.locator?.path ?? 'source';
+            const location = item.location ?? item.locator?.range ?? '';
+            const snippet = item.snippet ?? item.text ?? '';
+            return (
+              <div key={`${file}-${index}`} className="rounded-lg border border-border bg-muted/30 p-2.5">
+                <div className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+                  <FileCode className="h-3.5 w-3.5 text-brand" aria-hidden="true" />
+                  <span className="font-mono">{file}</span>
+                  {location ? <span className="text-muted-foreground">· {location}</span> : null}
+                </div>
+                {snippet ? (
+                  <pre className="mt-1.5 overflow-x-auto rounded bg-[hsl(215_28%_8%)] p-2.5 font-mono text-[12px] leading-relaxed text-white/85 scrollbar-thin">
+                    {snippet}
+                  </pre>
+                ) : null}
               </div>
-              <pre className="mt-1.5 overflow-x-auto rounded bg-[hsl(215_28%_8%)] p-2.5 font-mono text-[12px] leading-relaxed text-white/85 scrollbar-thin">
-                {item.snippet}
-              </pre>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
   );
 }
+
 /**
  * Single chat message row for user or assistant turns.
  *
@@ -90,12 +155,17 @@ export function MessageItem({ message, isUser, onEdit, onRetry, canEdit = false 
   const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(message.content);
-  const meta = STATUS_META[message.status];
+  const statusCode = resolveMessageStatus(message);
+  const meta = STATUS_META[statusCode];
+  const isCompleted = statusCode === 'completed' || statusCode === 'Completed';
+  const isFailed = statusCode === 'failed' || statusCode === 'Failed';
+  const isAbstained = statusCode === 'abstained' || message.abstain || message.supportLevel === 'insufficient';
+  const showStatusChrome = Boolean(meta?.icon) && !isCompleted;
   /**
    * Persist an edited user message when the draft changed.
    */
   const saveEdit = () => {
-    if (draft.trim() && draft.trim() !== message.content) {
+    if (draft.trim() && draft.trim() !== message.content && typeof onEdit === 'function') {
       onEdit(draft.trim());
     }
     setEditing(false);
@@ -152,39 +222,43 @@ export function MessageItem({ message, isUser, onEdit, onRetry, canEdit = false 
           )
         ) : (
           <div>
-            {meta && message.status !== 'Completed' && meta.icon && (
+            {showStatusChrome && meta?.icon ? (
               <div className={cn('flex items-center gap-1.5 text-sm', meta.tone)}>
-                <meta.icon className={cn('h-3.5 w-3.5', meta.spin && 'animate-spin')} />
+                <meta.icon className={cn('h-3.5 w-3.5', meta.spin && 'animate-spin')} aria-hidden="true" />
                 {t(meta.labelKey)}
               </div>
-            )}
-            {message.content && <MarkdownRenderer content={message.content} />}
-            {message.abstain && <AbstainNotice missing={message.missing} onRetry={onRetry} onNarrow={onRetry} />}
-            {message.status === 'Failed' && !message.abstain && (
+            ) : null}
+            {message.content ? <MarkdownRenderer content={message.content} /> : null}
+            {isAbstained && typeof onRetry === 'function' ? <AbstainNotice missing={message.missing} onRetry={onRetry} onNarrow={onRetry} /> : null}
+            {isAbstained && typeof onRetry !== 'function' ? <p className="mt-2 text-sm text-muted-foreground">{t('chat.statusAbstained')}</p> : null}
+            {isFailed && !isAbstained ? (
               <div className="mt-2 flex items-center gap-2">
                 <span className="text-sm text-destructive">{t('chat.generationFailed')}</span>
-                <Button size="sm" variant="outline" onClick={onRetry}>
-                  <RefreshCw className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                  {t('chat.retry')}
-                </Button>
+                {typeof onRetry === 'function' ? (
+                  <Button size="sm" variant="outline" onClick={onRetry}>
+                    <RefreshCw className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                    {t('chat.retry')}
+                  </Button>
+                ) : null}
               </div>
-            )}
-            {message.status === 'Completed' && <EvidenceSources evidence={message.evidence} />}
-            {message.status === 'Completed' && (message.evidence || message.knowledgeVersion) && (
+            ) : null}
+            {isCompleted ? <EvidenceSources evidence={message.evidence} /> : null}
+            {isCompleted && (message.evidence || message.knowledgeVersion || message.knowledgeVersionId) ? (
               <div className="mt-2 flex items-center gap-3 text-[11px] text-muted-foreground">
-                {message.knowledgeVersion && (
+                {(message.knowledgeVersion || message.knowledgeVersionId) && (
                   <span>
                     {t('chat.knowledgeVersion', {
-                      version: message.knowledgeVersion,
+                      version: message.knowledgeVersion || message.knowledgeVersionId,
                     })}
                   </span>
                 )}
               </div>
-            )}
+            ) : null}
           </div>
         )}
       </div>
     </div>
   );
 }
+
 export default MessageItem;

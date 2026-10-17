@@ -326,11 +326,14 @@ Conversations do not write `KnowledgeVersion` or other project knowledge.
 
 ### `messages`
 
-One row per chat turn (Phase 41 schema; HTTP create is Phase 50; queue is Phase 51).
+One row per chat turn (Phase 41 schema; HTTP create is Phase 50; queue is Phase 51;
+edit/retry is Phase 53).
 Fields: `projectId`, `conversationId`, `role` (`user` \| `assistant` \| `system`), `content`,
 `messageStatus` (`queued` \| `accepted` \| `generating` \| `awaiting_clarification` \|
 `completed` \| `abstained` \| `failed` \| `interrupted`), `knowledgeVersionId`,
-`parentMessageId` (reserved for Phase 53),
+`parentMessageId` (assistant turn replies to this user message),
+`editedAt` (null until the user edits that user message in place),
+`editGeneration` (number, default `0`; increments on each successful edit),
 `queuedAt` / `expiresAt` / `blockingJobId` / `queueFailureCode` (null unless queued or
 queue-failed; Phase 51),
 optional `evidence` / `usage` / `contextMetrics` / `supportLevel` /

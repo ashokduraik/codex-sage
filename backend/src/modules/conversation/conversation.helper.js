@@ -3,8 +3,8 @@
  */
 import mongoose from 'mongoose';
 import { ApiError } from '../../platform/errors.js';
-import { assertOrgId, decodeCursor, encodeCursor, softDelete, ROW_STATUS_ACTIVE } from '../../platform/data/index.js';
 import { Message, MESSAGE_ROLE_VALUES, MESSAGE_STATUS_VALUES, MESSAGE_SUPPORT_LEVEL_VALUES } from '../../models/messages.model.js';
+import { assertOrgId, decodeCursor, encodeCursor, softDelete, ROW_STATUS_ACTIVE, ROW_STATUS_DELETED } from '../../platform/data/index.js';
 import {
   Conversation,
   CONVERSATION_TITLE_MAX_LENGTH,
@@ -903,7 +903,7 @@ export async function claimQueuedMessageForResume(input) {
 }
 
 /**
- * Creates the pending assistant sibling for a claimed queued user message.
+ * Creates a pending assistant sibling for an existing user message (queue resume, edit resubmit, retry).
  * @param {{
  *   orgId: import('mongoose').Types.ObjectId | string,
  *   projectId: string,
@@ -915,7 +915,7 @@ export async function claimQueuedMessageForResume(input) {
  * @returns {Promise<import('mongoose').Document>}
  * @throws {import('../../platform/errors.js').ApiError} When ids are invalid.
  */
-export async function insertAssistantForQueuedUser(input) {
+export async function insertAssistantForExistingUser(input) {
   assertOrgId(input.orgId);
   if (
     !mongoose.isValidObjectId(input.projectId) ||
@@ -1031,4 +1031,335 @@ export async function markExpiredQueuedMessagesFailed(input) {
     },
   ).exec();
   return result.modifiedCount ?? 0;
+}
+
+/**
+ * Loads one active message in a conversation by id.
+ * @param {{
+ *   orgId: import('mongoose').Types.ObjectId | string,
+ *   projectId: string,
+ *   conversationId: string,
+ *   messageId: string,
+ * }} input Scope.
+ * @returns {Promise<object | null>}
+ */
+export async function findActiveMessageInConversation(input) {
+  assertOrgId(input.orgId);
+  if (!mongoose.isValidObjectId(input.projectId) || !mongoose.isValidObjectId(input.conversationId) || !mongoose.isValidObjectId(input.messageId)) {
+    return null;
+  }
+  return Message.findOne({
+    _id: new mongoose.Types.ObjectId(String(input.messageId)),
+    orgId: input.orgId,
+    projectId: new mongoose.Types.ObjectId(String(input.projectId)),
+    conversationId: new mongoose.Types.ObjectId(String(input.conversationId)),
+    status: ROW_STATUS_ACTIVE,
+  }).exec();
+}
+
+/**
+ * True when an active assistant turn is mid-generation (`generating`).
+ * User rows stay `accepted` after send, so they must not count as in-flight.
+ * @param {{
+ *   orgId: import('mongoose').Types.ObjectId | string,
+ *   projectId: string,
+ *   conversationId: string,
+ * }} input Scope.
+ * @returns {Promise<boolean>}
+ */
+export async function conversationHasInFlightChatMessage(input) {
+  assertOrgId(input.orgId);
+  if (!mongoose.isValidObjectId(input.projectId) || !mongoose.isValidObjectId(input.conversationId)) {
+    return false;
+  }
+  const row = await Message.findOne({
+    orgId: input.orgId,
+    projectId: new mongoose.Types.ObjectId(String(input.projectId)),
+    conversationId: new mongoose.Types.ObjectId(String(input.conversationId)),
+    status: ROW_STATUS_ACTIVE,
+    role: 'assistant',
+    messageStatus: 'generating',
+  })
+    .select({ _id: 1 })
+    .lean()
+    .exec();
+  return Boolean(row);
+}
+
+/**
+ * Latest active message in the conversation (createdAt, _id descending).
+ * @param {{
+ *   orgId: import('mongoose').Types.ObjectId | string,
+ *   projectId: string,
+ *   conversationId: string,
+ * }} input Scope.
+ * @returns {Promise<object | null>}
+ */
+export async function findLatestActiveMessageInConversation(input) {
+  assertOrgId(input.orgId);
+  if (!mongoose.isValidObjectId(input.projectId) || !mongoose.isValidObjectId(input.conversationId)) {
+    return null;
+  }
+  return Message.findOne({
+    orgId: input.orgId,
+    projectId: new mongoose.Types.ObjectId(String(input.projectId)),
+    conversationId: new mongoose.Types.ObjectId(String(input.conversationId)),
+    status: ROW_STATUS_ACTIVE,
+  })
+    .sort({ createdAt: -1, _id: -1 })
+    .exec();
+}
+
+/**
+ * Soft-deletes every active message strictly after a pivot turn (replace-downstream).
+ * @param {{
+ *   orgId: import('mongoose').Types.ObjectId | string,
+ *   projectId: string,
+ *   conversationId: string,
+ *   afterCreatedAt: Date,
+ *   afterMessageId: string,
+ *   actorUserId?: string | null,
+ *   session?: import('mongoose').ClientSession,
+ * }} input Soft-delete scope.
+ * @returns {Promise<{ removedMessageIds: string[], removedAssistantMessageIds: string[], removedCount: number }>}
+ */
+export async function softDeleteMessagesAfter(input) {
+  assertOrgId(input.orgId);
+  if (
+    !mongoose.isValidObjectId(input.projectId) ||
+    !mongoose.isValidObjectId(input.conversationId) ||
+    !mongoose.isValidObjectId(input.afterMessageId)
+  ) {
+    throw ApiError.fromCode('VALIDATION_ERROR', {
+      details: [{ path: 'messageId', message: 'org/project/conversation/message ids must be valid ObjectIds' }],
+    });
+  }
+
+  const projectId = new mongoose.Types.ObjectId(String(input.projectId));
+  const conversationId = new mongoose.Types.ObjectId(String(input.conversationId));
+  const afterMessageId = new mongoose.Types.ObjectId(String(input.afterMessageId));
+  const actorUserId =
+    input.actorUserId && mongoose.isValidObjectId(input.actorUserId) ? new mongoose.Types.ObjectId(String(input.actorUserId)) : null;
+  const afterCreatedAt = input.afterCreatedAt instanceof Date ? input.afterCreatedAt : new Date(input.afterCreatedAt);
+
+  const filter = {
+    orgId: input.orgId,
+    projectId,
+    conversationId,
+    status: ROW_STATUS_ACTIVE,
+    $or: [{ createdAt: { $gt: afterCreatedAt } }, { createdAt: afterCreatedAt, _id: { $gt: afterMessageId } }],
+  };
+
+  let findQuery = Message.find(filter).select({ _id: 1, role: 1 }).lean();
+  if (input.session) {
+    findQuery = findQuery.session(input.session);
+  }
+  const rows = await findQuery.exec();
+  if (rows.length === 0) {
+    return { removedMessageIds: [], removedAssistantMessageIds: [], removedCount: 0 };
+  }
+
+  const removedMessageIds = rows.map((row) => String(row._id));
+  const removedAssistantMessageIds = rows.filter((row) => row.role === 'assistant').map((row) => String(row._id));
+  const now = new Date();
+
+  let updateQuery = Message.updateMany(filter, {
+    $set: {
+      status: ROW_STATUS_DELETED,
+      updatedBy: actorUserId,
+      updatedAt: now,
+    },
+  });
+  if (input.session) {
+    updateQuery = updateQuery.session(input.session);
+  }
+  await updateQuery.exec();
+
+  let conversationUpdate = Conversation.updateOne(
+    {
+      _id: conversationId,
+      orgId: input.orgId,
+      projectId,
+      status: ROW_STATUS_ACTIVE,
+    },
+    {
+      $inc: { messageCount: -rows.length },
+      ...(actorUserId ? { $set: { updatedBy: actorUserId } } : {}),
+    },
+  );
+  if (input.session) {
+    conversationUpdate = conversationUpdate.session(input.session);
+  }
+  await conversationUpdate.exec();
+
+  return { removedMessageIds, removedAssistantMessageIds, removedCount: rows.length };
+}
+
+/**
+ * Soft-deletes one active message by id (retry replaces a failed assistant).
+ * @param {{
+ *   orgId: import('mongoose').Types.ObjectId | string,
+ *   projectId: string,
+ *   conversationId: string,
+ *   messageId: string,
+ *   actorUserId?: string | null,
+ *   session?: import('mongoose').ClientSession,
+ * }} input Soft-delete scope.
+ * @returns {Promise<boolean>} True when a row was soft-deleted.
+ */
+export async function softDeleteActiveMessageById(input) {
+  assertOrgId(input.orgId);
+  if (!mongoose.isValidObjectId(input.projectId) || !mongoose.isValidObjectId(input.conversationId) || !mongoose.isValidObjectId(input.messageId)) {
+    return false;
+  }
+
+  const projectId = new mongoose.Types.ObjectId(String(input.projectId));
+  const conversationId = new mongoose.Types.ObjectId(String(input.conversationId));
+  const messageId = new mongoose.Types.ObjectId(String(input.messageId));
+  const actorUserId =
+    input.actorUserId && mongoose.isValidObjectId(input.actorUserId) ? new mongoose.Types.ObjectId(String(input.actorUserId)) : null;
+  const now = new Date();
+
+  let updateQuery = Message.updateOne(
+    {
+      _id: messageId,
+      orgId: input.orgId,
+      projectId,
+      conversationId,
+      status: ROW_STATUS_ACTIVE,
+    },
+    {
+      $set: {
+        status: ROW_STATUS_DELETED,
+        updatedBy: actorUserId,
+        updatedAt: now,
+      },
+    },
+  );
+  if (input.session) {
+    updateQuery = updateQuery.session(input.session);
+  }
+  const result = await updateQuery.exec();
+  if ((result.modifiedCount ?? 0) === 0) {
+    return false;
+  }
+
+  let conversationUpdate = Conversation.updateOne(
+    {
+      _id: conversationId,
+      orgId: input.orgId,
+      projectId,
+      status: ROW_STATUS_ACTIVE,
+    },
+    {
+      $inc: { messageCount: -1 },
+      ...(actorUserId ? { $set: { updatedBy: actorUserId } } : {}),
+    },
+  );
+  if (input.session) {
+    conversationUpdate = conversationUpdate.session(input.session);
+  }
+  await conversationUpdate.exec();
+  return true;
+}
+
+/**
+ * Updates a user message content in place and bumps edit metadata.
+ * @param {{
+ *   orgId: import('mongoose').Types.ObjectId | string,
+ *   projectId: string,
+ *   conversationId: string,
+ *   messageId: string,
+ *   content: string,
+ *   actorUserId: string,
+ *   session?: import('mongoose').ClientSession,
+ * }} input Edit fields.
+ * @returns {Promise<import('mongoose').Document | null>}
+ */
+export async function updateUserMessageContentForEdit(input) {
+  assertOrgId(input.orgId);
+  if (
+    !mongoose.isValidObjectId(input.projectId) ||
+    !mongoose.isValidObjectId(input.conversationId) ||
+    !mongoose.isValidObjectId(input.messageId) ||
+    !mongoose.isValidObjectId(input.actorUserId)
+  ) {
+    throw ApiError.fromCode('VALIDATION_ERROR', {
+      details: [{ path: 'messageId', message: 'org/project/conversation/message/actor ids must be valid ObjectIds' }],
+    });
+  }
+
+  const now = new Date();
+  let query = Message.findOneAndUpdate(
+    {
+      _id: new mongoose.Types.ObjectId(String(input.messageId)),
+      orgId: input.orgId,
+      projectId: new mongoose.Types.ObjectId(String(input.projectId)),
+      conversationId: new mongoose.Types.ObjectId(String(input.conversationId)),
+      role: 'user',
+      status: ROW_STATUS_ACTIVE,
+    },
+    {
+      $set: {
+        content: input.content,
+        editedAt: now,
+        updatedBy: new mongoose.Types.ObjectId(String(input.actorUserId)),
+      },
+      $inc: { editGeneration: 1 },
+    },
+    { returnDocument: 'after' },
+  );
+  if (input.session) {
+    query = query.session(input.session);
+  }
+  return query.exec();
+}
+
+/**
+ * Marks an existing user message as queued while knowledge is updating (edit/retry 202 path).
+ * @param {{
+ *   orgId: import('mongoose').Types.ObjectId | string,
+ *   projectId: string,
+ *   conversationId: string,
+ *   messageId: string,
+ *   actorUserId: string,
+ *   blockingJobId?: string | null,
+ *   queuedAt: Date,
+ *   expiresAt: Date,
+ * }} input Queue fields.
+ * @returns {Promise<import('mongoose').Document | null>}
+ */
+export async function markUserMessageQueued(input) {
+  assertOrgId(input.orgId);
+  if (!mongoose.isValidObjectId(input.projectId) || !mongoose.isValidObjectId(input.conversationId) || !mongoose.isValidObjectId(input.messageId)) {
+    return null;
+  }
+
+  const blockingJobId =
+    input.blockingJobId && mongoose.isValidObjectId(input.blockingJobId) ? new mongoose.Types.ObjectId(String(input.blockingJobId)) : null;
+  const actorUserId =
+    input.actorUserId && mongoose.isValidObjectId(input.actorUserId) ? new mongoose.Types.ObjectId(String(input.actorUserId)) : null;
+
+  return Message.findOneAndUpdate(
+    {
+      _id: new mongoose.Types.ObjectId(String(input.messageId)),
+      orgId: input.orgId,
+      projectId: new mongoose.Types.ObjectId(String(input.projectId)),
+      conversationId: new mongoose.Types.ObjectId(String(input.conversationId)),
+      role: 'user',
+      status: ROW_STATUS_ACTIVE,
+    },
+    {
+      $set: {
+        messageStatus: 'queued',
+        queuedAt: input.queuedAt,
+        expiresAt: input.expiresAt,
+        blockingJobId,
+        queueFailureCode: null,
+        knowledgeVersionId: null,
+        ...(actorUserId ? { updatedBy: actorUserId } : {}),
+      },
+    },
+    { returnDocument: 'after' },
+  ).exec();
 }

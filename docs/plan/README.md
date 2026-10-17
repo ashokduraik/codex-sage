@@ -330,7 +330,7 @@ measurement/decision · `DOC` documentation.
 | 50 | [Chat SSE endpoint & stream lifecycle](./phase-50-chat-sse-endpoint.md) | BE | 12, 49 | be §65, §96, §119, §120; sol §5.1 |
 | 51 | [Queued questions during knowledge updates](./phase-51-queued-questions.md) | BE | 28, 50 | be §93–95, §144; sol §4.8, §5.8 |
 | 52 | [Clarification API: set delivery, answers & resume](./phase-52-clarification-api.md) | BE | 47, 50 | be §53–55; sol §5.4 |
-| 53 | [Message edit with downstream replace & response retry](./phase-53-message-edit-and-retry.md) | BE | 50 | be §46, §47; sol §10.1 |
+| 53 | [Message edit with downstream replace & response retry](./phase-53-message-edit-and-retry.md) | BE | 50 | be §46, §47; sol §10.1 — ADR 0036 `editMessage` / `retryMessage` locked |
 
 ### Part K — Frontend chat slices
 

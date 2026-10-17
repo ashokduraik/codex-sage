@@ -42,13 +42,17 @@ export {
   acceptIncludesEventStream,
   formatSseEvent,
   streamConversationMessageHttp,
+  editConversationMessageHttp,
+  retryConversationMessageHttp,
   runChatMessageStream,
+  runChatStreamForExistingUser,
 } from './chatStream.js';
 export {
   CLARIFICATION_FREE_TEXT_MAX_LENGTH,
   answerClarificationHttp,
   persistOpenClarificationSetFromInterrupt,
   loadOpenClarificationsForMessages,
+  supersedeOpenClarificationSetsForMessages,
   validateClarificationAnswers,
 } from './clarification.js';
 export { ClarificationSet } from '../../models/clarificationSet.model.js';

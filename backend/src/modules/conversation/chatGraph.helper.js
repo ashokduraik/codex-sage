@@ -6,7 +6,6 @@
 import { z } from 'zod';
 import mongoose from 'mongoose';
 import { streamText, generateText } from './llm.js';
-import { scheduleConversationAutoTitle } from './conversation.js';
 import { finalizeAssistantMessage } from './conversation.helper.js';
 import { BaseCheckpointSaver } from '@langchain/langgraph-checkpoint';
 import { ChatCheckpoint } from '../../models/chatCheckpoint.model.js';
@@ -623,23 +622,27 @@ async function persistAssistantOutcome(state, hooks, outcome) {
     supportLevel: outcome.supportLevel,
   });
 
-  try {
-    await scheduleConversationAutoTitle({
-      orgId: scope.orgId,
-      projectId: String(scope.projectId),
-      conversationId: String(scope.conversationId),
-      firstUserContent: typeof state.question === 'string' ? state.question : '',
-      assistantMessageId: String(assistantMessageId),
-    });
-  } catch (error) {
-    console.error(
-      JSON.stringify({
-        level: 'error',
-        msg: 'chat graph auto-title failed',
-        ...caughtErrorFields(error),
+  // Do not await: title must not delay the SSE done path, and static imports of
+  // conversation.js here are circular (clarification → chatGraph → helper).
+  void import('./conversation.js')
+    .then(({ scheduleConversationAutoTitle: scheduleTitle }) =>
+      scheduleTitle({
+        orgId: scope.orgId,
+        projectId: String(scope.projectId),
+        conversationId: String(scope.conversationId),
+        firstUserContent: typeof state.question === 'string' ? state.question : '',
+        assistantMessageId: String(assistantMessageId),
       }),
-    );
-  }
+    )
+    .catch((error) => {
+      console.error(
+        JSON.stringify({
+          level: 'error',
+          msg: 'chat graph auto-title failed',
+          ...caughtErrorFields(error),
+        }),
+      );
+    });
 
   return {
     answerContent: outcome.content,

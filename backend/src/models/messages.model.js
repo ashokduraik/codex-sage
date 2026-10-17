@@ -39,8 +39,12 @@ const messageSchema = createBaseSchema({
   messageStatus: { type: String, enum: MESSAGE_STATUS_VALUES, required: true, default: 'completed' },
   // Knowledge snapshot the assistant used to answer
   knowledgeVersionId: { type: ObjectId, ref: 'KnowledgeVersion', default: null },
-  // Earlier message this turn replies to, when the thread is branched
+  // Assistant turn replies to this user message (parent of the answer row)
   parentMessageId: { type: ObjectId, ref: 'Message', default: null },
+  // When the user last changed this user-message text in place (null if never edited)
+  editedAt: { type: Date, default: null },
+  // How many times this user message was edited; increments on each successful edit
+  editGeneration: { type: Number, required: true, default: 0 },
   // When the question entered the knowledge-update queue (FIFO drain key)
   queuedAt: { type: Date, default: null },
   // When waiting gives up → retryable KNOWLEDGE_UNAVAILABLE (phase 51 TTL)

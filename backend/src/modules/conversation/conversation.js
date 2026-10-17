@@ -358,6 +358,12 @@ export function mapMessageToDto(message, extras = {}) {
   if (extras.clarification != null) {
     dto.clarification = extras.clarification;
   }
+  if (message.editedAt != null) {
+    dto.editedAt = toIsoOrEmpty(message.editedAt);
+  }
+  if (typeof message.editGeneration === 'number' && message.editGeneration > 0) {
+    dto.editGeneration = message.editGeneration;
+  }
   if (message.queuedAt != null) {
     dto.queuedAt = toIsoOrEmpty(message.queuedAt);
   }

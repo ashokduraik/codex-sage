@@ -15,11 +15,14 @@ const mocks = vi.hoisted(() => ({
   invokeChatGraph: vi.fn(),
   buildChatGraphThreadId: vi.fn(),
   createMongoChatCheckpointer: vi.fn(),
+  persistOpenClarificationSetFromInterrupt: vi.fn(),
+  supersedeOpenClarificationSetsForMessages: vi.fn(),
 }));
 
 vi.mock('../../../src/modules/conversation/conversation.js', () => ({
   loadConversationForUser: mocks.loadConversationForUser,
   assertConversationWritable: mocks.assertConversationWritable,
+  refreshConversationSearchText: vi.fn(),
 }));
 
 vi.mock('../../../src/modules/knowledge/index.js', () => ({
@@ -39,6 +42,11 @@ vi.mock('../../../src/modules/conversation/chatGraph.js', () => ({
   invokeChatGraph: mocks.invokeChatGraph,
   buildChatGraphThreadId: mocks.buildChatGraphThreadId,
   createMongoChatCheckpointer: mocks.createMongoChatCheckpointer,
+}));
+
+vi.mock('../../../src/modules/conversation/clarification.js', () => ({
+  persistOpenClarificationSetFromInterrupt: mocks.persistOpenClarificationSetFromInterrupt,
+  supersedeOpenClarificationSetsForMessages: mocks.supersedeOpenClarificationSetsForMessages,
 }));
 
 describe('chatStream helpers', () => {
@@ -85,6 +93,8 @@ describe('runChatMessageStream', () => {
     mocks.buildChatGraphThreadId.mockReturnValue('thread-1');
     mocks.createMongoChatCheckpointer.mockReturnValue({});
     mocks.finalizeAssistantMessage.mockResolvedValue({ messageStatus: 'awaiting_clarification' });
+    mocks.persistOpenClarificationSetFromInterrupt.mockResolvedValue({});
+    mocks.supersedeOpenClarificationSetsForMessages.mockResolvedValue(undefined);
   });
 
   it('throws KNOWLEDGE_UNAVAILABLE without inserting when gate denies', async () => {
@@ -161,8 +171,10 @@ describe('runChatMessageStream', () => {
     const result = await runChatMessageStream(baseInput);
     expect(result.messageStatus).toBe('awaiting_clarification');
     expect(mocks.finalizeAssistantMessage).toHaveBeenCalledWith(expect.objectContaining({ messageStatus: 'awaiting_clarification' }));
+    expect(mocks.persistOpenClarificationSetFromInterrupt).toHaveBeenCalled();
     expect(baseInput.writeSse).toHaveBeenCalledWith('clarification', {
       clarificationSetId: 'clr_1',
+      roundIndex: 0,
       questions: [{ id: 'q1', type: 'free_text', prompt: 'Which env?' }],
     });
   });

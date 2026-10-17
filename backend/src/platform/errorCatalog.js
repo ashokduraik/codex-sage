@@ -194,6 +194,18 @@ export const ERROR_CATALOG = Object.freeze({
     retryability: 'user_action_required',
     message: 'No further clarification rounds are allowed for this message.',
   }),
+  MESSAGE_NOT_EDITABLE: Object.freeze({
+    class: 'user',
+    httpStatus: 409,
+    retryability: 'user_action_required',
+    message: 'This message cannot be edited right now.',
+  }),
+  MESSAGE_NOT_RETRYABLE: Object.freeze({
+    class: 'user',
+    httpStatus: 409,
+    retryability: 'user_action_required',
+    message: 'This response cannot be retried right now.',
+  }),
   RATE_LIMITED: Object.freeze({
     class: 'user',
     httpStatus: 429,

@@ -67,6 +67,91 @@ describe('MessageItem', () => {
     expect(screen.getByText(/How authentication works/i)).toBeTruthy();
     expect(screen.getByText(/1 source/i)).toBeTruthy();
   });
+
+  it('maps BE messageStatus without crashing on unknown values', () => {
+    renderWithProviders(
+      <MessageItem
+        message={buildMessage({
+          content: 'Hello from API',
+          messageStatus: 'completed',
+          status: undefined,
+        })}
+        isUser={false}
+      />,
+    );
+    expect(screen.getByText('Hello from API')).toBeTruthy();
+
+    renderWithProviders(
+      <MessageItem
+        message={buildMessage({
+          content: 'Odd status',
+          messageStatus: 'future_status_code',
+        })}
+        isUser={false}
+      />,
+    );
+    expect(screen.getByText('Odd status')).toBeTruthy();
+  });
+
+  it('shows generating chrome and failed state without retry when handler omitted', () => {
+    const { unmount } = renderWithProviders(
+      <MessageItem
+        message={buildMessage({
+          content: '',
+          messageStatus: 'generating',
+        })}
+        isUser={false}
+      />,
+    );
+    expect(screen.getByText(/Generating answer/i)).toBeTruthy();
+    unmount();
+
+    renderWithProviders(
+      <MessageItem
+        message={buildMessage({
+          content: '',
+          messageStatus: 'failed',
+        })}
+        isUser={false}
+      />,
+    );
+    expect(screen.getAllByText(/Generation failed/i).length).toBeGreaterThan(0);
+    expect(screen.queryByRole('button', { name: /Retry/i })).toBeNull();
+  });
+
+  it('shows abstained copy without retry when handler omitted', () => {
+    renderWithProviders(
+      <MessageItem
+        message={buildMessage({
+          content: '',
+          messageStatus: 'abstained',
+        })}
+        isUser={false}
+      />,
+    );
+    expect(screen.getAllByText(/Could not answer from project knowledge/i).length).toBeGreaterThan(0);
+  });
+
+  it('supports inline edit when canEdit is true', () => {
+    const onEdit = vi.fn();
+    renderWithProviders(
+      <MessageItem
+        message={buildMessage({
+          role: 'user',
+          content: 'Original question',
+        })}
+        isUser
+        canEdit
+        onEdit={onEdit}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText('Edit'));
+    fireEvent.change(screen.getByDisplayValue('Original question'), {
+      target: { value: 'Edited question' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Submit edit/i }));
+    expect(onEdit).toHaveBeenCalledWith('Edited question');
+  });
   it('renders abstain notice with retry actions', () => {
     const onRetry = vi.fn();
     renderWithProviders(

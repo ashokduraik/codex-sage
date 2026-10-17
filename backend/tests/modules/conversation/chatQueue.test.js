@@ -20,7 +20,7 @@ const mocks = vi.hoisted(() => ({
   insertQueuedUserMessage: vi.fn(),
   listUnexpiredQueuedMessages: vi.fn(),
   claimQueuedMessageForResume: vi.fn(),
-  insertAssistantForQueuedUser: vi.fn(),
+  insertAssistantForExistingUser: vi.fn(),
   markQueuedMessagesFailed: vi.fn(),
   markExpiredQueuedMessagesFailed: vi.fn(),
   finalizeAssistantMessage: vi.fn(),
@@ -58,7 +58,7 @@ vi.mock('../../../src/modules/conversation/conversation.helper.js', () => ({
   insertQueuedUserMessage: mocks.insertQueuedUserMessage,
   listUnexpiredQueuedMessages: mocks.listUnexpiredQueuedMessages,
   claimQueuedMessageForResume: mocks.claimQueuedMessageForResume,
-  insertAssistantForQueuedUser: mocks.insertAssistantForQueuedUser,
+  insertAssistantForExistingUser: mocks.insertAssistantForExistingUser,
   markQueuedMessagesFailed: mocks.markQueuedMessagesFailed,
   markExpiredQueuedMessagesFailed: mocks.markExpiredQueuedMessagesFailed,
   finalizeAssistantMessage: mocks.finalizeAssistantMessage,
@@ -147,7 +147,7 @@ describe('chatQueue helpers', () => {
     mocks.listUnexpiredQueuedMessages.mockResolvedValue([{ _id: messageId }]);
     mocks.claimQueuedMessageForResume.mockResolvedValue(claimed);
     mocks.assertKnowledgeReadable.mockResolvedValue({ action: 'allow', knowledgeVersionId });
-    mocks.insertAssistantForQueuedUser.mockResolvedValue({ _id: new mongoose.Types.ObjectId().toString() });
+    mocks.insertAssistantForExistingUser.mockResolvedValue({ _id: new mongoose.Types.ObjectId().toString() });
     mocks.invokeChatGraph.mockImplementation(async (args) => {
       args.onDone?.({});
       return { answerContent: 'ok' };
@@ -208,7 +208,7 @@ describe('chatQueue helpers', () => {
     mocks.listUnexpiredQueuedMessages.mockResolvedValue([{ _id: messageId }]);
     mocks.claimQueuedMessageForResume.mockResolvedValue(claimed);
     mocks.assertKnowledgeReadable.mockResolvedValue({ action: 'allow', knowledgeVersionId });
-    mocks.insertAssistantForQueuedUser.mockResolvedValue({ _id: new mongoose.Types.ObjectId().toString() });
+    mocks.insertAssistantForExistingUser.mockResolvedValue({ _id: new mongoose.Types.ObjectId().toString() });
     mocks.invokeChatGraph.mockResolvedValue({
       __interrupt__: [{ value: { clarificationSetId: 'cs1', questions: [] } }],
     });
@@ -238,7 +238,7 @@ describe('chatQueue helpers', () => {
     mocks.listUnexpiredQueuedMessages.mockResolvedValue([{ _id: messageId }]);
     mocks.claimQueuedMessageForResume.mockResolvedValue(claimed);
     mocks.assertKnowledgeReadable.mockResolvedValue({ action: 'allow', knowledgeVersionId });
-    mocks.insertAssistantForQueuedUser.mockResolvedValue({ _id: new mongoose.Types.ObjectId().toString() });
+    mocks.insertAssistantForExistingUser.mockResolvedValue({ _id: new mongoose.Types.ObjectId().toString() });
     mocks.invokeChatGraph.mockRejectedValue(new Error('graph boom'));
     mocks.finalizeAssistantMessage.mockResolvedValue({ messageStatus: 'failed' });
 
@@ -264,7 +264,7 @@ describe('chatQueue helpers', () => {
     mocks.listUnexpiredQueuedMessages.mockResolvedValue([{ _id: messageId }]);
     mocks.claimQueuedMessageForResume.mockResolvedValue(claimed);
     mocks.assertKnowledgeReadable.mockResolvedValue({ action: 'allow', knowledgeVersionId });
-    mocks.insertAssistantForQueuedUser.mockResolvedValue({ _id: new mongoose.Types.ObjectId().toString() });
+    mocks.insertAssistantForExistingUser.mockResolvedValue({ _id: new mongoose.Types.ObjectId().toString() });
     mocks.invokeChatGraph.mockResolvedValue({ answerContent: 'done without hook', supportLevel: 'evidence_backed' });
     mocks.finalizeAssistantMessage.mockResolvedValue({ messageStatus: 'completed' });
 
@@ -322,7 +322,7 @@ describe('chatQueue helpers', () => {
     mocks.listUnexpiredQueuedMessages.mockResolvedValue([{ _id: messageId }]);
     mocks.claimQueuedMessageForResume.mockResolvedValue(claimed);
     mocks.assertKnowledgeReadable.mockResolvedValue({ action: 'allow', knowledgeVersionId });
-    mocks.insertAssistantForQueuedUser.mockResolvedValue({ _id: new mongoose.Types.ObjectId().toString() });
+    mocks.insertAssistantForExistingUser.mockResolvedValue({ _id: new mongoose.Types.ObjectId().toString() });
     mocks.invokeChatGraph.mockImplementation(async (args) => {
       args.onError?.(new Error('stream error'));
       throw new Error('graph boom');
@@ -346,7 +346,7 @@ describe('chatQueue helpers', () => {
     mocks.listUnexpiredQueuedMessages.mockResolvedValue([{ _id: messageId }]);
     mocks.claimQueuedMessageForResume.mockResolvedValue(claimed);
     mocks.assertKnowledgeReadable.mockResolvedValue({ action: 'allow', knowledgeVersionId });
-    mocks.insertAssistantForQueuedUser.mockResolvedValue({ _id: new mongoose.Types.ObjectId().toString() });
+    mocks.insertAssistantForExistingUser.mockResolvedValue({ _id: new mongoose.Types.ObjectId().toString() });
     mocks.invokeChatGraph.mockResolvedValue({ answerContent: '', supportLevel: 'insufficient' });
     mocks.finalizeAssistantMessage.mockResolvedValue({ messageStatus: 'abstained' });
 

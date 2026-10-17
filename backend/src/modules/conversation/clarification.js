@@ -603,14 +603,33 @@ async function runClarificationAnswerStream(input) {
  * @returns {Promise<void>}
  */
 async function supersedeOpenClarificationSetsForMessage(input) {
-  if (!mongoose.isValidObjectId(input.messageId)) {
+  await supersedeOpenClarificationSetsForMessages({
+    orgId: input.orgId,
+    messageIds: [input.messageId],
+    actorUserId: input.actorUserId,
+  });
+}
+
+/**
+ * Marks open clarification sets for the given assistant message ids as superseded (edit replace-downstream).
+ * @param {{
+ *   orgId: string,
+ *   messageIds: string[],
+ *   actorUserId?: string | null,
+ *   session?: import('mongoose').ClientSession,
+ * }} input Scope.
+ * @returns {Promise<void>}
+ */
+export async function supersedeOpenClarificationSetsForMessages(input) {
+  const ids = (Array.isArray(input.messageIds) ? input.messageIds : []).filter((id) => mongoose.isValidObjectId(id));
+  if (ids.length === 0) {
     return;
   }
   const actorId = input.actorUserId && mongoose.isValidObjectId(input.actorUserId) ? new mongoose.Types.ObjectId(String(input.actorUserId)) : null;
-  await ClarificationSet.updateMany(
+  let query = ClarificationSet.updateMany(
     {
       orgId: input.orgId,
-      messageId: new mongoose.Types.ObjectId(String(input.messageId)),
+      messageId: { $in: ids.map((id) => new mongoose.Types.ObjectId(String(id))) },
       setStatus: 'open',
       status: ROW_STATUS_ACTIVE,
     },
@@ -621,7 +640,11 @@ async function supersedeOpenClarificationSetsForMessage(input) {
         updatedBy: actorId,
       },
     },
-  ).exec();
+  );
+  if (input.session) {
+    query = query.session(input.session);
+  }
+  await query.exec();
 }
 
 /**

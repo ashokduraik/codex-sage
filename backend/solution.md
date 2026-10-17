@@ -1008,12 +1008,14 @@ User edits U1
   → UI shows that later messages were discarded
 ```
 
-| Rule           | Behavior                                                                     |
-| -------------- | ---------------------------------------------------------------------------- |
-| Who can edit   | Author of the user message + `chat.ask`                                      |
-| What is stored | Edited user message is the current content; downstream messages `status:'D'` |
-| Resubmit       | Same FLOW B from edited content                                              |
-| Visibility     | Single thread after refresh; no branch list                                  |
+| Rule           | Behavior                                                                                                                        |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Who can edit   | Author of the user message (`createdBy`) + `chat.ask`                                                                           |
+| What is stored | Edited user message is the current content; downstream messages `status:'D'`                                                    |
+| Resubmit       | Same FLOW B from edited content (atomic POST + SSE)                                                                             |
+| Visibility     | Single thread after refresh; no branch list                                                                                     |
+| Edit API       | `POST /api/v1/conversation/chatStream/editMessage/:projectId/:conversationId/:messageId`                                        |
+| Retry API      | `POST /api/v1/conversation/chatStream/retryMessage/:projectId/:conversationId/:messageId` (latest failed/interrupted assistant) |
 
 ### 10.2 Archive / restore / delete
 

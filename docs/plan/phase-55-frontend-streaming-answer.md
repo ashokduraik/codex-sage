@@ -63,7 +63,7 @@ ride the same SSE connection.
 - `202` queued response (Phase 51): no SSE; show queued user message state (§35, §64).
 - `KNOWLEDGE_UNAVAILABLE` and related codes: localized copy, no raw provider errors.
 - Assistant **retry** button when `messageStatus` / API indicates retryable failure (§63) — calls
-  Phase 53 PROPOSED `POST …/retry` if available; otherwise disable retry until 53 ships (§12).
+  Phase 53 `POST /api/v1/conversation/chatStream/retryMessage/:projectId/:conversationId/:messageId`.
 - Store streaming draft in component state; on `done`, invalidate conversation detail to merge
   server message id.
 - Remove mock `askQuestion`, fake keyword clarification (`needsClarification` in
@@ -179,13 +179,16 @@ Pre-stream failures: `403`, `404`, `409`, `KNOWLEDGE_UNAVAILABLE`, etc. — JSON
 
 When knowledge updating: `202 { messageId, jobId }` — no SSE body; UI marks user message `queued`.
 
-### Phase 53 — assistant retry (PROPOSED)
+### Phase 53 — assistant retry (implemented)
 
 ```http
-POST /api/v1/conversations/:conversationId/messages/:messageId/retry
+POST /api/v1/conversation/chatStream/retryMessage/:projectId/:conversationId/:messageId
+Accept: text/event-stream
+Idempotency-Key: <required>
 ```
 
-Optional in this phase if 53 not merged — hide Retry control until contract exists.
+Same SSE / 202 / idempotent JSON-replay rules as send. Target must be the latest active
+assistant with `messageStatus` `failed` or `interrupted`.
 
 ## 7. Configuration & environment variables
 

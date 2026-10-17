@@ -1,5 +1,8 @@
+/**
+ * Global conversations page CTA (no cross-project list).
+ */
+import { cleanup, screen } from '@testing-library/react';
 import ConversationsPage from '@/features/chat/ConversationsPage';
-import { cleanup, fireEvent, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
 
@@ -11,22 +14,14 @@ beforeEach(() => {
   localStorage.clear();
   seedAuthSession();
 });
+
 describe('ConversationsPage', () => {
-  it('lists active conversations and filters by search', () => {
+  it('shows privacy copy and a CTA to projects', () => {
     renderWithProviders(<ConversationsPage />);
     expect(screen.getByRole('heading', { name: 'Conversations' })).toBeTruthy();
-    expect(screen.getByText('How does authentication work?')).toBeTruthy();
-    expect(screen.getByText('Where is payment implemented?')).toBeTruthy();
-    expect(screen.queryByText('Checkout flow walkthrough')).toBeNull();
-    fireEvent.change(screen.getByPlaceholderText(/Search conversations/i), {
-      target: { value: 'payment' },
-    });
-    expect(screen.getByText('Where is payment implemented?')).toBeTruthy();
-    expect(screen.queryByText('How does authentication work?')).toBeNull();
-  });
-  it('switches to archived conversations', () => {
-    renderWithProviders(<ConversationsPage />);
-    fireEvent.click(screen.getByRole('button', { name: /Active/i }));
-    expect(screen.getByText('Checkout flow walkthrough')).toBeTruthy();
+    expect(screen.getByText(/private to the signed-in user/i)).toBeTruthy();
+    expect(screen.getByRole('heading', { name: /Open a project to view chat/i })).toBeTruthy();
+    const link = screen.getByRole('link', { name: /Browse projects/i });
+    expect(link.getAttribute('href')).toBe('/projects');
   });
 });

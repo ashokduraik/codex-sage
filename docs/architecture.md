@@ -409,6 +409,10 @@ We do not keep historical graphs to browse.
 
 **Edit a user message:** one thread. Update that message; soft-delete later messages
 (`status: 'D'`); rerun this flow. No conversation branches.
+Routes (ADR 0036): `POST /api/v1/conversation/chatStream/editMessage/:projectId/:conversationId/:messageId`
+(atomic edit + SSE / 202 queue) and
+`POST /api/v1/conversation/chatStream/retryMessage/:projectId/:conversationId/:messageId`
+(latest failed/interrupted assistant). Both require `Idempotency-Key`.
 
 ---
 

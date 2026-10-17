@@ -3,18 +3,11 @@ import { configure } from '@testing-library/react';
 /** Allow async UI to settle under parallel jsdom workers. */
 configure({ asyncUtilTimeout: 5000 });
 /**
- * Vitest/Node may not expose localStorage; provide an in-memory shim for auth tests.
+ * Always install an in-memory localStorage for tests.
+ * Do not read Node's experimental `globalThis.localStorage` first — accessing it
+ * without `--localstorage-file` emits ExperimentalWarning on every worker.
  */
 function ensureLocalStorage() {
-  if (typeof globalThis.localStorage !== 'undefined' && globalThis.localStorage !== null) {
-    try {
-      globalThis.localStorage.setItem('__probe__', '1');
-      globalThis.localStorage.removeItem('__probe__');
-      return;
-    } catch {
-      // fall through to shim
-    }
-  }
   const store = new Map();
   const memoryStorage = {
     get length() {

@@ -16,7 +16,7 @@ import {
   markQueuedMessagesFailed,
   claimQueuedMessageForResume,
   listUnexpiredQueuedMessages,
-  insertAssistantForQueuedUser,
+  insertAssistantForExistingUser,
   markExpiredQueuedMessagesFailed,
   finalizeAssistantMessage as finalizeAssistantMessageInRepo,
 } from './conversation.helper.js';
@@ -260,7 +260,7 @@ async function resumeClaimedQueuedMessage(input) {
   const userMessageId = String(claimed._id);
   const actorUserId = claimed.createdBy ? String(claimed.createdBy) : null;
 
-  const assistant = await insertAssistantForQueuedUser({
+  const assistant = await insertAssistantForExistingUser({
     orgId,
     projectId,
     conversationId,

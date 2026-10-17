@@ -28,7 +28,9 @@ import {
   restoreConversationHttp,
   searchConversationsHttp,
   getConversationContextHttp,
+  editConversationMessageHttp,
   listConversationMessagesHttp,
+  retryConversationMessageHttp,
   streamConversationMessageHttp,
 } from '../modules/conversation/index.js';
 import {
@@ -276,6 +278,16 @@ export async function registerRoutes(app) {
   // chatStream.js
 
   app.post('/conversation/chatStream/streamMessage/:projectId/:conversationId', withProjectAccess('chat.ask', true), streamConversationMessageHttp);
+  app.post(
+    '/conversation/chatStream/editMessage/:projectId/:conversationId/:messageId',
+    withProjectAccess('chat.ask', true),
+    editConversationMessageHttp,
+  );
+  app.post(
+    '/conversation/chatStream/retryMessage/:projectId/:conversationId/:messageId',
+    withProjectAccess('chat.ask', true),
+    retryConversationMessageHttp,
+  );
 
   // clarification.js
 
