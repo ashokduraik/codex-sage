@@ -65,7 +65,7 @@ describe('jobProgressMap', () => {
   });
 
   it('builds i18n keys with unknown fallbacks', () => {
-    expect(jobTypeLabelKey('ingest')).toBe('processing.jobType.ingest');
+    expect(jobTypeLabelKey('project_knowledge_build')).toBe('processing.jobType.project_knowledge_build');
     expect(jobTypeLabelKey('')).toBe('processing.jobType.unknown');
     expect(stageLabelKey('validate_upload')).toBe('processing.stage.validate_upload');
     expect(stageLabelKey(null)).toBe('processing.stage.unknown');

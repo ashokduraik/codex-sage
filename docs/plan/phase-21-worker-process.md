@@ -53,7 +53,7 @@ first writer is written rather than be retrofitted around it.
 - Retry and cancel endpoints and the progress projection — **Phase 22**.
 - Ingest stages S0–S2 — **Phase 25**; S3 — **Phase 26**; S4–S6 — **Phase 28**.
 - The CodeGraph filesystem writer lock and index/sync calls — **Phase 27**.
-- The 30-minute `repo_sync` cadence — **Phase 32**; retention schedules — **Phase 60**.
+- The 30-minute `connected_repo_pull` cadence — **Phase 32**; retention schedules — **Phase 60**.
 - Completion notifications — **Phase 58**. Multi-machine fleets and priority queues.
 
 ## 4. Design
@@ -71,17 +71,20 @@ restart, which matters for lease attribution.
 
 ### 4.2 Handler registry
 
-Handlers register by job type at boot, before the first poll, so the loop never imports a domain
-module:
+Job runners live as flat `worker/*Job.js` files (`projectKnowledgeBuildJob`,
+`connectedRepoPullJob`, `agedOrgDataCleanupJob`, `workerSmokeCheckJob`). Domain modules keep
+stages and enqueue helpers. Boot registers each `*HandlerRegistration` before the first poll:
 
 ```text
 registerJobHandler({
-  type: 'ingest',
+  type: 'project_knowledge_build',
   exclusiveScope: 'project',   // or 'none'
   maxAttempts: 5,
   run: async (context) => { … }
 })
 ```
+
+`schedule.js` owns fixed-interval ticks that call domain enqueue helpers; it does not run jobs.
 
 `context` carries `job`, `stageCheckpoint`, a child logger, `recordEvent()`, `saveCheckpoint()`,
 `isCancelRequested()` and an `AbortSignal` that fires on shutdown or lease loss. A handler returns
@@ -155,7 +158,7 @@ Handlers throw an error carrying `failureClass` and a stable `code`:
 Backoff is `min(base * 2^(attempt-1), max)` plus jitter, written into `scheduledAt`. An
 unclassified error is treated as `temporary` but logged at `error` with the handler name, because
 an unclassified error is a bug, not a policy. Since the claim filter already honours
-`scheduledAt`, backoff, the 30-minute `repo_sync` cadence (solution §4.8B) and retention runs
+`scheduledAt`, backoff, the 30-minute `connected_repo_pull` cadence (solution §4.8B) and retention runs
 (§12.3) share one mechanism. This phase adds only the generic part: `scheduledAt` support in the
 claim, and a helper a handler can call on completion to enqueue its own next occurrence
 (`nextDueAt`). Phases 32 and 60 choose the cadences.
@@ -275,18 +278,17 @@ module, not via env validation.
 
 | Path (source + colocated `*.test.js`) | Purpose |
 |---|---|
-| `backend/src/worker/index.js` | **Replace** the Phase 01 idle interval with `startWorkerRuntime()` |
-| `backend/src/worker/workerRuntime.js` | **New:** timers, in-flight map, claim/run/finish orchestration |
-| `backend/src/worker/jobClaim.js` | **New:** atomic claim plus requeue and finish transitions |
-| `backend/src/worker/jobHeartbeat.js` | **New:** conditional lease and lock refresh |
-| `backend/src/worker/leaseSweeper.js` | **New:** expired-lease requeue or fail |
-| `backend/src/worker/handlerRegistry.js` | **New:** register and look up handlers by job type |
-| `backend/src/worker/retryPolicy.js` | **New:** failure classes, backoff, attempt ceiling |
-| `backend/src/worker/projectJobLock.js` | **New:** lock model, acquire / refresh / release |
-| `backend/src/worker/workerLogger.js` | **New:** per-job child logger with the fixed field set |
-| `backend/src/worker/worker.constants.js` | **New:** recommended worker timings and concurrency |
-| `backend/src/worker/worker.constants.test.js` | **New:** lease TTL exceeds heartbeat |
-| `backend/src/worker/projectJobLock.model.js` | **New:** lock schema + claim/sweep indexes |
+| `backend/src/worker/index.js` | Process entry + boot (`startWorker`) |
+| `backend/src/worker/schedule.js` | All timers (poll / lease / enqueue) + claim→run→finish + handler registry |
+| `backend/src/worker/jobState.js` | Mongo claim / complete / fail / requeue / checkpoint |
+| `backend/src/worker/projectLock.js` | One knowledge/sync writer per project |
+| `backend/src/worker/jobFailure.js` | Failure class + retry backoff |
+| `backend/src/worker/workerConfig.js` | Timings, event codes, job logger |
+| `backend/src/worker/projectKnowledgeBuildJob.js` | `project_knowledge_build` / `project_knowledge_rebuild` |
+| `backend/src/worker/connectedRepoPullJob.js` | `connected_repo_pull` |
+| `backend/src/worker/agedOrgDataCleanupJob.js` | `aged_org_data_cleanup` |
+| `backend/src/worker/workerSmokeCheckJob.js` | `worker_smoke_check` |
+| `backend/src/models/projectJobLock.model.js` | Lock schema + claim/sweep indexes |
 
 ## 9. Tests (≥ 80% line and branch)
 
@@ -357,8 +359,8 @@ module, not via env validation.
 2. **Lease TTL versus CodeGraph duration.** A ~2M-LOC index run (solution §4.4) can outlast any
    reasonable lease. Confirm the intent: heartbeat from a timer that keeps running during long
    CodeGraph calls (proposed), or a per-job TTL override supplied by the handler?
-3. **Lock granularity.** Proposal: one `project_writer` lock covering ingest, reingest and
-   `repo_sync`. Should document-only jobs (Phase 26) share it, or is a second scope needed?
+3. **Lock granularity.** Proposal: one `project_writer` lock covering ingest, project_knowledge_rebuild and
+   `connected_repo_pull`. Should document-only jobs (Phase 26) share it, or is a second scope needed?
 4. **Two lock layers.** This job-level lock and Phase 27's CodeGraph filesystem lock overlap in
    purpose. Confirm both are wanted, or that Phase 27 should reuse this one.
 5. **Clock skew.** Leases compare timestamps possibly written by different hosts. Should all lease

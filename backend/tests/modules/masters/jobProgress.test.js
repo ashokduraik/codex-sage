@@ -6,7 +6,7 @@ import { deriveKnowledgeAvailability, projectJobProgress } from '../../../src/mo
 
 describe('jobProgress', () => {
   const baseJob = {
-    jobType: 'ingest',
+    jobType: 'project_knowledge_build',
     jobStatus: 'failed',
     currentStage: 'materialize_docs',
     stageCheckpoint: { lastCompletedStage: 'exclude_apply' },
@@ -65,7 +65,7 @@ describe('jobProgress', () => {
 
   it('returns all-pending stages when there are zero events and no progress', () => {
     const progress = projectJobProgress({
-      jobType: 'ingest',
+      jobType: 'project_knowledge_build',
       jobStatus: 'pending',
       currentStage: null,
       stageCheckpoint: null,

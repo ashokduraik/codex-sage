@@ -2,7 +2,7 @@
  * Unit tests for same-job CodeGraph recovery.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createJobFailureError } from '../../../src/worker/retryPolicy.js';
+import { createJobFailureError } from '../../../src/worker/jobFailure.js';
 import { isRecoverableCodegraphFailure, runCodegraphUpdateWithRecovery } from '../../../src/modules/knowledge/knowledge.js';
 
 const { runMaterializeDocsStage, runCodegraphUpdateStage, fsRm, fsMkdir } = vi.hoisted(() => ({

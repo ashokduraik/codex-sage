@@ -4,7 +4,7 @@
  * this lock. Another sync waits until the lock is released or expires.
  */
 import mongoose from 'mongoose';
-import { PROJECT_JOB_LOCK_SCOPE } from '../worker/worker.constants.js';
+import { PROJECT_JOB_LOCK_SCOPE } from '../worker/workerConfig.js';
 import { createBaseSchema, ROW_STATUS_ACTIVE } from '../platform/data/index.js';
 
 const ObjectId = mongoose.Schema.Types.ObjectId;

@@ -4,7 +4,7 @@ import {
   assertLeaseExceedsHeartbeat,
   assertWorkerLeaseTimingSafe,
   WORKER_HEARTBEAT_INTERVAL_MS,
-} from '../../src/worker/worker.constants.js';
+} from '../../src/worker/workerConfig.js';
 
 describe('worker.constants', () => {
   it('requires lease TTL to exceed the heartbeat interval', () => {

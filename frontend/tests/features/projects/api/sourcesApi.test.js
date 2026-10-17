@@ -57,14 +57,14 @@ describe('uploadProjectSource', () => {
   });
 
   it('posts reingest with an Idempotency-Key', async () => {
-    apiRequest.mockResolvedValue({ jobId: 'j9', sourceVersionId: 'sv1', jobType: 'reingest' });
+    apiRequest.mockResolvedValue({ jobId: 'j9', sourceVersionId: 'sv1', jobType: 'project_knowledge_rebuild' });
     await expect(
       reingestProjectSource({
         projectId: 'p1',
         sourceVersionId: 'sv1',
         idempotencyKey: 'idem-re',
       }),
-    ).resolves.toEqual({ jobId: 'j9', sourceVersionId: 'sv1', jobType: 'reingest' });
+    ).resolves.toEqual({ jobId: 'j9', sourceVersionId: 'sv1', jobType: 'project_knowledge_rebuild' });
     expect(apiRequest).toHaveBeenCalledWith('/knowledge/sources/reingest/p1/sv1', {
       method: 'POST',
       idempotencyKey: 'idem-re',

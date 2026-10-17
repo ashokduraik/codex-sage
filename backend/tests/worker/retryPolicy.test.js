@@ -1,13 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../../src/platform/errors.js';
-import { WORKER_RETRY_BACKOFF_BASE_MS, WORKER_RETRY_BACKOFF_MAX_MS } from '../../src/worker/worker.constants.js';
+import { WORKER_RETRY_BACKOFF_BASE_MS, WORKER_RETRY_BACKOFF_MAX_MS } from '../../src/worker/workerConfig.js';
 import {
   decideFailureOutcome,
   classifyThrownFailure,
   computeRetryBackoffMs,
   createJobFailureError,
   createJobFailureFromCaught,
-} from '../../src/worker/retryPolicy.js';
+} from '../../src/worker/jobFailure.js';
 
 describe('retryPolicy', () => {
   it('maps each failure class to requeue or fail', () => {

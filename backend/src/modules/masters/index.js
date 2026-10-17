@@ -88,18 +88,6 @@ export {
   recordProjectActivitiesForJobTerminal,
 } from './projectActivities.js';
 export {
-  retentionHandlerRegistration,
-  enqueueDueRetentionJobs,
-  RETENTION_SCHEDULER_TICK_MS,
-  RETENTION_READY_SOURCE_VERSIONS_KEEP,
-  RETENTION_JOB_DAYS,
-  RETENTION_NOTIFICATION_DAYS,
-  RETENTION_NOTIFICATION_READ_DAYS,
-  RETENTION_USAGE_DAYS,
-  RETENTION_CONVERSATION_DAYS,
-  RETENTION_AUDIT_DAYS,
-} from './retention.js';
-export {
   appendJobEvent,
   deferRunningJob,
   findActiveJobForProjectByTypes,

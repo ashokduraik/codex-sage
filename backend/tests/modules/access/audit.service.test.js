@@ -415,7 +415,7 @@ describe('audit model, repository, and service', () => {
     const job = await Job.create({
       orgId: org._id,
       projectId: project._id,
-      jobType: 'ingest',
+      jobType: 'project_knowledge_build',
       createdBy: null,
       updatedBy: null,
     });

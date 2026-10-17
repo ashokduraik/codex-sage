@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { clearJobHandlersForTests, getJobHandler, listRegisteredJobTypes, registerJobHandler } from '../../src/worker/handlerRegistry.js';
+import { clearJobHandlersForTests, getJobHandler, listRegisteredJobTypes, registerJobHandler } from '../../src/worker/schedule.js';
 
 describe('handlerRegistry', () => {
   afterEach(() => {
@@ -8,16 +8,16 @@ describe('handlerRegistry', () => {
 
   it('registers a handler and lists its type', () => {
     const run = async () => ({ result: 'completed' });
-    registerJobHandler({ type: 'worker_smoke', exclusiveScope: 'none', run });
-    expect(getJobHandler('worker_smoke')).toBeDefined();
-    expect(listRegisteredJobTypes()).toEqual(['worker_smoke']);
-    expect(getJobHandler('worker_smoke')?.run).toBe(run);
+    registerJobHandler({ type: 'worker_smoke_check', exclusiveScope: 'none', run });
+    expect(getJobHandler('worker_smoke_check')).toBeDefined();
+    expect(listRegisteredJobTypes()).toEqual(['worker_smoke_check']);
+    expect(getJobHandler('worker_smoke_check')?.run).toBe(run);
   });
 
   it('rejects a duplicate type', () => {
     const run = async () => ({ result: 'completed' });
-    registerJobHandler({ type: 'ingest', exclusiveScope: 'project', run });
-    expect(() => registerJobHandler({ type: 'ingest', exclusiveScope: 'project', run })).toThrow(/already registered/);
+    registerJobHandler({ type: 'project_knowledge_build', exclusiveScope: 'project', run });
+    expect(() => registerJobHandler({ type: 'project_knowledge_build', exclusiveScope: 'project', run })).toThrow(/already registered/);
   });
 
   it('reports an unknown type without throwing', () => {

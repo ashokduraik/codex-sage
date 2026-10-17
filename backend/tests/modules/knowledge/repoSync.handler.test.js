@@ -1,5 +1,5 @@
 /**
- * Unit tests for the repo_sync worker handler.
+ * Unit tests for the connected_repo_pull worker handler.
  */
 import mongoose from 'mongoose';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -63,7 +63,7 @@ vi.mock('../../../src/modules/knowledge/repositories.helper.js', async (importOr
   };
 });
 
-vi.mock('../../../src/worker/projectJobLock.js', () => ({
+vi.mock('../../../src/worker/projectLock.js', () => ({
   hasActiveProjectWriterLock: (...args) => hasActiveProjectWriterLock(...args),
 }));
 
@@ -124,7 +124,8 @@ vi.mock('../../../src/modules/knowledge/uploads.js', async (importOriginal) => {
   };
 });
 
-const { runRepoSyncJob, repoSyncHandlerRegistration } = await import('../../../src/modules/knowledge/repoSync.js');
+const repoSync = await import('../../../src/modules/knowledge/repoSync.js');
+const { runConnectedRepoPullJob, connectedRepoPullHandlerRegistration } = await import('../../../src/worker/connectedRepoPullJob.js');
 
 const TOKEN = 'ghp_handler_token_never_log';
 
@@ -168,7 +169,7 @@ function workerContext() {
   };
 }
 
-describe('runRepoSyncJob', () => {
+describe('runConnectedRepoPullJob', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     outboundGet.mockReset();
@@ -191,8 +192,8 @@ describe('runRepoSyncJob', () => {
   });
 
   it('registers exclusiveScope none', () => {
-    expect(repoSyncHandlerRegistration).toMatchObject({
-      type: 'repo_sync',
+    expect(connectedRepoPullHandlerRegistration).toMatchObject({
+      type: 'connected_repo_pull',
       exclusiveScope: 'none',
     });
   });
@@ -200,7 +201,7 @@ describe('runRepoSyncJob', () => {
   it('defers when the project is busy', async () => {
     hasActiveProjectWriterLock.mockResolvedValue(true);
     const context = workerContext();
-    const result = await runRepoSyncJob(context);
+    const result = await runConnectedRepoPullJob(context);
     expect(result.result).toBe('deferred');
     expect(deferRunningJob).toHaveBeenCalled();
     expect(context.recordEvent).toHaveBeenCalledWith(expect.objectContaining({ eventCode: 'repo.sync.deferred' }));
@@ -211,12 +212,10 @@ describe('runRepoSyncJob', () => {
     const connection = connectionDoc();
     findActiveConnection.mockResolvedValue(connection);
     decryptConnectionToken.mockResolvedValue(TOKEN);
-    outboundGet.mockResolvedValue({
-      status: 200,
-      json: { sha: 'oldsha', commit: { message: null } },
-    });
+    vi.spyOn(repoSync, 'resolveRemoteHead').mockResolvedValue({ commitSha: 'oldsha', commitMessage: null });
+    vi.spyOn(repoSync, 'markConnectionSynced').mockResolvedValue(undefined);
     const context = workerContext();
-    const result = await runRepoSyncJob(context);
+    const result = await runConnectedRepoPullJob(context);
     expect(result.summary.outcome).toBe('no_changes');
     expect(inspectZip).not.toHaveBeenCalled();
     expect(JSON.stringify(context.log)).not.toContain(TOKEN);
@@ -228,50 +227,45 @@ describe('runRepoSyncJob', () => {
     );
   });
 
-  it('persists a new version and enqueues ingest on a new SHA', async () => {
+  it('persists a new version and enqueues knowledge build on a new SHA', async () => {
     const connection = connectionDoc();
     findActiveConnection.mockResolvedValue(connection);
     decryptConnectionToken.mockResolvedValue(TOKEN);
-    outboundGet
-      .mockResolvedValueOnce({
-        status: 200,
-        json: { sha: 'newsha', commit: { message: null } },
-      })
-      .mockResolvedValueOnce({
-        status: 200,
-        buffer: Buffer.from('PK'),
-        headers: { 'content-type': 'application/zip' },
-      });
-    inspectZip.mockResolvedValue({
-      entries: [{ path: 'README.md', content: Buffer.from('hi') }],
+    vi.spyOn(repoSync, 'resolveRemoteHead').mockResolvedValue({ commitSha: 'newsha', commitMessage: null });
+    vi.spyOn(repoSync, 'downloadRepositoryArchive').mockResolvedValue({ archiveBuffer: Buffer.from('PK') });
+    vi.spyOn(repoSync, 'persistRepositorySourceVersion').mockResolvedValue({
+      sourceVersionId: 'sv1',
+      ingestJobId: 'ij1',
     });
-    storeAcceptedZipEntries.mockResolvedValue({ gridFsIds: [] });
-    insertPendingJob.mockResolvedValue({
-      job: { _id: 'job1' },
-    });
-    const result = await runRepoSyncJob(workerContext());
+    vi.spyOn(repoSync, 'markConnectionSynced').mockResolvedValue(undefined);
+    const result = await runConnectedRepoPullJob(workerContext());
     expect(result.summary).toMatchObject({
       outcome: 'source_enqueued',
       commitSha: 'newsha',
+      ingestJobId: 'ij1',
     });
-    expect(result.summary.ingestJobId).toBeDefined();
-    expect(updateConnection).toHaveBeenCalled();
+    expect(repoSync.persistRepositorySourceVersion).toHaveBeenCalled();
   });
 
   it('updates connectionStatus on auth failure and does not persist', async () => {
     findActiveConnection.mockResolvedValue(connectionDoc());
     decryptConnectionToken.mockResolvedValue(TOKEN);
-    outboundGet.mockResolvedValue({ status: 401, json: {} });
-    await expect(runRepoSyncJob(workerContext())).rejects.toMatchObject({
+    vi.spyOn(repoSync, 'resolveRemoteHead').mockRejectedValue(
+      Object.assign(new Error('token invalid'), {
+        failureClass: 'user_action_required',
+        code: 'token_invalid',
+        probeStatus: 'authentication_required',
+      }),
+    );
+    vi.spyOn(repoSync, 'markConnectionSyncFailed').mockResolvedValue(undefined);
+    await expect(runConnectedRepoPullJob(workerContext())).rejects.toMatchObject({
       code: 'token_invalid',
     });
     expect(inspectZip).not.toHaveBeenCalled();
-    expect(updateConnection).toHaveBeenCalledWith(
+    expect(repoSync.markConnectionSyncFailed).toHaveBeenCalledWith(
       expect.objectContaining({
-        set: expect.objectContaining({
-          connectionStatus: 'authentication_required',
-          lastSyncErrorCode: 'token_invalid',
-        }),
+        errorCode: 'token_invalid',
+        probeStatus: 'authentication_required',
       }),
     );
   });
@@ -281,29 +275,21 @@ describe('runRepoSyncJob', () => {
     connection.credential = null;
     connection.lastSyncedCommitSha = null;
     findActiveConnection.mockResolvedValue(connection);
-    outboundGet
-      .mockResolvedValueOnce({
-        status: 200,
-        json: { sha: 'newsha', commit: { message: null } },
-      })
-      .mockResolvedValueOnce({
-        status: 200,
-        buffer: Buffer.from('PK'),
-        headers: { 'content-type': 'application/zip' },
-      });
-    inspectZip.mockResolvedValue({
-      entries: [{ path: 'README.md', content: Buffer.from('hi') }],
+    vi.spyOn(repoSync, 'resolveRemoteHead').mockResolvedValue({ commitSha: 'newsha', commitMessage: null });
+    vi.spyOn(repoSync, 'downloadRepositoryArchive').mockResolvedValue({ archiveBuffer: Buffer.from('PK') });
+    vi.spyOn(repoSync, 'persistRepositorySourceVersion').mockResolvedValue({
+      sourceVersionId: 'sv2',
+      ingestJobId: 'ij2',
     });
-    storeAcceptedZipEntries.mockResolvedValue({ gridFsIds: [] });
-    insertPendingJob.mockResolvedValue({ job: { _id: 'job2' } });
-    const result = await runRepoSyncJob(workerContext());
+    vi.spyOn(repoSync, 'markConnectionSynced').mockResolvedValue(undefined);
+    const result = await runConnectedRepoPullJob(workerContext());
     expect(decryptConnectionToken).not.toHaveBeenCalled();
     expect(result.summary.outcome).toBe('source_enqueued');
   });
 
   it('fails permanently when the connection is gone', async () => {
     findActiveConnection.mockResolvedValue(null);
-    await expect(runRepoSyncJob(workerContext())).rejects.toMatchObject({
+    await expect(runConnectedRepoPullJob(workerContext())).rejects.toMatchObject({
       failureClass: 'permanent',
       code: 'NOT_FOUND',
     });

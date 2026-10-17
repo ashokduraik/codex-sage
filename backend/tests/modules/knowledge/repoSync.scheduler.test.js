@@ -1,5 +1,5 @@
 /**
- * Unit tests for the repo_sync due-connection scanner.
+ * Unit tests for the connected_repo_pull due-connection scanner.
  */
 import mongoose from 'mongoose';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -24,7 +24,7 @@ vi.mock('../../../src/modules/knowledge/repositories.js', () => ({
   decryptConnectionToken: vi.fn(),
 }));
 
-vi.mock('../../../src/worker/projectJobLock.js', () => ({
+vi.mock('../../../src/worker/projectLock.js', () => ({
   hasActiveProjectWriterLock: (...args) => hasActiveProjectWriterLock(...args),
 }));
 
@@ -62,7 +62,7 @@ describe('enqueueDueRepositorySyncs', () => {
     expect(listDueConnections).toHaveBeenCalledOnce();
   });
 
-  it('skips when a repo_sync job is already active', async () => {
+  it('skips when a connected_repo_pull job is already active', async () => {
     findActiveJobForProjectByTypes.mockResolvedValue({ _id: new mongoose.Types.ObjectId() });
     listDueConnections.mockResolvedValue([
       {

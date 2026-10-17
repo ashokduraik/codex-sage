@@ -61,7 +61,7 @@ describe('ProjectOverview', () => {
       items: [
         {
           id: 'job_run',
-          jobType: 'ingest',
+          jobType: 'project_knowledge_build',
           jobStatus: 'running',
           currentStage: 'codegraph_update',
           createdAt: '2026-01-02T00:00:00.000Z',

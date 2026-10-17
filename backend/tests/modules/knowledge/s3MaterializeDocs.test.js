@@ -81,7 +81,7 @@ async function seedOneVersion(file) {
   const { job } = await insertPendingJob({
     orgId,
     projectId,
-    jobType: 'ingest',
+    jobType: 'project_knowledge_build',
     sourceVersionId,
     createdBy,
   });
@@ -400,7 +400,7 @@ describe('s3MaterializeDocs extras', () => {
     const { job } = await insertPendingJob({
       orgId,
       projectId,
-      jobType: 'ingest',
+      jobType: 'project_knowledge_build',
       sourceVersionId,
       createdBy,
     });

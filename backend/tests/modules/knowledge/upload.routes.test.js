@@ -198,7 +198,7 @@ describe('source upload routes', () => {
 
     const job = await Job.findById(body.jobId).exec();
     expect(job.jobStatus).toBe('pending');
-    expect(job.jobType).toBe('ingest');
+    expect(job.jobType).toBe('project_knowledge_build');
     expect(String(job.sourceVersionId)).toBe(body.sourceVersionId);
 
     const project = await Project.findById(projectId).exec();
@@ -288,7 +288,7 @@ describe('source upload routes', () => {
     expect(second.json()).toEqual(firstBody);
 
     expect(await SourceVersion.countDocuments({ orgId: org._id })).toBe(1);
-    expect(await Job.countDocuments({ orgId: org._id, jobType: 'ingest' })).toBe(1);
+    expect(await Job.countDocuments({ orgId: org._id, jobType: 'project_knowledge_build' })).toBe(1);
   });
 
   it('returns 404 for a cross-tenant project id', async () => {

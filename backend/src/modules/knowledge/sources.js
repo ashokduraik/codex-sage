@@ -826,7 +826,7 @@ export async function listSourceVersionsByProject(orgId, projectId, filters = {}
 
 // --- from sources/sources.service.js ---
 /**
- * Source version HTTP use cases (reingest).
+ * Source version HTTP use cases (project_knowledge_rebuild).
  */
 /**
  * Formats a date as ISO-8601, or null when missing.
@@ -883,7 +883,7 @@ export async function listProjectSourceVersions(orgId, projectId, query = {}) {
 }
 
 /**
- * Enqueues a reingest job for an existing source version, or returns the active one.
+ * Enqueues a project_knowledge_rebuild job for an existing source version, or returns the active one.
  * @param {{
  *   orgId: string,
  *   projectId: string,
@@ -911,7 +911,7 @@ export async function enqueueSourceReingest(input) {
   const pending = await createPendingJob({
     orgId: input.orgId,
     projectId: input.projectId,
-    jobType: 'reingest',
+    jobType: 'project_knowledge_rebuild',
     createdBy: input.actorUserId,
     correlationId: input.correlationId ?? null,
     sourceVersionId: String(version._id),
@@ -920,13 +920,13 @@ export async function enqueueSourceReingest(input) {
   return {
     jobId: pending.jobId,
     sourceVersionId: String(version._id),
-    jobType: 'reingest',
+    jobType: 'project_knowledge_rebuild',
   };
 }
 
 // --- from sources/sources.routes.js ---
 /**
- * Source version HTTP routes under `/api/v1` (list + reingest).
+ * Source version HTTP routes under `/api/v1` (list + project_knowledge_rebuild).
  */
 const listQuerySchema = z.object({
   cursor: z.string().min(1).optional(),
@@ -977,7 +977,7 @@ export async function listProjectSourceVersionsHttp(request) {
 }
 
 /**
- * POST /knowledge/sources/reingest/:projectId/:sourceVersionId — enqueue re-ingest for a version.
+ * POST /knowledge/sources/reingest/:projectId/:sourceVersionId — enqueue a knowledge rebuild for a version.
  * @param {import('fastify').FastifyRequest} request Fastify request.
  * @param {import('fastify').FastifyReply} reply Fastify reply.
  * @returns {Promise<object>} 202 payload with job id.

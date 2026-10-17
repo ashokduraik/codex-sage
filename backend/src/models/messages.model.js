@@ -45,7 +45,7 @@ const messageSchema = createBaseSchema({
   queuedAt: { type: Date, default: null },
   // When waiting gives up → retryable KNOWLEDGE_UNAVAILABLE (phase 51 TTL)
   expiresAt: { type: Date, default: null },
-  // Writer job (ingest/reingest/repo_sync) blocking Q&A while this row is queued
+  // Writer job (knowledge build/rebuild/repo pull) blocking Q&A while this row is queued
   blockingJobId: { type: ObjectId, ref: 'Job', default: null },
   // Catalog code when queue wait ends in failure (e.g. KNOWLEDGE_UNAVAILABLE)
   queueFailureCode: { type: String, default: null },

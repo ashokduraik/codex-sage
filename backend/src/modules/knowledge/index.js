@@ -28,8 +28,31 @@ export {
   revokeRepositoryCredentialHttp,
   retestRepositoryConnectionHttp,
 } from './repositories.js';
-export { repoSyncHandlerRegistration, enqueueDueRepositorySyncs, REPO_SYNC_SCHEDULER_TICK_MS } from './repoSync.js';
-export { ingestHandlerRegistration, reingestHandlerRegistration } from './ingest.js';
+export {
+  enqueueDueRepositorySyncs,
+  REPO_SYNC_SCHEDULER_TICK_MS,
+  REPO_SYNC_OVERLAP_RETRY_MS,
+  isProjectSyncBlocked,
+  deferRepoSyncJob,
+  resolveRemoteHead,
+  downloadRepositoryArchive,
+  persistRepositorySourceVersion,
+  markConnectionSynced,
+  markConnectionSyncFailed,
+} from './repoSync.js';
+export { findActiveConnection, decryptConnectionToken } from './repositories.js';
+export {
+  INGEST_STAGES,
+  INGEST_STAGE_TIMEOUT_MS,
+  loadSourceVersionForIngest,
+  enterIngestLifecycleAtJobStart,
+  buildIngestStageContext,
+  resolveStagesAfter,
+  markProjectKnowledgeFailed,
+  derivePartialSuccess,
+  hydrateSourceDiffCarry,
+  applySourceDiffAfterValidate,
+} from './ingest.js';
 export {
   countExcludedFromGraphFiles,
   findActiveKnowledgeVersionForSource,

@@ -519,10 +519,11 @@
     "partialFailed": "{{count}} files failed.",
     "partialAvailable": "Knowledge is partially available.",
     "jobType": {
-      "ingest": "Knowledge update",
-      "reingest": "Re-processing",
-      "repo_sync": "Repository sync",
-      "worker_smoke": "Worker check",
+      "project_knowledge_build": "Knowledge update",
+      "project_knowledge_rebuild": "Re-processing",
+      "connected_repo_pull": "Repository sync",
+      "worker_smoke_check": "Worker check",
+      "aged_org_data_cleanup": "Data cleanup",
       "unknown": "Processing"
     },
     "jobStatus": {

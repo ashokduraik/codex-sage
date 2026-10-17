@@ -6,24 +6,24 @@ import { labelForJobStage, listStagesForJobType } from '../../../src/modules/mas
 
 describe('jobStageCatalog', () => {
   it('lists ingest stages and labels', () => {
-    const stages = listStagesForJobType('ingest');
+    const stages = listStagesForJobType('project_knowledge_build');
     expect(stages[0]).toEqual({ stage: 'validate_upload', label: 'Source received' });
-    expect(labelForJobStage('ingest', 'materialize_docs')).toBe('Documentation analyzed');
+    expect(labelForJobStage('project_knowledge_build', 'materialize_docs')).toBe('Documentation analyzed');
   });
 
-  it('lists repo_sync stages separately from ingest', () => {
-    const stages = listStagesForJobType('repo_sync');
+  it('lists connected_repo_pull stages separately from knowledge build', () => {
+    const stages = listStagesForJobType('connected_repo_pull');
     expect(stages.map((entry) => entry.stage)).toEqual(['fetch_remote', 'persist_source', 'enqueue_ingest']);
-    expect(labelForJobStage('repo_sync', 'fetch_remote')).toBe('Checking repository');
+    expect(labelForJobStage('connected_repo_pull', 'fetch_remote')).toBe('Checking repository');
   });
 
-  it('lists retention as a single apply_policy stage', () => {
-    expect(listStagesForJobType('retention')).toEqual([{ stage: 'apply_policy', label: 'Applying retention' }]);
-    expect(labelForJobStage('retention', 'apply_policy')).toBe('Applying retention');
+  it('lists aged_org_data_cleanup as a single apply_policy stage', () => {
+    expect(listStagesForJobType('aged_org_data_cleanup')).toEqual([{ stage: 'apply_policy', label: 'Applying retention' }]);
+    expect(labelForJobStage('aged_org_data_cleanup', 'apply_policy')).toBe('Applying retention');
   });
 
   it('falls back for unknown types and stages', () => {
     expect(listStagesForJobType('unknown_type')).toEqual([]);
-    expect(labelForJobStage('ingest', 'no_such_stage')).toBe('no_such_stage');
+    expect(labelForJobStage('project_knowledge_build', 'no_such_stage')).toBe('no_such_stage');
   });
 });

@@ -9,7 +9,7 @@
 export function buildListJob(overrides = {}) {
   return {
     id: 'job_active',
-    jobType: 'ingest',
+    jobType: 'project_knowledge_build',
     jobStatus: 'running',
     currentStage: 'codegraph_update',
     failureClass: null,

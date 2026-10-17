@@ -6,7 +6,7 @@ import fs from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { assertPathInsideRoot } from './sources.js';
 import { logCaughtError } from '../../platform/errors.js';
-import { hasActiveProjectWriterLock } from '../../worker/projectJobLock.js';
+import { hasActiveProjectWriterLock } from '../../worker/projectLock.js';
 
 // --- from codegraph/codegraph.paths.js ---
 /**

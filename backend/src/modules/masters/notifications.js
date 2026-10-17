@@ -232,7 +232,7 @@ export async function emitNotificationsForJobTerminal(input) {
     await emitProjectNotification({ ...base, type: 'processing.attention' });
   }
 
-  if (jobType === 'ingest' || jobType === 'reingest') {
+  if (jobType === 'project_knowledge_build' || jobType === 'project_knowledge_rebuild') {
     if (input.result === 'completed' || input.result === 'completed_with_warnings') {
       await emitProjectNotification({ ...base, type: 'knowledge.completed' });
       return;
@@ -243,7 +243,7 @@ export async function emitNotificationsForJobTerminal(input) {
     return;
   }
 
-  if (jobType === 'repo_sync') {
+  if (jobType === 'connected_repo_pull') {
     if (input.result === 'completed' || input.result === 'completed_with_warnings') {
       await emitProjectNotification({ ...base, type: 'repo.sync.completed' });
       return;

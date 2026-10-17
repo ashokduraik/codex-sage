@@ -1,9 +1,9 @@
 /**
- * Failure classification and exponential backoff for temporary failures.
+ * jobFailure.js — failure classification and exponential backoff for temporary failures.
  */
 import { logCaughtError } from '../platform/errors.js';
 import { getCatalogEntry } from '../platform/errorCatalog.js';
-import { WORKER_MAX_ATTEMPTS, WORKER_RETRY_BACKOFF_BASE_MS, WORKER_RETRY_BACKOFF_MAX_MS } from './worker.constants.js';
+import { WORKER_MAX_ATTEMPTS, WORKER_RETRY_BACKOFF_BASE_MS, WORKER_RETRY_BACKOFF_MAX_MS } from './workerConfig.js';
 
 /** @typedef {'temporary' | 'permanent' | 'user_action_required'} FailureClass */
 

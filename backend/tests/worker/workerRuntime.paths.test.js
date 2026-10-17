@@ -2,9 +2,9 @@
  * Extra workerRuntime paths: temporary/permanent failure, cancel, warnings, unknown type.
  */
 import mongoose from 'mongoose';
-import { createJobFailureError } from '../../src/worker/retryPolicy.js';
+import { createJobFailureError } from '../../src/worker/jobFailure.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { clearJobHandlersForTests, registerJobHandler } from '../../src/worker/handlerRegistry.js';
+import { clearJobHandlersForTests, registerJobHandler } from '../../src/worker/schedule.js';
 
 const claimNextJob = vi.fn();
 const recordJobClaimedEvent = vi.fn();
@@ -16,8 +16,10 @@ const requeueJobTemporaryFailure = vi.fn();
 const requeueJobProjectBusy = vi.fn();
 const acquireProjectJobLock = vi.fn();
 const releaseProjectJobLock = vi.fn();
-const heartbeatInFlightJob = vi.fn();
-const sweepExpiredLeases = vi.fn();
+const updateOneExec = vi.fn().mockResolvedValue({ matchedCount: 1, modifiedCount: 1 });
+const jobAggregate = vi.fn().mockResolvedValue([]);
+const requeueJobInterrupted = vi.fn();
+const failJobLeaseExpired = vi.fn();
 
 vi.mock('../../src/models/job.model.js', async (importOriginal) => {
   const actual = await importOriginal();
@@ -31,11 +33,13 @@ vi.mock('../../src/models/job.model.js', async (importOriginal) => {
           }),
         }),
       }),
+      updateOne: () => ({ exec: updateOneExec }),
+      aggregate: (...args) => jobAggregate(...args),
     },
   };
 });
 
-vi.mock('../../src/worker/jobClaim.js', async (importOriginal) => {
+vi.mock('../../src/worker/jobState.js', async (importOriginal) => {
   const actual = await importOriginal();
   return {
     ...actual,
@@ -47,22 +51,15 @@ vi.mock('../../src/worker/jobClaim.js', async (importOriginal) => {
     finishJobCancelled: (...args) => finishJobCancelled(...args),
     requeueJobTemporaryFailure: (...args) => requeueJobTemporaryFailure(...args),
     requeueJobProjectBusy: (...args) => requeueJobProjectBusy(...args),
+    requeueJobInterrupted: (...args) => requeueJobInterrupted(...args),
+    failJobLeaseExpired: (...args) => failJobLeaseExpired(...args),
   };
 });
 
-vi.mock('../../src/worker/projectJobLock.js', () => ({
+vi.mock('../../src/worker/projectLock.js', () => ({
   acquireProjectJobLock: (...args) => acquireProjectJobLock(...args),
   releaseProjectJobLock: (...args) => releaseProjectJobLock(...args),
   refreshProjectJobLock: vi.fn(),
-}));
-
-vi.mock('../../src/worker/jobHeartbeat.js', () => ({
-  heartbeatInFlightJob: (...args) => heartbeatInFlightJob(...args),
-  refreshJobLease: vi.fn(),
-}));
-
-vi.mock('../../src/worker/leaseSweeper.js', () => ({
-  sweepExpiredLeases: (...args) => sweepExpiredLeases(...args),
 }));
 
 function makeJobDoc(overrides = {}) {
@@ -70,7 +67,7 @@ function makeJobDoc(overrides = {}) {
     _id: new mongoose.Types.ObjectId('665f1c9d4b2a8e0012a4f010'),
     orgId: new mongoose.Types.ObjectId('6650aa1b4b2a8e0012a4e010'),
     projectId: new mongoose.Types.ObjectId('6651bb2c4b2a8e0012a4e010'),
-    jobType: 'worker_smoke',
+    jobType: 'worker_smoke_check',
     attempt: 1,
     maxAttempts: 5,
     currentStage: null,
@@ -94,8 +91,10 @@ describe('workerRuntime failure and cancel paths', () => {
     requeueJobProjectBusy.mockReset().mockResolvedValue({});
     acquireProjectJobLock.mockReset().mockResolvedValue({ acquired: true });
     releaseProjectJobLock.mockReset().mockResolvedValue(true);
-    heartbeatInFlightJob.mockReset().mockResolvedValue({ owned: true });
-    sweepExpiredLeases.mockReset().mockResolvedValue({ requeued: 0, failed: 0 });
+    updateOneExec.mockReset().mockResolvedValue({ matchedCount: 1, modifiedCount: 1 });
+    jobAggregate.mockReset().mockResolvedValue([]);
+    requeueJobInterrupted.mockReset().mockResolvedValue(null);
+    failJobLeaseExpired.mockReset().mockResolvedValue(null);
   });
 
   afterEach(() => {
@@ -103,10 +102,10 @@ describe('workerRuntime failure and cancel paths', () => {
   });
 
   it('requeues temporary failures and fails permanent ones', async () => {
-    const { startWorkerRuntime } = await import('../../src/worker/workerRuntime.js');
+    const { startWorkerRuntime } = await import('../../src/worker/schedule.js');
 
     registerJobHandler({
-      type: 'worker_smoke',
+      type: 'worker_smoke_check',
       exclusiveScope: 'none',
       run: async () => {
         throw createJobFailureError({
@@ -132,7 +131,7 @@ describe('workerRuntime failure and cancel paths', () => {
 
     clearJobHandlersForTests();
     registerJobHandler({
-      type: 'worker_smoke',
+      type: 'worker_smoke_check',
       exclusiveScope: 'none',
       run: async () => {
         throw createJobFailureError({
@@ -158,9 +157,9 @@ describe('workerRuntime failure and cancel paths', () => {
   });
 
   it('cancels when cancelRequestedAt is already set on the claimed job', async () => {
-    const { startWorkerRuntime } = await import('../../src/worker/workerRuntime.js');
+    const { startWorkerRuntime } = await import('../../src/worker/schedule.js');
     registerJobHandler({
-      type: 'worker_smoke',
+      type: 'worker_smoke_check',
       exclusiveScope: 'none',
       run: async () => ({ result: 'completed' }),
     });
@@ -180,14 +179,14 @@ describe('workerRuntime failure and cancel paths', () => {
   });
 
   it('completes with warnings and requeues when project lock is busy', async () => {
-    const { startWorkerRuntime } = await import('../../src/worker/workerRuntime.js');
+    const { startWorkerRuntime } = await import('../../src/worker/schedule.js');
     registerJobHandler({
-      type: 'ingest',
+      type: 'project_knowledge_build',
       exclusiveScope: 'project',
       run: async () => ({ result: 'completed_with_warnings', summary: { w: 1 } }),
     });
     acquireProjectJobLock.mockResolvedValueOnce({ acquired: false });
-    claimNextJob.mockResolvedValueOnce(makeJobDoc({ jobType: 'ingest' })).mockResolvedValue(null);
+    claimNextJob.mockResolvedValueOnce(makeJobDoc({ jobType: 'project_knowledge_build' })).mockResolvedValue(null);
     const runtime = startWorkerRuntime({
       workerId: 'w-busy',
       log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -205,12 +204,12 @@ describe('workerRuntime failure and cancel paths', () => {
     clearJobHandlersForTests();
     finishJobCompleted.mockClear();
     registerJobHandler({
-      type: 'ingest',
+      type: 'project_knowledge_build',
       exclusiveScope: 'project',
       run: async () => ({ result: 'completed_with_warnings', summary: { w: 1 } }),
     });
     acquireProjectJobLock.mockResolvedValue({ acquired: true });
-    claimNextJob.mockResolvedValueOnce(makeJobDoc({ jobType: 'ingest' })).mockResolvedValue(null);
+    claimNextJob.mockResolvedValueOnce(makeJobDoc({ jobType: 'project_knowledge_build' })).mockResolvedValue(null);
     const runtime2 = startWorkerRuntime({
       workerId: 'w-warn',
       log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -226,13 +225,13 @@ describe('workerRuntime failure and cancel paths', () => {
   });
 
   it('aborts when heartbeat throws and releases on shutdown errors', async () => {
-    const { startWorkerRuntime } = await import('../../src/worker/workerRuntime.js');
+    const { startWorkerRuntime } = await import('../../src/worker/schedule.js');
     let releaseHandler = () => undefined;
     const gate = new Promise((resolve) => {
       releaseHandler = resolve;
     });
     registerJobHandler({
-      type: 'worker_smoke',
+      type: 'worker_smoke_check',
       exclusiveScope: 'none',
       run: async () => {
         await gate;
@@ -240,7 +239,7 @@ describe('workerRuntime failure and cancel paths', () => {
       },
     });
     claimNextJob.mockResolvedValueOnce(makeJobDoc()).mockResolvedValue(null);
-    heartbeatInFlightJob.mockRejectedValueOnce(new Error('hb down'));
+    updateOneExec.mockRejectedValueOnce(new Error('hb down'));
     releaseJobOnShutdown.mockRejectedValueOnce(new Error('release fail'));
     const log = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
     const runtime = startWorkerRuntime({
@@ -262,9 +261,9 @@ describe('workerRuntime failure and cancel paths', () => {
   });
 
   it('fails user_action_required and logs unclassified errors', async () => {
-    const { startWorkerRuntime } = await import('../../src/worker/workerRuntime.js');
+    const { startWorkerRuntime } = await import('../../src/worker/schedule.js');
     registerJobHandler({
-      type: 'worker_smoke',
+      type: 'worker_smoke_check',
       exclusiveScope: 'none',
       run: async () => {
         throw createJobFailureError({
@@ -292,7 +291,7 @@ describe('workerRuntime failure and cancel paths', () => {
     finishJobFailed.mockClear();
     const log = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
     registerJobHandler({
-      type: 'worker_smoke',
+      type: 'worker_smoke_check',
       exclusiveScope: 'none',
       run: async () => {
         throw new Error('mystery');
@@ -310,14 +309,17 @@ describe('workerRuntime failure and cancel paths', () => {
       clearInterval: vi.fn(),
     });
     await vi.waitFor(() => expect(requeueJobTemporaryFailure).toHaveBeenCalled());
-    expect(log.error).toHaveBeenCalledWith(expect.objectContaining({ handler: 'worker_smoke' }), 'unclassified handler error treated as temporary');
+    expect(log.error).toHaveBeenCalledWith(
+      expect.objectContaining({ handler: 'worker_smoke_check' }),
+      'unclassified handler error treated as temporary',
+    );
     await runtime2.stop();
   });
 
   it('survives poll errors and runs the sweeper helper', async () => {
-    const { startWorkerRuntime } = await import('../../src/worker/workerRuntime.js');
+    const { startWorkerRuntime } = await import('../../src/worker/schedule.js');
     registerJobHandler({
-      type: 'worker_smoke',
+      type: 'worker_smoke_check',
       exclusiveScope: 'none',
       run: async () => ({ result: 'completed' }),
     });
@@ -340,9 +342,23 @@ describe('workerRuntime failure and cancel paths', () => {
     });
     await vi.waitFor(() => expect(log.error).toHaveBeenCalled());
     expect(timers[0].unref).toHaveBeenCalled();
-    sweepExpiredLeases.mockResolvedValueOnce({ requeued: 1, failed: 0 });
+    jobAggregate.mockResolvedValueOnce([
+      {
+        _id: '665f1c9d4b2a8e0012a4f099',
+        orgId: '6650aa1b4b2a8e0012a4e099',
+        projectId: '6651bb2c4b2a8e0012a4e099',
+        attempt: 1,
+        maxAttempts: 5,
+      },
+    ]);
+    requeueJobInterrupted.mockResolvedValueOnce({
+      _id: '665f1c9d4b2a8e0012a4f099',
+      orgId: '6650aa1b4b2a8e0012a4e099',
+      projectId: '6651bb2c4b2a8e0012a4e099',
+      attempt: 1,
+    });
     await expect(runtime.sweepOnceForTests()).resolves.toEqual({ requeued: 1, failed: 0 });
-    sweepExpiredLeases.mockRejectedValueOnce(new Error('sweep fail'));
+    jobAggregate.mockRejectedValueOnce(new Error('sweep fail'));
     await expect(runtime.sweepOnceForTests()).resolves.toEqual({ requeued: 0, failed: 0 });
     await runtime.stop();
   });

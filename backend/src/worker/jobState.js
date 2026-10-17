@@ -1,11 +1,11 @@
 /**
- * Atomic claim and job finish / requeue / cancel transitions.
+ * jobState.js — atomic claim and job finish / requeue / cancel transitions.
  */
 import mongoose from 'mongoose';
 import { Job } from '../models/job.model.js';
 import { appendJobEvent } from '../modules/masters/index.js';
 import { ROW_STATUS_ACTIVE } from '../platform/data/index.js';
-import { WORKER_LEASE_TTL_MS, WORKER_PROJECT_BUSY_RETRY_MS } from './worker.constants.js';
+import { WORKER_LEASE_TTL_MS, WORKER_PROJECT_BUSY_RETRY_MS } from './workerConfig.js';
 import {
   WORKER_MSG_CLAIMED,
   WORKER_EVENT_CLAIMED,
@@ -27,7 +27,7 @@ import {
   WORKER_EVENT_PROJECT_BUSY_REQUEUED,
   WORKER_EVENT_COMPLETED_WITH_WARNINGS,
   WORKER_EVENT_FAILED_ATTEMPTS_EXHAUSTED,
-} from './worker.events.js';
+} from './workerConfig.js';
 
 /**
  * Atomically claims the next due pending job among registered types.

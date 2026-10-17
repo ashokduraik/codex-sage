@@ -2,7 +2,7 @@
  * Unit tests for ingest stage list resume.
  */
 import { describe, expect, it } from 'vitest';
-import { createJobFailureError } from '../../../src/worker/retryPolicy.js';
+import { createJobFailureError } from '../../../src/worker/jobFailure.js';
 import { INGEST_STAGES, resolveStagesAfter } from '../../../src/modules/knowledge/ingest.js';
 
 describe('resolveStagesAfter', () => {

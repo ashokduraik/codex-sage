@@ -23,7 +23,7 @@ describe('ProcessingIndicator', () => {
     const job = {
       id: 'job1',
       projectId: 'p1',
-      jobType: 'ingest',
+      jobType: 'project_knowledge_build',
       jobStatus: 'running',
       currentStage: 'codegraph_update',
     };
@@ -37,7 +37,7 @@ describe('ProcessingIndicator', () => {
   it('falls back to the job type and /processing when project context is missing', () => {
     const job = {
       id: 'job1',
-      jobType: 'ingest',
+      jobType: 'project_knowledge_build',
       jobStatus: 'running',
       currentStage: null,
     };

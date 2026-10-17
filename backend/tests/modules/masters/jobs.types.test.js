@@ -14,7 +14,7 @@ describe('jobs.types', () => {
   const jobDoc = {
     _id: jobId,
     projectId,
-    jobType: 'ingest',
+    jobType: 'project_knowledge_build',
     jobStatus: 'pending',
     currentStage: null,
     failureClass: null,
@@ -42,7 +42,7 @@ describe('jobs.types', () => {
   it('maps list DTO without workerId or stageCheckpoint', () => {
     const dto = mapJobToListDto(jobDoc);
     expect(dto.id).toBe(String(jobId));
-    expect(dto.jobType).toBe('ingest');
+    expect(dto.jobType).toBe('project_knowledge_build');
     expect(dto.jobStatus).toBe('pending');
     expect(dto.progressCounters.itemsProcessed).toBe(0);
     expect(dto).not.toHaveProperty('workerId');
@@ -84,7 +84,7 @@ describe('jobs.types', () => {
   it('maps string dates and empty counters on list DTO', () => {
     const dto = mapJobToListDto({
       _id: jobId,
-      jobType: 'ingest',
+      jobType: 'project_knowledge_build',
       jobStatus: 'failed',
       currentStage: 's1',
       failureClass: 'temporary',

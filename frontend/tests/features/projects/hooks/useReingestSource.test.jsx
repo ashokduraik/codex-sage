@@ -27,7 +27,7 @@ function createWrapper(queryClient) {
 
 describe('useReingestSource', () => {
   it('invalidates project, versions, and jobs on success', async () => {
-    reingestProjectSource.mockResolvedValue({ jobId: 'j1', sourceVersionId: 'sv1', jobType: 'reingest' });
+    reingestProjectSource.mockResolvedValue({ jobId: 'j1', sourceVersionId: 'sv1', jobType: 'project_knowledge_rebuild' });
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
     });

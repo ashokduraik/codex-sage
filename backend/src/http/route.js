@@ -32,7 +32,6 @@ import {
 } from '../modules/conversation/index.js';
 import {
   searchProjectHttp,
-  reingestSourceHttp,
   syncRepositoryHttp,
   probeRepositoryHttp,
   attachRepositoryHttp,
@@ -52,6 +51,7 @@ import {
   retestRepositoryConnectionHttp,
   revokeRepositoryCredentialHttp,
   replaceRepositoryCredentialHttp,
+  reingestSourceHttp,
 } from '../modules/knowledge/index.js';
 import {
   getJobHttp,

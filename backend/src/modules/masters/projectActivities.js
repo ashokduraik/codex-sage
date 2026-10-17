@@ -123,7 +123,7 @@ export async function recordProjectActivitiesForJobTerminal(input) {
     return;
   }
   const jobType = String(job.jobType ?? '');
-  if (jobType !== 'ingest' && jobType !== 'reingest' && jobType !== 'repo_sync') {
+  if (jobType !== 'project_knowledge_build' && jobType !== 'project_knowledge_rebuild' && jobType !== 'connected_repo_pull') {
     return;
   }
   const jobId = String(job._id ?? job.id);

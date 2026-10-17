@@ -3,8 +3,8 @@
  */
 import mongoose from 'mongoose';
 import { ProjectJobLock } from '../models/projectJobLock.model.js';
+import { PROJECT_JOB_LOCK_SCOPE, WORKER_LEASE_TTL_MS } from './workerConfig.js';
 import { ROW_STATUS_ACTIVE, ROW_STATUS_DELETED } from '../platform/data/index.js';
-import { PROJECT_JOB_LOCK_SCOPE, WORKER_LEASE_TTL_MS } from './worker.constants.js';
 
 /**
  * Tries to acquire the project writer lock for a claimed job.

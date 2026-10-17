@@ -70,7 +70,7 @@ describe('jobs.repository', () => {
     const { job, event } = await insertPendingJob({
       orgId,
       projectId,
-      jobType: 'ingest',
+      jobType: 'project_knowledge_build',
       createdBy: actor,
       correlationId: 'req_test_1',
     });
@@ -98,7 +98,7 @@ describe('jobs.repository', () => {
     const { job } = await insertPendingJob({
       orgId,
       projectId,
-      jobType: 'ingest',
+      jobType: 'project_knowledge_build',
     });
     const older = new Date('2020-01-01T00:00:00.000Z');
     const newer = new Date('2021-01-01T00:00:00.000Z');
@@ -215,12 +215,12 @@ describe('jobs.repository', () => {
     const { job: jobA } = await insertPendingJob({
       orgId: orgA,
       projectId: projectA,
-      jobType: 'ingest',
+      jobType: 'project_knowledge_build',
     });
     const { job: failed } = await insertPendingJob({
       orgId: orgA,
       projectId: projectA,
-      jobType: 'ingest',
+      jobType: 'project_knowledge_build',
     });
     failed.jobStatus = 'failed';
     failed.failureClass = 'permanent';
@@ -229,19 +229,19 @@ describe('jobs.repository', () => {
     const { job: soft } = await insertPendingJob({
       orgId: orgA,
       projectId: projectA,
-      jobType: 'ingest',
+      jobType: 'project_knowledge_build',
     });
     await softDelete(Job, { _id: soft._id, orgId: orgA });
 
     await insertPendingJob({
       orgId: orgB,
       projectId: projectB,
-      jobType: 'ingest',
+      jobType: 'project_knowledge_build',
     });
     await insertPendingJob({
       orgId: orgA,
       projectId: projectB,
-      jobType: 'ingest',
+      jobType: 'project_knowledge_build',
     });
 
     const listed = await listJobsByProject(orgA, String(projectA));
@@ -262,7 +262,7 @@ describe('jobs.repository', () => {
       const { job } = await insertPendingJob({
         orgId,
         projectId,
-        jobType: 'ingest',
+        jobType: 'project_knowledge_build',
         scheduledAt: new Date(Date.UTC(2026, 0, 1, 0, 0, i)),
       });
       job.createdAt = new Date(Date.UTC(2026, 0, 1, 0, 0, i));
@@ -301,14 +301,14 @@ describe('jobs.repository', () => {
     const { job: pending } = await insertPendingJob({
       orgId,
       projectId,
-      jobType: 'ingest',
+      jobType: 'project_knowledge_build',
       maxAttempts: 3,
     });
     expect(pending.maxAttempts).toBe(3);
     const { job: failed } = await insertPendingJob({
       orgId,
       projectId,
-      jobType: 'ingest',
+      jobType: 'project_knowledge_build',
     });
     failed.jobStatus = 'failed';
     await failed.save();
@@ -342,7 +342,7 @@ describe('jobs.repository', () => {
     const { job } = await insertPendingJob({
       orgId,
       projectId,
-      jobType: 'ingest',
+      jobType: 'project_knowledge_build',
       createdBy: actor,
       sourceVersionId,
     });
@@ -362,7 +362,7 @@ describe('jobs.repository', () => {
     const { job: runningJob } = await insertPendingJob({
       orgId,
       projectId,
-      jobType: 'ingest',
+      jobType: 'project_knowledge_build',
     });
     await Job.updateOne({ _id: runningJob._id }, { $set: { jobStatus: 'running', workerId: 'w1' } });
     const requested = await requestRunningJobCancel({
@@ -377,7 +377,7 @@ describe('jobs.repository', () => {
     const { job: failedJob } = await insertPendingJob({
       orgId,
       projectId,
-      jobType: 'ingest',
+      jobType: 'project_knowledge_build',
     });
     await Job.updateOne(
       { _id: failedJob._id },
@@ -427,23 +427,23 @@ describe('jobs.repository', () => {
     const { job: ingestJob } = await insertPendingJob({
       orgId,
       projectId,
-      jobType: 'ingest',
+      jobType: 'project_knowledge_build',
     });
     const { job: syncJob } = await insertPendingJob({
       orgId,
       projectId,
-      jobType: 'repo_sync',
+      jobType: 'connected_repo_pull',
     });
     await Job.updateOne({ _id: syncJob._id }, { $set: { jobStatus: 'running', attempt: 2 } });
 
-    expect(await findActiveJobForProjectByTypes(orgId, projectId, ['repo_sync'])).toBeTruthy();
+    expect(await findActiveJobForProjectByTypes(orgId, projectId, ['connected_repo_pull'])).toBeTruthy();
     expect(
-      await findActiveJobForProjectByTypes(orgId, projectId, ['repo_sync'], {
+      await findActiveJobForProjectByTypes(orgId, projectId, ['connected_repo_pull'], {
         excludeJobId: String(syncJob._id),
       }),
     ).toBeNull();
-    expect(await findActiveJobForProjectByTypes(orgId, projectId, ['ingest'])).toBeTruthy();
-    expect(await findActiveJobForProjectByTypes(orgId, 'bad-id', ['ingest'])).toBeNull();
+    expect(await findActiveJobForProjectByTypes(orgId, projectId, ['project_knowledge_build'])).toBeTruthy();
+    expect(await findActiveJobForProjectByTypes(orgId, 'bad-id', ['project_knowledge_build'])).toBeNull();
     void ingestJob;
 
     const deferred = await deferRunningJob({

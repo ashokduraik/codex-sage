@@ -10,7 +10,7 @@ import { findKnowledgeVersionById } from './knowledge.js';
 import { caughtErrorFields } from '../../platform/errors.js';
 import { codegraphIndexExists, createCodegraphAdapter } from './codegraph.js';
 import { findChangeSummaryForVersion, upsertChangeSummary } from './changeSummary.js';
-import { createJobFailureError, createJobFailureFromCaught } from '../../worker/retryPolicy.js';
+import { createJobFailureError, createJobFailureFromCaught } from '../../worker/jobFailure.js';
 import {
   buildWorkspaceMaterializedEvent,
   buildDocumentationIdentifiedEvent,
@@ -48,7 +48,7 @@ import {
  * @returns {Promise<void>}
  */
 export async function hydrateSourceDiffCarry(ctx, job) {
-  if (job.jobType !== 'ingest') {
+  if (job.jobType !== 'project_knowledge_build') {
     return;
   }
   const summary = await findChangeSummaryForVersion({
@@ -68,7 +68,7 @@ export async function hydrateSourceDiffCarry(ctx, job) {
  * @returns {Promise<void>}
  */
 export async function applySourceDiffAfterValidate(ctx, job) {
-  if (job.jobType !== 'ingest') {
+  if (job.jobType !== 'project_knowledge_build') {
     return;
   }
 

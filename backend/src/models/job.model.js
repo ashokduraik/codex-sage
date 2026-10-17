@@ -1,6 +1,6 @@
 /**
- * `jobs` — one background task for a project (ingest uploaded files,
- * reingest, or sync a Git repo). The HTTP handler only creates this
+ * `jobs` — one background task for a project (build/rebuild knowledge from source,
+ * pull a connected Git repo, or clean aged org data). The HTTP handler only creates this
  * row; a worker picks it up later so the request does not wait minutes.
  * `events[]` is the user-readable timeline for this job.
  */
@@ -11,7 +11,13 @@ const ObjectId = mongoose.Schema.Types.ObjectId;
 
 export const JOB_DEFAULT_MAX_ATTEMPTS = 5;
 export const JOB_STATUS_VALUES = Object.freeze(['pending', 'running', 'completed', 'completed_with_warnings', 'failed', 'retrying', 'cancelled']);
-export const JOB_TYPE_VALUES = Object.freeze(['ingest', 'reingest', 'repo_sync', 'worker_smoke', 'retention']);
+export const JOB_TYPE_VALUES = Object.freeze([
+  'project_knowledge_build',
+  'project_knowledge_rebuild',
+  'connected_repo_pull',
+  'aged_org_data_cleanup',
+  'worker_smoke_check',
+]);
 export const FAILURE_CLASS_VALUES = Object.freeze(['temporary', 'permanent', 'user_action_required']);
 
 /** info = progress, warning = problem but continued, error = failure. */
@@ -61,7 +67,7 @@ const progressCountersSchema = new mongoose.Schema(
 const jobSchema = createBaseSchema({
   // Project this work is for (Payments API)
   projectId: { type: ObjectId, ref: 'Project', default: null },
-  // What to do: ingest, reingest, repo_sync, retention, or worker_smoke
+  // What to do: project_knowledge_build/rebuild, connected_repo_pull, aged_org_data_cleanup, or worker_smoke_check
   jobType: { type: String, enum: JOB_TYPE_VALUES, required: true },
   // pending → running → completed / failed / cancelled (or retrying)
   jobStatus: { type: String, enum: JOB_STATUS_VALUES, required: true, default: 'pending' },

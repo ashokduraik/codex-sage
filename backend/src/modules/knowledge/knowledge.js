@@ -12,13 +12,13 @@ import { recordAuditEvent } from '../access/index.js';
 import { listSectionsForVersion } from './documents.js';
 import { SourceFile } from '../../models/sourceFile.model.js';
 import { getCatalogEntry } from '../../platform/errorCatalog.js';
+import { hasActiveProjectWriterLock } from '../../worker/projectLock.js';
 import { KnowledgeVersion } from '../../models/knowledgeVersion.model.js';
-import { hasActiveProjectWriterLock } from '../../worker/projectJobLock.js';
 import { resolveCodegraphDir, createCodegraphAdapter } from './codegraph.js';
 import { assertOrgId, ROW_STATUS_ACTIVE } from '../../platform/data/index.js';
 import { runMaterializeDocsStage, runCodegraphUpdateStage } from './ingest.util.js';
 import { SOURCE_FILE_STATE_STORED, resolveProjectWorkspacePath } from './sources.js';
-import { createJobFailureError, createJobFailureFromCaught } from '../../worker/retryPolicy.js';
+import { createJobFailureError, createJobFailureFromCaught } from '../../worker/jobFailure.js';
 
 // --- from knowledge/knowledgeVersion.repository.js ---
 /**

@@ -569,7 +569,7 @@ describe('repository attach routes', () => {
     expect(res.statusCode).toBe(404);
   });
 
-  it('enqueues repo_sync with Idempotency-Key and 404s without a connection', async () => {
+  it('enqueues connected_repo_pull with Idempotency-Key and 404s without a connection', async () => {
     await runBootstrapSeed(createMockLog());
     app = await readyApp();
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
@@ -607,7 +607,7 @@ describe('repository attach routes', () => {
       },
     });
     expect(first.statusCode).toBe(202);
-    expect(first.json().job.jobType).toBe('repo_sync');
+    expect(first.json().job.jobType).toBe('connected_repo_pull');
 
     const replay = await app.inject({
       method: 'POST',

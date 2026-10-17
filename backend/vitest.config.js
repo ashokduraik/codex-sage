@@ -9,8 +9,9 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['src/**/*.js'],
-      // Process entrypoints that bind listen / signal handlers at import time.
-      exclude: ['src/index.js', 'src/worker/index.js'],
+      // API process entry binds listen / signal handlers at import time.
+      // Worker entry uses a main-module guard so startWorker is importable and covered.
+      exclude: ['src/index.js'],
       thresholds: { lines: 80, branches: 80, functions: 80, statements: 80 },
       reporter: ['text', 'lcov'],
     },

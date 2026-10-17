@@ -4,12 +4,11 @@
 import mongoose from 'mongoose';
 import { loadConfig } from '../../platform/config.js';
 import { recordAuditEvent } from '../access/index.js';
-import { hasActiveProjectWriterLock } from '../../worker/projectJobLock.js';
+import { hasActiveProjectWriterLock } from '../../worker/projectLock.js';
 import { ApiError, caughtErrorFields, logCaughtError } from '../../platform/errors.js';
+import { listDueConnections, updateConnection, findActiveConnection } from './repositories.js';
 import { inspectZip, storeAcceptedZipEntries, summarizeInspection, UPLOAD_MAX_ARCHIVE_BYTES } from './uploads.js';
-import { listDueConnections, updateConnection, findActiveConnection, decryptConnectionToken } from './repositories.js';
 import { insertPendingJob, findActiveJobForProjectByTypes, createPendingJob, deferRunningJob } from '../masters/index.js';
-import { markProjectKnowledgeFailed } from './ingest.js';
 import { insertSourceFiles, insertSourceVersion, markGridFsFilesOrphaned, setSourceVersionJobId, SOURCE_ORIGIN_REPOSITORY } from './sources.js';
 import {
   outboundGet,
@@ -39,8 +38,8 @@ export const REPO_SYNC_OVERLAP_RETRY_MS = 120_000;
 /** Wall clock for remote HEAD + archive download. */
 export const REPO_SYNC_FETCH_TIMEOUT_MS = 600_000;
 
-/** Job types that block a concurrent repo_sync persist. */
-export const REPO_SYNC_OVERLAP_JOB_TYPES = Object.freeze(['ingest', 'reingest', 'repo_sync']);
+/** Job types that block a concurrent connected_repo_pull persist. */
+export const REPO_SYNC_OVERLAP_JOB_TYPES = Object.freeze(['project_knowledge_build', 'project_knowledge_rebuild', 'connected_repo_pull']);
 
 /** GitHub hosts allowed after an api.github.com zipball redirect. */
 export const GITHUB_ARCHIVE_REDIRECT_HOSTS = Object.freeze(['codeload.github.com']);
@@ -77,7 +76,7 @@ const MAX_REDIRECTS = 5;
  */
 // --- from repositories/sync/repoSync.scheduler.js ---
 /**
- * Worker-only scan that enqueues due `repo_sync` jobs.
+ * Worker-only scan that enqueues due `connected_repo_pull` jobs.
  */
 // --- from repositories/sync/repoSync.service.js ---
 /**
@@ -89,7 +88,7 @@ const MAX_REDIRECTS = 5;
  */
 // --- from repositories/sync/repoSync.handler.js ---
 /**
- * Worker handler for `repo_sync` — fetch HEAD, persist on new SHA, enqueue ingest.
+ * Worker handler for `connected_repo_pull` — fetch HEAD, persist on new SHA, enqueue ingest.
  */
 
 /**
@@ -360,7 +359,7 @@ export function splitGithubFullName(fullName) {
 }
 
 /**
- * Enqueues `repo_sync` for each due active connection that is not overlapping.
+ * Enqueues `connected_repo_pull` for each due active connection that is not overlapping.
  * @param {{
  *   log?: { error?: Function, info?: Function },
  * }} [input] Optional logger for scheduler tick diagnostics.
@@ -376,7 +375,7 @@ export async function enqueueDueRepositorySyncs(input = {}) {
     const orgId = String(connection.orgId);
     const projectId = String(connection.projectId);
     try {
-      const existing = await findActiveJobForProjectByTypes(orgId, projectId, ['repo_sync']);
+      const existing = await findActiveJobForProjectByTypes(orgId, projectId, ['connected_repo_pull']);
       if (existing) {
         skipped += 1;
         continue;
@@ -389,7 +388,7 @@ export async function enqueueDueRepositorySyncs(input = {}) {
       const { job } = await insertPendingJob({
         orgId,
         projectId,
-        jobType: 'repo_sync',
+        jobType: 'connected_repo_pull',
         createdBy: null,
         scheduledAt: now,
       });
@@ -410,13 +409,13 @@ export async function enqueueDueRepositorySyncs(input = {}) {
           projectId,
           ...caughtErrorFields(err),
         },
-        'repo_sync scheduler failed for connection',
+        'connected_repo_pull scheduler failed for connection',
       );
     }
   }
 
   if (enqueued > 0) {
-    input.log?.info?.({ enqueued, skipped }, 'repo_sync scheduler enqueued due work');
+    input.log?.info?.({ enqueued, skipped }, 'connected_repo_pull scheduler enqueued due work');
   }
   return { enqueued, skipped };
 }
@@ -471,7 +470,7 @@ export async function isProjectSyncBlocked(input) {
 }
 
 /**
- * Enqueues a manual `repo_sync` job (or returns the existing active one).
+ * Enqueues a manual `connected_repo_pull` job (or returns the existing active one).
  * @param {{
  *   orgId: string,
  *   projectId: string,
@@ -487,7 +486,7 @@ export async function enqueueManualRepositorySync(input) {
     throw ApiError.fromCode('NOT_FOUND');
   }
 
-  const existing = await findActiveJobForProjectByTypes(input.orgId, input.projectId, ['repo_sync']);
+  const existing = await findActiveJobForProjectByTypes(input.orgId, input.projectId, ['connected_repo_pull']);
   if (existing) {
     return { job: mapSyncJob(existing) };
   }
@@ -507,7 +506,7 @@ export async function enqueueManualRepositorySync(input) {
         {
           orgId: input.orgId,
           projectId: input.projectId,
-          jobType: 'repo_sync',
+          jobType: 'connected_repo_pull',
           createdBy: input.actorUserId,
           correlationId: input.correlationId,
           scheduledAt,
@@ -650,7 +649,7 @@ export async function persistRepositorySourceVersion(input) {
           {
             orgId: input.orgId,
             projectId: input.projectId,
-            jobType: 'ingest',
+            jobType: 'project_knowledge_build',
             createdBy: input.actorUserId ?? null,
             correlationId: input.correlationId,
             sourceVersionId,
@@ -753,157 +752,10 @@ export async function deferRepoSyncJob(input) {
 }
 
 /**
- * Runs one claimed `repo_sync` job.
+ * Runs one claimed `connected_repo_pull` job.
  * @param {object} workerContext Worker-provided context.
  * @returns {Promise<{ result: 'completed' | 'deferred', summary?: object }>}
  */
-export async function runRepoSyncJob(workerContext) {
-  const job = workerContext.job;
-  const orgId = String(job.orgId);
-  const projectId = String(job.projectId);
-  const jobId = String(job._id);
-
-  const blocked = await isProjectSyncBlocked({
-    orgId,
-    projectId,
-    excludeJobId: jobId,
-  });
-  if (blocked) {
-    await deferRepoSyncJob({ jobId, orgId, delayMs: REPO_SYNC_OVERLAP_RETRY_MS });
-    await workerContext.recordEvent({
-      eventCode: 'repo.sync.deferred',
-      severity: 'info',
-      message: 'Sync deferred because the project is busy.',
-    });
-    return { result: 'deferred' };
-  }
-
-  const connection = await findActiveConnection(orgId, projectId);
-  if (!connection) {
-    throw Object.assign(new Error('Repository connection was not found.'), {
-      failureClass: 'permanent',
-      code: 'NOT_FOUND',
-      probeStatus: null,
-    });
-  }
-
-  const connectionId = String(connection._id);
-  await workerContext.saveCheckpoint({
-    lastCompletedStage: 'fetch_remote',
-    currentStage: 'fetch_remote',
-  });
-
-  let token = null;
-  try {
-    if (connection.credential) {
-      token = await decryptConnectionToken(connection.credential);
-    }
-
-    const head = await resolveRemoteHead({
-      provider: connection.provider,
-      baseUrl: connection.baseUrl,
-      fullName: connection.repositoryFullName,
-      branch: connection.selectedBranch,
-      token,
-      signal: workerContext.signal,
-    });
-
-    if (head.commitSha === connection.lastSyncedCommitSha) {
-      await markConnectionSynced({
-        orgId,
-        connectionId,
-        commitSha: head.commitSha,
-        jobId,
-      });
-      await workerContext.recordEvent({
-        eventCode: 'repo.sync.no_changes',
-        severity: 'info',
-        message: `No changes on ${connection.selectedBranch}`,
-      });
-      return {
-        result: 'completed',
-        summary: { outcome: 'no_changes', commitSha: head.commitSha },
-      };
-    }
-
-    await workerContext.saveCheckpoint({
-      lastCompletedStage: 'persist_source',
-      currentStage: 'persist_source',
-    });
-
-    const { archiveBuffer } = await downloadRepositoryArchive({
-      provider: connection.provider,
-      baseUrl: connection.baseUrl,
-      fullName: connection.repositoryFullName,
-      branch: connection.selectedBranch,
-      commitSha: head.commitSha,
-      token,
-      signal: workerContext.signal,
-    });
-
-    const persisted = await persistRepositorySourceVersion({
-      orgId,
-      projectId,
-      connectionId,
-      branch: connection.selectedBranch,
-      commitSha: head.commitSha,
-      archiveBuffer,
-      actorUserId: job.createdBy ? String(job.createdBy) : null,
-      correlationId: job.correlationId ?? null,
-    });
-
-    await workerContext.saveCheckpoint({
-      lastCompletedStage: 'enqueue_ingest',
-      currentStage: 'enqueue_ingest',
-    });
-
-    await markConnectionSynced({
-      orgId,
-      connectionId,
-      commitSha: head.commitSha,
-      jobId,
-    });
-    await workerContext.recordEvent({
-      eventCode: 'repo.sync.source_enqueued',
-      severity: 'info',
-      message: 'Source queued for processing.',
-    });
-
-    return {
-      result: 'completed',
-      summary: {
-        outcome: 'source_enqueued',
-        commitSha: head.commitSha,
-        sourceVersionId: persisted.sourceVersionId,
-        ingestJobId: persisted.ingestJobId,
-      },
-    };
-  } catch (err) {
-    const code = err && typeof err === 'object' && 'code' in err ? String(/** @type {{ code?: unknown }} */ (err).code) : 'provider_unavailable';
-    const probeStatus =
-      err && typeof err === 'object' && 'probeStatus' in err ? /** @type {{ probeStatus?: string | null }} */ (err).probeStatus : null;
-    await markConnectionSyncFailed({
-      orgId,
-      connectionId,
-      probeStatus,
-      errorCode: code,
-      jobId,
-    });
-    // Empty archive after exclusions never reaches ingest — surface Failed on the project.
-    if (code === 'SOURCE_VERSION_EMPTY_AFTER_EXCLUSIONS') {
-      await markProjectKnowledgeFailed({
-        orgId,
-        projectId,
-        sourceVersionId: null,
-        failureCode: code,
-        correlationId: job.correlationId ?? null,
-        log: workerContext.log,
-      });
-    }
-    throw err;
-  }
-}
-
 /**
  * @param {unknown} err Thrown value.
  * @returns {boolean}
@@ -932,12 +784,3 @@ function throwMapped(mapped, options = {}) {
     probeStatus: mapped.probeStatus,
   });
 }
-
-/**
- * Registration descriptor for the repo_sync handler.
- */
-export const repoSyncHandlerRegistration = {
-  type: 'repo_sync',
-  exclusiveScope: /** @type {'none'} */ ('none'),
-  run: runRepoSyncJob,
-};

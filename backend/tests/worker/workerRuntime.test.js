@@ -3,7 +3,7 @@
  */
 import mongoose from 'mongoose';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { clearJobHandlersForTests, registerJobHandler } from '../../src/worker/handlerRegistry.js';
+import { clearJobHandlersForTests, registerJobHandler } from '../../src/worker/schedule.js';
 
 const claimNextJob = vi.fn();
 const recordJobClaimedEvent = vi.fn();
@@ -12,8 +12,8 @@ const finishJobCompleted = vi.fn();
 const requeueJobProjectBusy = vi.fn();
 const acquireProjectJobLock = vi.fn();
 const releaseProjectJobLock = vi.fn();
-const heartbeatInFlightJob = vi.fn();
-const sweepExpiredLeases = vi.fn();
+
+const updateOneExec = vi.fn().mockResolvedValue({ matchedCount: 1, modifiedCount: 1 });
 
 vi.mock('../../src/models/job.model.js', async (importOriginal) => {
   const actual = await importOriginal();
@@ -27,11 +27,13 @@ vi.mock('../../src/models/job.model.js', async (importOriginal) => {
           }),
         }),
       }),
+      updateOne: () => ({ exec: updateOneExec }),
+      aggregate: vi.fn().mockResolvedValue([]),
     },
   };
 });
 
-vi.mock('../../src/worker/jobClaim.js', async (importOriginal) => {
+vi.mock('../../src/worker/jobState.js', async (importOriginal) => {
   const actual = await importOriginal();
   return {
     ...actual,
@@ -46,19 +48,10 @@ vi.mock('../../src/worker/jobClaim.js', async (importOriginal) => {
   };
 });
 
-vi.mock('../../src/worker/projectJobLock.js', () => ({
+vi.mock('../../src/worker/projectLock.js', () => ({
   acquireProjectJobLock: (...args) => acquireProjectJobLock(...args),
   releaseProjectJobLock: (...args) => releaseProjectJobLock(...args),
   refreshProjectJobLock: vi.fn(),
-}));
-
-vi.mock('../../src/worker/jobHeartbeat.js', () => ({
-  heartbeatInFlightJob: (...args) => heartbeatInFlightJob(...args),
-  refreshJobLease: vi.fn(),
-}));
-
-vi.mock('../../src/worker/leaseSweeper.js', () => ({
-  sweepExpiredLeases: (...args) => sweepExpiredLeases(...args),
 }));
 
 function makeJobDoc(overrides = {}) {
@@ -66,7 +59,7 @@ function makeJobDoc(overrides = {}) {
     _id: new mongoose.Types.ObjectId('665f1c9d4b2a8e0012a4f001'),
     orgId: new mongoose.Types.ObjectId('6650aa1b4b2a8e0012a4e001'),
     projectId: new mongoose.Types.ObjectId('6651bb2c4b2a8e0012a4e002'),
-    jobType: 'worker_smoke',
+    jobType: 'worker_smoke_check',
     attempt: 1,
     maxAttempts: 5,
     currentStage: null,
@@ -87,8 +80,7 @@ describe('workerRuntime', () => {
     requeueJobProjectBusy.mockReset().mockResolvedValue({});
     acquireProjectJobLock.mockReset();
     releaseProjectJobLock.mockReset().mockResolvedValue(true);
-    heartbeatInFlightJob.mockReset().mockResolvedValue({ owned: true });
-    sweepExpiredLeases.mockReset().mockResolvedValue({ requeued: 0, failed: 0 });
+    updateOneExec.mockReset().mockResolvedValue({ matchedCount: 1, modifiedCount: 1 });
   });
 
   afterEach(() => {
@@ -96,14 +88,14 @@ describe('workerRuntime', () => {
   });
 
   it('stops claiming at max concurrent jobs while a slot is full', async () => {
-    const { startWorkerRuntime } = await import('../../src/worker/workerRuntime.js');
+    const { startWorkerRuntime } = await import('../../src/worker/schedule.js');
     let releaseHandler = () => undefined;
     const handlerGate = new Promise((resolve) => {
       releaseHandler = resolve;
     });
 
     registerJobHandler({
-      type: 'worker_smoke',
+      type: 'worker_smoke_check',
       exclusiveScope: 'none',
       run: async () => {
         await handlerGate;
@@ -135,14 +127,14 @@ describe('workerRuntime', () => {
   });
 
   it('shutdown returns an in-flight job to pending and releases its lock', async () => {
-    const { startWorkerRuntime } = await import('../../src/worker/workerRuntime.js');
+    const { startWorkerRuntime } = await import('../../src/worker/schedule.js');
     let releaseHandler = () => undefined;
     const handlerGate = new Promise((resolve) => {
       releaseHandler = resolve;
     });
 
     registerJobHandler({
-      type: 'ingest',
+      type: 'project_knowledge_build',
       exclusiveScope: 'project',
       run: async () => {
         await handlerGate;
@@ -154,7 +146,7 @@ describe('workerRuntime', () => {
 
     const jobDoc = makeJobDoc({
       _id: new mongoose.Types.ObjectId('665f1c9d4b2a8e0012a4f002'),
-      jobType: 'ingest',
+      jobType: 'project_knowledge_build',
     });
     claimNextJob.mockResolvedValueOnce(jobDoc).mockResolvedValue(null);
 
@@ -181,7 +173,7 @@ describe('workerRuntime', () => {
   });
 
   it('aborts the job signal when heartbeat reports lost ownership', async () => {
-    const { startWorkerRuntime } = await import('../../src/worker/workerRuntime.js');
+    const { startWorkerRuntime } = await import('../../src/worker/schedule.js');
     /** @type {AbortSignal | undefined} */
     let seenSignal;
     let releaseHandler = () => undefined;
@@ -190,7 +182,7 @@ describe('workerRuntime', () => {
     });
 
     registerJobHandler({
-      type: 'worker_smoke',
+      type: 'worker_smoke_check',
       exclusiveScope: 'none',
       run: async (ctx) => {
         seenSignal = ctx.signal;
@@ -200,7 +192,7 @@ describe('workerRuntime', () => {
     });
 
     claimNextJob.mockResolvedValueOnce(makeJobDoc()).mockResolvedValue(null);
-    heartbeatInFlightJob.mockResolvedValue({ owned: false });
+    updateOneExec.mockResolvedValue({ matchedCount: 0, modifiedCount: 0 });
 
     const runtime = startWorkerRuntime({
       workerId: 'w-hb',
@@ -220,13 +212,13 @@ describe('workerRuntime', () => {
   });
 
   it('does not complete a job when the handler returns deferred', async () => {
-    const { startWorkerRuntime } = await import('../../src/worker/workerRuntime.js');
+    const { startWorkerRuntime } = await import('../../src/worker/schedule.js');
     registerJobHandler({
-      type: 'repo_sync',
+      type: 'connected_repo_pull',
       exclusiveScope: 'none',
       run: async () => ({ result: 'deferred' }),
     });
-    claimNextJob.mockResolvedValueOnce(makeJobDoc({ jobType: 'repo_sync' })).mockResolvedValue(null);
+    claimNextJob.mockResolvedValueOnce(makeJobDoc({ jobType: 'connected_repo_pull' })).mockResolvedValue(null);
     const runtime = startWorkerRuntime({
       workerId: 'w-defer',
       log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },

@@ -29,7 +29,7 @@ describe('enqueueSourceReingest', () => {
     await harness.afterAll();
   });
 
-  it('creates a pending reingest job for an active source version', async () => {
+  it('creates a pending project_knowledge_rebuild job for an active source version', async () => {
     const orgId = new mongoose.Types.ObjectId();
     const projectId = new mongoose.Types.ObjectId();
     const sourceVersionId = new mongoose.Types.ObjectId();
@@ -50,10 +50,10 @@ describe('enqueueSourceReingest', () => {
       actorUserId: String(actor),
       correlationId: 'corr-1',
     });
-    expect(result.jobType).toBe('reingest');
+    expect(result.jobType).toBe('project_knowledge_rebuild');
     expect(result.sourceVersionId).toBe(String(sourceVersionId));
     const job = await Job.findById(result.jobId).exec();
-    expect(job?.jobType).toBe('reingest');
+    expect(job?.jobType).toBe('project_knowledge_rebuild');
     expect(job?.jobStatus).toBe('pending');
   });
 

@@ -46,7 +46,7 @@ describe('jobs.service', () => {
     const result = await createPendingJob({
       orgId,
       projectId,
-      jobType: 'ingest',
+      jobType: 'project_knowledge_build',
       correlationId: 'corr_1',
     });
     expect(result.jobId).toMatch(/^[a-f0-9]{24}$/);
@@ -65,7 +65,7 @@ describe('jobs.service', () => {
     const { jobId } = await createPendingJob({
       orgId,
       projectId,
-      jobType: 'ingest',
+      jobType: 'project_knowledge_build',
     });
     resolveProjectPermissions.mockResolvedValueOnce({
       kind: 'OK',
@@ -82,7 +82,7 @@ describe('jobs.service', () => {
     const { jobId } = await createPendingJob({
       orgId,
       projectId,
-      jobType: 'ingest',
+      jobType: 'project_knowledge_build',
     });
     resolveProjectPermissions.mockResolvedValueOnce({
       kind: 'OK',
@@ -100,7 +100,7 @@ describe('jobs.service', () => {
     const { jobId } = await createPendingJob({
       orgId,
       projectId,
-      jobType: 'ingest',
+      jobType: 'project_knowledge_build',
     });
     resolveProjectPermissions.mockResolvedValueOnce({ kind: 'NO_ACCESS' });
     await expect(getJobById(orgId, new mongoose.Types.ObjectId().toHexString(), jobId)).rejects.toMatchObject({
@@ -114,7 +114,7 @@ describe('jobs.service', () => {
     const { job } = await insertPendingJob({
       orgId,
       projectId,
-      jobType: 'ingest',
+      jobType: 'project_knowledge_build',
     });
     const event = await appendJobEvent({
       orgId,

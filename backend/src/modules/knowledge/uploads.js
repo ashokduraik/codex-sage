@@ -734,7 +734,7 @@ export async function persistSourceUpload(input) {
           {
             orgId: input.orgId,
             projectId: input.projectId,
-            jobType: 'ingest',
+            jobType: 'project_knowledge_build',
             createdBy: input.actorUserId,
             correlationId: input.correlationId,
             sourceVersionId,

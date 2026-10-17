@@ -29,7 +29,7 @@ describe('applySourceDiffAfterValidate', () => {
     await harness.afterAll();
   });
 
-  it('skips the hook for reingest jobs', async () => {
+  it('skips the hook for project_knowledge_rebuild jobs', async () => {
     const ctx = {
       scope: {
         orgId: new mongoose.Types.ObjectId(),
@@ -38,7 +38,7 @@ describe('applySourceDiffAfterValidate', () => {
       },
       carry: {},
     };
-    await applySourceDiffAfterValidate(ctx, { jobType: 'reingest' });
+    await applySourceDiffAfterValidate(ctx, { jobType: 'project_knowledge_rebuild' });
     expect(ctx.carry.skipPaths).toBeUndefined();
   });
 
@@ -86,10 +86,10 @@ describe('applySourceDiffAfterValidate', () => {
       scope: { orgId, projectId, sourceVersionId },
       carry: {},
     };
-    await applySourceDiffAfterValidate(ctx, { jobType: 'ingest' });
+    await applySourceDiffAfterValidate(ctx, { jobType: 'project_knowledge_build' });
     expect([...ctx.carry.skipPaths]).toEqual([]);
     expect(ctx.carry.changedPaths).toEqual(['README.md']);
-    await applySourceDiffAfterValidate(ctx, { jobType: 'ingest' });
+    await applySourceDiffAfterValidate(ctx, { jobType: 'project_knowledge_build' });
     expect(ctx.carry.changedPaths).toEqual(['README.md']);
     const stored = await SourceChangeSummary.findOne({ orgId, sourceVersionId }).exec();
     expect(stored?.paths.added).toEqual(['README.md']);
@@ -118,14 +118,14 @@ describe('applySourceDiffAfterValidate', () => {
       scope: { orgId, projectId, sourceVersionId },
       carry: {},
     };
-    await hydrateSourceDiffCarry(ctx, { jobType: 'ingest' });
+    await hydrateSourceDiffCarry(ctx, { jobType: 'project_knowledge_build' });
     expect([...ctx.carry.skipPaths]).toEqual(['README.md']);
     expect(ctx.carry.changedPaths).toEqual(['src/app.js']);
   });
 
-  it('does not hydrate carry for reingest jobs', async () => {
+  it('does not hydrate carry for project_knowledge_rebuild jobs', async () => {
     const ctx = { scope: { orgId: 'o', projectId: 'p', sourceVersionId: 'v' }, carry: {} };
-    await hydrateSourceDiffCarry(ctx, { jobType: 'reingest' });
+    await hydrateSourceDiffCarry(ctx, { jobType: 'project_knowledge_rebuild' });
     expect(ctx.carry.skipPaths).toBeUndefined();
   });
 
@@ -226,7 +226,7 @@ describe('applySourceDiffAfterValidate', () => {
       scope: { orgId, projectId, sourceVersionId: incomingSourceVersionId },
       carry: {},
     };
-    await applySourceDiffAfterValidate(ctx, { jobType: 'ingest' });
+    await applySourceDiffAfterValidate(ctx, { jobType: 'project_knowledge_build' });
     expect([...ctx.carry.skipPaths]).toEqual(['README.md']);
     expect(ctx.carry.changedPaths.sort()).toEqual(['src/app.js']);
     expect(ctx.carry.removedPaths).toEqual(['gone.md']);
@@ -270,7 +270,7 @@ describe('applySourceDiffAfterValidate', () => {
       scope: { orgId, projectId, sourceVersionId },
       carry: {},
     };
-    await applySourceDiffAfterValidate(ctx, { jobType: 'ingest' });
+    await applySourceDiffAfterValidate(ctx, { jobType: 'project_knowledge_build' });
     expect(ctx.carry.skipPaths).toBeUndefined();
     expect(await SourceChangeSummary.countDocuments({ orgId, sourceVersionId })).toBe(0);
   });

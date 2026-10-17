@@ -46,6 +46,12 @@ vi.mock('../../../src/modules/masters/jobs.helper.js', async (importOriginal) =>
   };
 });
 
+vi.mock('../../../src/modules/conversation/index.js', () => ({
+  isKnowledgeWriterJobType: (jobType) =>
+    jobType === 'project_knowledge_build' || jobType === 'project_knowledge_rebuild' || jobType === 'connected_repo_pull',
+  failQueuedMessagesForProject: vi.fn().mockResolvedValue(0),
+}));
+
 const orgId = '665f1c9d4b2a8e0012a4f010';
 const userId = '665f1c9d4b2a8e0012a4f011';
 const projectId = '665f1c9d4b2a8e0012a4f012';
@@ -60,7 +66,7 @@ function makeJob(overrides = {}) {
     _id: jobId,
     orgId,
     projectId,
-    jobType: 'ingest',
+    jobType: 'project_knowledge_build',
     jobStatus: 'failed',
     failureClass: 'temporary',
     currentStage: 'materialize_docs',

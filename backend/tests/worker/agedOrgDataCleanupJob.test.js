@@ -1,23 +1,23 @@
 /**
- * Retention soft-delete windows and scheduler enqueue tests.
+ * Aged org data cleanup soft-delete windows and scheduler enqueue tests.
  */
 import mongoose from 'mongoose';
-import { TEST_APP_CONFIG } from '../../appConfig.js';
-import { Job } from '../../../src/models/job.model.js';
-import { createMongoHarness } from '../../mongoHarness.js';
-import { AuditEvent } from '../../../src/models/audit.model.js';
-import { Message } from '../../../src/models/messages.model.js';
-import { Project } from '../../../src/models/projects.model.js';
-import { SourceFile } from '../../../src/models/sourceFile.model.js';
-import { Notification } from '../../../src/models/notification.model.js';
-import { Organization } from '../../../src/models/organization.model.js';
-import { Conversation } from '../../../src/models/conversations.model.js';
-import { SourceVersion } from '../../../src/models/sourceVersion.model.js';
-import { ProjectActivity } from '../../../src/models/projectActivity.model.js';
-import { KnowledgeVersion } from '../../../src/models/knowledgeVersion.model.js';
+import { TEST_APP_CONFIG } from '../appConfig.js';
+import { Job } from '../../src/models/job.model.js';
+import { createMongoHarness } from '../mongoHarness.js';
+import { AuditEvent } from '../../src/models/audit.model.js';
+import { Message } from '../../src/models/messages.model.js';
+import { Project } from '../../src/models/projects.model.js';
+import { SourceFile } from '../../src/models/sourceFile.model.js';
+import { Notification } from '../../src/models/notification.model.js';
+import { Organization } from '../../src/models/organization.model.js';
+import { Conversation } from '../../src/models/conversations.model.js';
+import { SourceVersion } from '../../src/models/sourceVersion.model.js';
+import { ProjectActivity } from '../../src/models/projectActivity.model.js';
+import { KnowledgeVersion } from '../../src/models/knowledgeVersion.model.js';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { ROW_STATUS_DELETED, includeDeleted } from '../../../src/platform/data/index.js';
-import { enqueueDueRetentionJobs, nextUtcMidnight, runRetentionForOrg, runRetentionJob } from '../../../src/modules/masters/retention.js';
+import { ROW_STATUS_DELETED, includeDeleted } from '../../src/platform/data/index.js';
+import { runAgedOrgDataCleanupJob, applyAgedOrgDataCleanupForOrg, enqueueDueAgedOrgDataCleanupJobs } from '../../src/worker/agedOrgDataCleanupJob.js';
 
 const harness = createMongoHarness({
   models: [AuditEvent, Conversation, Job, KnowledgeVersion, Message, Notification, Organization, Project, SourceFile, SourceVersion, ProjectActivity],
@@ -105,7 +105,7 @@ async function insertReadyPair(input) {
   return { sourceVersionId, knowledgeId };
 }
 
-describe('retention.service', () => {
+describe('agedOrgDataCleanupJob', () => {
   beforeAll(async () => {
     await harness.beforeAll();
   }, 60_000);
@@ -116,10 +116,6 @@ describe('retention.service', () => {
 
   afterAll(async () => {
     await harness.afterAll();
-  });
-
-  it('returns the next UTC midnight', () => {
-    expect(nextUtcMidnight(new Date('2026-09-26T15:04:00.000Z')).toISOString()).toBe('2026-09-27T00:00:00.000Z');
   });
 
   it('keeps the last three ready source versions and hides older files', async () => {
@@ -153,7 +149,7 @@ describe('retention.service', () => {
       current: true,
     });
 
-    const summary = await runRetentionForOrg(orgId, NOW);
+    const summary = await applyAgedOrgDataCleanupForOrg(orgId, NOW);
     expect(summary.sourceVersions).toBe(2);
     expect(await SourceVersion.countDocuments({ orgId })).toBe(3);
     expect(await KnowledgeVersion.countDocuments({ orgId })).toBe(3);
@@ -170,7 +166,7 @@ describe('retention.service', () => {
       {
         orgId,
         projectId,
-        jobType: 'ingest',
+        jobType: 'project_knowledge_build',
         jobStatus: 'completed',
         completedAt: new Date('2026-01-01T00:00:00.000Z'),
         createdBy: null,
@@ -179,7 +175,7 @@ describe('retention.service', () => {
       {
         orgId,
         projectId,
-        jobType: 'ingest',
+        jobType: 'project_knowledge_build',
         jobStatus: 'running',
         completedAt: null,
         createdBy: null,
@@ -188,14 +184,14 @@ describe('retention.service', () => {
       {
         orgId,
         projectId,
-        jobType: 'ingest',
+        jobType: 'project_knowledge_build',
         jobStatus: 'failed',
         completedAt: new Date('2026-09-01T00:00:00.000Z'),
         createdBy: null,
         updatedBy: null,
       },
     ]);
-    const summary = await runRetentionForOrg(orgId, NOW);
+    const summary = await applyAgedOrgDataCleanupForOrg(orgId, NOW);
     expect(summary.jobs).toBe(1);
     expect(await Job.countDocuments({ orgId, jobStatus: 'running' })).toBe(1);
     expect(await Job.countDocuments({ orgId, jobStatus: 'failed' })).toBe(1);
@@ -246,7 +242,7 @@ describe('retention.service', () => {
     await Notification.collection.updateOne({ _id: oldUnread._id }, { $set: { createdAt: new Date('2026-05-01T00:00:00.000Z') } });
     void oldRead;
     void fresh;
-    const summary = await runRetentionForOrg(orgId, NOW);
+    const summary = await applyAgedOrgDataCleanupForOrg(orgId, NOW);
     expect(summary.notifications).toBe(2);
     expect(await Notification.countDocuments({ orgId })).toBe(1);
   });
@@ -300,7 +296,7 @@ describe('retention.service', () => {
     });
     await AuditEvent.collection.updateOne({ _id: audit._id }, { $set: { createdAt: new Date('2024-01-01T00:00:00.000Z') } });
 
-    const summary = await runRetentionForOrg(orgId, NOW);
+    const summary = await applyAgedOrgDataCleanupForOrg(orgId, NOW);
     expect(summary.projectActivities).toBe(1);
     expect(summary.conversations).toBe(1);
     expect(summary.audit).toBe(1);
@@ -316,11 +312,11 @@ describe('retention.service', () => {
       createdBy: null,
       updatedBy: null,
     });
-    const first = await enqueueDueRetentionJobs({ now: NOW });
+    const first = await enqueueDueAgedOrgDataCleanupJobs({ now: NOW });
     expect(first.enqueued).toBeGreaterThanOrEqual(1);
-    const second = await enqueueDueRetentionJobs({ now: NOW });
+    const second = await enqueueDueAgedOrgDataCleanupJobs({ now: NOW });
     expect(second.skipped).toBeGreaterThanOrEqual(1);
-    const jobs = await Job.find({ orgId: org._id, jobType: 'retention' });
+    const jobs = await Job.find({ orgId: org._id, jobType: 'aged_org_data_cleanup' });
     expect(jobs.length).toBe(1);
     expect(jobs[0].projectId).toBeNull();
   });
@@ -328,7 +324,7 @@ describe('retention.service', () => {
   it('runs the worker handler for the job org', async () => {
     const orgId = new mongoose.Types.ObjectId().toHexString();
     await insertProject(orgId, new mongoose.Types.ObjectId().toHexString());
-    const result = await runRetentionJob({
+    const result = await runAgedOrgDataCleanupJob({
       job: { orgId },
     });
     expect(result.result).toBe('completed');
@@ -353,7 +349,7 @@ describe('retention.service', () => {
         }),
       }),
     });
-    await expect(enqueueDueRetentionJobs({ log, now: NOW })).resolves.toEqual({ enqueued: 0, skipped: 1 });
+    await expect(enqueueDueAgedOrgDataCleanupJobs({ log, now: NOW })).resolves.toEqual({ enqueued: 0, skipped: 1 });
     expect(log.error).toHaveBeenCalled();
     jobSpy.mockRestore();
     const nonErrorSpy = vi.spyOn(Job, 'findOne').mockReturnValue({
@@ -365,7 +361,7 @@ describe('retention.service', () => {
         }),
       }),
     });
-    await expect(enqueueDueRetentionJobs({ log })).resolves.toEqual({ enqueued: 0, skipped: 1 });
+    await expect(enqueueDueAgedOrgDataCleanupJobs({ log })).resolves.toEqual({ enqueued: 0, skipped: 1 });
     findSpy.mockRestore();
     nonErrorSpy.mockRestore();
   });

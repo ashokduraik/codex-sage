@@ -2,7 +2,7 @@
  * knowledge/ingest.helper.js — merged resource file.
  */
 import { publishKnowledgeVersion } from './knowledge.js';
-import { createJobFailureError, createJobFailureFromCaught } from '../../worker/retryPolicy.js';
+import { createJobFailureError, createJobFailureFromCaught } from '../../worker/jobFailure.js';
 import { renderJobEventMessage, findProjectById, transitionLifecycle } from '../masters/index.js';
 import { assertKnownExclusionRulesetId, isUnsafeArchivePath, normalizeArchivePath, evaluateUploadEntry } from './uploads.js';
 import {

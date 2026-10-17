@@ -96,7 +96,7 @@ describe('repoSync.service', () => {
     expect(version.commitSha).toBe('abc123def456');
     expect(version.branch).toBe('main');
     const job = await Job.findById(result.ingestJobId).lean().exec();
-    expect(job.jobType).toBe('ingest');
+    expect(job.jobType).toBe('project_knowledge_build');
   });
 
   it('enqueues a manual sync and writes audit without a second job when one is active', async () => {
@@ -123,7 +123,7 @@ describe('repoSync.service', () => {
       correlationId: 'sync-1',
       log: { info: vi.fn() },
     });
-    expect(first.job.jobType).toBe('repo_sync');
+    expect(first.job.jobType).toBe('connected_repo_pull');
     const second = await enqueueManualRepositorySync({
       orgId: String(orgId),
       projectId: String(projectId),
@@ -131,7 +131,7 @@ describe('repoSync.service', () => {
       correlationId: 'sync-2',
     });
     expect(second.job.id).toBe(first.job.id);
-    expect(await Job.countDocuments({ projectId, jobType: 'repo_sync' })).toBe(1);
+    expect(await Job.countDocuments({ projectId, jobType: 'connected_repo_pull' })).toBe(1);
 
     const events = await listAuditEvents(String(orgId), { limit: 10 });
     expect(events.items.some((row) => row.action === 'repository.sync_triggered')).toBe(true);
@@ -169,7 +169,7 @@ describe('repoSync.service', () => {
     const { job: ingest } = await insertPendingJob({
       orgId,
       projectId,
-      jobType: 'ingest',
+      jobType: 'project_knowledge_build',
     });
     await Job.updateOne({ _id: ingest._id }, { $set: { jobStatus: 'running' } });
     const result = await enqueueManualRepositorySync({
@@ -227,13 +227,13 @@ describe('repoSync.service', () => {
     expect(row.lastSyncedCommitSha).toBe('sha1');
   });
 
-  it('defers a running repo_sync job', async () => {
+  it('defers a running connected_repo_pull job', async () => {
     const orgId = new mongoose.Types.ObjectId();
     const projectId = new mongoose.Types.ObjectId();
     const { job } = await insertPendingJob({
       orgId,
       projectId,
-      jobType: 'repo_sync',
+      jobType: 'connected_repo_pull',
     });
     await Job.updateOne({ _id: job._id }, { $set: { jobStatus: 'running', attempt: 3 } });
     const deferred = await deferRepoSyncJob({

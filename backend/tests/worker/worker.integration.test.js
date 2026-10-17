@@ -6,21 +6,21 @@ import { TEST_APP_CONFIG } from '../appConfig.js';
 import { Job } from '../../src/models/job.model.js';
 import { listJobEvents } from '../listJobEvents.js';
 import { createMongoHarness } from '../mongoHarness.js';
-import { claimNextJob } from '../../src/worker/jobClaim.js';
+import { claimNextJob } from '../../src/worker/jobState.js';
+import { startWorkerRuntime } from '../../src/worker/schedule.js';
+import { sweepExpiredLeases } from '../../src/worker/schedule.js';
 import { insertPendingJob } from '../../src/modules/masters/index.js';
-import { sweepExpiredLeases } from '../../src/worker/leaseSweeper.js';
-import { startWorkerRuntime } from '../../src/worker/workerRuntime.js';
 import { ProjectJobLock } from '../../src/models/projectJobLock.model.js';
+import { clearJobHandlersForTests, registerJobHandler } from '../../src/worker/schedule.js';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { workerSmokeHandlerRegistration } from '../../src/worker/handlers/workerSmokeHandler.js';
-import { acquireProjectJobLock, releaseProjectJobLock } from '../../src/worker/projectJobLock.js';
-import { clearJobHandlersForTests, registerJobHandler } from '../../src/worker/handlerRegistry.js';
+import { workerSmokeCheckHandlerRegistration } from '../../src/worker/workerSmokeCheckJob.js';
+import { acquireProjectJobLock, releaseProjectJobLock } from '../../src/worker/projectLock.js';
 import {
   WORKER_EVENT_CLAIMED,
   WORKER_LEASE_EXPIRED_CODE,
   WORKER_EVENT_INTERRUPTED_REQUEUED,
   WORKER_EVENT_PROJECT_BUSY_REQUEUED,
-} from '../../src/worker/worker.events.js';
+} from '../../src/worker/workerConfig.js';
 
 const harness = createMongoHarness({
   models: [Job, ProjectJobLock],
@@ -51,14 +51,14 @@ describe('worker process integration', () => {
     const { job } = await insertPendingJob({
       orgId,
       projectId,
-      jobType: 'worker_smoke',
+      jobType: 'worker_smoke_check',
     });
 
     const results = await Promise.all(
       Array.from({ length: 10 }, (_, index) =>
         claimNextJob({
           workerId: `worker-${index}`,
-          registeredTypes: ['worker_smoke'],
+          registeredTypes: ['worker_smoke_check'],
         }),
       ),
     );
@@ -75,7 +75,7 @@ describe('worker process integration', () => {
 
   it('requeues a second exclusive job on the same project until the lock releases', async () => {
     registerJobHandler({
-      type: 'ingest',
+      type: 'project_knowledge_build',
       exclusiveScope: 'project',
       run: async () => {
         await new Promise((resolve) => setTimeout(resolve, 200));
@@ -85,8 +85,8 @@ describe('worker process integration', () => {
 
     const orgId = new mongoose.Types.ObjectId();
     const projectId = new mongoose.Types.ObjectId();
-    await insertPendingJob({ orgId, projectId, jobType: 'ingest' });
-    await insertPendingJob({ orgId, projectId, jobType: 'ingest' });
+    await insertPendingJob({ orgId, projectId, jobType: 'project_knowledge_build' });
+    await insertPendingJob({ orgId, projectId, jobType: 'project_knowledge_build' });
 
     const log = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
     const runtime = startWorkerRuntime({
@@ -127,7 +127,7 @@ describe('worker process integration', () => {
     let concurrent = 0;
     let maxConcurrent = 0;
     registerJobHandler({
-      type: 'ingest',
+      type: 'project_knowledge_build',
       exclusiveScope: 'project',
       run: async () => {
         concurrent += 1;
@@ -141,8 +141,8 @@ describe('worker process integration', () => {
     const orgId = new mongoose.Types.ObjectId();
     const projectA = new mongoose.Types.ObjectId();
     const projectB = new mongoose.Types.ObjectId();
-    await insertPendingJob({ orgId, projectId: projectA, jobType: 'ingest' });
-    await insertPendingJob({ orgId, projectId: projectB, jobType: 'ingest' });
+    await insertPendingJob({ orgId, projectId: projectA, jobType: 'project_knowledge_build' });
+    await insertPendingJob({ orgId, projectId: projectB, jobType: 'project_knowledge_build' });
 
     const runtime = startWorkerRuntime({
       workerId: 'w-cross',
@@ -171,7 +171,7 @@ describe('worker process integration', () => {
     const { job } = await insertPendingJob({
       orgId,
       projectId,
-      jobType: 'worker_smoke',
+      jobType: 'worker_smoke_check',
     });
 
     const past = new Date(Date.now() - 60_000);
@@ -213,7 +213,7 @@ describe('worker process integration', () => {
     const { job } = await insertPendingJob({
       orgId,
       projectId,
-      jobType: 'worker_smoke',
+      jobType: 'worker_smoke_check',
       maxAttempts: 2,
     });
 
@@ -249,13 +249,13 @@ describe('worker process integration', () => {
     await insertPendingJob({
       orgId,
       projectId,
-      jobType: 'worker_smoke',
+      jobType: 'worker_smoke_check',
       scheduledAt: future,
     });
 
     const claimed = await claimNextJob({
       workerId: 'w-sched',
-      registeredTypes: ['worker_smoke'],
+      registeredTypes: ['worker_smoke_check'],
     });
     expect(claimed).toBeNull();
   });
@@ -300,7 +300,7 @@ describe('worker process integration', () => {
     const { job } = await insertPendingJob({
       orgId,
       projectId,
-      jobType: 'worker_smoke',
+      jobType: 'worker_smoke_check',
     });
     const past = new Date(Date.now() - 60_000);
     await Job.updateOne(
@@ -324,15 +324,15 @@ describe('worker process integration', () => {
     expect(events).toHaveLength(1);
   });
 
-  it('completes a worker_smoke job end-to-end with claimed and completed events', async () => {
-    registerJobHandler(workerSmokeHandlerRegistration);
+  it('completes a worker_smoke_check job end-to-end with claimed and completed events', async () => {
+    registerJobHandler(workerSmokeCheckHandlerRegistration);
 
     const orgId = new mongoose.Types.ObjectId();
     const projectId = new mongoose.Types.ObjectId();
     const { job } = await insertPendingJob({
       orgId,
       projectId,
-      jobType: 'worker_smoke',
+      jobType: 'worker_smoke_check',
       correlationId: 'corr_smoke',
     });
 
@@ -381,8 +381,8 @@ describe('worker process integration', () => {
   });
 
   it('continues polling when claim throws (mongo unreachable path)', async () => {
-    registerJobHandler(workerSmokeHandlerRegistration);
-    const claimSpy = vi.spyOn(await import('../../src/worker/jobClaim.js'), 'claimNextJob');
+    registerJobHandler(workerSmokeCheckHandlerRegistration);
+    const claimSpy = vi.spyOn(await import('../../src/worker/jobState.js'), 'claimNextJob');
     // Direct runtime with a failing claim via empty types then restore — simulate error log path.
     const runtime = startWorkerRuntime({
       workerId: 'w-err',

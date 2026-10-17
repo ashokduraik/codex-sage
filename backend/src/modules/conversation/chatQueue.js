@@ -8,7 +8,7 @@ import { caughtErrorFields } from '../../platform/errors.js';
 import { assertKnowledgeReadable } from '../knowledge/index.js';
 import { ROW_STATUS_ACTIVE } from '../../platform/data/index.js';
 import { findActiveJobForProjectByTypes } from '../masters/index.js';
-import { findActiveProjectWriterLockJobId } from '../../worker/projectJobLock.js';
+import { findActiveProjectWriterLockJobId } from '../../worker/projectLock.js';
 import { invokeChatGraph, buildChatGraphThreadId, createMongoChatCheckpointer } from './chatGraph.js';
 import {
   insertQueuedUserMessage,
@@ -30,7 +30,7 @@ export const QUEUED_MESSAGE_SWEEP_INTERVAL_MS = 60_000;
 export const QUEUED_MESSAGE_BATCH_SIZE = 20;
 
 /** Job types that hold the per-project graph writer. */
-export const KNOWLEDGE_WRITER_JOB_TYPES = Object.freeze(['ingest', 'reingest', 'repo_sync']);
+export const KNOWLEDGE_WRITER_JOB_TYPES = Object.freeze(['project_knowledge_build', 'project_knowledge_rebuild', 'connected_repo_pull']);
 
 /**
  * Resolves the active writer job id for a project (lock first, then active writer jobs).
@@ -108,6 +108,9 @@ export async function notifyKnowledgePublished(input) {
     now,
     limit: QUEUED_MESSAGE_BATCH_SIZE,
   });
+  if (rows.length === 0) {
+    return { resumed: 0, failed: 0, skipped: 0 };
+  }
 
   let resumed = 0;
   let failed = 0;

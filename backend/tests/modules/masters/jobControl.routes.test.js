@@ -111,7 +111,7 @@ describe('jobControl.routes', () => {
     const { jobId } = await createPendingJob({
       orgId: String(org._id),
       projectId,
-      jobType: 'ingest',
+      jobType: 'project_knowledge_build',
     });
 
     await Job.updateOne(
@@ -189,7 +189,7 @@ describe('jobControl.routes', () => {
     const { jobId } = await createPendingJob({
       orgId: String(org._id),
       projectId,
-      jobType: 'ingest',
+      jobType: 'project_knowledge_build',
     });
     await Job.updateOne(
       { _id: jobId },
@@ -237,7 +237,7 @@ describe('jobControl.routes', () => {
     const { jobId: badUploadId } = await createPendingJob({
       orgId: String(org._id),
       projectId,
-      jobType: 'ingest',
+      jobType: 'project_knowledge_build',
     });
     await Job.updateOne(
       { _id: badUploadId },
@@ -263,7 +263,7 @@ describe('jobControl.routes', () => {
     const { jobId: completedId } = await createPendingJob({
       orgId: String(org._id),
       projectId,
-      jobType: 'ingest',
+      jobType: 'project_knowledge_build',
     });
     await Job.updateOne({ _id: completedId }, { $set: { jobStatus: 'completed' } });
     const completed = await app.inject({
@@ -289,7 +289,7 @@ describe('jobControl.routes', () => {
     const { jobId: pendingId } = await createPendingJob({
       orgId: String(org._id),
       projectId,
-      jobType: 'ingest',
+      jobType: 'project_knowledge_build',
     });
     const pendingCancel = await app.inject({
       method: 'POST',
@@ -302,7 +302,7 @@ describe('jobControl.routes', () => {
     const { jobId: runningId } = await createPendingJob({
       orgId: String(org._id),
       projectId,
-      jobType: 'ingest',
+      jobType: 'project_knowledge_build',
     });
     await Job.updateOne({ _id: runningId }, { $set: { jobStatus: 'running', workerId: 'w1', startedAt: new Date() } });
     const runningCancel = await app.inject({
@@ -343,7 +343,7 @@ describe('jobControl.routes', () => {
     const { jobId } = await createPendingJob({
       orgId: String(org._id),
       projectId,
-      jobType: 'ingest',
+      jobType: 'project_knowledge_build',
     });
     await Job.updateOne(
       { _id: jobId },

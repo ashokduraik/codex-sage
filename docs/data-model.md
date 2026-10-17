@@ -237,7 +237,7 @@ is visibility only; lifecycle is `jobStatus` (`pending` \| `running` \| `complet
 `completed_with_warnings` \| `failed` \| `retrying` \| `cancelled`). Failed jobs stay
 `status: 'A'` and remain readable.
 
-Fields: `projectId` (null for org-scoped `retention` jobs), `jobType` (`ingest` \| `reingest` \| `repo_sync` \| `worker_smoke` \| `retention`), `jobStatus`,
+Fields: `projectId` (null for org-scoped `aged_org_data_cleanup` jobs), `jobType` (`project_knowledge_build` \| `project_knowledge_rebuild` \| `connected_repo_pull` \| `worker_smoke_check` \| `aged_org_data_cleanup`), `jobStatus`,
 `sourceVersionId`, `correlationId`, worker lease fields (`workerId`, `attempt`,
 `maxAttempts`, `heartbeatAt`, `leaseExpiresAt`, `scheduledAt`), `failureClass` /
 `failureCode`, `currentStage`, `stageCheckpoint`
@@ -297,8 +297,8 @@ List index (partial `status: 'A'`): `{ orgId, projectId, status }`.
 Due-scan index (partial `status: 'A'`): `{ nextDueAt }`.
 
 Soft-delete (revoke) sets `status: 'D'` and clears
-`projects.sourceConfig.repositoryConnectionId`. Worker `repo_sync` reads this
-row, downloads a provider archive (ADR 0026), and enqueues `ingest`.
+`projects.sourceConfig.repositoryConnectionId`. Worker `connected_repo_pull` reads this
+row, downloads a provider archive (ADR 0026), and enqueues `project_knowledge_build`.
 
 ### `conversations`
 

@@ -12,7 +12,6 @@ import { Job } from '../../../src/models/job.model.js';
 import { listJobEvents } from '../../listJobEvents.js';
 import { createMongoHarness } from '../../mongoHarness.js';
 import { Project } from '../../../src/models/projects.model.js';
-import { runIngestJob } from '../../../src/modules/knowledge/ingest.js';
 import { clearSourceFilesBucket } from '../../clearSourceFilesBucket.js';
 import { insertPendingJob } from '../../../src/modules/masters/jobs.helper.js';
 import { EXCLUSION_RULESET_ID } from '../../../src/modules/knowledge/uploads.js';
@@ -22,6 +21,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 import { buildIngestStageContext } from '../../../src/modules/knowledge/ingest.js';
 import { loadSourceVersionForIngest } from '../../../src/modules/knowledge/ingest.js';
 import { runMaterializeDocsStage } from '../../../src/modules/knowledge/ingest.util.js';
+import { runProjectKnowledgeBuildJob } from '../../../src/worker/projectKnowledgeBuildJob.js';
 import { runStoreFilesStage, INGEST_MAX_FAILED_FILE_RATIO } from '../../../src/modules/knowledge/ingest.helper.js';
 import { DocumentSection, countSectionsForVersion, listSectionsForPath } from '../../../src/modules/knowledge/documents.js';
 import {
@@ -173,7 +173,7 @@ async function seedIngestFixture(options = {}) {
   const { job } = await insertPendingJob({
     orgId,
     projectId,
-    jobType: 'ingest',
+    jobType: 'project_knowledge_build',
     sourceVersionId,
     createdBy,
   });
@@ -182,7 +182,7 @@ async function seedIngestFixture(options = {}) {
 }
 
 /**
- * Builds a worker-like context for runIngestJob / stages.
+ * Builds a worker-like context for runProjectKnowledgeBuildJob / stages.
  * @param {object} job Job document.
  * @param {object} [overrides] Overrides.
  * @returns {object}
@@ -209,7 +209,7 @@ function createWorkerContext(job, overrides = {}) {
       });
     },
     async saveCheckpoint(checkpoint) {
-      const { saveJobCheckpoint } = await import('../../../src/worker/jobClaim.js');
+      const { saveJobCheckpoint } = await import('../../../src/worker/jobState.js');
       await saveJobCheckpoint({
         jobId: job._id,
         workerId: job.workerId,
@@ -226,7 +226,7 @@ function createWorkerContext(job, overrides = {}) {
       job.currentStage = checkpoint.currentStage ?? checkpoint.lastCompletedStage;
     },
     async saveProgress(progress) {
-      const { saveJobProgress } = await import('../../../src/worker/jobClaim.js');
+      const { saveJobProgress } = await import('../../../src/worker/jobState.js');
       await saveJobProgress({
         jobId: job._id,
         workerId: job.workerId,
@@ -629,7 +629,7 @@ describe('ingest S0–S3 integration', () => {
     seeded.job.workerId = 'w-unsafe';
     await seeded.job.save();
 
-    await expect(runIngestJob(createWorkerContext(seeded.job))).rejects.toMatchObject({
+    await expect(runProjectKnowledgeBuildJob(createWorkerContext(seeded.job))).rejects.toMatchObject({
       code: 'SOURCE_PATH_UNSAFE',
       failureClass: 'user_action_required',
     });
@@ -764,7 +764,7 @@ describe('ingest S0–S3 integration', () => {
     seeded.job.workerId = 'w-tenant';
     await seeded.job.save();
 
-    await expect(runIngestJob(createWorkerContext(seeded.job))).rejects.toMatchObject({
+    await expect(runProjectKnowledgeBuildJob(createWorkerContext(seeded.job))).rejects.toMatchObject({
       code: 'INGEST_SOURCE_VERSION_NOT_FOUND',
       failureClass: 'permanent',
     });

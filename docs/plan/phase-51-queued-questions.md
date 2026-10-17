@@ -177,7 +177,7 @@ queue failure, DTO includes catalog-shaped `error` from `queueFailureCode`.
 | `backend/src/models/messages.model.js` | Additive fields + indexes (after approval) |
 | `backend/src/modules/knowledge/ingest.helper.js` | S6 → `notifyKnowledgePublished` |
 | Ingest/knowledge fail + worker job cancel/fail | `failQueuedMessagesForProject` |
-| `backend/src/worker/startWorker.js` | Expiry sweep registration |
+| `backend/src/worker/schedule.js` | Expiry sweep registration (queued-message tick) |
 | `backend/src/modules/access/audit.js` | `chat.message_queued` |
 
 ## 9. Tests (≥ 80% line and branch)

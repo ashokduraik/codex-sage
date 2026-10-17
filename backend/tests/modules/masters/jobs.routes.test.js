@@ -109,7 +109,7 @@ describe('jobs.routes', () => {
     const { jobId } = await createPendingJob({
       orgId: String(org._id),
       projectId,
-      jobType: 'ingest',
+      jobType: 'project_knowledge_build',
       correlationId: 'req_jobs_1',
     });
 
@@ -161,19 +161,19 @@ describe('jobs.routes', () => {
     const { jobId: activeJobId } = await createPendingJob({
       orgId: String(org._id),
       projectId,
-      jobType: 'ingest',
+      jobType: 'project_knowledge_build',
     });
     const { jobId: failedJobId } = await createPendingJob({
       orgId: String(org._id),
       projectId,
-      jobType: 'ingest',
+      jobType: 'project_knowledge_build',
     });
     await Job.updateOne({ _id: failedJobId }, { $set: { jobStatus: 'failed', failureClass: 'temporary' } });
 
     const { jobId: deletedJobId } = await createPendingJob({
       orgId: String(org._id),
       projectId,
-      jobType: 'ingest',
+      jobType: 'project_knowledge_build',
     });
     await softDelete(Job, { _id: deletedJobId, orgId: org._id });
 
@@ -201,7 +201,7 @@ describe('jobs.routes', () => {
     const { jobId: foreignJobId } = await createPendingJob({
       orgId: String(foreignOrgId),
       projectId: String(foreignProjectId),
-      jobType: 'ingest',
+      jobType: 'project_knowledge_build',
     });
     const crossOrg = await app.inject({
       method: 'GET',
@@ -259,7 +259,7 @@ describe('jobs.routes', () => {
       await createPendingJob({
         orgId: String(org._id),
         projectId,
-        jobType: 'ingest',
+        jobType: 'project_knowledge_build',
       });
     }
 
@@ -316,7 +316,7 @@ describe('jobs.routes', () => {
     const { jobId } = await createPendingJob({
       orgId: String(org._id),
       projectId,
-      jobType: 'ingest',
+      jobType: 'project_knowledge_build',
     });
 
     // selected-mode: viewer has no membership on this project → 404 JOB_NOT_FOUND

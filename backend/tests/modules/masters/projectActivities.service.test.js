@@ -161,7 +161,7 @@ describe('projectActivities.service', () => {
         _id: jobId,
         orgId,
         projectId,
-        jobType: 'ingest',
+        jobType: 'project_knowledge_build',
         sourceVersionId,
         createdBy: new mongoose.Types.ObjectId(),
       },
@@ -239,14 +239,14 @@ describe('projectActivities.service', () => {
         _id: new mongoose.Types.ObjectId(),
         orgId: new mongoose.Types.ObjectId().toHexString(),
         projectId: new mongoose.Types.ObjectId().toHexString(),
-        jobType: 'retention',
+        jobType: 'aged_org_data_cleanup',
       },
     });
     await recordProjectActivitiesForJobTerminal({
       job: {
         _id: new mongoose.Types.ObjectId(),
         orgId: new mongoose.Types.ObjectId().toHexString(),
-        jobType: 'ingest',
+        jobType: 'project_knowledge_build',
       },
     });
     expect(await ProjectActivity.countDocuments({})).toBe(0);
@@ -260,7 +260,7 @@ describe('projectActivities.service', () => {
         id: new mongoose.Types.ObjectId(),
         orgId,
         projectId,
-        jobType: 'repo_sync',
+        jobType: 'connected_repo_pull',
       },
     });
     await recordProjectActivitiesForJobTerminal({
@@ -268,11 +268,11 @@ describe('projectActivities.service', () => {
         _id: new mongoose.Types.ObjectId(),
         orgId,
         projectId,
-        jobType: 'reingest',
+        jobType: 'project_knowledge_rebuild',
         sourceVersionId: new mongoose.Types.ObjectId(),
       },
     });
-    await recordProjectActivitiesForJobTerminal({ job: { jobType: 'ingest' } });
+    await recordProjectActivitiesForJobTerminal({ job: { jobType: 'project_knowledge_build' } });
     expect(await ProjectActivity.countDocuments({ orgId })).toBe(2);
   });
 

@@ -13,7 +13,7 @@ vi.mock('../../../src/modules/masters/index.js', () => ({
   findProjectById,
 }));
 
-vi.mock('../../../src/worker/projectJobLock.js', () => ({
+vi.mock('../../../src/worker/projectLock.js', () => ({
   hasActiveProjectWriterLock,
 }));
 

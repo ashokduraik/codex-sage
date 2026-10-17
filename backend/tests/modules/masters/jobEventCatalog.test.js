@@ -18,7 +18,7 @@ describe('jobEventCatalog', () => {
   it('renders retry and exclusion messages with safe context only', () => {
     expect(
       renderJobEventMessage('job.retry_requested', {
-        jobType: 'ingest',
+        jobType: 'project_knowledge_build',
         fromStage: 'materialize_docs',
       }),
     ).toBe('Retry requested; resuming from documentation analyzed');

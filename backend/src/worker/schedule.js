@@ -1,24 +1,29 @@
 /**
- * Worker runtime — poll / heartbeat / sweep timers and in-flight job orchestration.
+ * Worker schedule — handler registry, all timers (poll / lease / enqueue), claim→run→finish loop.
  */
+import mongoose from 'mongoose';
 import { randomBytes } from 'node:crypto';
 import { Job } from '../models/job.model.js';
-import { createJobLogger } from './workerLogger.js';
-import { sweepExpiredLeases } from './leaseSweeper.js';
-import { heartbeatInFlightJob } from './jobHeartbeat.js';
 import { caughtErrorFields } from '../platform/errors.js';
-import { getJobHandler, listRegisteredJobTypes } from './handlerRegistry.js';
-import { classifyThrownFailure, decideFailureOutcome } from './retryPolicy.js';
-import { acquireProjectJobLock, releaseProjectJobLock } from './projectJobLock.js';
+import { ROW_STATUS_ACTIVE } from '../platform/data/index.js';
+import { computeRetryBackoffMs, classifyThrownFailure, decideFailureOutcome } from './jobFailure.js';
+import { acquireProjectJobLock, releaseProjectJobLock, refreshProjectJobLock } from './projectLock.js';
+import { enqueueDueRepositorySyncs, REPO_SYNC_SCHEDULER_TICK_MS } from '../modules/knowledge/index.js';
+import { sweepExpiredQueuedMessages, QUEUED_MESSAGE_SWEEP_INTERVAL_MS } from '../modules/conversation/index.js';
 import { appendJobEvent, emitNotificationsForJobTerminal, recordProjectActivitiesForJobTerminal } from '../modules/masters/index.js';
+import { enqueueDueAgedOrgDataCleanupJobs, AGED_ORG_DATA_CLEANUP_SCHEDULER_TICK_MS } from './agedOrgDataCleanupJob.js';
 import {
+  createJobLogger,
+  WORKER_LEASE_TTL_MS,
+  WORKER_MAX_ATTEMPTS,
   WORKER_DRAIN_TIMEOUT_MS,
   WORKER_POLL_INTERVAL_MS,
   WORKER_SWEEP_INTERVAL_MS,
+  WORKER_LEASE_EXPIRED_CODE,
   WORKER_MAX_CONCURRENT_JOBS,
   assertWorkerLeaseTimingSafe,
   WORKER_HEARTBEAT_INTERVAL_MS,
-} from './worker.constants.js';
+} from './workerConfig.js';
 import {
   claimNextJob,
   finishJobFailed,
@@ -27,11 +32,80 @@ import {
   saveJobCheckpoint,
   finishJobCancelled,
   finishJobCompleted,
+  failJobLeaseExpired,
   releaseJobOnShutdown,
   recordJobClaimedEvent,
+  requeueJobInterrupted,
   requeueJobProjectBusy,
   requeueJobTemporaryFailure,
-} from './jobClaim.js';
+} from './jobState.js';
+
+/** @typedef {'project' | 'none'} ExclusiveScope */
+
+/**
+ * @typedef {{
+ *   type: string,
+ *   exclusiveScope: ExclusiveScope,
+ *   maxAttempts?: number,
+ *   run: (context: object) => Promise<{
+ *     result: 'completed' | 'completed_with_warnings' | 'deferred',
+ *     summary?: object,
+ *   }>,
+ * }} JobHandlerRegistration
+ */
+
+/** @type {Map<string, JobHandlerRegistration>} */
+const handlersByType = new Map();
+
+/**
+ * Registers a handler for a job type. Must run before the first claim poll.
+ * @param {JobHandlerRegistration} registration Handler definition.
+ * @throws {Error} When type is missing or already registered.
+ */
+export function registerJobHandler(registration) {
+  if (!registration || typeof registration.type !== 'string' || registration.type.length === 0) {
+    throw new Error('registerJobHandler requires a non-empty type');
+  }
+  if (typeof registration.run !== 'function') {
+    throw new Error(`registerJobHandler(${registration.type}): run must be a function`);
+  }
+  if (registration.exclusiveScope !== 'project' && registration.exclusiveScope !== 'none') {
+    throw new Error(`registerJobHandler(${registration.type}): exclusiveScope must be 'project' or 'none'`);
+  }
+  if (handlersByType.has(registration.type)) {
+    throw new Error(`Job handler already registered for type: ${registration.type}`);
+  }
+  handlersByType.set(registration.type, {
+    type: registration.type,
+    exclusiveScope: registration.exclusiveScope,
+    maxAttempts: registration.maxAttempts,
+    run: registration.run,
+  });
+}
+
+/**
+ * Looks up a registered handler by job type.
+ * @param {string} jobType Job type string.
+ * @returns {JobHandlerRegistration | undefined}
+ */
+export function getJobHandler(jobType) {
+  return handlersByType.get(jobType);
+}
+
+/**
+ * Returns registered job type strings for the claim filter.
+ * @returns {string[]}
+ */
+export function listRegisteredJobTypes() {
+  return [...handlersByType.keys()];
+}
+
+/**
+ * Clears all registrations (unit tests only).
+ */
+export function clearJobHandlersForTests() {
+  handlersByType.clear();
+}
 
 /**
  * Builds a worker id that stays unique across fast restarts.
@@ -44,7 +118,141 @@ export function buildWorkerId(input) {
 }
 
 /**
- * Starts the claim / heartbeat / sweep runtime.
+ * Refreshes heartbeat/lease for a job when workerId still matches.
+ * @param {{
+ *   jobId: import('mongoose').Types.ObjectId | string,
+ *   workerId: string,
+ *   leaseTtlMs?: number,
+ * }} input Heartbeat inputs.
+ * @returns {Promise<boolean>} True when ownership is still held.
+ */
+export async function refreshJobLease(input) {
+  const leaseTtlMs = input.leaseTtlMs ?? WORKER_LEASE_TTL_MS;
+  const result = await Job.updateOne(
+    {
+      _id: new mongoose.Types.ObjectId(String(input.jobId)),
+      status: ROW_STATUS_ACTIVE,
+      jobStatus: 'running',
+      workerId: input.workerId,
+    },
+    [
+      {
+        $set: {
+          heartbeatAt: '$$NOW',
+          leaseExpiresAt: { $add: ['$$NOW', leaseTtlMs] },
+          updatedAt: '$$NOW',
+        },
+      },
+    ],
+    { updatePipeline: true },
+  ).exec();
+  return result.matchedCount > 0;
+}
+
+/**
+ * Heartbeats one in-flight job: refresh lease, then project lock when exclusive.
+ * @param {{
+ *   jobId: string,
+ *   workerId: string,
+ *   orgId: string,
+ *   projectId: string,
+ *   holdsProjectLock: boolean,
+ *   leaseTtlMs?: number,
+ * }} input Heartbeat context.
+ * @returns {Promise<{ owned: boolean }>}
+ */
+export async function heartbeatInFlightJob(input) {
+  const owned = await refreshJobLease({
+    jobId: input.jobId,
+    workerId: input.workerId,
+    leaseTtlMs: input.leaseTtlMs,
+  });
+  if (!owned) {
+    return { owned: false };
+  }
+  if (input.holdsProjectLock) {
+    await refreshProjectJobLock({
+      orgId: input.orgId,
+      projectId: input.projectId,
+      jobId: input.jobId,
+      workerId: input.workerId,
+      leaseTtlMs: input.leaseTtlMs,
+    });
+  }
+  return { owned: true };
+}
+
+/**
+ * Scans for expired leases and requeues or fails each job at most once.
+ * @param {{ log?: object }} [options] Optional logger.
+ * @returns {Promise<{ requeued: number, failed: number }>}
+ */
+export async function sweepExpiredLeases(options = {}) {
+  const log = options.log;
+  const expired = await Job.aggregate([
+    {
+      $match: {
+        status: ROW_STATUS_ACTIVE,
+        jobStatus: 'running',
+        $expr: { $lt: ['$leaseExpiresAt', '$$NOW'] },
+      },
+    },
+  ]);
+
+  let requeued = 0;
+  let failed = 0;
+
+  for (const job of expired) {
+    const maxAttempts = typeof job.maxAttempts === 'number' && job.maxAttempts >= 1 ? job.maxAttempts : WORKER_MAX_ATTEMPTS;
+    const attempt = typeof job.attempt === 'number' ? job.attempt : 0;
+
+    try {
+      if (attempt < maxAttempts) {
+        const delayMs = computeRetryBackoffMs(Math.max(1, attempt));
+        const updated = await requeueJobInterrupted({
+          jobId: job._id,
+          delayMs,
+        });
+        if (updated) {
+          requeued += 1;
+          await releaseProjectJobLock({
+            orgId: updated.orgId,
+            projectId: updated.projectId,
+            jobId: updated._id,
+          });
+          log?.info?.({ jobId: String(updated._id), attempt: updated.attempt }, 'lease expired; job requeued');
+        }
+      } else {
+        const updated = await failJobLeaseExpired({
+          jobId: job._id,
+          failureCode: WORKER_LEASE_EXPIRED_CODE,
+        });
+        if (updated) {
+          failed += 1;
+          await releaseProjectJobLock({
+            orgId: updated.orgId,
+            projectId: updated.projectId,
+            jobId: updated._id,
+          });
+          log?.info?.({ jobId: String(updated._id), attempt: updated.attempt }, 'lease expired; attempts exhausted');
+        }
+      }
+    } catch (error) {
+      log?.error?.(
+        {
+          jobId: String(job._id),
+          ...caughtErrorFields(error),
+        },
+        'lease sweeper failed for job',
+      );
+    }
+  }
+
+  return { requeued, failed };
+}
+
+/**
+ * Starts poll / heartbeat / lease-sweep timers and optional enqueue ticks.
  * @param {{
  *   workerId: string,
  *   log: object,
@@ -55,7 +263,12 @@ export function buildWorkerId(input) {
  *   heartbeatIntervalMs?: number,
  *   sweepIntervalMs?: number,
  *   drainTimeoutMs?: number,
- * }} options Runtime options.
+ *   projectBusyRetryMs?: number,
+ *   enableEnqueueTicks?: boolean,
+ *   enqueueDueRepositorySyncs?: typeof enqueueDueRepositorySyncs,
+ *   enqueueDueAgedOrgDataCleanupJobs?: typeof enqueueDueAgedOrgDataCleanupJobs,
+ *   sweepExpiredQueuedMessages?: typeof sweepExpiredQueuedMessages,
+ * }} options Schedule options.
  * @returns {{
  *   workerId: string,
  *   stop: () => Promise<void>,
@@ -65,12 +278,12 @@ export function buildWorkerId(input) {
  *   sweepOnceForTests: () => Promise<{ requeued: number, failed: number }>,
  * }}
  */
-export function startWorkerRuntime(options) {
+export function startSchedule(options) {
   assertWorkerLeaseTimingSafe();
 
   const log = options.log;
   const workerId = options.workerId;
-  const schedule = options.setInterval ?? setInterval;
+  const scheduleTimer = options.setInterval ?? setInterval;
   const clear = options.clearInterval ?? clearInterval;
   const maxConcurrent = options.maxConcurrentJobs ?? WORKER_MAX_CONCURRENT_JOBS;
   const pollIntervalMs = options.pollIntervalMs ?? WORKER_POLL_INTERVAL_MS;
@@ -271,7 +484,7 @@ export function startWorkerRuntime(options) {
             });
           },
           /**
-           * Reads whether cancel was requested (Phase 22 sets the flag).
+           * Reads whether cancel was requested.
            * @returns {Promise<boolean>}
            */
           async isCancelRequested() {
@@ -385,7 +598,6 @@ export function startWorkerRuntime(options) {
       }
     })();
 
-    // Cover the window before the exclusive lock is acquired so concurrency accounts for it.
     if (!inFlight.has(jobId)) {
       inFlight.set(jobId, {
         job,
@@ -449,17 +661,48 @@ export function startWorkerRuntime(options) {
     }
   }
 
-  const pollTimer = schedule(() => {
+  const pollTimer = scheduleTimer(() => {
     void pollOnce();
   }, pollIntervalMs);
-  const heartbeatTimer = schedule(() => {
+  const heartbeatTimer = scheduleTimer(() => {
     void heartbeatOnce();
   }, heartbeatIntervalMs);
-  const sweepTimer = schedule(() => {
+  const sweepTimer = scheduleTimer(() => {
     void sweepOnce();
   }, sweepIntervalMs);
 
-  for (const timer of [pollTimer, heartbeatTimer, sweepTimer]) {
+  /** @type {ReturnType<typeof setInterval>[]} */
+  const enqueueTimers = [];
+  if (options.enableEnqueueTicks) {
+    const enqueueDue = options.enqueueDueRepositorySyncs ?? enqueueDueRepositorySyncs;
+    const enqueueCleanup = options.enqueueDueAgedOrgDataCleanupJobs ?? enqueueDueAgedOrgDataCleanupJobs;
+    const sweepQueued = options.sweepExpiredQueuedMessages ?? sweepExpiredQueuedMessages;
+    const repoTick = () => {
+      enqueueDue({ log }).catch((err) => {
+        log.error?.(caughtErrorFields(err), 'connected_repo_pull enqueue tick failed');
+      });
+    };
+    const cleanupTick = () => {
+      enqueueCleanup({ log }).catch((err) => {
+        log.error?.(caughtErrorFields(err), 'aged_org_data_cleanup enqueue tick failed');
+      });
+    };
+    const queuedExpiryTick = () => {
+      sweepQueued({ log }).catch((err) => {
+        log.error?.(caughtErrorFields(err), 'queued chat expiry sweep failed');
+      });
+    };
+    repoTick();
+    cleanupTick();
+    queuedExpiryTick();
+    enqueueTimers.push(
+      scheduleTimer(repoTick, REPO_SYNC_SCHEDULER_TICK_MS),
+      scheduleTimer(cleanupTick, AGED_ORG_DATA_CLEANUP_SCHEDULER_TICK_MS),
+      scheduleTimer(queuedExpiryTick, QUEUED_MESSAGE_SWEEP_INTERVAL_MS),
+    );
+  }
+
+  for (const timer of [pollTimer, heartbeatTimer, sweepTimer, ...enqueueTimers]) {
     if (typeof timer === 'object' && timer && 'unref' in timer) {
       /** @type {{ unref: () => void }} */ (timer).unref();
     }
@@ -476,6 +719,9 @@ export function startWorkerRuntime(options) {
     clear(pollTimer);
     clear(heartbeatTimer);
     clear(sweepTimer);
+    for (const timer of enqueueTimers) {
+      clear(timer);
+    }
 
     const deadline = Date.now() + drainTimeoutMs;
     while (inFlight.size > 0 && Date.now() < deadline) {
@@ -516,3 +762,6 @@ export function startWorkerRuntime(options) {
     sweepOnceForTests: sweepOnce,
   };
 }
+
+/** Alias so existing tests can import startWorkerRuntime from schedule. */
+export const startWorkerRuntime = startSchedule;

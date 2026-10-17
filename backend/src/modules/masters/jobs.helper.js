@@ -65,19 +65,19 @@ export const INGEST_STAGE_DEFINITIONS = Object.freeze([
 
 /**
  * Stage definitions keyed by job type.
- * reingest reuses ingest stages. repo_sync has its own short fetch/persist list.
+ * project_knowledge_rebuild reuses ingest stages. connected_repo_pull has its own short fetch/persist list.
  * @type {Readonly<Record<string, readonly JobStageDefinition[]>>}
  */
 export const JOB_STAGE_CATALOG = Object.freeze({
-  ingest: INGEST_STAGE_DEFINITIONS,
-  reingest: INGEST_STAGE_DEFINITIONS,
-  repo_sync: Object.freeze([
+  project_knowledge_build: INGEST_STAGE_DEFINITIONS,
+  project_knowledge_rebuild: INGEST_STAGE_DEFINITIONS,
+  connected_repo_pull: Object.freeze([
     Object.freeze({ stage: 'fetch_remote', label: 'Checking repository' }),
     Object.freeze({ stage: 'persist_source', label: 'Saving source files' }),
     Object.freeze({ stage: 'enqueue_ingest', label: 'Queued for processing' }),
   ]),
-  worker_smoke: Object.freeze([Object.freeze({ stage: 'smoke_run', label: 'Worker smoke check' })]),
-  retention: Object.freeze([Object.freeze({ stage: 'apply_policy', label: 'Applying retention' })]),
+  worker_smoke_check: Object.freeze([Object.freeze({ stage: 'smoke_run', label: 'Worker smoke check' })]),
+  aged_org_data_cleanup: Object.freeze([Object.freeze({ stage: 'apply_policy', label: 'Applying retention' })]),
 });
 
 // --- from jobs/jobEventCatalog.js ---
@@ -173,7 +173,7 @@ export function labelForJobStage(jobType, stage) {
  */
 export function renderJobEventMessage(eventCode, context = {}) {
   if (eventCode === 'job.retry_requested' && context.fromStage) {
-    const label = labelForJobStage(context.jobType ?? 'ingest', context.fromStage);
+    const label = labelForJobStage(context.jobType ?? 'project_knowledge_build', context.fromStage);
     return `Retry requested; resuming from ${label.toLowerCase()}`;
   }
   if (eventCode === 'source.validated' && typeof context.filesTotal === 'number') {
@@ -852,7 +852,7 @@ export async function findActiveJobForProject(orgId, projectId) {
 }
 
 /**
- * Finds an active ingest or reingest job for a source version.
+ * Finds an active ingest or project_knowledge_rebuild job for a source version.
  * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
  * @param {import('mongoose').Types.ObjectId | string} projectId Project id.
  * @param {import('mongoose').Types.ObjectId | string} sourceVersionId Source version id.
@@ -868,7 +868,7 @@ export async function findActiveJobForSourceVersion(orgId, projectId, sourceVers
     projectId: new mongoose.Types.ObjectId(String(projectId)),
     sourceVersionId: new mongoose.Types.ObjectId(String(sourceVersionId)),
     status: ROW_STATUS_ACTIVE,
-    jobType: { $in: ['ingest', 'reingest'] },
+    jobType: { $in: ['project_knowledge_build', 'project_knowledge_rebuild'] },
     jobStatus: { $in: ['pending', 'retrying', 'running'] },
   })
     .sort({ updatedAt: -1, _id: -1 })

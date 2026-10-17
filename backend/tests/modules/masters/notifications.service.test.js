@@ -125,7 +125,7 @@ describe('notifications.service', () => {
         _id: jobId,
         orgId,
         projectId,
-        jobType: 'ingest',
+        jobType: 'project_knowledge_build',
         createdBy: userId,
       },
       result: 'completed_with_warnings',
@@ -138,7 +138,7 @@ describe('notifications.service', () => {
         _id: new mongoose.Types.ObjectId(),
         orgId,
         projectId,
-        jobType: 'ingest',
+        jobType: 'project_knowledge_build',
         createdBy: userId,
       },
       result: 'failed',
@@ -148,14 +148,14 @@ describe('notifications.service', () => {
     expect(afterFail).toEqual(['knowledge.completed', 'knowledge.failed', 'processing.attention']);
   });
 
-  it('emits repo.sync.completed for a successful repo_sync job', async () => {
+  it('emits repo.sync.completed for a successful connected_repo_pull job', async () => {
     const { orgId, userId, projectId } = await seedNotifyProject();
     await emitNotificationsForJobTerminal({
       job: {
         _id: new mongoose.Types.ObjectId(),
         orgId,
         projectId,
-        jobType: 'repo_sync',
+        jobType: 'connected_repo_pull',
         createdBy: userId,
       },
       result: 'completed',
@@ -166,7 +166,7 @@ describe('notifications.service', () => {
 
   it('skips jobs without a project id', async () => {
     await emitNotificationsForJobTerminal({
-      job: { orgId: new mongoose.Types.ObjectId().toHexString(), jobType: 'retention' },
+      job: { orgId: new mongoose.Types.ObjectId().toHexString(), jobType: 'aged_org_data_cleanup' },
       result: 'completed',
     });
     expect(await Notification.countDocuments({})).toBe(0);

@@ -31,7 +31,7 @@ const mocks = vi.hoisted(() => ({
   MessageFindOneAndUpdate: vi.fn(),
 }));
 
-vi.mock('../../../src/worker/projectJobLock.js', () => ({
+vi.mock('../../../src/worker/projectLock.js', () => ({
   findActiveProjectWriterLockJobId: mocks.findActiveProjectWriterLockJobId,
 }));
 
@@ -86,10 +86,10 @@ describe('chatQueue helpers', () => {
   });
 
   it('isKnowledgeWriterJobType recognizes ingest family only', () => {
-    expect(isKnowledgeWriterJobType('ingest')).toBe(true);
-    expect(isKnowledgeWriterJobType('reingest')).toBe(true);
-    expect(isKnowledgeWriterJobType('repo_sync')).toBe(true);
-    expect(isKnowledgeWriterJobType('retention')).toBe(false);
+    expect(isKnowledgeWriterJobType('project_knowledge_build')).toBe(true);
+    expect(isKnowledgeWriterJobType('project_knowledge_rebuild')).toBe(true);
+    expect(isKnowledgeWriterJobType('connected_repo_pull')).toBe(true);
+    expect(isKnowledgeWriterJobType('aged_org_data_cleanup')).toBe(false);
   });
 
   it('resolveWriterJobId prefers lock jobId then active writer job', async () => {

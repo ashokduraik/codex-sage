@@ -214,7 +214,7 @@ describe('SourcesPanel', () => {
 
   it('re-processes a version and navigates to processing', async () => {
     seedAuthSession('you@acme.io', { permissions: ['users.manage', 'knowledge.trigger'] });
-    reingestProjectSource.mockResolvedValue({ jobId: 'job_new', sourceVersionId: 'sv_atlas', jobType: 'reingest' });
+    reingestProjectSource.mockResolvedValue({ jobId: 'job_new', sourceVersionId: 'sv_atlas', jobType: 'project_knowledge_rebuild' });
     renderSources();
     fireEvent.click(await screen.findByRole('button', { name: /Re-process this version/i }));
     await waitFor(() => {
@@ -229,7 +229,7 @@ describe('SourcesPanel', () => {
 
   it('reuses an in-flight reingest job id from the API', async () => {
     seedAuthSession('you@acme.io', { permissions: ['users.manage', 'knowledge.trigger'] });
-    reingestProjectSource.mockResolvedValue({ jobId: 'job_existing', sourceVersionId: 'sv_atlas', jobType: 'reingest' });
+    reingestProjectSource.mockResolvedValue({ jobId: 'job_existing', sourceVersionId: 'sv_atlas', jobType: 'project_knowledge_rebuild' });
     renderSources();
     fireEvent.click(await screen.findByRole('button', { name: /Re-process this version/i }));
     await waitFor(() => {

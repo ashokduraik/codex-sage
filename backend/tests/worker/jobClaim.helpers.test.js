@@ -6,11 +6,11 @@ import { TEST_APP_CONFIG } from '../appConfig.js';
 import { Job } from '../../src/models/job.model.js';
 import { createMongoHarness } from '../mongoHarness.js';
 import { insertPendingJob } from '../../src/modules/masters/index.js';
+import { acquireProjectJobLock } from '../../src/worker/projectLock.js';
 import { ProjectJobLock } from '../../src/models/projectJobLock.model.js';
-import { acquireProjectJobLock } from '../../src/worker/projectJobLock.js';
+import { runWorkerSmokeCheckJob } from '../../src/worker/workerSmokeCheckJob.js';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { createJobLogger, buildJobLogBindings } from '../../src/worker/workerLogger.js';
-import { runWorkerSmokeHandler } from '../../src/worker/handlers/workerSmokeHandler.js';
+import { createJobLogger, buildJobLogBindings } from '../../src/worker/workerConfig.js';
 import {
   claimNextJob,
   finishJobFailed,
@@ -21,7 +21,7 @@ import {
   finishJobCompleted,
   releaseJobOnShutdown,
   requeueJobTemporaryFailure,
-} from '../../src/worker/jobClaim.js';
+} from '../../src/worker/jobState.js';
 
 const harness = createMongoHarness({
   models: [Job, ProjectJobLock],
@@ -46,8 +46,8 @@ describe('jobClaim helpers', () => {
     const projectId = new mongoose.Types.ObjectId();
 
     async function claimSmoke(workerId) {
-      await insertPendingJob({ orgId, projectId, jobType: 'worker_smoke' });
-      return claimNextJob({ workerId, registeredTypes: ['worker_smoke'] });
+      await insertPendingJob({ orgId, projectId, jobType: 'worker_smoke_check' });
+      return claimNextJob({ workerId, registeredTypes: ['worker_smoke_check'] });
     }
 
     const completed = await claimSmoke('w-complete');
@@ -112,10 +112,10 @@ describe('jobClaim helpers', () => {
   it('saves a checkpoint and resolves nextDueAt helpers', async () => {
     const orgId = new mongoose.Types.ObjectId();
     const projectId = new mongoose.Types.ObjectId();
-    await insertPendingJob({ orgId, projectId, jobType: 'worker_smoke' });
+    await insertPendingJob({ orgId, projectId, jobType: 'worker_smoke_check' });
     const job = await claimNextJob({
       workerId: 'w-cp',
-      registeredTypes: ['worker_smoke'],
+      registeredTypes: ['worker_smoke_check'],
     });
 
     const saved = await saveJobCheckpoint({
@@ -180,7 +180,7 @@ describe('workerLogger and smoke handler', () => {
     const bindings = buildJobLogBindings({
       workerId: 'w',
       jobId: 'j',
-      jobType: 'worker_smoke',
+      jobType: 'worker_smoke_check',
       orgId: 'o',
       projectId: 'p',
       attempt: 1,
@@ -209,7 +209,7 @@ describe('workerLogger and smoke handler', () => {
 
   it('smoke handler resumes when checkpoint already complete', async () => {
     const calls = [];
-    const result = await runWorkerSmokeHandler({
+    const result = await runWorkerSmokeCheckJob({
       stageCheckpoint: { lastCompletedStage: 'smoke_done' },
       log: { info: (obj, msg) => calls.push(msg) },
       saveCheckpoint: async () => {

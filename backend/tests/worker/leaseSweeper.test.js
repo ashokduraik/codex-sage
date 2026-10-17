@@ -8,18 +8,27 @@ const requeueJobInterrupted = vi.fn();
 const failJobLeaseExpired = vi.fn();
 const releaseProjectJobLock = vi.fn();
 
-vi.mock('../../src/models/job.model.js', () => ({
-  Job: {
-    aggregate: (...args) => findAggregate(...args),
-  },
-}));
+vi.mock('../../src/models/job.model.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    Job: {
+      ...actual.Job,
+      aggregate: (...args) => findAggregate(...args),
+    },
+  };
+});
 
-vi.mock('../../src/worker/jobClaim.js', () => ({
-  requeueJobInterrupted: (...args) => requeueJobInterrupted(...args),
-  failJobLeaseExpired: (...args) => failJobLeaseExpired(...args),
-}));
+vi.mock('../../src/worker/jobState.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    requeueJobInterrupted: (...args) => requeueJobInterrupted(...args),
+    failJobLeaseExpired: (...args) => failJobLeaseExpired(...args),
+  };
+});
 
-vi.mock('../../src/worker/projectJobLock.js', () => ({
+vi.mock('../../src/worker/projectLock.js', () => ({
   releaseProjectJobLock: (...args) => releaseProjectJobLock(...args),
 }));
 
@@ -42,7 +51,7 @@ describe('leaseSweeper', () => {
       },
     ]);
     requeueJobInterrupted.mockRejectedValueOnce(new Error('requeue boom'));
-    const { sweepExpiredLeases } = await import('../../src/worker/leaseSweeper.js');
+    const { sweepExpiredLeases } = await import('../../src/worker/schedule.js');
     const log = { info: vi.fn(), error: vi.fn() };
     const result = await sweepExpiredLeases({ log });
     expect(result).toEqual({ requeued: 0, failed: 0 });
@@ -65,7 +74,7 @@ describe('leaseSweeper', () => {
       projectId: '6651bb2c4b2a8e0012a4e098',
       attempt: 5,
     });
-    const { sweepExpiredLeases } = await import('../../src/worker/leaseSweeper.js');
+    const { sweepExpiredLeases } = await import('../../src/worker/schedule.js');
     const log = { info: vi.fn(), error: vi.fn() };
     const result = await sweepExpiredLeases({ log });
     expect(result.failed).toBe(1);
@@ -88,7 +97,7 @@ describe('leaseSweeper', () => {
       projectId: '6651bb2c4b2a8e0012a4e097',
       attempt: 1,
     });
-    const { sweepExpiredLeases } = await import('../../src/worker/leaseSweeper.js');
+    const { sweepExpiredLeases } = await import('../../src/worker/schedule.js');
     const result = await sweepExpiredLeases({ log: { info: vi.fn(), error: vi.fn() } });
     expect(result.requeued).toBe(1);
   });

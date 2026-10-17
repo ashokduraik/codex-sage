@@ -337,7 +337,7 @@ Queue expiry remains phase 51 / evaluation.
 | `backend/src/modules/projects/projects.service.js` | Pass `knowledgeHealth` through `transitionLifecycle` |
 | `backend/src/modules/projects/projects.repository.js` | `$set` `knowledgeHealth` on conditional update |
 | `backend/src/worker/projectJobLock.js` | `hasActiveProjectWriterLock` |
-| `backend/src/worker/startWorker.js` | Sync `PROJECT_MODELS` + `KNOWLEDGE_MODELS` |
+| `backend/src/worker/index.js` | Sync `PROJECT_MODELS` + `KNOWLEDGE_MODELS` |
 | `backend/src/index.js` | Sync `KNOWLEDGE_MODELS` |
 | `backend/src/modules/audit/audit.actions.js` | `knowledge.completed` / `knowledge.failed`; resourceType `knowledge` |
 | `backend/src/platform/errorCatalog.js` | `KNOWLEDGE_UPDATING`; fix `KNOWLEDGE_UNAVAILABLE` message |

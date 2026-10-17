@@ -176,7 +176,7 @@ describe('ProcessingIndicator', () => {
     const job = {
       id: 'job1',
       projectId: 'p1',
-      jobType: 'ingest',
+      jobType: 'project_knowledge_build',
       jobStatus: 'running',
       currentStage: 'codegraph_update',
     };

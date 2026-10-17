@@ -2,9 +2,9 @@
  * Unit tests for startWorker boot wiring (Mongo and runtime are mocked).
  */
 import { TEST_APP_CONFIG } from '../appConfig.js';
-import { startWorker } from '../../src/worker/startWorker.js';
+import { startWorker } from '../../src/worker/index.js';
+import { clearJobHandlersForTests } from '../../src/worker/schedule.js';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { clearJobHandlersForTests } from '../../src/worker/handlerRegistry.js';
 import { resetProcessHandlersForTests, resetShutdownForTests } from '../../src/platform/shutdown.js';
 
 describe('startWorker', () => {
@@ -67,12 +67,13 @@ describe('startWorker', () => {
     expect(stop).toHaveBeenCalledOnce();
   });
 
-  it('ticks the repo_sync scheduler when enabled', async () => {
+  it('passes enableEnqueueTicks into schedule when enableRepoSyncScheduler is true', async () => {
     const enqueueDueRepositorySyncs = vi.fn().mockResolvedValue({ enqueued: 0, skipped: 0 });
-    const enqueueDueRetentionJobs = vi.fn().mockResolvedValue({ enqueued: 0, skipped: 0 });
-    const setIntervalFn = vi.fn(() => 7);
-    const clearIntervalFn = vi.fn();
-    const registerShutdownHook = vi.fn();
+    const enqueueDueAgedOrgDataCleanupJobs = vi.fn().mockResolvedValue({ enqueued: 0, skipped: 0 });
+    const startWorkerRuntime = vi.fn().mockReturnValue({
+      stop: vi.fn().mockResolvedValue(undefined),
+      getInFlightCount: () => 0,
+    });
     const handle = await startWorker({
       loadConfig: () => ({
         ...TEST_APP_CONFIG,
@@ -80,17 +81,12 @@ describe('startWorker', () => {
       }),
       connectMongo: vi.fn().mockResolvedValue(undefined),
       registerProcessHandlers: vi.fn(),
-      registerShutdownHook,
+      registerShutdownHook: vi.fn(),
       attachShutdownSignals: vi.fn(),
-      startWorkerRuntime: vi.fn().mockReturnValue({
-        stop: vi.fn().mockResolvedValue(undefined),
-        getInFlightCount: () => 0,
-      }),
-      setInterval: setIntervalFn,
-      clearInterval: clearIntervalFn,
+      startWorkerRuntime,
       enableRepoSyncScheduler: true,
       enqueueDueRepositorySyncs,
-      enqueueDueRetentionJobs,
+      enqueueDueAgedOrgDataCleanupJobs,
       hostname: () => 'sched-host',
       pid: 1,
       bootSuffix: 'aa',
@@ -98,12 +94,13 @@ describe('startWorker', () => {
       clearHandlersForTests: true,
       skipDefaultHandlers: true,
     });
-    expect(enqueueDueRepositorySyncs).toHaveBeenCalled();
-    expect(enqueueDueRetentionJobs).toHaveBeenCalled();
-    expect(setIntervalFn).toHaveBeenCalled();
-    const stopScheduler = registerShutdownHook.mock.calls.find((call) => call[0] === 'stop-repo-sync-scheduler')[1];
-    await stopScheduler();
-    expect(clearIntervalFn).toHaveBeenCalledWith(7);
+    expect(startWorkerRuntime).toHaveBeenCalledWith(
+      expect.objectContaining({
+        enableEnqueueTicks: true,
+        enqueueDueRepositorySyncs,
+        enqueueDueAgedOrgDataCleanupJobs,
+      }),
+    );
     await handle.stopRuntime();
   });
 
