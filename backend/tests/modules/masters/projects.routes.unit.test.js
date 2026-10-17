@@ -12,15 +12,15 @@ vi.mock('../../../src/modules/access/index.js', () => ({
 }));
 
 import {
+  getProjectHttp,
   listProjectsHttp,
   createProjectHttp,
-  getProjectHttp,
-  updateProjectHttp,
   deleteProjectHttp,
-  recordProjectAccessHttp,
-  getProjectSettingsHttp,
+  updateProjectHttp,
   archiveProjectHttp,
   restoreProjectHttp,
+  getProjectSettingsHttp,
+  recordProjectAccessHttp,
   updateProjectSettingsHttp,
   getProjectDeletionPreviewHttp,
 } from '../../../src/modules/masters/projects.js';

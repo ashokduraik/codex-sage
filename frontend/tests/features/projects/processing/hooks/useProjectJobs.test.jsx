@@ -70,4 +70,24 @@ describe('useProjectJobs', () => {
     });
     expect(flattenJobPages(undefined)).toEqual([]);
   });
+
+  it('keeps polling when the first page is empty so a late repo_sync can appear', async () => {
+    const { JOB_DETAIL_POLL_INTERVAL_MS, projectJobsQueryKey } = await import('@/features/projects/processing/api/jobsApi.js');
+    listProjectJobs.mockResolvedValue({
+      items: [],
+      pageInfo: { nextCursor: null, hasMore: false },
+    });
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    const { result } = renderHook(() => useProjectJobs('p1'), {
+      wrapper: createWrapper(queryClient),
+    });
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+    const cached = queryClient.getQueryCache().find({ queryKey: projectJobsQueryKey('p1') });
+    const interval = typeof cached?.options.refetchInterval === 'function' ? cached.options.refetchInterval(cached) : cached?.options.refetchInterval;
+    expect(interval).toBe(JOB_DETAIL_POLL_INTERVAL_MS);
+  });
 });

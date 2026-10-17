@@ -38,19 +38,16 @@ export async function waitForTerminalJobStatus(page) {
       .getByRole('heading', { name: 'History' })
       .isVisible()
       .catch(() => false);
+    // Only the section heading — do not match job-status "Pending" text on cards.
     const inProgressVisible = await page
       .getByRole('heading', { name: 'In progress' })
       .isVisible()
       .catch(() => false);
-    const pendingVisible = await page
-      .getByText('Pending', { exact: true })
-      .isVisible()
-      .catch(() => false);
-    if (inProgressVisible || pendingVisible) {
+    if (inProgressVisible) {
       sawActive = true;
       historyOnlySince = 0;
     }
-    if (historyVisible && !inProgressVisible && !pendingVisible) {
+    if (historyVisible && !inProgressVisible) {
       if (sawActive) {
         return;
       }
@@ -61,12 +58,17 @@ export async function waitForTerminalJobStatus(page) {
         return;
       }
     }
+    // Empty center can race a just-scheduled repo_sync; reload to pick up the job list.
+    if (!historyVisible && !inProgressVisible) {
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await expect(page.getByRole('heading', { name: 'Processing Center' })).toBeVisible();
+    }
     await new Promise((resolve) => {
       setTimeout(resolve, E2E_INGEST_POLL_INTERVAL_MS);
     });
   }
   const hint = sawActive
-    ? 'Job stayed pending — start the stack with `npm run dev` (API + worker + Vite).'
+    ? 'Job stayed in progress — start the stack with `npm run dev` (API + worker + Vite).'
     : 'Ingest did not reach a terminal job state in time.';
   throw new Error(hint);
 }

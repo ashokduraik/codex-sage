@@ -77,6 +77,29 @@ describe('conversations.types', () => {
     expect(rich.modelId).toBe('qwen');
     expect(rich.knowledgeVersionId).toBe(String(knowledgeVersionId));
     expect(rich.trace).toEqual({ stages: ['generating_answer'] });
+
+    const blockingJobId = new mongoose.Types.ObjectId();
+    const queued = mapMessageToDto({
+      ...base,
+      messageStatus: 'queued',
+      queuedAt: new Date('2026-09-12T16:00:00.000Z'),
+      expiresAt: new Date('2026-09-12T16:30:00.000Z'),
+      blockingJobId,
+    });
+    expect(queued.queuedAt).toBe('2026-09-12T16:00:00.000Z');
+    expect(queued.expiresAt).toBe('2026-09-12T16:30:00.000Z');
+    expect(queued.blockingJobId).toBe(String(blockingJobId));
+
+    const failedQueue = mapMessageToDto({
+      ...base,
+      messageStatus: 'failed',
+      queueFailureCode: 'KNOWLEDGE_UNAVAILABLE',
+    });
+    expect(failedQueue.error).toMatchObject({
+      code: 'KNOWLEDGE_UNAVAILABLE',
+      class: 'knowledge',
+      retryability: 'temporary',
+    });
   });
 
   it('stringifies non-date timestamps', () => {

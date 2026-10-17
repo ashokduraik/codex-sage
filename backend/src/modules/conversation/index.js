@@ -43,6 +43,18 @@ export {
   streamConversationMessageHttp,
   runChatMessageStream,
 } from './chatStream.js';
+export {
+  QUEUED_MESSAGE_TTL_MS,
+  QUEUED_MESSAGE_BATCH_SIZE,
+  KNOWLEDGE_WRITER_JOB_TYPES,
+  QUEUED_MESSAGE_SWEEP_INTERVAL_MS,
+  resolveWriterJobId,
+  isKnowledgeWriterJobType,
+  notifyKnowledgePublished,
+  failQueuedMessagesForProject,
+  sweepExpiredQueuedMessages,
+  enqueueChatMessageWhileKnowledgeUpdating,
+} from './chatQueue.js';
 export { COMPACTION_MAX_PASSES, EXCERPT_MIN_TOKENS, RESERVED_OUTPUT_TOKENS, getContextBudgetConfig, prepareModelInput } from './contextBudgeter.js';
 export {
   INFERENCE_QUEUE_MAX_CONCURRENCY,

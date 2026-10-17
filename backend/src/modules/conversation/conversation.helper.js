@@ -765,3 +765,270 @@ export async function finalizeAssistantMessage(input) {
 
   return updated;
 }
+
+/**
+ * Persists a user-only message in `queued` state while knowledge is updating.
+ * @param {{
+ *   orgId: import('mongoose').Types.ObjectId | string,
+ *   projectId: string,
+ *   conversationId: string,
+ *   actorUserId: string,
+ *   content: string,
+ *   blockingJobId?: string | null,
+ *   queuedAt: Date,
+ *   expiresAt: Date,
+ * }} input Queue insert fields.
+ * @returns {Promise<import('mongoose').Document>}
+ * @throws {import('../../platform/errors.js').ApiError} When ids are invalid.
+ */
+export async function insertQueuedUserMessage(input) {
+  assertOrgId(input.orgId);
+  if (!mongoose.isValidObjectId(input.projectId) || !mongoose.isValidObjectId(input.conversationId) || !mongoose.isValidObjectId(input.actorUserId)) {
+    throw ApiError.fromCode('VALIDATION_ERROR', {
+      details: [{ path: 'conversationId', message: 'org/project/conversation/actor ids must be valid ObjectIds' }],
+    });
+  }
+
+  const orgId = input.orgId;
+  const projectId = new mongoose.Types.ObjectId(String(input.projectId));
+  const conversationId = new mongoose.Types.ObjectId(String(input.conversationId));
+  const actorUserId = new mongoose.Types.ObjectId(String(input.actorUserId));
+  const blockingJobId =
+    input.blockingJobId && mongoose.isValidObjectId(input.blockingJobId) ? new mongoose.Types.ObjectId(String(input.blockingJobId)) : null;
+
+  const [userMessage] = await Message.create([
+    {
+      orgId,
+      projectId,
+      conversationId,
+      role: 'user',
+      content: input.content,
+      messageStatus: 'queued',
+      knowledgeVersionId: null,
+      parentMessageId: null,
+      queuedAt: input.queuedAt,
+      expiresAt: input.expiresAt,
+      blockingJobId,
+      queueFailureCode: null,
+      createdBy: actorUserId,
+      updatedBy: actorUserId,
+    },
+  ]);
+
+  await Conversation.updateOne(
+    {
+      _id: conversationId,
+      orgId,
+      projectId,
+      status: ROW_STATUS_ACTIVE,
+    },
+    {
+      $inc: { messageCount: 1 },
+      $set: { lastMessageAt: input.queuedAt, updatedBy: actorUserId },
+    },
+  ).exec();
+
+  return userMessage;
+}
+
+/**
+ * Lists unexpired queued user messages for a project in FIFO order.
+ * @param {{
+ *   orgId: import('mongoose').Types.ObjectId | string,
+ *   projectId: string,
+ *   now: Date,
+ *   limit: number,
+ * }} input Query scope.
+ * @returns {Promise<object[]>}
+ */
+export async function listUnexpiredQueuedMessages(input) {
+  assertOrgId(input.orgId);
+  if (!mongoose.isValidObjectId(input.projectId)) {
+    return [];
+  }
+  return Message.find({
+    orgId: input.orgId,
+    projectId: new mongoose.Types.ObjectId(String(input.projectId)),
+    status: ROW_STATUS_ACTIVE,
+    role: 'user',
+    messageStatus: 'queued',
+    expiresAt: { $gt: input.now },
+  })
+    .sort({ queuedAt: 1, _id: 1 })
+    .limit(input.limit)
+    .lean()
+    .exec();
+}
+
+/**
+ * Atomically claims a queued message for resume (`queued` → `accepted`).
+ * @param {{
+ *   orgId: import('mongoose').Types.ObjectId | string,
+ *   messageId: string,
+ *   knowledgeVersionId?: string | null,
+ *   now: Date,
+ * }} input Claim fields.
+ * @returns {Promise<import('mongoose').Document | null>}
+ */
+export async function claimQueuedMessageForResume(input) {
+  assertOrgId(input.orgId);
+  if (!mongoose.isValidObjectId(input.messageId)) {
+    return null;
+  }
+  const knowledgeVersionId =
+    input.knowledgeVersionId && mongoose.isValidObjectId(input.knowledgeVersionId)
+      ? new mongoose.Types.ObjectId(String(input.knowledgeVersionId))
+      : null;
+  return Message.findOneAndUpdate(
+    {
+      _id: new mongoose.Types.ObjectId(String(input.messageId)),
+      orgId: input.orgId,
+      status: ROW_STATUS_ACTIVE,
+      role: 'user',
+      messageStatus: 'queued',
+      expiresAt: { $gt: input.now },
+    },
+    {
+      $set: {
+        messageStatus: 'accepted',
+        knowledgeVersionId,
+        queuedAt: null,
+        expiresAt: null,
+        blockingJobId: null,
+        queueFailureCode: null,
+      },
+    },
+    { returnDocument: 'after' },
+  ).exec();
+}
+
+/**
+ * Creates the pending assistant sibling for a claimed queued user message.
+ * @param {{
+ *   orgId: import('mongoose').Types.ObjectId | string,
+ *   projectId: string,
+ *   conversationId: string,
+ *   userMessageId: string,
+ *   actorUserId?: string | null,
+ *   knowledgeVersionId?: string | null,
+ * }} input Assistant insert fields.
+ * @returns {Promise<import('mongoose').Document>}
+ * @throws {import('../../platform/errors.js').ApiError} When ids are invalid.
+ */
+export async function insertAssistantForQueuedUser(input) {
+  assertOrgId(input.orgId);
+  if (
+    !mongoose.isValidObjectId(input.projectId) ||
+    !mongoose.isValidObjectId(input.conversationId) ||
+    !mongoose.isValidObjectId(input.userMessageId)
+  ) {
+    throw ApiError.fromCode('VALIDATION_ERROR', {
+      details: [{ path: 'userMessageId', message: 'org/project/conversation/user ids must be valid ObjectIds' }],
+    });
+  }
+
+  const orgId = input.orgId;
+  const projectId = new mongoose.Types.ObjectId(String(input.projectId));
+  const conversationId = new mongoose.Types.ObjectId(String(input.conversationId));
+  const userMessageId = new mongoose.Types.ObjectId(String(input.userMessageId));
+  const actorUserId =
+    input.actorUserId && mongoose.isValidObjectId(input.actorUserId) ? new mongoose.Types.ObjectId(String(input.actorUserId)) : null;
+  const knowledgeVersionId =
+    input.knowledgeVersionId && mongoose.isValidObjectId(input.knowledgeVersionId)
+      ? new mongoose.Types.ObjectId(String(input.knowledgeVersionId))
+      : null;
+  const now = new Date();
+
+  const [assistantMessage] = await Message.create([
+    {
+      orgId,
+      projectId,
+      conversationId,
+      role: 'assistant',
+      content: '\u200b',
+      messageStatus: 'generating',
+      knowledgeVersionId,
+      parentMessageId: userMessageId,
+      createdBy: actorUserId,
+      updatedBy: actorUserId,
+    },
+  ]);
+
+  await Conversation.updateOne(
+    {
+      _id: conversationId,
+      orgId,
+      projectId,
+      status: ROW_STATUS_ACTIVE,
+    },
+    {
+      $inc: { messageCount: 1 },
+      $set: { lastMessageAt: now, ...(actorUserId ? { updatedBy: actorUserId } : {}) },
+    },
+  ).exec();
+
+  return assistantMessage;
+}
+
+/**
+ * Marks matching queued messages failed with a catalog queue failure code.
+ * @param {{
+ *   orgId: import('mongoose').Types.ObjectId | string,
+ *   projectId: string,
+ *   filter?: Record<string, unknown>,
+ *   queueFailureCode?: string,
+ * }} input Fail scope.
+ * @returns {Promise<number>} Modified count.
+ */
+export async function markQueuedMessagesFailed(input) {
+  assertOrgId(input.orgId);
+  if (!mongoose.isValidObjectId(input.projectId)) {
+    return 0;
+  }
+  const result = await Message.updateMany(
+    {
+      orgId: input.orgId,
+      projectId: new mongoose.Types.ObjectId(String(input.projectId)),
+      status: ROW_STATUS_ACTIVE,
+      role: 'user',
+      messageStatus: 'queued',
+      ...(input.filter ?? {}),
+    },
+    {
+      $set: {
+        messageStatus: 'failed',
+        queueFailureCode: input.queueFailureCode ?? 'KNOWLEDGE_UNAVAILABLE',
+        queuedAt: null,
+        expiresAt: null,
+        blockingJobId: null,
+      },
+    },
+  ).exec();
+  return result.modifiedCount ?? 0;
+}
+
+/**
+ * Fails queued messages whose `expiresAt` has passed (global sweeper).
+ * @param {{ now: Date }} input Sweep clock.
+ * @returns {Promise<number>} Modified count.
+ */
+export async function markExpiredQueuedMessagesFailed(input) {
+  const result = await Message.updateMany(
+    {
+      status: ROW_STATUS_ACTIVE,
+      role: 'user',
+      messageStatus: 'queued',
+      expiresAt: { $lte: input.now },
+    },
+    {
+      $set: {
+        messageStatus: 'failed',
+        queueFailureCode: 'KNOWLEDGE_UNAVAILABLE',
+        queuedAt: null,
+        expiresAt: null,
+        blockingJobId: null,
+      },
+    },
+  ).exec();
+  return result.modifiedCount ?? 0;
+}

@@ -32,6 +32,30 @@ export async function openAdminSection(page, section) {
 }
 
 /**
+ * Sets a visually-hidden permission/role checkbox via DOM click.
+ * The input is `sr-only` (often outside the viewport) and its wrapping label intercepts
+ * Playwright pointer actions, so a native element.click() is the reliable path.
+ *
+ * @param {import('@playwright/test').Locator} scope Dialog or page region.
+ * @param {string} label Accessible name on the checkbox.
+ * @param {boolean} checked Desired checked state.
+ */
+async function setLabeledCheckbox(scope, label, checked) {
+  const checkbox = scope.getByLabel(label, { exact: true });
+  if ((await checkbox.isChecked()) === checked) {
+    return;
+  }
+  await checkbox.evaluate((element) => {
+    element.click();
+  });
+  if (checked) {
+    await expect(checkbox).toBeChecked();
+  } else {
+    await expect(checkbox).not.toBeChecked();
+  }
+}
+
+/**
  * Creates a role from the Roles & Permissions page.
  *
  * @param {import('@playwright/test').Page} page Authenticated page.
@@ -45,10 +69,7 @@ export async function createRoleViaUi(page, role) {
   await dialog.locator('#admin-role-code').fill(role.code);
   await dialog.locator('#admin-role-name').fill(role.name);
   for (const label of role.permissionLabels) {
-    const checkbox = dialog.getByLabel(label, { exact: true });
-    if (!(await checkbox.isChecked())) {
-      await checkbox.check();
-    }
+    await setLabeledCheckbox(dialog, label, true);
   }
   await dialog.getByRole('button', { name: 'Create role' }).click();
   await expect(dialog).toHaveCount(0);
@@ -81,10 +102,7 @@ export async function editRoleViaUi(page, input) {
     await dialog.locator('#admin-role-name').fill(input.nextName);
   }
   for (const label of input.enablePermissionLabels ?? []) {
-    const checkbox = dialog.getByLabel(label, { exact: true });
-    if (!(await checkbox.isChecked())) {
-      await checkbox.check();
-    }
+    await setLabeledCheckbox(dialog, label, true);
   }
   await dialog.getByRole('button', { name: 'Save' }).click();
   await expect(dialog).toHaveCount(0);
@@ -120,15 +138,12 @@ export async function createInvitedUserViaUi(page, user, assignment) {
   await dialog.locator('#admin-create-name').fill(user.displayName);
   await dialog.locator('#admin-create-email').fill(user.email);
   await dialog.locator('#admin-create-code').fill(user.code);
-  const assigned = dialog.getByLabel(assignment.roleName, { exact: true });
-  if (!(await assigned.isChecked())) {
-    await assigned.check();
-  }
-  const orgAdmin = dialog.getByLabel('Org Admin');
-  if (await orgAdmin.isChecked()) {
-    await orgAdmin.uncheck();
-  }
-  await dialog.getByRole('button', { name: 'Invite user' }).click();
+  await setLabeledCheckbox(dialog, assignment.roleName, true);
+  await setLabeledCheckbox(dialog, 'Org Admin', false);
+  const inviteButton = dialog.getByRole('button', { name: 'Invite user' });
+  await inviteButton.evaluate((element) => {
+    element.click();
+  });
   await expect(dialog).toHaveCount(0);
   await page.getByLabel('Search users').fill(user.email);
   await expect(page.getByText(user.email)).toBeVisible();
@@ -222,10 +237,7 @@ export async function addRoleViaUi(page, user, assignment) {
   await openUserRowActions(page, user.email);
   await page.getByRole('button', { name: 'Edit roles' }).click({ force: true });
   const dialog = page.getByRole('dialog', { name: `Edit roles for ${user.displayName}` });
-  const extra = dialog.getByLabel(assignment.roleName, { exact: true });
-  if (!(await extra.isChecked())) {
-    await extra.check();
-  }
+  await setLabeledCheckbox(dialog, assignment.roleName, true);
   await dialog.getByRole('button', { name: 'Save' }).click();
   await expect(dialog).toHaveCount(0);
 }
@@ -254,10 +266,19 @@ export async function filterAuditUserCreate(page) {
   await openAdminSection(page, 'Audit');
   const today = new Date();
   const todayKey = [today.getFullYear(), String(today.getMonth() + 1).padStart(2, '0'), String(today.getDate()).padStart(2, '0')].join('-');
-  await page.getByLabel('From date').click();
-  await page.getByRole('button', { name: todayKey }).click();
-  await page.getByLabel('To date').click();
-  await page.getByRole('button', { name: todayKey }).click();
+  /**
+   * Picks today in the open calendar popover, then waits for it to close so the
+   * next field does not leave two day buttons with the same aria-label.
+   * @param {string} fieldLabel Accessible name of the date trigger.
+   */
+  async function pickTodayInDateField(fieldLabel) {
+    await page.getByLabel(fieldLabel).click();
+    const calendar = page.locator('[data-radix-popper-content-wrapper]').last();
+    await calendar.getByRole('button', { name: todayKey }).click();
+    await expect(calendar).toBeHidden();
+  }
+  await pickTodayInDateField('From date');
+  await pickTodayInDateField('To date');
   await page.getByLabel('Action filter').click();
   await page.getByRole('option', { name: 'User created' }).click();
   await page.getByRole('button', { name: 'Search' }).click();

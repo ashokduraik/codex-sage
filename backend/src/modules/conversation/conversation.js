@@ -5,6 +5,7 @@ import { z } from 'zod';
 import mongoose from 'mongoose';
 import { ApiError } from '../../platform/errors.js';
 import { Message } from '../../models/messages.model.js';
+import { getCatalogEntry } from '../../platform/errorCatalog.js';
 import { Conversation } from '../../models/conversations.model.js';
 import { adjustProjectConversationCount } from '../masters/index.js';
 import { buildAuditContextFromRequest, recordAuditEvent } from '../access/index.js';
@@ -352,6 +353,24 @@ export function mapMessageToDto(message) {
     messageStatus: message.messageStatus,
     createdAt: toIsoOrEmpty(message.createdAt),
   };
+  if (message.queuedAt != null) {
+    dto.queuedAt = toIsoOrEmpty(message.queuedAt);
+  }
+  if (message.expiresAt != null) {
+    dto.expiresAt = toIsoOrEmpty(message.expiresAt);
+  }
+  if (message.blockingJobId != null) {
+    dto.blockingJobId = String(message.blockingJobId);
+  }
+  if (message.queueFailureCode != null && typeof message.queueFailureCode === 'string') {
+    const entry = getCatalogEntry(message.queueFailureCode);
+    dto.error = {
+      code: message.queueFailureCode,
+      class: entry?.class ?? 'knowledge',
+      retryability: entry?.retryability ?? 'temporary',
+      message: entry?.message ?? 'Project knowledge is not available.',
+    };
+  }
   if (message.evidence != null) {
     dto.evidence = message.evidence;
   }

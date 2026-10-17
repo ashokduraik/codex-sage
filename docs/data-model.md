@@ -326,11 +326,13 @@ Conversations do not write `KnowledgeVersion` or other project knowledge.
 
 ### `messages`
 
-One row per chat turn (Phase 41 schema; HTTP create is Phase 50). Fields:
-`projectId`, `conversationId`, `role` (`user` \| `assistant` \| `system`), `content`,
-`messageStatus` (`accepted` \| `generating` \| `awaiting_clarification` \| `completed` \|
-`abstained` \| `failed` \| `interrupted`; `queued` is Phase 51), `knowledgeVersionId`,
+One row per chat turn (Phase 41 schema; HTTP create is Phase 50; queue is Phase 51).
+Fields: `projectId`, `conversationId`, `role` (`user` \| `assistant` \| `system`), `content`,
+`messageStatus` (`queued` \| `accepted` \| `generating` \| `awaiting_clarification` \|
+`completed` \| `abstained` \| `failed` \| `interrupted`), `knowledgeVersionId`,
 `parentMessageId` (reserved for Phase 53),
+`queuedAt` / `expiresAt` / `blockingJobId` / `queueFailureCode` (null unless queued or
+queue-failed; Phase 51),
 optional `evidence` / `usage` / `contextMetrics` / `supportLevel` /
 `durationMs` / `modelId` / `trace` (null until written), plus base fields.
 `supportLevel` is `evidence_backed` \| `insufficient` \| `conflict` \| `partial`.
@@ -343,8 +345,10 @@ only when the budget denominator exists. `usage` is provider-reported tokens
 (Phase 45). The UI omits null reserved keys.
 
 Indexes (partial `status: 'A'`): `{ orgId, conversationId, createdAt: 1, _id: 1 }`,
-`{ orgId, projectId, conversationId }`. Thread pages are oldest-first on
-`(createdAt, _id)`.
+`{ orgId, projectId, conversationId }`,
+`{ orgId, projectId, messageStatus, queuedAt }` (queue drain / expiry),
+`{ orgId, projectId, blockingJobId, messageStatus }` (fail by writer job).
+Thread pages are oldest-first on `(createdAt, _id)`.
 
 ### `chatCheckpoints`
 

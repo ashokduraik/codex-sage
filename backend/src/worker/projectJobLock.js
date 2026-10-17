@@ -194,3 +194,29 @@ export async function hasActiveProjectWriterLock(input) {
     .exec();
   return Boolean(found);
 }
+
+/**
+ * Returns the live writer lock's job id when a lock exists, else null.
+ * Used by chat queue 202 responses to surface the blocking ingest job.
+ * @param {{
+ *   orgId: import('mongoose').Types.ObjectId | string,
+ *   projectId: import('mongoose').Types.ObjectId | string,
+ * }} input Project scope.
+ * @returns {Promise<string | null>}
+ */
+export async function findActiveProjectWriterLockJobId(input) {
+  if (!mongoose.isValidObjectId(String(input.orgId)) || !mongoose.isValidObjectId(String(input.projectId))) {
+    return null;
+  }
+  const found = await ProjectJobLock.findOne({
+    orgId: new mongoose.Types.ObjectId(String(input.orgId)),
+    projectId: new mongoose.Types.ObjectId(String(input.projectId)),
+    lockScope: PROJECT_JOB_LOCK_SCOPE,
+    status: ROW_STATUS_ACTIVE,
+    $expr: { $gt: ['$expiresAt', '$$NOW'] },
+  })
+    .select({ jobId: 1 })
+    .lean()
+    .exec();
+  return found?.jobId ? String(found.jobId) : null;
+}

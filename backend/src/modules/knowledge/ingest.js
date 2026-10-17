@@ -535,6 +535,15 @@ export async function markProjectKnowledgeFailed(input) {
     },
     { log: input.log },
   );
+
+  // Dynamic import avoids a circular load (conversation → knowledge → conversation).
+  const { failQueuedMessagesForProject } = await import('../conversation/index.js');
+  await failQueuedMessagesForProject({
+    orgId: String(input.orgId),
+    projectId: String(input.projectId),
+    reason: 'knowledge_failed',
+    log: input.log,
+  });
 }
 
 /**

@@ -1,13 +1,14 @@
 /**
  * Chat message SSE transport — POST ask with Accept: text/event-stream,
- * knowledge gate, idempotent completion, and LangGraph hooks mapped to SSE.
+ * knowledge gate, queued 202 when updating, idempotent completion, and LangGraph hooks.
  */
 import { z } from 'zod';
 import { findProjectById } from '../masters/index.js';
 import { assertKnowledgeReadable } from '../knowledge/index.js';
-import { buildAuditContextFromRequest } from '../access/index.js';
 import { buildStreamErrorEvent } from '../../platform/streamErrors.js';
+import { enqueueChatMessageWhileKnowledgeUpdating } from './chatQueue.js';
 import { completeIdempotencyRecord } from '../../platform/idempotency/index.js';
+import { buildAuditContextFromRequest, recordAuditEvent } from '../access/index.js';
 import { assertConversationWritable, loadConversationForUser } from './conversation.js';
 import { ApiError, caughtErrorFields, canSendJsonError } from '../../platform/errors.js';
 import { invokeChatGraph, buildChatGraphThreadId, createMongoChatCheckpointer } from './chatGraph.js';
@@ -34,17 +35,14 @@ const askBodySchema = z
   .strict();
 
 /**
- * POST /conversation/chatStream/streamMessage/:projectId/:conversationId — grounded chat SSE.
+ * POST /conversation/chatStream/streamMessage/:projectId/:conversationId — grounded chat SSE or 202 queue.
  * @param {import('fastify').FastifyRequest} request Request with projectScope and Accept stream.
- * @param {import('fastify').FastifyReply} reply Hijacked for SSE or JSON errors.
+ * @param {import('fastify').FastifyReply} reply Hijacked for SSE, or JSON 202 / errors.
  */
 export async function streamConversationMessageHttp(request, reply) {
   const params = conversationParamsSchema.safeParse(request.params ?? {});
   if (!params.success) {
     throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
-  }
-  if (!acceptIncludesEventStream(request.headers.accept)) {
-    throw ApiError.fromCode('NOT_ACCEPTABLE');
   }
   const parsed = askBodySchema.safeParse(request.body ?? {});
   if (!parsed.success) {
@@ -54,6 +52,49 @@ export async function streamConversationMessageHttp(request, reply) {
   const scope = request.projectScope;
   const audit = buildAuditContextFromRequest(request);
   const correlationId = audit.correlationId ?? request.id;
+
+  const conversation = await loadConversationForUser(scope.orgId, scope.projectId, params.data.conversationId, scope.userId);
+  assertConversationWritable(conversation, scope.userId);
+
+  const gate = await assertKnowledgeReadable({ orgId: scope.orgId, projectId: scope.projectId });
+  if (gate.action === 'deny') {
+    throw ApiError.fromCode(gate.code ?? 'KNOWLEDGE_UNAVAILABLE');
+  }
+
+  if (gate.action === 'queue') {
+    const queued = await enqueueChatMessageWhileKnowledgeUpdating({
+      orgId: scope.orgId,
+      projectId: scope.projectId,
+      conversationId: params.data.conversationId,
+      actorUserId: scope.userId,
+      content: parsed.data.content,
+    });
+    await recordAuditEvent(
+      {
+        orgId: scope.orgId,
+        actorUserId: scope.userId,
+        action: 'chat.message_queued',
+        resourceType: 'conversation',
+        resourceId: params.data.conversationId,
+        result: 'success',
+        correlationId,
+        ip: audit.ip,
+        userAgent: audit.userAgent,
+        context: {
+          messageId: queued.messageId,
+          jobId: queued.jobId,
+          projectId: String(scope.projectId),
+        },
+      },
+      { log: request.log },
+    );
+    await completeChatIdempotency(request, queued, 202);
+    return reply.code(202).send(queued);
+  }
+
+  if (!acceptIncludesEventStream(request.headers.accept)) {
+    throw ApiError.fromCode('NOT_ACCEPTABLE');
+  }
 
   /** @type {boolean} */
   let clientConnected = true;
@@ -94,6 +135,8 @@ export async function streamConversationMessageHttp(request, reply) {
       correlationId,
       workspaceRoot: request.server.config.workspace.root,
       log: request.log,
+      gate,
+      skipConversationLoad: true,
       isClientConnected: () => clientConnected,
       openSse: () => {
         if (headersOpened) {
@@ -164,7 +207,7 @@ export async function streamConversationMessageHttp(request, reply) {
 }
 
 /**
- * Orchestrates gate → insert → graph → SSE hooks. Never receives `reply`.
+ * Orchestrates allow-path insert → graph → SSE hooks. Never receives `reply`.
  * @param {{
  *   orgId: string,
  *   projectId: string,
@@ -174,6 +217,8 @@ export async function streamConversationMessageHttp(request, reply) {
  *   correlationId: string,
  *   workspaceRoot: string,
  *   log?: import('fastify').FastifyBaseLogger,
+ *   gate?: { action: string, knowledgeVersionId?: string, code?: string },
+ *   skipConversationLoad?: boolean,
  *   isClientConnected: () => boolean,
  *   openSse: () => void,
  *   writeSse: (event: string, data: unknown) => void,
@@ -181,14 +226,17 @@ export async function streamConversationMessageHttp(request, reply) {
  * @returns {Promise<{ userMessageId: string, assistantMessageId: string, messageStatus: string }>}
  */
 export async function runChatMessageStream(input) {
-  const conversation = await loadConversationForUser(input.orgId, input.projectId, input.conversationId, input.actorUserId);
-  assertConversationWritable(conversation, input.actorUserId);
+  if (!input.skipConversationLoad) {
+    const conversation = await loadConversationForUser(input.orgId, input.projectId, input.conversationId, input.actorUserId);
+    assertConversationWritable(conversation, input.actorUserId);
+  }
 
-  const gate = await assertKnowledgeReadable({ orgId: input.orgId, projectId: input.projectId });
+  const gate = input.gate ?? (await assertKnowledgeReadable({ orgId: input.orgId, projectId: input.projectId }));
   if (gate.action === 'deny') {
     throw ApiError.fromCode(gate.code ?? 'KNOWLEDGE_UNAVAILABLE');
   }
   if (gate.action === 'queue') {
+    // Unit-test / direct callers still get the catalog code; HTTP path returns 202 above.
     throw ApiError.fromCode('KNOWLEDGE_UPDATING');
   }
 
@@ -339,10 +387,11 @@ export async function runChatMessageStream(input) {
 /**
  * Completes the idempotency claim with a JSON outcome (not the SSE body).
  * @param {import('fastify').FastifyRequest} request Request with idempotency context.
- * @param {{ userMessageId: string | null, assistantMessageId: string | null, messageStatus: string }} body Stored body.
+ * @param {object} body Stored body.
+ * @param {number} [responseStatus=200] HTTP status stored for replay.
  * @returns {Promise<void>}
  */
-async function completeChatIdempotency(request, body) {
+async function completeChatIdempotency(request, body, responseStatus = 200) {
   const ctx = request.idempotency;
   if (!ctx?.isOwner || !ctx.recordId || !request.principal?.orgId || !request.principal?.userId) {
     return;
@@ -350,9 +399,9 @@ async function completeChatIdempotency(request, body) {
   await completeIdempotencyRecord({
     orgId: request.principal.orgId,
     recordId: ctx.recordId,
-    responseStatus: 200,
+    responseStatus,
     responseBody: body,
-    resourceId: body.assistantMessageId,
+    resourceId: body.assistantMessageId ?? body.messageId ?? null,
     updatedBy: request.principal.userId,
   });
   ctx.isOwner = false;

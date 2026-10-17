@@ -580,7 +580,7 @@ export default function AdminUsers() {
           }
         }}
       >
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{t('admin.createUserTitle')}</DialogTitle>
             <DialogDescription>{t('admin.createUserDescription')}</DialogDescription>
@@ -664,7 +664,7 @@ export default function AdminUsers() {
           }
         }}
       >
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{t('admin.editRolesFor', { name: rolesEditTarget?.displayName })}</DialogTitle>
             <DialogDescription>{t('admin.editRolesDescription')}</DialogDescription>

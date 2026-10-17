@@ -251,7 +251,7 @@ describe('chatStream routes', () => {
     expect(mockInvokeChatGraph).not.toHaveBeenCalled();
   });
 
-  it('returns KNOWLEDGE_UPDATING JSON when the gate queues', async () => {
+  it('returns 202 queued JSON when the gate queues (Accept not required)', async () => {
     await runBootstrapSeed(createMockLog());
     app = await readyApp();
     const { accessToken } = await login(app);
@@ -262,14 +262,32 @@ describe('chatStream routes', () => {
       headers: { authorization: `Bearer ${accessToken}`, 'idempotency-key': 'idem-sse-conv-upd' },
       payload: {},
     });
+    const conversationId = created.json().id;
     mockAssertKnowledgeReadable.mockResolvedValue({ action: 'queue', code: 'KNOWLEDGE_UPDATING' });
 
-    const res = await postMessage(app, accessToken, project.id, created.json().id, {
+    const res = await postMessage(app, accessToken, project.id, conversationId, {
+      accept: 'application/json',
       idempotencyKey: 'idem-sse-msg-upd',
     });
-    expect(res.statusCode).toBe(503);
-    expect(res.json().error.code).toBe('KNOWLEDGE_UPDATING');
+    expect(res.statusCode).toBe(202);
     expect(res.headers['content-type']).toMatch(/application\/json/);
+    const body = res.json();
+    expect(body.messageStatus).toBe('queued');
+    expect(body.messageId).toBeTruthy();
+    expect(body.queuedAt).toBeTruthy();
+    expect(body.expiresAt).toBeTruthy();
+    expect(mockInvokeChatGraph).not.toHaveBeenCalled();
+
+    const queued = await Message.findById(body.messageId).lean();
+    expect(queued?.messageStatus).toBe('queued');
+    expect(queued?.role).toBe('user');
+
+    const replay = await postMessage(app, accessToken, project.id, conversationId, {
+      accept: 'application/json',
+      idempotencyKey: 'idem-sse-msg-upd',
+    });
+    expect(replay.statusCode).toBe(202);
+    expect(replay.json().messageId).toBe(body.messageId);
     expect(mockInvokeChatGraph).not.toHaveBeenCalled();
   });
 

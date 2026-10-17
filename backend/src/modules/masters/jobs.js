@@ -637,6 +637,13 @@ export async function cancelJob(input) {
       { log: input.log },
     );
 
+    await failQueuedChatIfWriterJobCancelled({
+      orgId: input.orgId,
+      projectId: updated.projectId,
+      jobType: updated.jobType,
+      log: input.log,
+    });
+
     return {
       statusCode: 200,
       body: toControlResponse(updated, {
@@ -723,6 +730,29 @@ function toIsoOrNull(value) {
     return null;
   }
   return String(value);
+}
+
+/**
+ * Fails project queued chat messages when a knowledge writer job is cancelled immediately.
+ * @param {{
+ *   orgId: string,
+ *   projectId: import('mongoose').Types.ObjectId | string,
+ *   jobType: string,
+ *   log?: { error?: Function, info?: Function },
+ * }} input Cancel context.
+ * @returns {Promise<void>}
+ */
+async function failQueuedChatIfWriterJobCancelled(input) {
+  const { isKnowledgeWriterJobType, failQueuedMessagesForProject } = await import('../conversation/index.js');
+  if (!isKnowledgeWriterJobType(input.jobType)) {
+    return;
+  }
+  await failQueuedMessagesForProject({
+    orgId: String(input.orgId),
+    projectId: String(input.projectId),
+    reason: 'writer_job_cancelled',
+    log: input.log,
+  });
 }
 
 /**

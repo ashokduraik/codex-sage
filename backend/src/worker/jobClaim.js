@@ -252,6 +252,7 @@ export async function finishJobFailed(input) {
       },
       correlationId: updated.correlationId ?? null,
     });
+    await failQueuedChatIfWriterJobTerminal(updated, 'writer_job_failed');
   }
   return updated;
 }
@@ -407,6 +408,7 @@ export async function failJobLeaseExpired(input) {
       },
       correlationId: updated.correlationId ?? null,
     });
+    await failQueuedChatIfWriterJobTerminal(updated, 'writer_job_lease_exhausted');
   }
   return updated;
 }
@@ -499,8 +501,27 @@ export async function finishJobCancelled(input) {
       data: {},
       correlationId: updated.correlationId ?? null,
     });
+    await failQueuedChatIfWriterJobTerminal(updated, 'writer_job_cancelled');
   }
   return updated;
+}
+
+/**
+ * Fails queued chat messages when a knowledge writer job ends cancelled or failed.
+ * @param {import('mongoose').Document} job Terminal job document.
+ * @param {string} reason Fail reason for logs.
+ * @returns {Promise<void>}
+ */
+async function failQueuedChatIfWriterJobTerminal(job, reason) {
+  const { isKnowledgeWriterJobType, failQueuedMessagesForProject } = await import('../modules/conversation/index.js');
+  if (!isKnowledgeWriterJobType(job.jobType)) {
+    return;
+  }
+  await failQueuedMessagesForProject({
+    orgId: String(job.orgId),
+    projectId: String(job.projectId),
+    reason,
+  });
 }
 
 /**

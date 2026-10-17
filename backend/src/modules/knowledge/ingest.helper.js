@@ -816,6 +816,15 @@ export async function runFinalizeStage(ctx) {
     reasonCode: 'knowledge_published',
   });
 
+  // Dynamic import avoids a circular load (conversation → knowledge → conversation).
+  const { notifyKnowledgePublished } = await import('../conversation/index.js');
+  await notifyKnowledgePublished({
+    orgId: String(ctx.scope.orgId),
+    projectId: String(ctx.scope.projectId),
+    knowledgeVersionId: String(knowledgeVersionId),
+    log: ctx.logger,
+  });
+
   await ctx.emitEvent(buildKnowledgeReadyEvent());
   await ctx.saveProgress(true);
 

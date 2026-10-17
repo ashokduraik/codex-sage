@@ -15,7 +15,6 @@ import { REPOSITORY_MODELS } from '../modules/knowledge/index.js';
 import { ProjectJobLock } from '../models/projectJobLock.model.js';
 import { connectMongo, disconnectMongo } from '../platform/mongo.js';
 import { buildWorkerId, startWorkerRuntime } from './workerRuntime.js';
-import { CONVERSATION_MODELS } from '../modules/conversation/index.js';
 import { workerSmokeHandlerRegistration } from './handlers/workerSmokeHandler.js';
 import { clearJobHandlersForTests, registerJobHandler } from './handlerRegistry.js';
 import { WORKER_HEARTBEAT_INTERVAL_MS, assertWorkerLeaseTimingSafe } from './worker.constants.js';
@@ -24,6 +23,7 @@ import { JOB_MODELS, NOTIFICATION_MODELS, PROJECT_ACTIVITY_MODELS } from '../mod
 import { attachShutdownSignals, registerProcessHandlers, registerShutdownHook } from '../platform/shutdown.js';
 import { retentionHandlerRegistration, enqueueDueRetentionJobs, RETENTION_SCHEDULER_TICK_MS } from '../modules/masters/index.js';
 import { enqueueDueRepositorySyncs, repoSyncHandlerRegistration, REPO_SYNC_SCHEDULER_TICK_MS } from '../modules/knowledge/index.js';
+import { CONVERSATION_MODELS, sweepExpiredQueuedMessages, QUEUED_MESSAGE_SWEEP_INTERVAL_MS } from '../modules/conversation/index.js';
 
 export { WORKER_HEARTBEAT_INTERVAL_MS };
 
@@ -133,6 +133,7 @@ export async function startWorker(deps = {}) {
     const clear = deps.clearInterval ?? clearInterval;
     const enqueueDue = deps.enqueueDueRepositorySyncs ?? enqueueDueRepositorySyncs;
     const enqueueRetention = deps.enqueueDueRetentionJobs ?? enqueueDueRetentionJobs;
+    const sweepQueued = deps.sweepExpiredQueuedMessages ?? sweepExpiredQueuedMessages;
     const repoTick = () => {
       enqueueDue({ log }).catch((err) => {
         log.error?.(caughtErrorFields(err), 'repo_sync scheduler tick failed');
@@ -143,13 +144,21 @@ export async function startWorker(deps = {}) {
         log.error?.(caughtErrorFields(err), 'retention scheduler tick failed');
       });
     };
+    const queuedExpiryTick = () => {
+      sweepQueued({ log }).catch((err) => {
+        log.error?.(caughtErrorFields(err), 'queued chat expiry sweep failed');
+      });
+    };
     repoTick();
     retentionTick();
+    queuedExpiryTick();
     const timer = schedule(repoTick, REPO_SYNC_SCHEDULER_TICK_MS);
     const retentionTimer = schedule(retentionTick, RETENTION_SCHEDULER_TICK_MS);
+    const queuedExpiryTimer = schedule(queuedExpiryTick, QUEUED_MESSAGE_SWEEP_INTERVAL_MS);
     registerHook('stop-repo-sync-scheduler', async () => {
       clear(timer);
       clear(retentionTimer);
+      clear(queuedExpiryTimer);
     });
   }
   registerHook('stop-worker-runtime', async () => {

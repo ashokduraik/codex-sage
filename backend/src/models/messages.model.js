@@ -14,6 +14,7 @@ export const MESSAGE_ROLE_VALUES = Object.freeze(['user', 'assistant', 'system']
  * `interrupted` is reserved for cancel/crash — disconnect-continue does not set it.
  */
 export const MESSAGE_STATUS_VALUES = Object.freeze([
+  'queued',
   'accepted',
   'generating',
   'awaiting_clarification',
@@ -34,12 +35,20 @@ const messageSchema = createBaseSchema({
   role: { type: String, enum: MESSAGE_ROLE_VALUES, required: true },
   // Visible text of the question or answer
   content: { type: String, required: true, default: '' },
-  // User accepted / assistant generating / clarify pause / terminal outcome
+  // Queued while knowledge updates / accepted / generating / clarify / terminal
   messageStatus: { type: String, enum: MESSAGE_STATUS_VALUES, required: true, default: 'completed' },
   // Knowledge snapshot the assistant used to answer
   knowledgeVersionId: { type: ObjectId, ref: 'KnowledgeVersion', default: null },
   // Earlier message this turn replies to, when the thread is branched
   parentMessageId: { type: ObjectId, ref: 'Message', default: null },
+  // When the question entered the knowledge-update queue (FIFO drain key)
+  queuedAt: { type: Date, default: null },
+  // When waiting gives up → retryable KNOWLEDGE_UNAVAILABLE (phase 51 TTL)
+  expiresAt: { type: Date, default: null },
+  // Writer job (ingest/reingest/repo_sync) blocking Q&A while this row is queued
+  blockingJobId: { type: ObjectId, ref: 'Job', default: null },
+  // Catalog code when queue wait ends in failure (e.g. KNOWLEDGE_UNAVAILABLE)
+  queueFailureCode: { type: String, default: null },
   // Source citations for an assistant answer (file, lines) — what the UI inspects
   evidence: { type: mongoose.Schema.Types.Mixed, default: null },
   // Token / model-usage numbers for this turn
@@ -58,5 +67,7 @@ const messageSchema = createBaseSchema({
 
 messageSchema.index({ orgId: 1, conversationId: 1, createdAt: 1, _id: 1 }, { partialFilterExpression: { status: ROW_STATUS_ACTIVE } });
 messageSchema.index({ orgId: 1, projectId: 1, conversationId: 1 }, { partialFilterExpression: { status: ROW_STATUS_ACTIVE } });
+messageSchema.index({ orgId: 1, projectId: 1, messageStatus: 1, queuedAt: 1 }, { partialFilterExpression: { status: ROW_STATUS_ACTIVE } });
+messageSchema.index({ orgId: 1, projectId: 1, blockingJobId: 1, messageStatus: 1 }, { partialFilterExpression: { status: ROW_STATUS_ACTIVE } });
 
 export const Message = mongoose.models.Message ?? mongoose.model('Message', messageSchema, 'messages');

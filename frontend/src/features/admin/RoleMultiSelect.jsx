@@ -45,7 +45,8 @@ export function RoleMultiSelect({ roles, selectedRoleIds, onChange, disabled = f
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-card">
+    // Cap height so invite/edit-role dialogs stay usable when many org roles exist.
+    <div className="max-h-48 overflow-y-auto overflow-x-hidden rounded-lg border border-border bg-card scrollbar-thin">
       {roles.map((role, index) => {
         const roleId = String(role.id);
         const checked = selectedSet.has(roleId);

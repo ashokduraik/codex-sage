@@ -6,7 +6,8 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import { JOB_DETAIL_POLL_INTERVAL_MS, JOB_LIST_PAGE_SIZE, listProjectJobs, projectJobsQueryKey } from '../api/jobsApi.js';
 
 /**
- * Lists jobs for a project, polling while any page has an in-flight job.
+ * Lists jobs for a project. Polls while any job is in flight, and while the list
+ * is still empty (repo attach may enqueue sync after the first fetch).
  * @param {string | undefined | null} projectId Project id.
  * @param {{
  *   jobStatus?: string,
@@ -44,9 +45,15 @@ export function useProjectJobs(projectId, options = {}) {
     refetchInterval: (query) => {
       const pages = query.state.data?.pages;
       if (!Array.isArray(pages)) {
-        return false;
+        return JOB_DETAIL_POLL_INTERVAL_MS;
       }
-      const hasActive = pages.some((page) => (page?.items ?? []).some((job) => isActiveJobStatus(job.jobStatus)));
+      const items = pages.flatMap((page) => (Array.isArray(page?.items) ? page.items : []));
+      // Keep polling while empty: repo attach schedules sync asynchronously, so the first
+      // fetch can miss the job and would otherwise never refresh.
+      if (items.length === 0) {
+        return JOB_DETAIL_POLL_INTERVAL_MS;
+      }
+      const hasActive = items.some((job) => isActiveJobStatus(job.jobStatus));
       return hasActive ? JOB_DETAIL_POLL_INTERVAL_MS : false;
     },
   });
