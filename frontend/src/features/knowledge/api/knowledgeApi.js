@@ -73,7 +73,7 @@ export const KNOWLEDGE_SEARCH_DEBOUNCE_MS = 300;
  * @returns {Promise<object>}
  */
 export async function fetchKnowledgeFacets(projectId, options = {}) {
-  return apiRequest(`/projects/${encodeURIComponent(projectId)}/knowledge`, {
+  return apiRequest(`/knowledge/knowledge/getIndex/${encodeURIComponent(projectId)}`, {
     signal: options.signal,
   });
 }
@@ -85,7 +85,7 @@ export async function fetchKnowledgeFacets(projectId, options = {}) {
  * @returns {Promise<object>}
  */
 export async function fetchKnowledgeSummary(projectId, options = {}) {
-  return apiRequest(`/projects/${encodeURIComponent(projectId)}/knowledge/summary`, {
+  return apiRequest(`/knowledge/knowledge/getSummary/${encodeURIComponent(projectId)}`, {
     signal: options.signal,
   });
 }
@@ -97,7 +97,7 @@ export async function fetchKnowledgeSummary(projectId, options = {}) {
  * @returns {Promise<object>}
  */
 export async function fetchKnowledgeWorkflows(projectId, options = {}) {
-  return apiRequest(`/projects/${encodeURIComponent(projectId)}/knowledge/workflows`, {
+  return apiRequest(`/knowledge/knowledge/listWorkflows/${encodeURIComponent(projectId)}`, {
     signal: options.signal,
   });
 }
@@ -109,7 +109,7 @@ export async function fetchKnowledgeWorkflows(projectId, options = {}) {
  * @returns {Promise<object>}
  */
 export async function fetchKnowledgeApis(projectId, options = {}) {
-  return apiRequest(`/projects/${encodeURIComponent(projectId)}/knowledge/apis`, {
+  return apiRequest(`/knowledge/knowledge/listApis/${encodeURIComponent(projectId)}`, {
     signal: options.signal,
   });
 }
@@ -127,7 +127,7 @@ export async function fetchKnowledgeSymbols(projectId, q, options = {}) {
     search.set('q', String(q));
   }
   const encoded = search.toString();
-  return apiRequest(`/projects/${encodeURIComponent(projectId)}/knowledge/symbols${encoded ? `?${encoded}` : ''}`, {
+  return apiRequest(`/knowledge/knowledge/listSymbols/${encodeURIComponent(projectId)}${encoded ? `?${encoded}` : ''}`, {
     signal: options.signal,
   });
 }
@@ -139,7 +139,7 @@ export async function fetchKnowledgeSymbols(projectId, q, options = {}) {
  * @returns {Promise<object>}
  */
 export async function fetchKnowledgeHealth(projectId, options = {}) {
-  return apiRequest(`/projects/${encodeURIComponent(projectId)}/knowledge/health`, {
+  return apiRequest(`/knowledge/knowledge/getHealth/${encodeURIComponent(projectId)}`, {
     signal: options.signal,
   });
 }
@@ -152,7 +152,7 @@ export async function fetchKnowledgeHealth(projectId, options = {}) {
  */
 export async function fetchChangeSummary(projectId, options = {}) {
   try {
-    return await apiRequest(`/projects/${encodeURIComponent(projectId)}/knowledge/updates/latest`, { signal: options.signal });
+    return await apiRequest(`/knowledge/changeSummary/getLatest/${encodeURIComponent(projectId)}`, { signal: options.signal });
   } catch (error) {
     if (error instanceof ApiError && (error.status === 404 || error.code === 'CHANGE_SUMMARY_NOT_FOUND')) {
       return null;
@@ -177,7 +177,7 @@ export async function fetchProjectSearch(options) {
   if (options.types) {
     search.set('types', options.types);
   }
-  return apiRequest(`/projects/${encodeURIComponent(options.projectId)}/search?${search.toString()}`, { signal: options.signal });
+  return apiRequest(`/knowledge/search/run/${encodeURIComponent(options.projectId)}?${search.toString()}`, { signal: options.signal });
 }
 
 /**
@@ -187,7 +187,7 @@ export async function fetchProjectSearch(options) {
  */
 export async function fetchSourceFileMetadata(options) {
   const search = new URLSearchParams({ path: options.path });
-  return apiRequest(`/projects/${encodeURIComponent(options.projectId)}/files?${search.toString()}`, { signal: options.signal });
+  return apiRequest(`/knowledge/sourcePreview/getMetadata/${encodeURIComponent(options.projectId)}?${search.toString()}`, { signal: options.signal });
 }
 
 /**
@@ -207,5 +207,5 @@ export async function fetchSourceSlice(options) {
     startLine: String(options.startLine),
     endLine: String(options.endLine),
   });
-  return apiRequest(`/projects/${encodeURIComponent(options.projectId)}/files/slice?${search.toString()}`, { signal: options.signal });
+  return apiRequest(`/knowledge/sourcePreview/readSlice/${encodeURIComponent(options.projectId)}?${search.toString()}`, { signal: options.signal });
 }

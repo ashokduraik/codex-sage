@@ -47,7 +47,7 @@ describe('ProtectedRoute', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (url) => {
-        if (String(url).endsWith('/auth/refresh')) {
+        if (String(url).endsWith('/access/auth/refresh')) {
           await refreshPromise;
           return jsonResponse({
             status: 401,

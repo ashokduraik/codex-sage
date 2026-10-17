@@ -118,7 +118,7 @@ describe('idempotencyPreHandler', () => {
   it('throws UNAUTHENTICATED when a required route has no principal', async () => {
     await expect(
       idempotencyPreHandler({
-        routeOptions: { config: { requireIdempotencyKey: true }, url: '/users' },
+        routeOptions: { config: { requireIdempotencyKey: true }, url: '/masters/users/create' },
         principal: null,
         headers: { 'idempotency-key': 'abcdefgh' },
         method: 'POST',
@@ -133,7 +133,7 @@ describe('idempotencyPreHandler', () => {
       record: { _id: 'rec1' },
     });
     const request = {
-      routeOptions: { config: { requireIdempotencyKey: true }, url: '/users' },
+      routeOptions: { config: { requireIdempotencyKey: true }, url: '/masters/users/create' },
       principal: { orgId: 'o1', userId: 'u1' },
       headers: { 'idempotency-key': 'abcdefgh' },
       method: 'POST',
@@ -161,7 +161,7 @@ describe('idempotencyPreHandler', () => {
 
     await expect(
       idempotencyPreHandler({
-        routeOptions: { config: { requireIdempotencyKey: true }, url: '/users' },
+        routeOptions: { config: { requireIdempotencyKey: true }, url: '/masters/users/create' },
         principal: { orgId: 'o1', userId: 'u1' },
         headers: { 'idempotency-key': 'abcdefgh' },
         method: 'POST',
@@ -180,7 +180,7 @@ describe('idempotencyPreHandler', () => {
     });
     await expect(
       idempotencyPreHandler({
-        routeOptions: { config: { requireIdempotencyKey: true }, url: '/users' },
+        routeOptions: { config: { requireIdempotencyKey: true }, url: '/masters/users/create' },
         principal: { orgId: 'o1', userId: 'u1' },
         headers: { 'idempotency-key': 'abcdefgh' },
         method: 'POST',
@@ -206,7 +206,7 @@ describe('idempotencyPreHandler', () => {
 
     await expect(
       idempotencyPreHandler({
-        routeOptions: { config: { requireIdempotencyKey: true }, url: '/users' },
+        routeOptions: { config: { requireIdempotencyKey: true }, url: '/masters/users/create' },
         principal: { orgId: 'o1', userId: 'u1' },
         headers: { 'idempotency-key': 'abcdefgh' },
         method: 'POST',
@@ -239,7 +239,7 @@ describe('idempotencyPreHandler', () => {
 
     await expect(
       idempotencyPreHandler({
-        routeOptions: { config: { requireIdempotencyKey: true }, url: '/users' },
+        routeOptions: { config: { requireIdempotencyKey: true }, url: '/masters/users/create' },
         principal: { orgId: 'o1', userId: 'u1' },
         headers: { 'idempotency-key': 'abcdefgh' },
         method: 'POST',
@@ -265,7 +265,7 @@ describe('idempotencyPreHandler', () => {
 
     await expect(
       idempotencyPreHandler({
-        routeOptions: { config: { requireIdempotencyKey: true }, url: '/users' },
+        routeOptions: { config: { requireIdempotencyKey: true }, url: '/masters/users/create' },
         principal: { orgId: 'o1', userId: 'u1' },
         headers: { 'idempotency-key': 'abcdefgh' },
         method: 'POST',
@@ -291,7 +291,7 @@ describe('idempotencyPreHandler', () => {
 
     await expect(
       idempotencyPreHandler({
-        routeOptions: { config: { requireIdempotencyKey: true }, url: '/users' },
+        routeOptions: { config: { requireIdempotencyKey: true }, url: '/masters/users/create' },
         principal: { orgId: 'o1', userId: 'u1' },
         headers: { 'idempotency-key': 'abcdefgh' },
         method: 'POST',

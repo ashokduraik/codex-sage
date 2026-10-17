@@ -181,19 +181,19 @@ describe('createRequestChildLogger', () => {
   it('binds method and path-only url onto the child logger', () => {
     const child = vi.fn((bindings) => bindings);
     const logger = { child };
-    const result = createRequestChildLogger(logger, { reqId: 'REQ-1' }, { level: 'info' }, { method: 'POST', url: '/api/v1/auth/login?x=1' });
+    const result = createRequestChildLogger(logger, { reqId: 'REQ-1' }, { level: 'info' }, { method: 'POST', url: '/api/v1/access/auth/login?x=1' });
     expect(child).toHaveBeenCalledWith(
       {
         reqId: 'REQ-1',
         method: 'POST',
-        url: '/api/v1/auth/login',
+        url: '/api/v1/access/auth/login',
       },
       { level: 'info' },
     );
     expect(result).toEqual({
       reqId: 'REQ-1',
       method: 'POST',
-      url: '/api/v1/auth/login',
+      url: '/api/v1/access/auth/login',
     });
   });
 

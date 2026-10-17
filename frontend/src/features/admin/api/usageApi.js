@@ -31,5 +31,5 @@ export function organizationUsageQueryKey() {
  * }>}
  */
 export async function fetchOrganizationUsage(options = {}) {
-  return apiRequest('/usage/organization', { signal: options.signal });
+  return apiRequest('/masters/projectActivities/getOrganizationUsage', { signal: options.signal });
 }

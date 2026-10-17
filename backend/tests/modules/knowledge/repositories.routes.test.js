@@ -75,7 +75,7 @@ describe('repository probe routes', () => {
   async function login(instance, email, password) {
     const res = await instance.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/auth/login`,
+      url: `${API_BASE_PATH}/access/auth/login`,
       payload: { email, password },
     });
     expect(res.statusCode).toBe(200);
@@ -85,7 +85,7 @@ describe('repository probe routes', () => {
   async function createProject(instance, accessToken, name, key) {
     const res = await instance.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects`,
+      url: `${API_BASE_PATH}/masters/projects/create`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': key,
@@ -115,7 +115,7 @@ describe('repository probe routes', () => {
 
     const res = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${project.id}/repositories/probe`,
+      url: `${API_BASE_PATH}/knowledge/repositories/probe/${project.id}`,
       headers: { authorization: `Bearer ${accessToken}` },
       payload: { repositoryUrl: 'https://github.com/acme/payments' },
     });
@@ -141,7 +141,7 @@ describe('repository probe routes', () => {
 
     const res = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${project.id}/repositories/probe`,
+      url: `${API_BASE_PATH}/knowledge/repositories/probe/${project.id}`,
       headers: { authorization: `Bearer ${accessToken}` },
       payload: { repositoryUrl: 'https://gitlab.example.com/group/payments' },
     });
@@ -157,7 +157,7 @@ describe('repository probe routes', () => {
     const project = await createProject(app, accessToken, 'Probe Empty', 'idem-probe-proj-empty');
     const res = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${project.id}/repositories/probe`,
+      url: `${API_BASE_PATH}/knowledge/repositories/probe/${project.id}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(res.statusCode).toBe(400);
@@ -171,7 +171,7 @@ describe('repository probe routes', () => {
     const project = await createProject(app, accessToken, 'Probe Bad', 'idem-probe-proj-3');
     const res = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${project.id}/repositories/probe`,
+      url: `${API_BASE_PATH}/knowledge/repositories/probe/${project.id}`,
       headers: { authorization: `Bearer ${accessToken}` },
       payload: { repositoryUrl: '' },
     });
@@ -209,7 +209,7 @@ describe('repository probe routes', () => {
     const { accessToken: viewerToken } = await login(app, 'viewer-probe@example.com', 'ViewerPass1!');
     const forbidden = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${project.id}/repositories/probe`,
+      url: `${API_BASE_PATH}/knowledge/repositories/probe/${project.id}`,
       headers: { authorization: `Bearer ${viewerToken}` },
       payload: { repositoryUrl: 'https://github.com/acme/payments' },
     });
@@ -217,7 +217,7 @@ describe('repository probe routes', () => {
 
     const missing = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/000000000000000000000000/repositories/probe`,
+      url: `${API_BASE_PATH}/knowledge/repositories/probe/000000000000000000000000`,
       headers: { authorization: `Bearer ${adminToken}` },
       payload: { repositoryUrl: 'https://github.com/acme/payments' },
     });
@@ -253,7 +253,7 @@ describe('repository attach routes', () => {
   async function login(instance, email, password) {
     const res = await instance.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/auth/login`,
+      url: `${API_BASE_PATH}/access/auth/login`,
       payload: { email, password },
     });
     expect(res.statusCode).toBe(200);
@@ -263,7 +263,7 @@ describe('repository attach routes', () => {
   async function createProject(instance, accessToken, name, key) {
     const res = await instance.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects`,
+      url: `${API_BASE_PATH}/masters/projects/create`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': key,
@@ -310,7 +310,7 @@ describe('repository attach routes', () => {
     };
     const first = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${project.id}/repositories`,
+      url: `${API_BASE_PATH}/knowledge/repositories/attach/${project.id}`,
       headers,
       payload,
     });
@@ -320,7 +320,7 @@ describe('repository attach routes', () => {
 
     const replay = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${project.id}/repositories`,
+      url: `${API_BASE_PATH}/knowledge/repositories/attach/${project.id}`,
       headers,
       payload,
     });
@@ -348,7 +348,7 @@ describe('repository attach routes', () => {
     });
     const res = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${project.id}/repositories`,
+      url: `${API_BASE_PATH}/knowledge/repositories/attach/${project.id}`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': 'idem-attach-fail-1',
@@ -372,7 +372,7 @@ describe('repository attach routes', () => {
     const project = await createProject(app, accessToken, 'Attach Valid', 'idem-attach-proj-3');
     const missing = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${project.id}/repositories`,
+      url: `${API_BASE_PATH}/knowledge/repositories/attach/${project.id}`,
       headers: { authorization: `Bearer ${accessToken}` },
       payload: {
         repositoryUrl: 'https://github.com/acme/payments',
@@ -384,7 +384,7 @@ describe('repository attach routes', () => {
 
     const invalid = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${project.id}/repositories`,
+      url: `${API_BASE_PATH}/knowledge/repositories/attach/${project.id}`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': 'idem-attach-bad-body',
@@ -396,7 +396,7 @@ describe('repository attach routes', () => {
 
     const secretInvalid = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${project.id}/repositories`,
+      url: `${API_BASE_PATH}/knowledge/repositories/attach/${project.id}`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': 'idem-attach-empty-token',
@@ -422,7 +422,7 @@ describe('repository attach routes', () => {
     mockConnectedProbe();
     const attached = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${project.id}/repositories`,
+      url: `${API_BASE_PATH}/knowledge/repositories/attach/${project.id}`,
       headers: {
         authorization: `Bearer ${adminToken}`,
         'idempotency-key': 'idem-attach-acl-1',
@@ -459,7 +459,7 @@ describe('repository attach routes', () => {
 
     const viewed = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/repositories/connection`,
+      url: `${API_BASE_PATH}/knowledge/repositories/getConnection/${project.id}`,
       headers: { authorization: `Bearer ${viewerToken}` },
     });
     expect(viewed.statusCode).toBe(200);
@@ -468,7 +468,7 @@ describe('repository attach routes', () => {
 
     const forbidden = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${project.id}/repositories/connection/re-test`,
+      url: `${API_BASE_PATH}/knowledge/repositories/retestConnection/${project.id}`,
       headers: { authorization: `Bearer ${viewerToken}` },
     });
     expect(forbidden.statusCode).toBe(403);
@@ -483,7 +483,7 @@ describe('repository attach routes', () => {
     const auth = { authorization: `Bearer ${accessToken}` };
     await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${project.id}/repositories`,
+      url: `${API_BASE_PATH}/knowledge/repositories/attach/${project.id}`,
       headers: { ...auth, 'idempotency-key': 'idem-attach-cycle-1' },
       payload: {
         repositoryUrl: 'https://github.com/acme/payments',
@@ -494,7 +494,7 @@ describe('repository attach routes', () => {
 
     const patched = await app.inject({
       method: 'PATCH',
-      url: `${API_BASE_PATH}/projects/${project.id}/repositories/connection/branch`,
+      url: `${API_BASE_PATH}/knowledge/repositories/updateBranch/${project.id}`,
       headers: auth,
       payload: { selectedBranch: 'develop' },
     });
@@ -503,7 +503,7 @@ describe('repository attach routes', () => {
 
     const replaced = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${project.id}/repositories/credentials/replace`,
+      url: `${API_BASE_PATH}/knowledge/repositories/replaceCredential/${project.id}`,
       headers: auth,
       payload: { accessToken: 'ghp_replacement_token_value' },
     });
@@ -512,7 +512,7 @@ describe('repository attach routes', () => {
 
     const retest = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${project.id}/repositories/connection/re-test`,
+      url: `${API_BASE_PATH}/knowledge/repositories/retestConnection/${project.id}`,
       headers: auth,
     });
     expect(retest.statusCode).toBe(200);
@@ -520,21 +520,21 @@ describe('repository attach routes', () => {
 
     const revoked = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${project.id}/repositories/credentials/revoke`,
+      url: `${API_BASE_PATH}/knowledge/repositories/revokeCredential/${project.id}`,
       headers: auth,
     });
     expect(revoked.statusCode).toBe(204);
 
     const missing = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/repositories/connection`,
+      url: `${API_BASE_PATH}/knowledge/repositories/getConnection/${project.id}`,
       headers: auth,
     });
     expect(missing.statusCode).toBe(404);
 
     const badBranch = await app.inject({
       method: 'PATCH',
-      url: `${API_BASE_PATH}/projects/${project.id}/repositories/connection/branch`,
+      url: `${API_BASE_PATH}/knowledge/repositories/updateBranch/${project.id}`,
       headers: auth,
       payload: {},
     });
@@ -542,7 +542,7 @@ describe('repository attach routes', () => {
 
     const badReplace = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${project.id}/repositories/credentials/replace`,
+      url: `${API_BASE_PATH}/knowledge/repositories/replaceCredential/${project.id}`,
       headers: auth,
       payload: { accessToken: '' },
     });
@@ -556,7 +556,7 @@ describe('repository attach routes', () => {
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const res = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/000000000000000000000000/repositories`,
+      url: `${API_BASE_PATH}/knowledge/repositories/attach/000000000000000000000000`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': 'idem-attach-missing',
@@ -587,7 +587,7 @@ describe('repository attach routes', () => {
     });
     await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${project.id}/repositories`,
+      url: `${API_BASE_PATH}/knowledge/repositories/attach/${project.id}`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': 'idem-sync-attach',
@@ -600,7 +600,7 @@ describe('repository attach routes', () => {
 
     const first = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${project.id}/repositories/sync`,
+      url: `${API_BASE_PATH}/knowledge/repositories/sync/${project.id}`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': 'idem-sync-1',
@@ -611,7 +611,7 @@ describe('repository attach routes', () => {
 
     const replay = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${project.id}/repositories/sync`,
+      url: `${API_BASE_PATH}/knowledge/repositories/sync/${project.id}`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': 'idem-sync-1',
@@ -623,7 +623,7 @@ describe('repository attach routes', () => {
     const other = await createProject(app, accessToken, 'No Conn', 'idem-sync-nocon');
     const missing = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${other.id}/repositories/sync`,
+      url: `${API_BASE_PATH}/knowledge/repositories/sync/${other.id}`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': 'idem-sync-missing',

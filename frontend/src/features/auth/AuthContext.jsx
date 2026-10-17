@@ -76,7 +76,7 @@ export function AuthProvider({ children }) {
    * Signs in and ensures the current-user query is populated.
    * @param {string} email Account email.
    * @param {string} password Account password.
-   * @returns {Promise<object>} Current user from `/auth/me`.
+   * @returns {Promise<object>} Current user from `/access/auth/me`.
    */
   const login = useCallback(
     async (email, password) => {

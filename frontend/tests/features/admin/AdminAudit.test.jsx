@@ -63,7 +63,7 @@ const EVENT_DENIED = {
   result: 'denied',
   actor: { id: 'u-actor', email: 'viewer@acme.io' },
   correlationId: 'REQ-DEF',
-  context: { permissionKey: 'users.manage', route: '/users', method: 'GET' },
+  context: { permissionKey: 'users.manage', route: '/masters/users/list', method: 'GET' },
   createdAt: '2026-09-11T09:00:00.000Z',
 };
 
@@ -112,7 +112,7 @@ function stubAuditFetch(fetchMock, options = {}) {
   fetchMock.mockImplementation(async (url) => {
     const path = String(url).replace(API_BASE_URL, '');
 
-    if (options.error && path.startsWith('/audit-events')) {
+    if (options.error && path.startsWith('/access/audit/list')) {
       return jsonResponse(
         {
           error: {
@@ -126,14 +126,14 @@ function stubAuditFetch(fetchMock, options = {}) {
       );
     }
 
-    if (path.startsWith('/users')) {
+    if (path.startsWith('/masters/users/list')) {
       return jsonResponse({
         items: users,
         pageInfo: { nextCursor: null, hasMore: false },
       });
     }
 
-    if (path.startsWith('/audit-events')) {
+    if (path.startsWith('/access/audit/list')) {
       const page = pages[Math.min(pageIndex, pages.length - 1)];
       pageIndex += 1;
       return jsonResponse(page);
@@ -149,7 +149,7 @@ function stubAuditFetch(fetchMock, options = {}) {
  * @returns {string[]}
  */
 function auditFetchUrls(fetchMock) {
-  return fetchMock.mock.calls.map((call) => String(call[0])).filter((url) => url.includes('/audit-events'));
+  return fetchMock.mock.calls.map((call) => String(call[0])).filter((url) => url.includes('/access/audit/list'));
 }
 
 /**
@@ -490,13 +490,13 @@ describe('AdminAudit', () => {
     let auditCalls = 0;
     fetchMock.mockImplementation(async (url) => {
       const path = String(url).replace(API_BASE_URL, '');
-      if (path.startsWith('/users')) {
+      if (path.startsWith('/masters/users/list')) {
         return jsonResponse({
           items: [{ id: 'u-actor', email: 'admin@acme.io', roles: [] }],
           pageInfo: { nextCursor: null, hasMore: false },
         });
       }
-      if (path.startsWith('/audit-events')) {
+      if (path.startsWith('/access/audit/list')) {
         auditCalls += 1;
         expect(path).toContain('action=user.create');
         expect(path).toContain('resourceType=user');
@@ -583,6 +583,6 @@ describe('AdminAudit', () => {
     expect(await screen.findByText('Choose a date range and search.')).toBeTruthy();
     expect(screen.queryByLabelText('Users')).toBeNull();
     const urls = fetchMock.mock.calls.map((call) => String(call[0]));
-    expect(urls.every((url) => !url.includes('/users'))).toBe(true);
+    expect(urls.every((url) => !url.includes('/masters/users/list'))).toBe(true);
   });
 });

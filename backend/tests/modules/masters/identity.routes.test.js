@@ -67,7 +67,7 @@ describe('identity.routes', () => {
   async function login(instance, email, password) {
     const res = await instance.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/auth/login`,
+      url: `${API_BASE_PATH}/access/auth/login`,
       payload: { email, password },
     });
     expect(res.statusCode).toBe(200);
@@ -92,14 +92,14 @@ describe('identity.routes', () => {
     app = await readyApp();
     const unauth = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/users`,
+      url: `${API_BASE_PATH}/masters/users/list`,
     });
     expect(unauth.statusCode).toBe(401);
 
     const { accessToken } = await login(app, 'member@example.com', 'memberpass1');
     const forbidden = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/users`,
+      url: `${API_BASE_PATH}/masters/users/list`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(forbidden.statusCode).toBe(403);
@@ -118,7 +118,7 @@ describe('identity.routes', () => {
 
     const create = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/users`,
+      url: `${API_BASE_PATH}/masters/users/create`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': 'create-user-lifecycle-1',
@@ -137,7 +137,7 @@ describe('identity.routes', () => {
 
     const listed = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/users?userStatus=invited`,
+      url: `${API_BASE_PATH}/masters/users/list?userStatus=invited`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(listed.statusCode).toBe(200);
@@ -145,7 +145,7 @@ describe('identity.routes', () => {
 
     const activate = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/users/${created.id}/activate`,
+      url: `${API_BASE_PATH}/masters/users/activate/${created.id}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(activate.statusCode).toBe(200);
@@ -153,14 +153,14 @@ describe('identity.routes', () => {
 
     const remove = await app.inject({
       method: 'DELETE',
-      url: `${API_BASE_PATH}/users/${created.id}`,
+      url: `${API_BASE_PATH}/masters/users/delete/${created.id}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(remove.statusCode).toBe(204);
 
     const afterRemove = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/users`,
+      url: `${API_BASE_PATH}/masters/users/list`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(afterRemove.json().items.some((u) => u.id === created.id)).toBe(false);
@@ -187,7 +187,7 @@ describe('identity.routes', () => {
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const res = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/users/${otherUser._id}`,
+      url: `${API_BASE_PATH}/masters/users/get/${otherUser._id}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(res.statusCode).toBe(404);
@@ -212,7 +212,7 @@ describe('identity.routes', () => {
 
     const page1 = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/users?limit=2`,
+      url: `${API_BASE_PATH}/masters/users/list?limit=2`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(page1.statusCode).toBe(200);
@@ -222,7 +222,7 @@ describe('identity.routes', () => {
 
     const page2 = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/users?limit=2&cursor=${encodeURIComponent(body1.pageInfo.nextCursor)}`,
+      url: `${API_BASE_PATH}/masters/users/list?limit=2&cursor=${encodeURIComponent(body1.pageInfo.nextCursor)}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     const body2 = page2.json();
@@ -231,14 +231,14 @@ describe('identity.routes', () => {
 
     const badLimit = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/users?limit=0`,
+      url: `${API_BASE_PATH}/masters/users/list?limit=0`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(badLimit.statusCode).toBe(400);
 
     const clamped = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/users?limit=500`,
+      url: `${API_BASE_PATH}/masters/users/list?limit=500`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(clamped.statusCode).toBe(200);
@@ -251,7 +251,7 @@ describe('identity.routes', () => {
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const res = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/users?unknown=1`,
+      url: `${API_BASE_PATH}/masters/users/list?unknown=1`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(res.statusCode).toBe(400);
@@ -278,7 +278,7 @@ describe('identity.routes', () => {
 
     const patch = await app.inject({
       method: 'PATCH',
-      url: `${API_BASE_PATH}/users/${target._id}`,
+      url: `${API_BASE_PATH}/masters/users/update/${target._id}`,
       headers: { authorization: `Bearer ${admin.accessToken}` },
       payload: { email: 'renamed@example.com' },
     });
@@ -287,14 +287,14 @@ describe('identity.routes', () => {
 
     const me = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/auth/me`,
+      url: `${API_BASE_PATH}/access/auth/me`,
       headers: { authorization: `Bearer ${targetLogin.accessToken}` },
     });
     expect(me.statusCode).toBe(401);
 
     const createRole = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/roles`,
+      url: `${API_BASE_PATH}/masters/roles/create`,
       headers: { authorization: `Bearer ${admin.accessToken}` },
       payload: {
         code: 'ANALYST',
@@ -309,7 +309,7 @@ describe('identity.routes', () => {
     const adminRole = await findRoleByCode(org._id, 'ADMIN');
     const patchAdmin = await app.inject({
       method: 'PATCH',
-      url: `${API_BASE_PATH}/roles/${adminRole._id}`,
+      url: `${API_BASE_PATH}/masters/roles/update/${adminRole._id}`,
       headers: { authorization: `Bearer ${admin.accessToken}` },
       payload: { name: 'Renamed Admin', permissions: ['org.view', 'users.manage', 'roles.manage'] },
     });
@@ -319,7 +319,7 @@ describe('identity.routes', () => {
 
     const delAssigned = await app.inject({
       method: 'DELETE',
-      url: `${API_BASE_PATH}/roles/${memberRole._id}`,
+      url: `${API_BASE_PATH}/masters/roles/delete/${memberRole._id}`,
       headers: { authorization: `Bearer ${admin.accessToken}` },
     });
     expect(delAssigned.statusCode).toBe(409);
@@ -327,7 +327,7 @@ describe('identity.routes', () => {
 
     const dupRole = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/roles`,
+      url: `${API_BASE_PATH}/masters/roles/create`,
       headers: { authorization: `Bearer ${admin.accessToken}` },
       payload: {
         code: 'ANALYST',
@@ -340,7 +340,7 @@ describe('identity.routes', () => {
 
     const delRole = await app.inject({
       method: 'DELETE',
-      url: `${API_BASE_PATH}/roles/${roleId}`,
+      url: `${API_BASE_PATH}/masters/roles/delete/${roleId}`,
       headers: { authorization: `Bearer ${admin.accessToken}` },
     });
     expect(delRole.statusCode).toBe(204);
@@ -353,7 +353,7 @@ describe('identity.routes', () => {
 
     const listed = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/roles?q=ADMIN`,
+      url: `${API_BASE_PATH}/masters/roles/list?q=ADMIN`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(listed.statusCode).toBe(200);
@@ -367,7 +367,7 @@ describe('identity.routes', () => {
     const { accessToken, user } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const self = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/users/${user.id}/deactivate`,
+      url: `${API_BASE_PATH}/masters/users/deactivate/${user.id}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(self.statusCode).toBe(409);
@@ -382,7 +382,7 @@ describe('identity.routes', () => {
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const res = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/users`,
+      url: `${API_BASE_PATH}/masters/users/create`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': 'create-user-foreign-role-1',
@@ -406,7 +406,7 @@ describe('identity.routes', () => {
     const memberRole = await findRoleByCode(org._id, 'MEMBER');
     const missing = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/users`,
+      url: `${API_BASE_PATH}/masters/users/create`,
       headers: { authorization: `Bearer ${accessToken}` },
       payload: {
         code: nextTestUserCode(),
@@ -439,7 +439,7 @@ describe('identity.routes', () => {
 
     const first = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/users`,
+      url: `${API_BASE_PATH}/masters/users/create`,
       headers,
       payload,
     });
@@ -448,7 +448,7 @@ describe('identity.routes', () => {
 
     const second = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/users`,
+      url: `${API_BASE_PATH}/masters/users/create`,
       headers,
       payload,
     });
@@ -457,7 +457,7 @@ describe('identity.routes', () => {
 
     const listed = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/users?q=idempotent@example.com`,
+      url: `${API_BASE_PATH}/masters/users/list?q=idempotent@example.com`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(listed.statusCode).toBe(200);
@@ -478,7 +478,7 @@ describe('identity.routes', () => {
 
     const first = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/users`,
+      url: `${API_BASE_PATH}/masters/users/create`,
       headers,
       payload: {
         code: nextTestUserCode(),
@@ -491,7 +491,7 @@ describe('identity.routes', () => {
 
     const second = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/users`,
+      url: `${API_BASE_PATH}/masters/users/create`,
       headers,
       payload: {
         code: nextTestUserCode(),
@@ -525,13 +525,13 @@ describe('identity.routes', () => {
     const [a, b] = await Promise.all([
       app.inject({
         method: 'POST',
-        url: `${API_BASE_PATH}/users`,
+        url: `${API_BASE_PATH}/masters/users/create`,
         headers,
         payload,
       }),
       app.inject({
         method: 'POST',
-        url: `${API_BASE_PATH}/users`,
+        url: `${API_BASE_PATH}/masters/users/create`,
         headers,
         payload,
       }),
@@ -542,7 +542,7 @@ describe('identity.routes', () => {
 
     const listed = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/users?q=concurrent@example.com`,
+      url: `${API_BASE_PATH}/masters/users/list?q=concurrent@example.com`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(listed.json().items).toHaveLength(1);
@@ -567,7 +567,7 @@ describe('identity.routes', () => {
     const secret = 'brand-new-secret-99';
     const res = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/users/${target._id}/reset-password`,
+      url: `${API_BASE_PATH}/masters/users/resetPassword/${target._id}`,
       headers: { authorization: `Bearer ${accessToken}` },
       payload: { newPassword: secret },
     });

@@ -182,7 +182,7 @@ export async function listProjectJobs(options) {
     search.set(key, String(value));
   }
   const encoded = search.toString();
-  return apiRequest(`/projects/${encodeURIComponent(options.projectId)}/jobs${encoded ? `?${encoded}` : ''}`, {
+  return apiRequest(`/masters/jobs/list/${encodeURIComponent(options.projectId)}${encoded ? `?${encoded}` : ''}`, {
     signal: options.signal,
   });
 }
@@ -194,7 +194,7 @@ export async function listProjectJobs(options) {
  * @returns {Promise<JobDetail>}
  */
 export async function getJob(jobId, options = {}) {
-  return apiRequest(`/jobs/${encodeURIComponent(jobId)}`, { signal: options.signal });
+  return apiRequest(`/masters/jobs/get/${encodeURIComponent(jobId)}`, { signal: options.signal });
 }
 
 /**
@@ -207,7 +207,7 @@ export async function getJob(jobId, options = {}) {
  * @returns {Promise<JobRetryResult>}
  */
 export async function retryJob(input) {
-  return apiRequest(`/jobs/${encodeURIComponent(input.jobId)}/retry`, {
+  return apiRequest(`/masters/jobs/retry/${encodeURIComponent(input.jobId)}`, {
     method: 'POST',
     idempotencyKey: input.idempotencyKey,
     signal: input.signal,
@@ -223,7 +223,7 @@ export async function retryJob(input) {
  * @returns {Promise<JobCancelResult>}
  */
 export async function cancelJob(input) {
-  return apiRequest(`/jobs/${encodeURIComponent(input.jobId)}/cancel`, {
+  return apiRequest(`/masters/jobs/cancel/${encodeURIComponent(input.jobId)}`, {
     method: 'POST',
     signal: input.signal,
   });

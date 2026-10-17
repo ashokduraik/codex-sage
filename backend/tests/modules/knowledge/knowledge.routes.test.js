@@ -74,7 +74,7 @@ describe('knowledge browse routes', () => {
   async function login(instance, email, password) {
     const res = await instance.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/auth/login`,
+      url: `${API_BASE_PATH}/access/auth/login`,
       payload: { email, password },
     });
     expect(res.statusCode).toBe(200);
@@ -90,7 +90,7 @@ describe('knowledge browse routes', () => {
   async function createProject(instance, accessToken, name, idempotencyKey) {
     const res = await instance.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects`,
+      url: `${API_BASE_PATH}/masters/projects/create`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': idempotencyKey,
@@ -164,7 +164,7 @@ describe('knowledge browse routes', () => {
 
     const res = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/knowledge/summary`,
+      url: `${API_BASE_PATH}/knowledge/knowledge/getSummary/${project.id}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(res.statusCode).toBe(200);
@@ -176,7 +176,7 @@ describe('knowledge browse routes', () => {
 
     const index = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/knowledge`,
+      url: `${API_BASE_PATH}/knowledge/knowledge/getIndex/${project.id}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(index.statusCode).toBe(200);
@@ -184,7 +184,7 @@ describe('knowledge browse routes', () => {
 
     const symbols = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/knowledge/symbols?q=pa`,
+      url: `${API_BASE_PATH}/knowledge/knowledge/listSymbols/${project.id}?q=pa`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(symbols.statusCode).toBe(200);
@@ -192,14 +192,14 @@ describe('knowledge browse routes', () => {
 
     const apis = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/knowledge/apis`,
+      url: `${API_BASE_PATH}/knowledge/knowledge/listApis/${project.id}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(apis.statusCode).toBe(200);
 
     const health = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/knowledge/health`,
+      url: `${API_BASE_PATH}/knowledge/knowledge/getHealth/${project.id}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(health.statusCode).toBe(200);
@@ -226,7 +226,7 @@ describe('knowledge browse routes', () => {
 
     const res = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/knowledge/workflows`,
+      url: `${API_BASE_PATH}/knowledge/knowledge/listWorkflows/${project.id}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(res.statusCode).toBe(200);
@@ -242,7 +242,7 @@ describe('knowledge browse routes', () => {
 
     const res = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/knowledge`,
+      url: `${API_BASE_PATH}/knowledge/knowledge/getIndex/${project.id}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(res.statusCode).toBe(200);
@@ -265,7 +265,7 @@ describe('knowledge browse routes', () => {
 
     const res = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/knowledge/health`,
+      url: `${API_BASE_PATH}/knowledge/knowledge/getHealth/${project.id}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(res.statusCode).toBe(200);
@@ -283,7 +283,7 @@ describe('knowledge browse routes', () => {
     const org = await findOrganizationBySlug('default');
     const missing = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${new mongoose.Types.ObjectId()}/knowledge/summary`,
+      url: `${API_BASE_PATH}/knowledge/knowledge/getSummary/${new mongoose.Types.ObjectId()}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(missing.statusCode).toBe(404);
@@ -292,7 +292,7 @@ describe('knowledge browse routes', () => {
     await softDeleteProject(String(org._id), project.id, { updatedBy: null });
     const deleted = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/knowledge/summary`,
+      url: `${API_BASE_PATH}/knowledge/knowledge/getSummary/${project.id}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(deleted.statusCode).toBe(404);
@@ -305,7 +305,7 @@ describe('knowledge browse routes', () => {
     const project = await createProject(app, accessToken, 'Browse Q', 'idem-browse-q');
     const res = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/knowledge/symbols?q=x`,
+      url: `${API_BASE_PATH}/knowledge/knowledge/listSymbols/${project.id}?q=x`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(res.statusCode).toBe(400);
@@ -313,21 +313,21 @@ describe('knowledge browse routes', () => {
 
     const badLimit = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/knowledge/workflows?limit=nope`,
+      url: `${API_BASE_PATH}/knowledge/knowledge/listWorkflows/${project.id}?limit=nope`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(badLimit.statusCode).toBe(400);
 
     const badApis = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/knowledge/apis?limit=nope`,
+      url: `${API_BASE_PATH}/knowledge/knowledge/listApis/${project.id}?limit=nope`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(badApis.statusCode).toBe(400);
 
     const badIndex = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/knowledge?limit=nope`,
+      url: `${API_BASE_PATH}/knowledge/knowledge/getIndex/${project.id}?limit=nope`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(badIndex.statusCode).toBe(400);
@@ -367,7 +367,7 @@ describe('knowledge browse routes', () => {
     const { accessToken } = await login(app, 'noknow@example.com', 'NoKnowPass1!');
     const res = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/knowledge/summary`,
+      url: `${API_BASE_PATH}/knowledge/knowledge/getSummary/${project.id}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(res.statusCode).toBe(403);

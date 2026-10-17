@@ -400,7 +400,7 @@ describe('audit model, repository, and service', () => {
       orgId: org._id,
       action: 'authz.denied',
       resourceType: 'route',
-      resourceId: '/users',
+      resourceId: '/masters/users/list',
       result: 'denied',
       correlationId: 'REQ-name-route',
     });
@@ -503,7 +503,7 @@ describe('audit model, repository, and service', () => {
     expect(byCorrelation['REQ-name-project'].resourceName).toBe('Payments API');
     expect(byCorrelation['REQ-name-source'].resourceName).toBe('Payments API');
     expect(byCorrelation['REQ-name-missing'].resourceName).toBeNull();
-    expect(byCorrelation['REQ-name-route'].resourceName).toBe('/users');
+    expect(byCorrelation['REQ-name-route'].resourceName).toBe('/masters/users/list');
     expect(byCorrelation['REQ-name-role'].resourceName).toBe(admin.name);
     expect(byCorrelation['REQ-name-membership'].resourceName).toBe('Payments API');
     expect(byCorrelation['REQ-name-conversation'].resourceName).toBe('How does login work?');

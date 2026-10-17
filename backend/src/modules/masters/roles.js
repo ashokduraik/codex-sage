@@ -682,65 +682,77 @@ function serviceContext(request) {
 }
 
 /**
- * Registers role admin routes under `/api/v1`.
- * @param {import('fastify').FastifyInstance} app Fastify app.
+ * GET /masters/roles/list — list org roles (admin).
+ * @param {import('fastify').FastifyRequest} request Request.
  */
-export async function roleRoutes(app) {
-  app.get('/roles', { config: { requiredPermissions: ['roles.manage'] } }, async (request) => {
-    const parsed = listRolesQuerySchema.safeParse(request.query ?? {});
-    if (!parsed.success) {
-      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
-    }
-    if (parsed.data.limit === 0) {
-      throw ApiError.fromCode('VALIDATION_ERROR', {
-        details: [{ path: 'limit', message: 'limit must be a positive integer' }],
-      });
-    }
-    return listRolesForOrg(request.principal.orgId, parsed.data);
-  });
-
-  app.post('/roles', { config: { requiredPermissions: ['roles.manage'] } }, async (request, reply) => {
-    const parsed = createRoleBodySchema.safeParse(request.body ?? {});
-    if (!parsed.success) {
-      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
-    }
-    const ctx = serviceContext(request);
-    const role = await createRole({
-      ...ctx,
-      code: parsed.data.code,
-      name: parsed.data.name,
-      description: parsed.data.description,
-      permissions: parsed.data.permissions,
+export async function listRolesHttp(request) {
+  const parsed = listRolesQuerySchema.safeParse(request.query ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
+  }
+  if (parsed.data.limit === 0) {
+    throw ApiError.fromCode('VALIDATION_ERROR', {
+      details: [{ path: 'limit', message: 'limit must be a positive integer' }],
     });
-    return reply.code(201).send(role);
-  });
+  }
+  return listRolesForOrg(request.principal.orgId, parsed.data);
+}
 
-  app.patch('/roles/:roleId', { config: { requiredPermissions: ['roles.manage'] } }, async (request) => {
-    const params = roleIdParamsSchema.safeParse(request.params ?? {});
-    if (!params.success) {
-      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
-    }
-    const parsed = patchRoleBodySchema.safeParse(request.body ?? {});
-    if (!parsed.success) {
-      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
-    }
-    const ctx = serviceContext(request);
-    return updateRole({
-      ...ctx,
-      roleId: params.data.roleId,
-      name: parsed.data.name,
-      description: parsed.data.description,
-      permissions: parsed.data.permissions,
-    });
+/**
+ * POST /masters/roles/create — create a custom org role (admin).
+ * @param {import('fastify').FastifyRequest} request Request.
+ * @param {import('fastify').FastifyReply} reply Reply.
+ */
+export async function createRoleHttp(request, reply) {
+  const parsed = createRoleBodySchema.safeParse(request.body ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
+  }
+  const ctx = serviceContext(request);
+  const role = await createRole({
+    ...ctx,
+    code: parsed.data.code,
+    name: parsed.data.name,
+    description: parsed.data.description,
+    permissions: parsed.data.permissions,
   });
+  return reply.code(201).send(role);
+}
 
-  app.delete('/roles/:roleId', { config: { requiredPermissions: ['roles.manage'] } }, async (request, reply) => {
-    const params = roleIdParamsSchema.safeParse(request.params ?? {});
-    if (!params.success) {
-      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
-    }
-    const ctx = serviceContext(request);
-    await softDeleteRole({ ...ctx, roleId: params.data.roleId });
-    return reply.code(204).send();
+/**
+ * PATCH /masters/roles/update/:roleId — update role metadata and permissions (admin).
+ * @param {import('fastify').FastifyRequest} request Request.
+ */
+export async function updateRoleHttp(request) {
+  const params = roleIdParamsSchema.safeParse(request.params ?? {});
+  if (!params.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+  }
+  const parsed = patchRoleBodySchema.safeParse(request.body ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
+  }
+  const ctx = serviceContext(request);
+  return updateRole({
+    ...ctx,
+    roleId: params.data.roleId,
+    name: parsed.data.name,
+    description: parsed.data.description,
+    permissions: parsed.data.permissions,
   });
+}
+
+/**
+ * DELETE /masters/roles/delete/:roleId — soft-delete a role (admin).
+ * @param {import('fastify').FastifyRequest} request Request.
+ * @param {import('fastify').FastifyReply} reply Reply.
+ */
+export async function deleteRoleHttp(request, reply) {
+  const params = roleIdParamsSchema.safeParse(request.params ?? {});
+  if (!params.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+  }
+  const ctx = serviceContext(request);
+  await softDeleteRole({ ...ctx, roleId: params.data.roleId });
+  return reply.code(204).send();
 }

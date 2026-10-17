@@ -17,7 +17,7 @@ export const CURRENT_USER_QUERY_KEY = Object.freeze(['auth', 'me']);
  * }>}
  */
 export async function login(email, password) {
-  const body = await apiRequest('/auth/login', {
+  const body = await apiRequest('/access/auth/login', {
     method: 'POST',
     body: { email, password },
     skipAuthRefresh: true,
@@ -44,7 +44,7 @@ export async function login(email, password) {
  * }>}
  */
 export async function fetchCurrentUser(options = {}) {
-  return apiRequest('/auth/me', { signal: options.signal });
+  return apiRequest('/access/auth/me', { signal: options.signal });
 }
 
 /**
@@ -53,7 +53,7 @@ export async function fetchCurrentUser(options = {}) {
  */
 export async function logout() {
   const csrfToken = readCsrfTokenFromCookie();
-  await apiRequest('/auth/logout', {
+  await apiRequest('/access/auth/logout', {
     method: 'POST',
     headers: csrfToken ? { [CSRF_HEADER_NAME]: csrfToken } : {},
     skipAuthRefresh: true,
@@ -71,7 +71,7 @@ export async function logout() {
  * }>}
  */
 export async function changePassword(currentPassword, newPassword) {
-  return apiRequest('/auth/password/change', {
+  return apiRequest('/access/password/change', {
     method: 'POST',
     body: { currentPassword, newPassword },
   });

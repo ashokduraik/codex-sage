@@ -8,7 +8,6 @@ import { findKnowledgeVersionById } from './knowledge.js';
 import { ROW_STATUS_ACTIVE } from '../../platform/data/index.js';
 import { isUnsafeArchivePath, normalizeArchivePath } from './uploads.js';
 import { readSourceGridFsBytes, findSourceFileByPath } from './sources.js';
-import { requireProjectPermission } from '../../http/preHandlers/requireProjectPermission.js';
 
 // --- from sources/sourcePreview.service.js ---
 /**
@@ -294,37 +293,38 @@ export async function loadSourceFileSlice(input) {
 }
 
 /**
- * Registers preview routes under `/api/v1`.
- * @param {import('fastify').FastifyInstance} app Fastify app.
+ * GET /knowledge/sourcePreview/readSlice/:projectId — bounded line slice from a source file.
+ * @param {import('fastify').FastifyRequest} request Fastify request.
+ * @returns {Promise<object>} Slice payload with content and coverage metadata.
  */
-export async function sourcePreviewRoutes(app) {
-  const config = { routeAccess: 'authenticated' };
-  const preHandler = requireProjectPermission('sources.preview');
-
-  app.get('/projects/:projectId/files/slice', { config, preHandler }, async (request) => {
-    const parsed = sliceQuerySchema.safeParse(request.query ?? {});
-    if (!parsed.success) {
-      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
-    }
-    return loadSourceFileSlice({
-      orgId: request.projectScope.orgId,
-      projectId: request.projectScope.projectId,
-      path: parsed.data.path,
-      startLine: parsed.data.startLine,
-      endLine: parsed.data.endLine,
-    });
+export async function readSourceFileSliceHttp(request) {
+  const parsed = sliceQuerySchema.safeParse(request.query ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
+  }
+  return loadSourceFileSlice({
+    orgId: request.projectScope.orgId,
+    projectId: request.projectScope.projectId,
+    path: parsed.data.path,
+    startLine: parsed.data.startLine,
+    endLine: parsed.data.endLine,
   });
+}
 
-  app.get('/projects/:projectId/files', { config, preHandler }, async (request) => {
-    const parsed = metadataQuerySchema.safeParse(request.query ?? {});
-    if (!parsed.success) {
-      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
-    }
-    return loadSourceFileMetadata({
-      orgId: request.projectScope.orgId,
-      projectId: request.projectScope.projectId,
-      path: parsed.data.path,
-    });
+/**
+ * GET /knowledge/sourcePreview/getMetadata/:projectId — metadata for a source file in the current version.
+ * @param {import('fastify').FastifyRequest} request Fastify request.
+ * @returns {Promise<object>} File metadata without full content.
+ */
+export async function getSourceFileMetadataHttp(request) {
+  const parsed = metadataQuerySchema.safeParse(request.query ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
+  }
+  return loadSourceFileMetadata({
+    orgId: request.projectScope.orgId,
+    projectId: request.projectScope.projectId,
+    path: parsed.data.path,
   });
 }
 

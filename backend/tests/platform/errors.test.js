@@ -318,7 +318,7 @@ describe('registerErrorHandler (integration via buildApp)', () => {
     const request = {
       id: 'REQ-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
       method: 'POST',
-      url: '/users',
+      url: '/masters/users/create',
       log: { error: errorLog, warn: vi.fn() },
     };
     const reply = {
@@ -351,7 +351,7 @@ describe('registerErrorHandler (integration via buildApp)', () => {
     const request = {
       id: 'REQ-cccccccccccccccccccccccccccccccc',
       method: 'POST',
-      url: '/users',
+      url: '/masters/users/create',
       log: { error: vi.fn(), warn: warnLog },
       idempotency: { isOwner: true, recordId: 'r1' },
       principal: { orgId: 'o1', userId: 'u1' },

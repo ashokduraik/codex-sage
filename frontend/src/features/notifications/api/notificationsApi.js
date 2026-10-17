@@ -46,7 +46,7 @@ export async function listNotifications(options = {}) {
     search.set('cursor', options.cursor);
   }
   search.set('limit', String(options.limit ?? NOTIFICATION_LIST_PAGE_SIZE));
-  return apiRequest(`/notifications?${search.toString()}`, { signal: options.signal });
+  return apiRequest(`/masters/notifications/list?${search.toString()}`, { signal: options.signal });
 }
 
 /**
@@ -55,7 +55,7 @@ export async function listNotifications(options = {}) {
  * @returns {Promise<{ id: string, readAt: string }>}
  */
 export async function markNotificationRead(input) {
-  return apiRequest(`/notifications/${encodeURIComponent(input.notificationId)}/read`, {
+  return apiRequest(`/masters/notifications/markRead/${encodeURIComponent(input.notificationId)}`, {
     method: 'POST',
     signal: input.signal,
   });
@@ -67,7 +67,7 @@ export async function markNotificationRead(input) {
  * @returns {Promise<{ updatedCount: number }>}
  */
 export async function markAllNotificationsRead(options = {}) {
-  return apiRequest('/notifications/read-all', {
+  return apiRequest('/masters/notifications/markAllRead', {
     method: 'POST',
     signal: options.signal,
   });

@@ -75,7 +75,7 @@ describe('authorization routes', () => {
   async function login(instance, email, password) {
     const res = await instance.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/auth/login`,
+      url: `${API_BASE_PATH}/access/auth/login`,
       payload: { email, password },
     });
     expect(res.statusCode).toBe(200);
@@ -88,7 +88,7 @@ describe('authorization routes', () => {
     const token = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const me = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/auth/me`,
+      url: `${API_BASE_PATH}/access/auth/me`,
       headers: { authorization: `Bearer ${token}` },
     });
     expect(me.statusCode).toBe(200);
@@ -116,7 +116,7 @@ describe('authorization routes', () => {
     const adminToken = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const allowed = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/permissions`,
+      url: `${API_BASE_PATH}/access/permissions/list`,
       headers: { authorization: `Bearer ${adminToken}` },
     });
     expect(allowed.statusCode).toBe(200);
@@ -125,7 +125,7 @@ describe('authorization routes', () => {
     const viewerToken = await login(app, user.email, password);
     const denied = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/permissions`,
+      url: `${API_BASE_PATH}/access/permissions/list`,
       headers: { authorization: `Bearer ${viewerToken}` },
     });
     expect(denied.statusCode).toBe(403);
@@ -162,7 +162,7 @@ describe('authorization routes', () => {
     const token = await login(app, user.email, password);
     const res = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/users/${admin._id}/reset-password`,
+      url: `${API_BASE_PATH}/masters/users/resetPassword/${admin._id}`,
       headers: { authorization: `Bearer ${token}` },
       payload: { newPassword: 'abcdef' },
     });
@@ -175,7 +175,7 @@ describe('authorization routes', () => {
     app = await readyApp();
     const res = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/permissions`,
+      url: `${API_BASE_PATH}/access/permissions/list`,
     });
     expect(res.statusCode).toBe(401);
     expect(res.json().error.code).toBe('UNAUTHENTICATED');

@@ -31,7 +31,7 @@ describe('isApiUrlPath', () => {
   it('treats /api and /api/* as API paths', () => {
     expect(isApiUrlPath('/api')).toBe(true);
     expect(isApiUrlPath('/api/v1/unknown')).toBe(true);
-    expect(isApiUrlPath('/projects')).toBe(false);
+    expect(isApiUrlPath('/masters/projects/list')).toBe(false);
     expect(isApiUrlPath('/')).toBe(false);
   });
 });
@@ -97,7 +97,7 @@ describe('static SPA (production)', () => {
 
   it('returns index.html for a client-route GET with no matching file', async () => {
     app = buildProductionApp();
-    const res = await app.inject({ method: 'GET', url: '/projects/abc' });
+    const res = await app.inject({ method: 'GET', url: '/masters/projects/get/abc' });
     expect(res.statusCode).toBe(200);
     expect(res.body).toContain('spa-index');
   });
@@ -113,7 +113,7 @@ describe('static SPA (production)', () => {
 
   it('does not SPA-fallback non-GET methods under a client path', async () => {
     app = buildProductionApp();
-    const res = await app.inject({ method: 'POST', url: '/projects' });
+    const res = await app.inject({ method: 'POST', url: '/masters/projects/create' });
     expect(res.statusCode).toBe(404);
     expect(res.json().error.code).toBe('NOT_FOUND');
   });

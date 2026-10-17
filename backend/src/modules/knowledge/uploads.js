@@ -9,7 +9,6 @@ import { Readable, Transform } from 'node:stream';
 import { ApiError, apiErrorFromCaught } from '../../platform/errors.js';
 import { recordAuditEvent, buildAuditContextFromRequest } from '../access/index.js';
 import { createPendingJob, findProjectById, transitionLifecycle } from '../masters/index.js';
-import { requireProjectPermission } from '../../http/preHandlers/requireProjectPermission.js';
 import {
   insertSourceFiles,
   ARCHIVE_FIELD_NAME,
@@ -803,38 +802,27 @@ export async function persistSourceUpload(input) {
 }
 
 /**
- * Registers source upload routes under `/api/v1`.
- * @param {import('fastify').FastifyInstance} app Fastify app.
+ * POST /knowledge/uploads/upload/:projectId — accept a source archive upload and enqueue ingest.
+ * @param {import('fastify').FastifyRequest} request Fastify request (archive consumed by pre-handler).
+ * @param {import('fastify').FastifyReply} reply Fastify reply.
+ * @returns {Promise<object>} 202 payload with source version and job ids.
  */
-export async function sourceUploadRoutes(app) {
-  app.post(
-    '/projects/:projectId/sources',
-    {
-      config: {
-        routeAccess: 'authenticated',
-        requireIdempotencyKey: true,
-        consumeSourceArchive: true,
-      },
-      preHandler: requireProjectPermission('sources.upload'),
-    },
-    async (request, reply) => {
-      // consumeSourceArchivePreHandler always attaches buffer when this route runs.
-      const upload = request.sourceUpload;
-      const audit = buildAuditContextFromRequest(request);
-      const result = await persistSourceUpload({
-        orgId: request.projectScope.orgId,
-        projectId: request.projectScope.projectId,
-        actorUserId: request.projectScope.userId,
-        correlationId: audit.correlationId,
-        archiveBuffer: upload.buffer,
-        ip: audit.ip,
-        userAgent: audit.userAgent,
-        log: request.log,
-      });
+export async function uploadProjectSourceHttp(request, reply) {
+  // consumeSourceArchivePreHandler always attaches buffer when this route runs.
+  const upload = request.sourceUpload;
+  const audit = buildAuditContextFromRequest(request);
+  const result = await persistSourceUpload({
+    orgId: request.projectScope.orgId,
+    projectId: request.projectScope.projectId,
+    actorUserId: request.projectScope.userId,
+    correlationId: audit.correlationId,
+    archiveBuffer: upload.buffer,
+    ip: audit.ip,
+    userAgent: audit.userAgent,
+    log: request.log,
+  });
 
-      return reply.code(202).send(result);
-    },
-  );
+  return reply.code(202).send(result);
 }
 
 /**

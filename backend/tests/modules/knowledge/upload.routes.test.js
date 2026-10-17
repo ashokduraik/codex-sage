@@ -79,7 +79,7 @@ describe('source upload routes', () => {
   async function login(instance, email, password) {
     const res = await instance.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/auth/login`,
+      url: `${API_BASE_PATH}/access/auth/login`,
       payload: { email, password },
     });
     expect(res.statusCode).toBe(200);
@@ -95,7 +95,7 @@ describe('source upload routes', () => {
   async function createProjectRequest(instance, accessToken, payload, idempotencyKey) {
     return instance.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects`,
+      url: `${API_BASE_PATH}/masters/projects/create`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': idempotencyKey,
@@ -144,7 +144,7 @@ describe('source upload routes', () => {
     }
     return instance.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${input.projectId}/sources`,
+      url: `${API_BASE_PATH}/knowledge/uploads/upload/${input.projectId}`,
       headers,
       payload: multipart.payload,
     });
@@ -419,7 +419,7 @@ describe('source upload routes', () => {
 
     const res = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${projectId}/sources`,
+      url: `${API_BASE_PATH}/knowledge/uploads/upload/${projectId}`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': 'idem-upload-badfield-1',

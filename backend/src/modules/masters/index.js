@@ -1,8 +1,6 @@
 /**
  * Public surface of the masters module (org, users, roles, projects, jobs).
  */
-import { roleRoutes } from './roles.js';
-import { userRoutes } from './users.js';
 import { Job } from '../../models/job.model.js';
 import { Role } from '../../models/role.model.js';
 import { User } from '../../models/user.model.js';
@@ -30,19 +28,65 @@ export {
   updateUserPasswordHash,
   applyPasswordUpdate,
   touchLastLoginAt,
+  createUserHttp,
+  listUsersHttp,
+  getUserHttp,
+  updateUserHttp,
+  activateUserHttp,
+  deactivateUserHttp,
+  deleteUserHttp,
+  replaceUserRolesHttp,
+  resetUserPasswordHttp,
 } from './users.js';
-export { ADMIN_ROLE_CODE, findRoleByCode, createRoleInRepo, ensureAdminRole } from './roles.js';
+export {
+  ADMIN_ROLE_CODE,
+  findRoleByCode,
+  createRoleInRepo,
+  ensureAdminRole,
+  listRolesHttp,
+  createRoleHttp,
+  updateRoleHttp,
+  deleteRoleHttp,
+} from './roles.js';
 export {
   adjustProjectConversationCount,
   findProjectById,
   updateProjectSourceConfig,
   transitionLifecycle,
   mapProjectToDto,
-  projectRoutes,
+  createProjectHttp,
+  listProjectsHttp,
+  getProjectHttp,
+  recordProjectAccessHttp,
+  updateProjectHttp,
+  getProjectSettingsHttp,
+  updateProjectSettingsHttp,
+  archiveProjectHttp,
+  restoreProjectHttp,
+  getProjectDeletionPreviewHttp,
+  deleteProjectHttp,
 } from './projects.js';
-export { configureProjectAclCache, resolveProjectPermissions, projectMemberRoutes } from './projectMembers.js';
-export { notificationRoutes, emitProjectNotification, emitNotificationsForJobTerminal } from './notifications.js';
-export { usageRoutes, recordProjectActivity, recordProjectActivitiesForJobTerminal } from './projectActivities.js';
+export {
+  configureProjectAclCache,
+  resolveProjectPermissions,
+  listProjectMembersHttp,
+  addProjectMemberHttp,
+  removeProjectMemberHttp,
+} from './projectMembers.js';
+export {
+  listNotificationsHttp,
+  markNotificationReadHttp,
+  markAllNotificationsReadHttp,
+  emitProjectNotification,
+  emitNotificationsForJobTerminal,
+} from './notifications.js';
+export {
+  getOrganizationUsageHttp,
+  getProjectUsageHttp,
+  getMyUsageHttp,
+  recordProjectActivity,
+  recordProjectActivitiesForJobTerminal,
+} from './projectActivities.js';
 export {
   retentionHandlerRegistration,
   enqueueDueRetentionJobs,
@@ -62,18 +106,12 @@ export {
   findActiveJobForSourceVersion,
   insertPendingJob,
   createPendingJob,
-  jobRoutes,
+  retryJobHttp,
+  cancelJobHttp,
+  listProjectJobsHttp,
+  getJobHttp,
   renderJobEventMessage,
 } from './jobs.js';
-
-/**
- * Registers user and role admin routes.
- * @param {import('fastify').FastifyInstance} app Fastify app.
- */
-export async function identityRoutes(app) {
-  await userRoutes(app);
-  await roleRoutes(app);
-}
 
 export const IDENTITY_MODELS = Object.freeze([Organization, User, Role]);
 export const PROJECT_MODELS = Object.freeze([Project]);

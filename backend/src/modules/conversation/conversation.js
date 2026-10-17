@@ -8,7 +8,6 @@ import { Message } from '../../models/messages.model.js';
 import { Conversation } from '../../models/conversations.model.js';
 import { adjustProjectConversationCount } from '../masters/index.js';
 import { buildAuditContextFromRequest, recordAuditEvent } from '../access/index.js';
-import { requireProjectPermission } from '../../http/preHandlers/requireProjectPermission.js';
 import {
   insertConversation,
   findOwnConversation,
@@ -32,7 +31,7 @@ import {
 
 // --- from conversations/conversations.routes.js ---
 /**
- * Conversation HTTP routes under `/api/v1/projects/:projectId/conversations`.
+ * Conversation HTTP routes under `/api/v1/conversation/conversation/*`.
  */
 const createBodySchema = z.object({
   title: z.string().trim().min(1).max(CONVERSATION_TITLE_MAX_LENGTH).optional(),
@@ -72,178 +71,155 @@ const conversationParamsSchema = z.object({
 });
 
 /**
- * Registers conversation routes under `/api/v1`.
- * @param {import('fastify').FastifyInstance} app Fastify app.
+ * POST /conversation/conversation/create/:projectId — create a conversation.
+ * @param {import('fastify').FastifyRequest} request Request with projectScope.
+ * @param {import('fastify').FastifyReply} reply Reply for 201.
+ * @returns {Promise<object>} Created conversation DTO.
  */
-export async function conversationRoutes(app) {
-  const askPreHandler = requireProjectPermission('chat.ask');
-  const archivePreHandler = requireProjectPermission('conversations.archive');
-  const searchPreHandler = requireProjectPermission('conversations.search');
+export async function createConversationHttp(request, reply) {
+  const params = projectIdParamsSchema.safeParse(request.params ?? {});
+  if (!params.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+  }
+  const parsed = createBodySchema.safeParse(request.body ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
+  }
+  const conversation = await createConversation({
+    ...serviceContext(request),
+    title: parsed.data.title,
+  });
+  return reply.code(201).send(conversation);
+}
 
-  app.post(
-    '/projects/:projectId/conversations',
-    {
-      config: {
-        routeAccess: 'authenticated',
-        requireIdempotencyKey: true,
-      },
-      preHandler: askPreHandler,
-    },
-    async (request, reply) => {
-      const params = projectIdParamsSchema.safeParse(request.params ?? {});
-      if (!params.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
-      }
-      const parsed = createBodySchema.safeParse(request.body ?? {});
-      if (!parsed.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
-      }
-      const conversation = await createConversation({
-        ...serviceContext(request),
-        title: parsed.data.title,
-      });
-      return reply.code(201).send(conversation);
-    },
-  );
+/**
+ * GET /conversation/conversation/list/:projectId — list own conversations.
+ * @param {import('fastify').FastifyRequest} request Request with projectScope.
+ * @param {import('fastify').FastifyReply} reply Reply.
+ * @returns Paginated conversation list.
+ */
+export async function listConversationsHttp(request, reply) {
+  const parsed = listQuerySchema.safeParse(request.query ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
+  }
+  assertPositiveLimit(parsed.data.limit);
+  const ctx = serviceContext(request);
+  return listConversations(ctx.orgId, ctx.projectId, ctx.actorUserId, parsed.data);
+}
 
-  app.get(
-    '/projects/:projectId/conversations',
-    {
-      config: { routeAccess: 'authenticated' },
-      preHandler: askPreHandler,
-    },
-    async (request) => {
-      const parsed = listQuerySchema.safeParse(request.query ?? {});
-      if (!parsed.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
-      }
-      assertPositiveLimit(parsed.data.limit);
-      const ctx = serviceContext(request);
-      return listConversations(ctx.orgId, ctx.projectId, ctx.actorUserId, parsed.data);
-    },
-  );
+/**
+ * GET /conversation/conversation/search/:projectId — search own conversations.
+ * @param {import('fastify').FastifyRequest} request Request with projectScope.
+ * @param {import('fastify').FastifyReply} reply Reply.
+ * @returns Search hit page.
+ */
+export async function searchConversationsHttp(request, reply) {
+  const parsed = searchQuerySchema.safeParse(request.query ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
+  }
+  assertPositiveLimit(parsed.data.limit);
+  const ctx = serviceContext(request);
+  return searchConversations({
+    orgId: ctx.orgId,
+    projectId: ctx.projectId,
+    userId: ctx.actorUserId,
+    q: parsed.data.q,
+    cursor: parsed.data.cursor,
+    limit: parsed.data.limit,
+    archived: parsed.data.archived,
+  });
+}
 
-  app.get(
-    '/projects/:projectId/conversations/search',
-    {
-      config: { routeAccess: 'authenticated' },
-      preHandler: searchPreHandler,
-    },
-    async (request) => {
-      const parsed = searchQuerySchema.safeParse(request.query ?? {});
-      if (!parsed.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
-      }
-      assertPositiveLimit(parsed.data.limit);
-      const ctx = serviceContext(request);
-      return searchConversations({
-        orgId: ctx.orgId,
-        projectId: ctx.projectId,
-        userId: ctx.actorUserId,
-        q: parsed.data.q,
-        cursor: parsed.data.cursor,
-        limit: parsed.data.limit,
-        archived: parsed.data.archived,
-      });
-    },
-  );
+/**
+ * GET /conversation/conversation/get/:projectId/:conversationId — conversation detail.
+ * @param {import('fastify').FastifyRequest} request Request with projectScope.
+ * @param {import('fastify').FastifyReply} reply Reply.
+ * @returns Conversation DTO.
+ */
+export async function getConversationHttp(request, reply) {
+  const params = parseConversationParams(request.params);
+  const ctx = serviceContext(request);
+  return getConversation(ctx.orgId, ctx.projectId, params.conversationId, ctx.actorUserId);
+}
 
-  app.get(
-    '/projects/:projectId/conversations/:conversationId',
-    {
-      config: { routeAccess: 'authenticated' },
-      preHandler: askPreHandler,
-    },
-    async (request) => {
-      const params = parseConversationParams(request.params);
-      const ctx = serviceContext(request);
-      return getConversation(ctx.orgId, ctx.projectId, params.conversationId, ctx.actorUserId);
-    },
-  );
+/**
+ * GET /conversation/conversation/listMessages/:projectId/:conversationId — message page.
+ * @param {import('fastify').FastifyRequest} request Request with projectScope.
+ * @param {import('fastify').FastifyReply} reply Reply.
+ * @returns Paginated messages.
+ */
+export async function listConversationMessagesHttp(request, reply) {
+  const params = parseConversationParams(request.params);
+  const parsed = listQuerySchema.safeParse(request.query ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
+  }
+  assertPositiveLimit(parsed.data.limit);
+  const ctx = serviceContext(request);
+  return listConversationMessages(ctx.orgId, ctx.projectId, params.conversationId, ctx.actorUserId, parsed.data);
+}
 
-  app.get(
-    '/projects/:projectId/conversations/:conversationId/messages',
-    {
-      config: { routeAccess: 'authenticated' },
-      preHandler: askPreHandler,
-    },
-    async (request) => {
-      const params = parseConversationParams(request.params);
-      const parsed = listQuerySchema.safeParse(request.query ?? {});
-      if (!parsed.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
-      }
-      assertPositiveLimit(parsed.data.limit);
-      const ctx = serviceContext(request);
-      return listConversationMessages(ctx.orgId, ctx.projectId, params.conversationId, ctx.actorUserId, parsed.data);
-    },
-  );
+/**
+ * PATCH /conversation/conversation/rename/:projectId/:conversationId — rename title.
+ * @param {import('fastify').FastifyRequest} request Request with projectScope.
+ * @param {import('fastify').FastifyReply} reply Reply.
+ * @returns Updated conversation DTO.
+ */
+export async function renameConversationHttp(request, reply) {
+  const params = parseConversationParams(request.params);
+  const parsed = patchBodySchema.safeParse(request.body ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
+  }
+  return updateConversationTitle({
+    ...serviceContext(request),
+    conversationId: params.conversationId,
+    title: parsed.data.title,
+  });
+}
 
-  app.patch(
-    '/projects/:projectId/conversations/:conversationId',
-    {
-      config: { routeAccess: 'authenticated' },
-      preHandler: askPreHandler,
-    },
-    async (request) => {
-      const params = parseConversationParams(request.params);
-      const parsed = patchBodySchema.safeParse(request.body ?? {});
-      if (!parsed.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
-      }
-      return updateConversationTitle({
-        ...serviceContext(request),
-        conversationId: params.conversationId,
-        title: parsed.data.title,
-      });
-    },
-  );
+/**
+ * POST /conversation/conversation/archive/:projectId/:conversationId — archive.
+ * @param {import('fastify').FastifyRequest} request Request with projectScope.
+ * @param {import('fastify').FastifyReply} reply Reply.
+ * @returns Archived conversation DTO.
+ */
+export async function archiveConversationHttp(request, reply) {
+  const params = parseConversationParams(request.params);
+  return archiveConversation({
+    ...serviceContext(request),
+    conversationId: params.conversationId,
+  });
+}
 
-  app.post(
-    '/projects/:projectId/conversations/:conversationId/archive',
-    {
-      config: { routeAccess: 'authenticated' },
-      preHandler: archivePreHandler,
-    },
-    async (request) => {
-      const params = parseConversationParams(request.params);
-      return archiveConversation({
-        ...serviceContext(request),
-        conversationId: params.conversationId,
-      });
-    },
-  );
+/**
+ * POST /conversation/conversation/restore/:projectId/:conversationId — restore.
+ * @param {import('fastify').FastifyRequest} request Request with projectScope.
+ * @param {import('fastify').FastifyReply} reply Reply.
+ * @returns Restored conversation DTO.
+ */
+export async function restoreConversationHttp(request, reply) {
+  const params = parseConversationParams(request.params);
+  return restoreConversation({
+    ...serviceContext(request),
+    conversationId: params.conversationId,
+  });
+}
 
-  app.post(
-    '/projects/:projectId/conversations/:conversationId/restore',
-    {
-      config: { routeAccess: 'authenticated' },
-      preHandler: archivePreHandler,
-    },
-    async (request) => {
-      const params = parseConversationParams(request.params);
-      return restoreConversation({
-        ...serviceContext(request),
-        conversationId: params.conversationId,
-      });
-    },
-  );
-
-  app.delete(
-    '/projects/:projectId/conversations/:conversationId',
-    {
-      config: { routeAccess: 'authenticated' },
-      preHandler: archivePreHandler,
-    },
-    async (request, reply) => {
-      const params = parseConversationParams(request.params);
-      await deleteConversation({
-        ...serviceContext(request),
-        conversationId: params.conversationId,
-      });
-      return reply.code(204).send();
-    },
-  );
+/**
+ * DELETE /conversation/conversation/delete/:projectId/:conversationId — soft delete.
+ * @param {import('fastify').FastifyRequest} request Request with projectScope.
+ * @param {import('fastify').FastifyReply} reply Reply for 204.
+ */
+export async function deleteConversationHttp(request, reply) {
+  const params = parseConversationParams(request.params);
+  await deleteConversation({
+    ...serviceContext(request),
+    conversationId: params.conversationId,
+  });
+  return reply.code(204).send();
 }
 
 /**

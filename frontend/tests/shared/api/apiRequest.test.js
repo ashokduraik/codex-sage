@@ -46,9 +46,9 @@ describe('apiRequest', () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ status: 200, body: { id: 'u1' } }));
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(apiRequest('/auth/me')).resolves.toEqual({ id: 'u1' });
+    await expect(apiRequest('/access/auth/me')).resolves.toEqual({ id: 'u1' });
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe(`${API_BASE_URL}/auth/me`);
+    expect(url).toBe(`${API_BASE_URL}/access/auth/me`);
     expect(init.headers.Authorization).toBe('Bearer access-1');
     expect(init.headers['Accept-Language']).toBeTruthy();
   });
@@ -63,7 +63,7 @@ describe('apiRequest', () => {
   it('forwards Idempotency-Key when supplied', async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ status: 200, body: {} }));
     vi.stubGlobal('fetch', fetchMock);
-    await apiRequest('/projects', {
+    await apiRequest('/masters/projects/create', {
       method: 'POST',
       body: { name: 'a' },
       idempotencyKey: 'idem-1',
@@ -86,7 +86,7 @@ describe('apiRequest', () => {
       },
     });
     vi.stubGlobal('fetch', fetchMock);
-    await expect(apiRequest('/auth/logout', { method: 'POST' })).resolves.toBeUndefined();
+    await expect(apiRequest('/access/auth/logout', { method: 'POST' })).resolves.toBeUndefined();
   });
 
   it('throws ApiError with code and correlationId on 400', async () => {
@@ -104,7 +104,7 @@ describe('apiRequest', () => {
       }),
     );
     vi.stubGlobal('fetch', fetchMock);
-    await expect(apiRequest('/auth/login', { method: 'POST', body: {} })).rejects.toMatchObject({
+    await expect(apiRequest('/access/auth/login', { method: 'POST', body: {} })).rejects.toMatchObject({
       code: 'VALIDATION_ERROR',
       message: 'email is required',
       correlationId: 'REQ-b',
@@ -131,7 +131,7 @@ describe('apiRequest', () => {
       .mockResolvedValueOnce(jsonResponse({ status: 200, body: { ok: true } }));
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(apiRequest('/auth/me')).resolves.toEqual({ ok: true });
+    await expect(apiRequest('/access/auth/me')).resolves.toEqual({ ok: true });
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(getAccessToken()).toBe('fresh');
     expect(fetchMock.mock.calls[2][1].headers.Authorization).toBe('Bearer fresh');
@@ -141,7 +141,7 @@ describe('apiRequest', () => {
     setAccessToken('stale');
     let refreshCalls = 0;
     const fetchMock = vi.fn().mockImplementation((url) => {
-      if (String(url).endsWith('/auth/refresh')) {
+      if (String(url).endsWith('/access/auth/refresh')) {
         refreshCalls += 1;
         return Promise.resolve(jsonResponse({ status: 200, body: { accessToken: 'fresh-shared' } }));
       }
@@ -189,7 +189,7 @@ describe('apiRequest', () => {
       );
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(apiRequest('/auth/me')).rejects.toMatchObject({
+    await expect(apiRequest('/access/auth/me')).rejects.toMatchObject({
       code: 'UNAUTHENTICATED',
       correlationId: 'REQ-orig',
     });
@@ -206,7 +206,7 @@ describe('apiRequest', () => {
     );
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(apiRequest('/auth/login', { method: 'POST', body: {}, skipAuthRefresh: true })).rejects.toMatchObject({
+    await expect(apiRequest('/access/auth/login', { method: 'POST', body: {}, skipAuthRefresh: true })).rejects.toMatchObject({
       code: 'INVALID_CREDENTIALS',
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -239,7 +239,7 @@ describe('apiRequest', () => {
   it('rejects with an abort-shaped error when the request is aborted', async () => {
     const fetchMock = vi.fn().mockRejectedValue(new DOMException('Aborted', 'AbortError'));
     vi.stubGlobal('fetch', fetchMock);
-    await expect(apiRequest('/auth/me', { signal: AbortSignal.abort() })).rejects.toSatisfy(
+    await expect(apiRequest('/access/auth/me', { signal: AbortSignal.abort() })).rejects.toSatisfy(
       (error) => error.name === 'AbortError' || error instanceof RequestAbortedError,
     );
   });
@@ -247,7 +247,7 @@ describe('apiRequest', () => {
   it('maps a rejected fetch to NETWORK', async () => {
     const fetchMock = vi.fn().mockRejectedValue(new TypeError('fetch failed'));
     vi.stubGlobal('fetch', fetchMock);
-    await expect(apiRequest('/auth/me')).rejects.toMatchObject({
+    await expect(apiRequest('/access/auth/me')).rejects.toMatchObject({
       code: 'NETWORK',
       status: 0,
     });
@@ -256,8 +256,8 @@ describe('apiRequest', () => {
   it('builds paths without a leading slash under the base URL', async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ status: 200, body: {} }));
     vi.stubGlobal('fetch', fetchMock);
-    await apiRequest('auth/me');
-    expect(fetchMock.mock.calls[0][0]).toBe(`${API_BASE_URL}/auth/me`);
+    await apiRequest('access/auth/me');
+    expect(fetchMock.mock.calls[0][0]).toBe(`${API_BASE_URL}/access/auth/me`);
   });
 
   it('returns undefined for an empty 200 body', async () => {
@@ -270,7 +270,7 @@ describe('apiRequest', () => {
         text: async () => '',
       }),
     );
-    await expect(apiRequest('/auth/logout', { method: 'POST' })).resolves.toBeUndefined();
+    await expect(apiRequest('/access/auth/logout', { method: 'POST' })).resolves.toBeUndefined();
   });
 
   it('throws UNEXPECTED when a success body is not JSON', async () => {

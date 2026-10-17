@@ -279,92 +279,83 @@ const changeBodySchema = z.object({
 });
 
 /**
- * Registers `POST /auth/password/change`.
- * @param {import('fastify').FastifyInstance} app Fastify app with auth decorations.
+ * POST /access/password/change — self-service password change with audit and session revoke.
+ * @param {import('fastify').FastifyRequest} request Authenticated request with body credentials.
+ * @param {import('fastify').FastifyReply} _reply Reply (unused).
+ * @returns {Promise<object>} Change outcome flags for the client.
  */
-export async function passwordRoutes(app) {
-  app.post(
-    '/auth/password/change',
+export async function changeOwnPasswordHttp(request, _reply) {
+  const parsed = changeBodySchema.safeParse(request.body ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', {
+      details: parsed.error.issues.map((issue) => ({
+        path: issue.path.join('.'),
+        message: issue.message,
+      })),
+    });
+  }
+
+  // Surface min-length early for empty-ish candidates; policy still runs in the service.
+  if (parsed.data.newPassword.length < PASSWORD_MIN_LENGTH) {
+    throw ApiError.fromCode('PASSWORD_POLICY_VIOLATION', {
+      details: { violations: ['TOO_SHORT'] },
+    });
+  }
+
+  const principal = request.principal;
+  const auditBase = buildAuditContextFromRequest(request);
+  const result = await changeOwnPassword(
     {
-      config: {
-        routeAccess: 'authenticated',
-        allowWhenMustChangePassword: true,
-      },
+      orgId: principal.orgId,
+      userId: principal.userId,
+      currentPassword: parsed.data.currentPassword,
+      newPassword: parsed.data.newPassword,
     },
-    async (request) => {
-      const parsed = changeBodySchema.safeParse(request.body ?? {});
-      if (!parsed.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', {
-          details: parsed.error.issues.map((issue) => ({
-            path: issue.path.join('.'),
-            message: issue.message,
-          })),
-        });
-      }
-
-      // Surface min-length early for empty-ish candidates; policy still runs in the service.
-      if (parsed.data.newPassword.length < PASSWORD_MIN_LENGTH) {
-        throw ApiError.fromCode('PASSWORD_POLICY_VIOLATION', {
-          details: { violations: ['TOO_SHORT'] },
-        });
-      }
-
-      const principal = request.principal;
-      const auditBase = buildAuditContextFromRequest(request);
-      const result = await changeOwnPassword(
-        {
-          orgId: principal.orgId,
-          userId: principal.userId,
-          currentPassword: parsed.data.currentPassword,
-          newPassword: parsed.data.newPassword,
-        },
-        { log: request.log },
-      );
-
-      if (result.outcome === 'invalid_current_password') {
-        await recordAuditEvent(
-          {
-            ...auditBase,
-            orgId: principal.orgId,
-            actorUserId: principal.userId,
-            action: 'user.password_changed',
-            resourceType: 'user',
-            resourceId: principal.userId,
-            result: 'failed',
-            context: { reason: 'self_change', failure: 'invalid_current_password' },
-          },
-          { log: request.log },
-        );
-        throw ApiError.fromCode('INVALID_CURRENT_PASSWORD');
-      }
-      if (result.outcome === 'policy_violation') {
-        throw ApiError.fromCode('PASSWORD_POLICY_VIOLATION', {
-          details: { violations: result.violations ?? [] },
-        });
-      }
-      if (result.outcome !== 'password_changed') {
-        throw ApiError.fromCode('UNAUTHENTICATED');
-      }
-
-      await recordAuditEvent(
-        {
-          ...auditBase,
-          orgId: principal.orgId,
-          actorUserId: principal.userId,
-          action: 'user.password_changed',
-          resourceType: 'user',
-          resourceId: principal.userId,
-          result: 'success',
-          context: { reason: 'self_change', sessionsRevoked: true },
-        },
-        { log: request.log },
-      );
-
-      return {
-        passwordChanged: true,
-        sessionsRevoked: true,
-        reauthenticationRequired: true,
-      };
-    },
+    { log: request.log },
   );
+
+  if (result.outcome === 'invalid_current_password') {
+    await recordAuditEvent(
+      {
+        ...auditBase,
+        orgId: principal.orgId,
+        actorUserId: principal.userId,
+        action: 'user.password_changed',
+        resourceType: 'user',
+        resourceId: principal.userId,
+        result: 'failed',
+        context: { reason: 'self_change', failure: 'invalid_current_password' },
+      },
+      { log: request.log },
+    );
+    throw ApiError.fromCode('INVALID_CURRENT_PASSWORD');
+  }
+  if (result.outcome === 'policy_violation') {
+    throw ApiError.fromCode('PASSWORD_POLICY_VIOLATION', {
+      details: { violations: result.violations ?? [] },
+    });
+  }
+  if (result.outcome !== 'password_changed') {
+    throw ApiError.fromCode('UNAUTHENTICATED');
+  }
+
+  await recordAuditEvent(
+    {
+      ...auditBase,
+      orgId: principal.orgId,
+      actorUserId: principal.userId,
+      action: 'user.password_changed',
+      resourceType: 'user',
+      resourceId: principal.userId,
+      result: 'success',
+      context: { reason: 'self_change', sessionsRevoked: true },
+    },
+    { log: request.log },
+  );
+
+  return {
+    passwordChanged: true,
+    sessionsRevoked: true,
+    reauthenticationRequired: true,
+  };
 }

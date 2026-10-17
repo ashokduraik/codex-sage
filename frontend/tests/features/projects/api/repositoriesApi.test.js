@@ -29,7 +29,7 @@ describe('repositoriesApi', () => {
       projectId: 'p1',
       repositoryUrl: 'https://github.com/acme/atlas',
     });
-    expect(apiRequest).toHaveBeenCalledWith('/projects/p1/repositories/probe', {
+    expect(apiRequest).toHaveBeenCalledWith('/knowledge/repositories/probe/p1', {
       method: 'POST',
       body: { repositoryUrl: 'https://github.com/acme/atlas' },
       signal: undefined,
@@ -58,7 +58,7 @@ describe('repositoriesApi', () => {
       accessToken: 'tok',
       idempotencyKey: 'idem-1',
     });
-    expect(apiRequest).toHaveBeenCalledWith('/projects/p1/repositories', {
+    expect(apiRequest).toHaveBeenCalledWith('/knowledge/repositories/attach/p1', {
       method: 'POST',
       body: {
         repositoryUrl: 'https://github.com/acme/atlas',
@@ -87,7 +87,7 @@ describe('repositoriesApi', () => {
   it('gets the connection and exposes a cache key', async () => {
     apiRequest.mockResolvedValue({ connection: { id: 'c1' } });
     await getProjectRepositoryConnection('p1', { signal: undefined });
-    expect(apiRequest).toHaveBeenCalledWith('/projects/p1/repositories/connection', {
+    expect(apiRequest).toHaveBeenCalledWith('/knowledge/repositories/getConnection/p1', {
       signal: undefined,
     });
     expect(repositoryConnectionQueryKey('p1')).toEqual(['projects', 'p1', 'repositories', 'connection']);
@@ -96,20 +96,20 @@ describe('repositoriesApi', () => {
   it('replaces, revokes, and re-tests credentials on the shipped paths', async () => {
     apiRequest.mockResolvedValue({ connection: { id: 'c1' } });
     await replaceProjectRepositoryCredential({ projectId: 'p1', accessToken: 'tok' });
-    expect(apiRequest).toHaveBeenCalledWith('/projects/p1/repositories/credentials/replace', {
+    expect(apiRequest).toHaveBeenCalledWith('/knowledge/repositories/replaceCredential/p1', {
       method: 'POST',
       body: { accessToken: 'tok' },
       signal: undefined,
     });
     apiRequest.mockResolvedValue(undefined);
     await revokeProjectRepositoryCredential({ projectId: 'p1' });
-    expect(apiRequest).toHaveBeenCalledWith('/projects/p1/repositories/credentials/revoke', {
+    expect(apiRequest).toHaveBeenCalledWith('/knowledge/repositories/revokeCredential/p1', {
       method: 'POST',
       signal: undefined,
     });
     apiRequest.mockResolvedValue({ connectionStatus: 'connected' });
     await retestProjectRepositoryConnection({ projectId: 'p1' });
-    expect(apiRequest).toHaveBeenCalledWith('/projects/p1/repositories/connection/re-test', {
+    expect(apiRequest).toHaveBeenCalledWith('/knowledge/repositories/retestConnection/p1', {
       method: 'POST',
       signal: undefined,
     });

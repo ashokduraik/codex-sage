@@ -63,7 +63,7 @@ describe('ChangePasswordPage', () => {
   it('submits a password change and returns to login', async () => {
     seedAuthSession();
     const fetchMock = vi.fn(async (url) => {
-      if (String(url).includes('/auth/password/change')) {
+      if (String(url).includes('/access/password/change')) {
         return jsonResponse({
           status: 200,
           body: {
@@ -73,7 +73,7 @@ describe('ChangePasswordPage', () => {
           },
         });
       }
-      if (String(url).includes('/auth/logout')) {
+      if (String(url).includes('/access/auth/logout')) {
         return {
           ok: true,
           status: 204,
@@ -111,14 +111,14 @@ describe('ChangePasswordPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save password' }));
 
     await waitFor(() => {
-      expect(fetchMock.mock.calls.some((call) => String(call[0]).includes('/auth/password/change'))).toBe(true);
+      expect(fetchMock.mock.calls.some((call) => String(call[0]).includes('/access/password/change'))).toBe(true);
     });
   });
 
   it('shows an API error with correlation id on failure', async () => {
     seedAuthSession();
     const fetchMock = vi.fn(async (url) => {
-      if (String(url).includes('/auth/password/change')) {
+      if (String(url).includes('/access/password/change')) {
         return jsonResponse({
           status: 400,
           body: {

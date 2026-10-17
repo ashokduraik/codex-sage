@@ -33,7 +33,7 @@ describe('projectsApi', () => {
       sort: 'lastAccessedAt',
       cursor: 'c1',
     });
-    expect(apiRequest).toHaveBeenCalledWith(expect.stringMatching(/^\/projects\?/), expect.objectContaining({ signal: undefined }));
+    expect(apiRequest).toHaveBeenCalledWith(expect.stringMatching(/^\/masters\/projects\/list\?/), expect.objectContaining({ signal: undefined }));
     const path = apiRequest.mock.calls[0][0];
     expect(path).toContain('q=atlas');
     expect(path).toContain('includeArchived=true');
@@ -50,36 +50,36 @@ describe('projectsApi', () => {
       sourceType: 'upload',
       idempotencyKey: 'idem-1',
     });
-    expect(apiRequest).toHaveBeenCalledWith('/projects', {
+    expect(apiRequest).toHaveBeenCalledWith('/masters/projects/create', {
       method: 'POST',
       body: { name: 'A', description: 'B', sourceType: 'upload' },
       idempotencyKey: 'idem-1',
     });
 
     await getProject('p1', { signal: undefined });
-    expect(apiRequest).toHaveBeenCalledWith('/projects/p1', { signal: undefined });
+    expect(apiRequest).toHaveBeenCalledWith('/masters/projects/get/p1', { signal: undefined });
 
     await patchProject('p1', { name: 'N' });
-    expect(apiRequest).toHaveBeenCalledWith('/projects/p1', {
+    expect(apiRequest).toHaveBeenCalledWith('/masters/projects/update/p1', {
       method: 'PATCH',
       body: { name: 'N' },
     });
 
     await archiveProject('p1');
-    expect(apiRequest).toHaveBeenCalledWith('/projects/p1/archive', { method: 'POST' });
+    expect(apiRequest).toHaveBeenCalledWith('/masters/projects/archive/p1', { method: 'POST' });
 
     await restoreProject('p1');
-    expect(apiRequest).toHaveBeenCalledWith('/projects/p1/restore', { method: 'POST' });
+    expect(apiRequest).toHaveBeenCalledWith('/masters/projects/restore/p1', { method: 'POST' });
 
     await deleteProject('p1');
-    expect(apiRequest).toHaveBeenCalledWith('/projects/p1', { method: 'DELETE' });
+    expect(apiRequest).toHaveBeenCalledWith('/masters/projects/delete/p1', { method: 'DELETE' });
 
     await getProjectDeletionPreview('p1');
-    expect(apiRequest).toHaveBeenCalledWith('/projects/p1/deletion-preview', {
+    expect(apiRequest).toHaveBeenCalledWith('/masters/projects/getDeletionPreview/p1', {
       signal: undefined,
     });
 
     await recordProjectAccess('p1');
-    expect(apiRequest).toHaveBeenCalledWith('/projects/p1/access', { method: 'POST' });
+    expect(apiRequest).toHaveBeenCalledWith('/masters/projects/recordAccess/p1', { method: 'POST' });
   });
 });

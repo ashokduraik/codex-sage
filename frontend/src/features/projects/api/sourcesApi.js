@@ -67,7 +67,9 @@ export async function listProjectSourceVersions(options) {
     search.set(key, String(value));
   }
   const encoded = search.toString();
-  return apiRequest(`/projects/${encodeURIComponent(options.projectId)}/source-versions${encoded ? `?${encoded}` : ''}`, { signal: options.signal });
+  return apiRequest(`/knowledge/sources/listVersions/${encodeURIComponent(options.projectId)}${encoded ? `?${encoded}` : ''}`, {
+    signal: options.signal,
+  });
 }
 
 /**
@@ -84,7 +86,7 @@ export async function listProjectSourceVersions(options) {
 export async function uploadProjectSource(input) {
   const body = new FormData();
   body.append('archive', input.file, input.file.name);
-  return apiUpload(`/projects/${encodeURIComponent(input.projectId)}/sources`, {
+  return apiUpload(`/knowledge/uploads/upload/${encodeURIComponent(input.projectId)}`, {
     method: 'POST',
     body,
     idempotencyKey: input.idempotencyKey,
@@ -112,7 +114,7 @@ export async function uploadProjectSource(input) {
  * @returns {Promise<SourceReingestResult>}
  */
 export async function reingestProjectSource(input) {
-  return apiRequest(`/projects/${encodeURIComponent(input.projectId)}/sources/${encodeURIComponent(input.sourceVersionId)}/reingest`, {
+  return apiRequest(`/knowledge/sources/reingest/${encodeURIComponent(input.projectId)}/${encodeURIComponent(input.sourceVersionId)}`, {
     method: 'POST',
     idempotencyKey: input.idempotencyKey,
     signal: input.signal,

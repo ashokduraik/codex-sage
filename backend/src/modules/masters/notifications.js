@@ -391,55 +391,45 @@ const idParamsSchema = z.object({
 });
 
 /**
- * Registers notification HTTP routes.
- * @param {import('fastify').FastifyInstance} app Fastify app.
+ * GET /masters/notifications/list — inbox list for the signed-in user.
+ * @param {import('fastify').FastifyRequest} request Request.
  */
-export async function notificationRoutes(app) {
-  app.get(
-    '/notifications',
-    {
-      config: { requiredPermissions: ['notifications.view'] },
-    },
-    async (request) => {
-      const parsed = listQuerySchema.safeParse(request.query ?? {});
-      if (!parsed.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', {
-          details: parsed.error.issues.map((issue) => ({
-            path: issue.path.join('.') || 'query',
-            message: issue.message,
-          })),
-        });
-      }
-      const unread = parsed.data.unread === '1' || parsed.data.unread === 'true';
-      return listNotificationsForUser(request.principal.orgId, request.principal.userId, {
-        unread,
-        cursor: parsed.data.cursor,
-        limit: parsed.data.limit,
-      });
-    },
-  );
+export async function listNotificationsHttp(request) {
+  const parsed = listQuerySchema.safeParse(request.query ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', {
+      details: parsed.error.issues.map((issue) => ({
+        path: issue.path.join('.') || 'query',
+        message: issue.message,
+      })),
+    });
+  }
+  const unread = parsed.data.unread === '1' || parsed.data.unread === 'true';
+  return listNotificationsForUser(request.principal.orgId, request.principal.userId, {
+    unread,
+    cursor: parsed.data.cursor,
+    limit: parsed.data.limit,
+  });
+}
 
-  app.post(
-    '/notifications/:notificationId/read',
-    {
-      config: { requiredPermissions: ['notifications.view'] },
-    },
-    async (request) => {
-      const params = idParamsSchema.safeParse(request.params ?? {});
-      if (!params.success) {
-        throw ApiError.fromCode('NOT_FOUND');
-      }
-      return markNotificationRead(request.principal.orgId, request.principal.userId, params.data.notificationId);
-    },
-  );
+/**
+ * POST /masters/notifications/markRead/:notificationId — mark one notification read.
+ * @param {import('fastify').FastifyRequest} request Request.
+ */
+export async function markNotificationReadHttp(request) {
+  const params = idParamsSchema.safeParse(request.params ?? {});
+  if (!params.success) {
+    throw ApiError.fromCode('NOT_FOUND');
+  }
+  return markNotificationRead(request.principal.orgId, request.principal.userId, params.data.notificationId);
+}
 
-  app.post(
-    '/notifications/read-all',
-    {
-      config: { requiredPermissions: ['notifications.view'] },
-    },
-    async (request) => markAllNotificationsRead(request.principal.orgId, request.principal.userId),
-  );
+/**
+ * POST /masters/notifications/markAllRead — mark every notification read for the user.
+ * @param {import('fastify').FastifyRequest} request Request.
+ */
+export async function markAllNotificationsReadHttp(request) {
+  return markAllNotificationsRead(request.principal.orgId, request.principal.userId);
 }
 
 export const NOTIFICATION_MODELS = Object.freeze([Notification]);

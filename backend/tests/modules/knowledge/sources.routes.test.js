@@ -74,7 +74,7 @@ describe('source reingest routes', () => {
   async function login(instance, email, password) {
     const res = await instance.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/auth/login`,
+      url: `${API_BASE_PATH}/access/auth/login`,
       payload: { email, password },
     });
     expect(res.statusCode).toBe(200);
@@ -90,7 +90,7 @@ describe('source reingest routes', () => {
   async function createProjectRequest(instance, accessToken, payload, idempotencyKey) {
     return instance.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects`,
+      url: `${API_BASE_PATH}/masters/projects/create`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': idempotencyKey,
@@ -119,7 +119,7 @@ describe('source reingest routes', () => {
 
     const first = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${projectId}/sources/${sourceVersionId}/reingest`,
+      url: `${API_BASE_PATH}/knowledge/sources/reingest/${projectId}/${sourceVersionId}`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': 'idem-reingest-happy-1',
@@ -134,7 +134,7 @@ describe('source reingest routes', () => {
 
     const replay = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${projectId}/sources/${sourceVersionId}/reingest`,
+      url: `${API_BASE_PATH}/knowledge/sources/reingest/${projectId}/${sourceVersionId}`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': 'idem-reingest-happy-1',
@@ -165,7 +165,7 @@ describe('source reingest routes', () => {
 
     const res = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${projectId}/sources/${otherVersionId}/reingest`,
+      url: `${API_BASE_PATH}/knowledge/sources/reingest/${projectId}/${otherVersionId}`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': 'idem-reingest-404-1',
@@ -219,7 +219,7 @@ describe('source reingest routes', () => {
     const { accessToken: viewerToken } = await login(app, 'viewer-reingest@example.com', 'ViewerPass1!');
     const res = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${projectId}/sources/${sourceVersionId}/reingest`,
+      url: `${API_BASE_PATH}/knowledge/sources/reingest/${projectId}/${sourceVersionId}`,
       headers: {
         authorization: `Bearer ${viewerToken}`,
         'idempotency-key': 'idem-reingest-forbidden-1',
@@ -261,7 +261,7 @@ describe('source reingest routes', () => {
 
     const page1 = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${projectId}/source-versions?limit=1`,
+      url: `${API_BASE_PATH}/knowledge/sources/listVersions/${projectId}?limit=1`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(page1.statusCode).toBe(200);
@@ -275,7 +275,7 @@ describe('source reingest routes', () => {
 
     const page2 = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${projectId}/source-versions?limit=1&cursor=${encodeURIComponent(page1.json().pageInfo.nextCursor)}`,
+      url: `${API_BASE_PATH}/knowledge/sources/listVersions/${projectId}?limit=1&cursor=${encodeURIComponent(page1.json().pageInfo.nextCursor)}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(page2.statusCode).toBe(200);
@@ -295,7 +295,7 @@ describe('source reingest routes', () => {
     );
     const res = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${created.json().id}/source-versions?limit=0`,
+      url: `${API_BASE_PATH}/knowledge/sources/listVersions/${created.json().id}?limit=0`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(res.statusCode).toBe(400);

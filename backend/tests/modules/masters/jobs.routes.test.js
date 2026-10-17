@@ -71,7 +71,7 @@ describe('jobs.routes', () => {
   async function login(instance, email, password) {
     const res = await instance.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/auth/login`,
+      url: `${API_BASE_PATH}/access/auth/login`,
       payload: { email, password },
     });
     expect(res.statusCode).toBe(200);
@@ -87,7 +87,7 @@ describe('jobs.routes', () => {
   async function createProjectRequest(instance, accessToken, payload, idempotencyKey) {
     return instance.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects`,
+      url: `${API_BASE_PATH}/masters/projects/create`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': idempotencyKey,
@@ -117,7 +117,7 @@ describe('jobs.routes', () => {
 
     const listRes = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${projectId}/jobs`,
+      url: `${API_BASE_PATH}/masters/jobs/list/${projectId}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(listRes.statusCode).toBe(200);
@@ -130,7 +130,7 @@ describe('jobs.routes', () => {
 
     const getRes = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/jobs/${jobId}`,
+      url: `${API_BASE_PATH}/masters/jobs/get/${jobId}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(getRes.statusCode).toBe(200);
@@ -179,7 +179,7 @@ describe('jobs.routes', () => {
 
     const listRes = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${projectId}/jobs`,
+      url: `${API_BASE_PATH}/masters/jobs/list/${projectId}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(listRes.statusCode).toBe(200);
@@ -190,7 +190,7 @@ describe('jobs.routes', () => {
 
     const deletedGet = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/jobs/${deletedJobId}`,
+      url: `${API_BASE_PATH}/masters/jobs/get/${deletedJobId}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(deletedGet.statusCode).toBe(404);
@@ -205,7 +205,7 @@ describe('jobs.routes', () => {
     });
     const crossOrg = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/jobs/${foreignJobId}`,
+      url: `${API_BASE_PATH}/masters/jobs/get/${foreignJobId}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(crossOrg.statusCode).toBe(404);
@@ -221,27 +221,27 @@ describe('jobs.routes', () => {
 
     const unauth = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${projectId}/jobs`,
+      url: `${API_BASE_PATH}/masters/jobs/list/${projectId}`,
     });
     expect(unauth.statusCode).toBe(401);
 
     const zeroLimit = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${projectId}/jobs?limit=0`,
+      url: `${API_BASE_PATH}/masters/jobs/list/${projectId}?limit=0`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(zeroLimit.statusCode).toBe(400);
 
     const badStatus = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${projectId}/jobs?jobStatus=not-real`,
+      url: `${API_BASE_PATH}/masters/jobs/list/${projectId}?jobStatus=not-real`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(badStatus.statusCode).toBe(400);
 
     const clamped = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${projectId}/jobs?limit=999`,
+      url: `${API_BASE_PATH}/masters/jobs/list/${projectId}?limit=999`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(clamped.statusCode).toBe(200);
@@ -265,7 +265,7 @@ describe('jobs.routes', () => {
 
     const page1 = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${projectId}/jobs?limit=2`,
+      url: `${API_BASE_PATH}/masters/jobs/list/${projectId}?limit=2`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(page1.statusCode).toBe(200);
@@ -275,7 +275,7 @@ describe('jobs.routes', () => {
 
     const page2 = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${projectId}/jobs?limit=2&cursor=${encodeURIComponent(body1.pageInfo.nextCursor)}`,
+      url: `${API_BASE_PATH}/masters/jobs/list/${projectId}?limit=2&cursor=${encodeURIComponent(body1.pageInfo.nextCursor)}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(page2.statusCode).toBe(200);
@@ -287,7 +287,7 @@ describe('jobs.routes', () => {
 
     const missingProject = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${new mongoose.Types.ObjectId().toHexString()}/jobs`,
+      url: `${API_BASE_PATH}/masters/jobs/list/${new mongoose.Types.ObjectId().toHexString()}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(missingProject.statusCode).toBe(404);
@@ -323,14 +323,14 @@ describe('jobs.routes', () => {
     const { accessToken: viewerToken } = await login(app, 'viewer-jobs@example.com', 'viewerpass1');
     const listDenied = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${projectId}/jobs`,
+      url: `${API_BASE_PATH}/masters/jobs/list/${projectId}`,
       headers: { authorization: `Bearer ${viewerToken}` },
     });
     expect(listDenied.statusCode).toBe(404);
 
     const getDenied = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/jobs/${jobId}`,
+      url: `${API_BASE_PATH}/masters/jobs/get/${jobId}`,
       headers: { authorization: `Bearer ${viewerToken}` },
     });
     expect(getDenied.statusCode).toBe(404);

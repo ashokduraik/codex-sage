@@ -12,9 +12,12 @@ instead of doing that work inline.
 
 - **Four domain modules:** `access`, `masters`, `knowledge`, `conversation`. Each
   exposes a public `index.js` only — no cross-imports of another module's internals.
-- **One production file per resource** (routes + service + repository, or worker
-  handler + persistence). Overflow uses `resource.helper.js` then `resource.util.js`
-  only after 1000 code lines (`file-colocation.mdc`).
+- **One production file per resource** (service + repository + named `*Http`
+  adapters, or worker handler + persistence). Overflow uses `resource.helper.js`
+  then `resource.util.js` only after 1000 code lines (`file-colocation.mdc`).
+- **HTTP catalog:** register every API path in `backend/src/http/route.js` with
+  method, path, permission/`routeAccess`/`preHandler`, and a named `*Http` handler
+  imported from the module public surface. Do not add per-resource `*Routes` plugins.
 - **Mongoose models** live in `backend/src/models/` (`*.model.js`). Modules import them from
   there and may re-export them on their public surface.
 - Cross-cutting **infra** (db client, config, logging, errors, idempotency) lives in

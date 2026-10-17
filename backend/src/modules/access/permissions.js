@@ -230,7 +230,7 @@ export const roleCache = createRoleCache();
  * Every registered route must declare routeAccess or requiredPermissions.
  */
 /** Paths that need no authentication (relative to their mount prefix). */
-export const PUBLIC_ROUTE_PATHS = Object.freeze(['/health', '/readiness', '/auth/login', '/auth/refresh', '/auth/logout']);
+export const PUBLIC_ROUTE_PATHS = Object.freeze(['/health', '/readiness', '/access/auth/login', '/access/auth/refresh', '/access/auth/logout']);
 /**
  * @typedef {object} RouteAccessConfig
  * @property {'public' | 'authenticated'} [routeAccess]
@@ -720,17 +720,11 @@ export function createAuthorizePreHandler(authenticate) {
 }
 
 /**
- * Registers `GET /permissions`.
- * @param {import('fastify').FastifyInstance} app Fastify app.
+ * GET /access/permissions/list — returns the product permission catalog grouped for role editors.
+ * @param {import('fastify').FastifyRequest} _request Incoming request (unused).
+ * @param {import('fastify').FastifyReply} _reply Reply (unused).
+ * @returns {object} Grouped permission catalog payload.
  */
-export async function permissionsRoutes(app) {
-  app.get(
-    '/permissions',
-    {
-      config: {
-        requiredPermissions: ['roles.manage'],
-      },
-    },
-    async () => toPermissionsApiPayload(),
-  );
+export async function listPermissionsHttp(_request, _reply) {
+  return toPermissionsApiPayload();
 }

@@ -8,10 +8,12 @@ import { SourceFile } from '../../../src/models/sourceFile.model.js';
 import { ProjectActivity } from '../../../src/models/projectActivity.model.js';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
-  usageRoutes,
+  getMyUsageHttp,
   loadUsageSummary,
+  getProjectUsageHttp,
   recordProjectActivity,
   sumAcceptedSourceBytes,
+  getOrganizationUsageHttp,
   recordProjectActivitiesForJobTerminal,
 } from '../../../src/modules/masters/projectActivities.js';
 
@@ -274,34 +276,26 @@ describe('projectActivities.service', () => {
     expect(await ProjectActivity.countDocuments({ orgId })).toBe(2);
   });
 
-  it('serves usage routes for the default window and valid from/to', async () => {
-    const handlers = new Map();
-    await usageRoutes(
-      /** @type {any} */ ({
-        get(path, _opts, handler) {
-          handlers.set(path, handler);
-        },
-      }),
-    );
+  it('serves usage handlers for the default window and valid from/to', async () => {
     const orgId = new mongoose.Types.ObjectId().toHexString();
     const projectId = new mongoose.Types.ObjectId().toHexString();
     const userId = new mongoose.Types.ObjectId().toHexString();
     const principal = { orgId, userId };
-    const org = await handlers.get('/usage/organization')({
+    const org = await getOrganizationUsageHttp({
       query: { from: '2026-09-01T00:00:00.000Z', to: '2026-09-30T23:59:59.000Z' },
       principal,
     });
     expect(org.totals.searchesExecuted).toBe(0);
-    const me = await handlers.get('/usage/me')({ query: {}, principal });
+    const me = await getMyUsageHttp({ query: {}, principal });
     expect(me.totals.ingestJobsCompleted).toBe(0);
-    const project = await handlers.get('/usage/projects/:projectId')({
+    const project = await getProjectUsageHttp({
       query: {},
       params: { projectId },
       principal,
     });
     expect(project.totals.sourceBytesAccepted).toBe(0);
     await expect(
-      handlers.get('/usage/organization')({
+      getOrganizationUsageHttp({
         query: { from: 'not-a-date' },
         principal,
       }),

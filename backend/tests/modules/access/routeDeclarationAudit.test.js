@@ -18,12 +18,12 @@ describe('routeDeclarationAudit', () => {
 
   it('normalizes versioned paths for the allowlist', () => {
     expect(normalizeRoutePath('/api/v1/health')).toBe('/health');
-    expect(normalizeRoutePath('/auth/login')).toBe('/auth/login');
+    expect(normalizeRoutePath('/access/auth/login')).toBe('/access/auth/login');
   });
 
   it('classifies public allowlisted paths without explicit config', () => {
     expect(classifyRouteAccess({}, '/health')).toBe('public');
-    expect(classifyRouteAccess({ routeAccess: 'authenticated' }, '/auth/me')).toBe('authenticated');
+    expect(classifyRouteAccess({ routeAccess: 'authenticated' }, '/access/auth/me')).toBe('authenticated');
     expect(classifyRouteAccess({ requiredPermissions: ['org.view'] }, '/x')).toBe('permissions');
     expect(classifyRouteAccess({ file: 'index.html' }, '/')).toBe('public');
     expect(classifyRouteAccess({}, '/secret')).toBe('undeclared');

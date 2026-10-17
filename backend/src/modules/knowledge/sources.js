@@ -11,7 +11,6 @@ import { ApiError } from '../../platform/errors.js';
 import { isUnsafeArchivePath, normalizeArchivePath } from './uploads.js';
 import { SourceChangeSummary } from '../../models/sourceChangeSummary.model.js';
 import { createPendingJob, findActiveJobForSourceVersion } from '../masters/index.js';
-import { requireProjectPermission } from '../../http/preHandlers/requireProjectPermission.js';
 import { assertOrgId, decodeCursor, encodeCursor, ROW_STATUS_ACTIVE } from '../../platform/data/index.js';
 import {
   SourceVersion,
@@ -64,7 +63,7 @@ export {
   SOURCE_FILE_STATE_CORRUPT,
 };
 
-/** Default page size for GET /projects/:projectId/source-versions. */
+/** Default page size for GET /knowledge/sources/listVersions/:projectId. */
 export const SOURCE_VERSION_LIST_PAGE_SIZE_DEFAULT = 20;
 
 /** Hard cap on the source-versions `limit` query parameter. */
@@ -956,54 +955,42 @@ function zodDetails(error) {
 }
 
 /**
- * Registers source version routes under `/api/v1`.
- * @param {import('fastify').FastifyInstance} app Fastify app.
+ * GET /knowledge/sources/listVersions/:projectId — list source versions for a project.
+ * @param {import('fastify').FastifyRequest} request Fastify request.
+ * @returns {Promise<object>} Paginated source version list.
  */
-export async function sourceRoutes(app) {
-  app.get(
-    '/projects/:projectId/source-versions',
-    {
-      config: { routeAccess: 'authenticated' },
-      preHandler: requireProjectPermission('projects.view'),
-    },
-    async (request) => {
-      const params = projectIdParamsSchema.safeParse(request.params ?? {});
-      if (!params.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
-      }
-      const parsed = listQuerySchema.safeParse(request.query ?? {});
-      if (!parsed.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
-      }
-      if (parsed.data.limit === 0) {
-        throw ApiError.fromCode('VALIDATION_ERROR', {
-          details: [{ path: 'limit', message: 'limit must be a positive integer' }],
-        });
-      }
-      return listProjectSourceVersions(request.projectScope.orgId, request.projectScope.projectId, parsed.data);
-    },
-  );
+export async function listProjectSourceVersionsHttp(request) {
+  const params = projectIdParamsSchema.safeParse(request.params ?? {});
+  if (!params.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+  }
+  const parsed = listQuerySchema.safeParse(request.query ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
+  }
+  if (parsed.data.limit === 0) {
+    throw ApiError.fromCode('VALIDATION_ERROR', {
+      details: [{ path: 'limit', message: 'limit must be a positive integer' }],
+    });
+  }
+  return listProjectSourceVersions(request.projectScope.orgId, request.projectScope.projectId, parsed.data);
+}
 
-  app.post(
-    '/projects/:projectId/sources/:sourceVersionId/reingest',
-    {
-      config: {
-        routeAccess: 'authenticated',
-        requireIdempotencyKey: true,
-      },
-      preHandler: requireProjectPermission('knowledge.trigger'),
-    },
-    async (request, reply) => {
-      const result = await enqueueSourceReingest({
-        orgId: request.projectScope.orgId,
-        projectId: request.projectScope.projectId,
-        sourceVersionId: String(request.params.sourceVersionId),
-        actorUserId: request.projectScope.userId,
-        correlationId: request.id,
-      });
-      return reply.code(202).send(result);
-    },
-  );
+/**
+ * POST /knowledge/sources/reingest/:projectId/:sourceVersionId — enqueue re-ingest for a version.
+ * @param {import('fastify').FastifyRequest} request Fastify request.
+ * @param {import('fastify').FastifyReply} reply Fastify reply.
+ * @returns {Promise<object>} 202 payload with job id.
+ */
+export async function reingestSourceHttp(request, reply) {
+  const result = await enqueueSourceReingest({
+    orgId: request.projectScope.orgId,
+    projectId: request.projectScope.projectId,
+    sourceVersionId: String(request.params.sourceVersionId),
+    actorUserId: request.projectScope.userId,
+    correlationId: request.id,
+  });
+  return reply.code(202).send(result);
 }
 
 export const SOURCE_MODELS = Object.freeze([SourceVersion, SourceFile, SourceChangeSummary]);

@@ -57,7 +57,7 @@ describe('notificationsApi', () => {
     );
     await listNotifications({ unreadOnly: true, cursor: 'cur1', limit: 10 });
     const url = String(fetchMock.mock.calls[0][0]);
-    expect(url.startsWith(`${API_BASE_URL}/notifications?`)).toBe(true);
+    expect(url.startsWith(`${API_BASE_URL}/masters/notifications/list?`)).toBe(true);
     expect(url).toContain('unread=1');
     expect(url).toContain('cursor=cur1');
     expect(url).toContain('limit=10');
@@ -73,8 +73,8 @@ describe('notificationsApi', () => {
       id: 'n1',
       readAt: '2026-09-26T00:00:00.000Z',
     });
-    expect(String(fetchMock.mock.calls[0][0])).toContain('/notifications/n1/read');
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/masters/notifications/markRead/n1');
     await expect(markAllNotificationsRead()).resolves.toEqual({ updatedCount: 2 });
-    expect(String(fetchMock.mock.calls[1][0])).toContain('/notifications/read-all');
+    expect(String(fetchMock.mock.calls[1][0])).toContain('/masters/notifications/markAllRead');
   });
 });

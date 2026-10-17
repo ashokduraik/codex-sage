@@ -46,7 +46,7 @@ describe('refreshAccessToken', () => {
     expect(getAccessToken()).toBe('new-access');
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe(`${API_BASE_URL}/auth/refresh`);
+    expect(url).toBe(`${API_BASE_URL}/access/auth/refresh`);
     expect(init.method).toBe('POST');
     expect(init.credentials).toBe('include');
     expect(init.headers[CSRF_HEADER_NAME]).toBe('csrf-test');

@@ -78,13 +78,13 @@ describe('AdminRoles', () => {
       'fetch',
       vi.fn(async (url) => {
         const path = String(url).replace(API_BASE_URL, '');
-        if (path.startsWith('/roles')) {
+        if (path.startsWith('/masters/roles/list')) {
           return jsonResponse({
             items: ROLES,
             pageInfo: { nextCursor: null, hasMore: false },
           });
         }
-        if (path.startsWith('/permissions')) {
+        if (path.startsWith('/access/permissions/list')) {
           return jsonResponse(CATALOG);
         }
         return jsonResponse({});
@@ -116,13 +116,13 @@ describe('AdminRoles', () => {
   it('sends the search query to GET /roles', async () => {
     const fetchMock = vi.fn(async (url) => {
       const path = String(url).replace(API_BASE_URL, '');
-      if (path.startsWith('/roles')) {
+      if (path.startsWith('/masters/roles/list')) {
         return jsonResponse({
           items: [ROLES[0]],
           pageInfo: { nextCursor: null, hasMore: false },
         });
       }
-      if (path.startsWith('/permissions')) {
+      if (path.startsWith('/access/permissions/list')) {
         return jsonResponse(CATALOG);
       }
       return jsonResponse({});
@@ -131,7 +131,7 @@ describe('AdminRoles', () => {
 
     renderWithProviders(<AdminRoles />, { route: '/admin/roles?q=ADMIN' });
     expect(await screen.findByText('Org Admin')).toBeTruthy();
-    const rolesCall = fetchMock.mock.calls.find(([url]) => String(url).includes('/roles?'));
+    const rolesCall = fetchMock.mock.calls.find(([url]) => String(url).includes('/masters/roles/list?'));
     expect(String(rolesCall[0])).toContain('q=ADMIN');
   });
 
@@ -140,13 +140,13 @@ describe('AdminRoles', () => {
       'fetch',
       vi.fn(async (url) => {
         const path = String(url).replace(API_BASE_URL, '');
-        if (path.startsWith('/roles')) {
+        if (path.startsWith('/masters/roles/list')) {
           return jsonResponse({
             items: [],
             pageInfo: { nextCursor: null, hasMore: false },
           });
         }
-        if (path.startsWith('/permissions')) {
+        if (path.startsWith('/access/permissions/list')) {
           return jsonResponse(CATALOG);
         }
         return jsonResponse({});
@@ -188,7 +188,7 @@ describe('AdminRoles', () => {
     const fetchMock = vi.fn(async (url, init = {}) => {
       const path = String(url).replace(API_BASE_URL, '');
       const method = (init.method ?? 'GET').toUpperCase();
-      if (path.startsWith('/roles') && method === 'POST') {
+      if (path === '/masters/roles/create' && method === 'POST') {
         return jsonResponse(
           {
             id: 'r-new',
@@ -199,13 +199,13 @@ describe('AdminRoles', () => {
           201,
         );
       }
-      if (path.startsWith('/roles')) {
+      if (path.startsWith('/masters/roles/list')) {
         return jsonResponse({
           items: ROLES,
           pageInfo: { nextCursor: null, hasMore: false },
         });
       }
-      if (path.startsWith('/permissions')) {
+      if (path.startsWith('/access/permissions/list')) {
         return jsonResponse(CATALOG);
       }
       return jsonResponse({});
@@ -226,7 +226,7 @@ describe('AdminRoles', () => {
     fireEvent.click(screen.getAllByRole('button', { name: 'Create role' }).at(-1));
 
     await waitFor(() => {
-      const createCall = fetchMock.mock.calls.find(([url, init]) => String(url).endsWith('/roles') && init?.method === 'POST');
+      const createCall = fetchMock.mock.calls.find(([url, init]) => String(url).endsWith('/masters/roles/create') && init?.method === 'POST');
       expect(createCall).toBeTruthy();
       const body = JSON.parse(createCall[1].body);
       expect(body.code).toBe('READER');

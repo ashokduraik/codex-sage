@@ -63,19 +63,19 @@ function stubAdminFetch(fetchMock, options = {}) {
     const path = String(url).replace(API_BASE_URL, '');
     const method = (init.method ?? 'GET').toUpperCase();
 
-    if (path.startsWith('/roles')) {
+    if (path.startsWith('/masters/roles/list')) {
       return jsonResponse({
         items: roles,
         pageInfo: { nextCursor: null, hasMore: false },
       });
     }
-    if (path.startsWith('/users') && method === 'GET') {
+    if (path.startsWith('/masters/users/list') && method === 'GET') {
       return jsonResponse({
         items: users,
         pageInfo: { nextCursor: null, hasMore: false },
       });
     }
-    if (path === '/users' && method === 'POST') {
+    if (path === '/masters/users/create' && method === 'POST') {
       if (options.createError) {
         return jsonResponse(
           {
@@ -100,22 +100,22 @@ function stubAdminFetch(fetchMock, options = {}) {
         201,
       );
     }
-    if (path.includes('/reset-password') && method === 'POST') {
+    if (path.includes('/resetPassword') && method === 'POST') {
       return jsonResponse({ passwordResetStatus: 'completed' });
     }
-    if (method === 'DELETE' && path.startsWith('/users/')) {
+    if (method === 'DELETE' && path.startsWith('/masters/users/delete/')) {
       return jsonResponse({ id: 'u1' });
     }
-    if (method === 'PATCH' && path.startsWith('/users/')) {
+    if (method === 'PATCH' && path.startsWith('/masters/users/update/')) {
       return jsonResponse({ ...USER_LENA, roles: [ROLE_MEMBER] });
     }
-    if (path.endsWith('/deactivate')) {
+    if (path.includes('/masters/users/deactivate/')) {
       if (options.onDeactivate) {
         return options.onDeactivate();
       }
       return jsonResponse({ ...USER_LENA, userStatus: 'disabled' });
     }
-    if (path.endsWith('/activate')) {
+    if (path.includes('/masters/users/activate/')) {
       return jsonResponse({ ...USER_LENA, userStatus: 'active' });
     }
     return jsonResponse({ error: { code: 'NOT_FOUND', message: 'missing stub' } }, 404);
@@ -165,10 +165,10 @@ describe('AdminUsers', () => {
   it('shows a list error with retry', async () => {
     const fetchMock = vi.fn(async (url) => {
       const path = String(url).replace(API_BASE_URL, '');
-      if (path.startsWith('/users')) {
+      if (path.startsWith('/masters/users/list')) {
         return jsonResponse({ error: { code: 'INTERNAL_ERROR', message: 'Users unavailable.' } }, 500);
       }
-      if (path.startsWith('/roles')) {
+      if (path.startsWith('/masters/roles/list')) {
         return jsonResponse({
           items: [ROLE_VIEWER],
           pageInfo: { nextCursor: null, hasMore: false },
@@ -208,7 +208,7 @@ describe('AdminUsers', () => {
     fireEvent.click(dialogInvite);
 
     await waitFor(() => {
-      const createCall = fetchMock.mock.calls.find(([url, init]) => String(url).endsWith('/users') && init?.method === 'POST');
+      const createCall = fetchMock.mock.calls.find(([url, init]) => String(url).endsWith('/masters/users/create') && init?.method === 'POST');
       expect(createCall).toBeTruthy();
       const body = JSON.parse(createCall[1].body);
       expect(body.code).toBe('NEW-HIRE');
@@ -277,7 +277,7 @@ describe('AdminUsers', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Remove user' }));
 
     await waitFor(() => {
-      expect(fetchMock.mock.calls.some(([url, init]) => String(url).includes('/users/u1') && init?.method === 'DELETE')).toBe(true);
+      expect(fetchMock.mock.calls.some(([url, init]) => String(url).includes('/masters/users/delete/u1') && init?.method === 'DELETE')).toBe(true);
     });
   });
 
@@ -356,7 +356,8 @@ describe('AdminUsers', () => {
     await waitFor(() => {
       expect(
         fetchMock.mock.calls.some(
-          ([url, init]) => String(url).includes('/users/u1') && init?.method === 'PATCH' && JSON.parse(init.body).roleIds.includes(ROLE_MEMBER.id),
+          ([url, init]) =>
+            String(url).includes('/masters/users/update/u1') && init?.method === 'PATCH' && JSON.parse(init.body).roleIds.includes(ROLE_MEMBER.id),
         ),
       ).toBe(true);
     });
@@ -375,7 +376,7 @@ describe('AdminUsers', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Activate' }));
 
     await waitFor(() => {
-      expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith('/activate'))).toBe(true);
+      expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/masters/users/activate/'))).toBe(true);
     });
     expect(screen.queryByRole('button', { name: 'Activate' })).toBeNull();
   });
@@ -384,13 +385,13 @@ describe('AdminUsers', () => {
     const fetchMock = vi.fn(async (url, init = {}) => {
       const path = String(url).replace(API_BASE_URL, '');
       const method = (init.method ?? 'GET').toUpperCase();
-      if (path.startsWith('/roles')) {
+      if (path.startsWith('/masters/roles/list')) {
         return jsonResponse({
           items: [ROLE_VIEWER],
           pageInfo: { nextCursor: null, hasMore: false },
         });
       }
-      if (path.startsWith('/users') && method === 'GET') {
+      if (path.startsWith('/masters/users/list') && method === 'GET') {
         if (path.includes('cursor=')) {
           return jsonResponse({
             items: [
@@ -491,13 +492,13 @@ describe('AdminUsers', () => {
         return jsonResponse({ error: { code: 'LAST_ADMIN_REQUIRED', message: 'Keep an admin.' } }, 409);
       }
       const roles = [ROLE_VIEWER, ROLE_MEMBER];
-      if (path.startsWith('/roles')) {
+      if (path.startsWith('/masters/roles/list')) {
         return jsonResponse({
           items: roles,
           pageInfo: { nextCursor: null, hasMore: false },
         });
       }
-      if (path.startsWith('/users') && (init.method ?? 'GET') === 'GET') {
+      if (path.startsWith('/masters/users/list') && (init.method ?? 'GET') === 'GET') {
         return jsonResponse({
           items: [USER_LENA],
           pageInfo: { nextCursor: null, hasMore: false },
@@ -561,7 +562,7 @@ describe('AdminUsers', () => {
     stubAdminFetch(fetchMock);
     const original = fetchMock.getMockImplementation();
     fetchMock.mockImplementation(async (url, init = {}) => {
-      if (String(url).includes('/reset-password')) {
+      if (String(url).includes('/resetPassword')) {
         return jsonResponse(
           {
             error: {
@@ -663,7 +664,7 @@ describe('AdminUsers', () => {
     stubAdminFetch(fetchMock);
     const original = fetchMock.getMockImplementation();
     fetchMock.mockImplementation(async (url, init = {}) => {
-      if (String(url).endsWith('/users') && init.method === 'POST') {
+      if (String(url).endsWith('/masters/users/create') && init.method === 'POST') {
         return {
           ok: false,
           status: 409,

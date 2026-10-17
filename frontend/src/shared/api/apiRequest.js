@@ -20,7 +20,7 @@ import { ApiError, apiErrorFromNetworkFailure, apiErrorFromResponse, isRequestAb
 
 /**
  * Performs one HTTP request against the backend.
- * @param {string} path API path relative to the base URL (e.g. `/auth/me`).
+ * @param {string} path API path relative to the base URL (e.g. `/access/auth/me`).
  * @param {ApiRequestOptions} [options] Request options.
  * @returns {Promise<unknown>} Parsed JSON body, or `undefined` for 204 / empty bodies.
  * @throws {ApiError} On HTTP and network failures.

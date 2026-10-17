@@ -10,11 +10,11 @@ import cors from '@fastify/cors';
 import cookie from '@fastify/cookie';
 import { randomUUID } from 'node:crypto';
 import multipart from '@fastify/multipart';
+import { registerRoutes } from './route.js';
 import csrf from '@fastify/csrf-protection';
-import { registerRoutes } from './routes.js';
-import { healthRoutes } from './health.routes.js';
 import { loadConfig } from '../platform/config.js';
 import { registerErrorHandler } from '../platform/errors.js';
+import { getHealthHttp, getReadinessHttp } from './health.routes.js';
 import { configureProjectAclCache } from '../modules/masters/index.js';
 import { registerIdempotency } from '../platform/idempotency/index.js';
 import { registerStaticAssets, resolveProductionDistRoot, tryServeSpaIndex } from './static-spa.js';
@@ -158,7 +158,8 @@ export function buildApp(config = loadConfig(), options = {}) {
   app.addHook('preHandler', consumeSourceArchivePreHandler);
   registerIdempotency(app);
   // Unversioned infra aliases (same handlers as under API_BASE_PATH).
-  void app.register(healthRoutes);
+  app.get('/health', { config: { routeAccess: 'public' } }, getHealthHttp);
+  app.get('/readiness', { config: { routeAccess: 'public' } }, getReadinessHttp);
   void app.register(registerRoutes, { prefix: API_BASE_PATH });
 
   // Production: serve hashed assets; SPA fallback is wired via the not-found handler above.

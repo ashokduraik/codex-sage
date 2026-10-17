@@ -6,9 +6,11 @@ alwaysApply: true
 # File colocation
 
 Backend domain code lives in four modules: `access`, `masters`, `knowledge`,
-`conversation`. One production file per resource (routes + service + repository,
-or worker handler + its persistence). One production file per model in
-`backend/src/models/`.
+`conversation`. One production file per resource (service + repository + named
+`*Http` adapters, or worker handler + its persistence). **All URL registration**
+(method, path, permission/`routeAccess`, handler reference) lives in
+`backend/src/http/route.js` — not in per-resource `*Routes` plugins. One
+production file per model in `backend/src/models/`.
 
 Do not add a helper or util up front. Do not add a file per function. Do not add
 a `helpers/` folder or a shared util dumped across resources. Do not add a file

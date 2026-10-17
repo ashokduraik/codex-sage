@@ -96,7 +96,7 @@ export const JWT_AUDIENCE = 'codex-sage-api';
 /** Opaque refresh cookie name. */
 export const REFRESH_COOKIE_NAME = 'refreshToken';
 /** Cookie path limited to auth routes (D14). */
-export const REFRESH_COOKIE_PATH = '/api/v1/auth';
+export const REFRESH_COOKIE_PATH = '/api/v1/access/auth';
 /** Readable CSRF cookie the browser echoes as `X-CSRF-Token` (D14). */
 export const CSRF_COOKIE_NAME = 'csrfToken';
 /**
@@ -106,7 +106,7 @@ export const CSRF_COOKIE_NAME = 'csrfToken';
 export const CSRF_SECRET_COOKIE_NAME = '_csrf';
 /**
  * Path for the readable double-submit cookie so `document.cookie` can read it from any
- * SPA route (`Path=/api/v1/auth` is invisible to pages outside that prefix).
+ * SPA route (`Path=/api/v1/access/auth` is invisible to pages outside that prefix).
  */
 export const CSRF_READABLE_COOKIE_PATH = '/';
 
@@ -812,106 +812,98 @@ function readRefreshToken(request) {
 }
 
 /**
- * Registers `/auth/*` routes on the Fastify instance (under API_BASE_PATH).
- * @param {import('fastify').FastifyInstance} app Fastify app with auth plugins decorated.
+ * POST /access/auth/login — email/password sign-in; sets refresh and CSRF cookies on success.
+ * @param {import('fastify').FastifyRequest} request Incoming request.
+ * @param {import('fastify').FastifyReply} reply Reply for Set-Cookie headers.
+ * @returns {Promise<object>} Access token payload and user summary.
  */
-export async function authRoutes(app) {
-  const authService = app.authService;
-  const isProduction = app.config.env.isProduction;
+export async function loginHttp(request, reply) {
+  const authService = request.server.authService;
+  const isProduction = request.server.config.env.isProduction;
+  const parsed = loginBodySchema.safeParse(request.body ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', {
+      details: parsed.error.issues.map((issue) => ({
+        path: issue.path.join('.'),
+        message: issue.message,
+      })),
+    });
+  }
+  const result = await authService.login(parsed.data, { log: request.log });
+  if (result.outcome !== 'authenticated') {
+    throwForAuthOutcome(result.outcome);
+  }
+  setAuthCookies(reply, result.refreshToken, isProduction);
+  return {
+    accessToken: result.accessToken,
+    accessTokenExpiresInSeconds: result.accessTokenExpiresInSeconds ?? JWT_ACCESS_TOKEN_TTL_SECONDS,
+    user: result.user,
+  };
+}
 
-  app.post(
-    '/auth/login',
-    {
-      config: { routeAccess: 'public' },
-    },
-    async (request, reply) => {
-      const parsed = loginBodySchema.safeParse(request.body ?? {});
-      if (!parsed.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', {
-          details: parsed.error.issues.map((issue) => ({
-            path: issue.path.join('.'),
-            message: issue.message,
-          })),
-        });
-      }
-      const result = await authService.login(parsed.data, { log: request.log });
-      if (result.outcome !== 'authenticated') {
-        throwForAuthOutcome(result.outcome);
-      }
-      setAuthCookies(reply, result.refreshToken, isProduction);
-      return {
-        accessToken: result.accessToken,
-        accessTokenExpiresInSeconds: result.accessTokenExpiresInSeconds ?? JWT_ACCESS_TOKEN_TTL_SECONDS,
-        user: result.user,
-      };
-    },
-  );
+/**
+ * POST /access/auth/refresh — rotates the refresh cookie and returns a new access token.
+ * @param {import('fastify').FastifyRequest} request Incoming request (CSRF validated in route config).
+ * @param {import('fastify').FastifyReply} reply Reply for Set-Cookie headers.
+ * @returns {Promise<object>} Access token payload and user summary.
+ */
+export async function refreshSessionHttp(request, reply) {
+  const authService = request.server.authService;
+  const isProduction = request.server.config.env.isProduction;
+  const refreshToken = readRefreshToken(request);
+  const result = await authService.refresh(refreshToken, {
+    log: request.log,
+  });
+  if (result.outcome !== 'authenticated') {
+    clearAuthCookies(reply, isProduction);
+    throwForAuthOutcome(result.outcome);
+  }
+  setAuthCookies(reply, result.refreshToken, isProduction);
+  return {
+    accessToken: result.accessToken,
+    accessTokenExpiresInSeconds: result.accessTokenExpiresInSeconds ?? JWT_ACCESS_TOKEN_TTL_SECONDS,
+    user: result.user,
+  };
+}
 
-  app.post(
-    '/auth/refresh',
-    {
-      config: { routeAccess: 'public' },
-      onRequest: app.csrfProtection,
-    },
-    async (request, reply) => {
-      const refreshToken = readRefreshToken(request);
-      const result = await authService.refresh(refreshToken, {
-        log: request.log,
-      });
-      if (result.outcome !== 'authenticated') {
-        clearAuthCookies(reply, isProduction);
-        throwForAuthOutcome(result.outcome);
-      }
-      setAuthCookies(reply, result.refreshToken, isProduction);
-      return {
-        accessToken: result.accessToken,
-        accessTokenExpiresInSeconds: result.accessTokenExpiresInSeconds ?? JWT_ACCESS_TOKEN_TTL_SECONDS,
-        user: result.user,
-      };
-    },
-  );
+/**
+ * POST /access/auth/logout — ends the login session and clears auth cookies.
+ * @param {import('fastify').FastifyRequest} request Incoming request (CSRF validated in route config).
+ * @param {import('fastify').FastifyReply} reply Reply for clearing cookies and 204 status.
+ * @returns {Promise<void>}
+ */
+export async function logoutHttp(request, reply) {
+  const authService = request.server.authService;
+  const isProduction = request.server.config.env.isProduction;
+  const refreshToken = readRefreshToken(request);
+  await authService.logout(refreshToken);
+  clearAuthCookies(reply, isProduction);
+  return reply.status(204).send();
+}
 
-  app.post(
-    '/auth/logout',
-    {
-      config: { routeAccess: 'public' },
-      onRequest: app.csrfProtection,
-    },
-    async (request, reply) => {
-      const refreshToken = readRefreshToken(request);
-      await authService.logout(refreshToken);
-      clearAuthCookies(reply, isProduction);
-      return reply.status(204).send();
-    },
-  );
-
-  app.get(
-    '/auth/me',
-    {
-      config: {
-        routeAccess: 'authenticated',
-        allowWhenMustChangePassword: true,
-      },
-    },
-    async (request) => {
-      const principal = request.principal;
-      const user = await findUserById(principal.orgId, principal.userId);
-      if (!user || user.userStatus !== 'active') {
-        throw ApiError.fromCode('UNAUTHENTICATED');
-      }
-      const roleIds = (user.roleIds ?? []).map((id) => String(id));
-      const permissions = await resolveEffectivePermissions(principal.orgId, roleIds);
-      return {
-        id: String(user._id),
-        email: user.email,
-        displayName: user.displayName,
-        orgId: String(user.orgId),
-        roleIds,
-        permissions,
-        mustChangePassword: user.mustChangePassword === true,
-      };
-    },
-  );
+/**
+ * GET /access/auth/me — returns the signed-in user, roles, and effective permissions.
+ * @param {import('fastify').FastifyRequest} request Authenticated request with `principal`.
+ * @param {import('fastify').FastifyReply} _reply Reply (unused).
+ * @returns {Promise<object>} Current user profile for the SPA.
+ */
+export async function getCurrentUserHttp(request, _reply) {
+  const principal = request.principal;
+  const user = await findUserById(principal.orgId, principal.userId);
+  if (!user || user.userStatus !== 'active') {
+    throw ApiError.fromCode('UNAUTHENTICATED');
+  }
+  const roleIds = (user.roleIds ?? []).map((id) => String(id));
+  const permissions = await resolveEffectivePermissions(principal.orgId, roleIds);
+  return {
+    id: String(user._id),
+    email: user.email,
+    displayName: user.displayName,
+    orgId: String(user.orgId),
+    roleIds,
+    permissions,
+    mustChangePassword: user.mustChangePassword === true,
+  };
 }
 
 /**

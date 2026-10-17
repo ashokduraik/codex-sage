@@ -928,24 +928,23 @@ See [ADR 0007](../docs/adr/0007-argon2id-jwt.md) (passwords + access JWT),
 [ADR 0008](../docs/adr/0008-httponly-refresh-cookie.md) (httpOnly refresh cookie + CSRF),
 and [ADR 0012](../docs/adr/0012-refresh-token-rotation.md) (rotation + strict reuse detection).
 
-| Concern                       | MVP                                                                                                                                                                                                                                                           |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Password                      | argon2id hash (OWASP minimum costs as named constants); never log plaintext                                                                                                                                                                                   |
-| Session                       | JWT access token (15 min TTL, in memory) + refresh token (httpOnly cookie, 1 day absolute TTL; D14)                                                                                                                                                           |
-| Refresh                       | Rotate on every use; reuse revokes the whole session family (no grace window)                                                                                                                                                                                 |
-| Login / logout / refresh / me | `/api/v1/auth/*`                                                                                                                                                                                                                                              |
-| Password reset                | Admin-mediated only (D15 / ADR 0013): administrator sets `newPassword` on `POST /users/:id/reset-password`; secret never returned; user receives it out of band. Signed-in self-service `POST /auth/password/change` stays. No public forgot/reset-token flow |
-| Bootstrap                     | Startup seed sets default admin password from a named constant (ADR 0011) — no open signup                                                                                                                                                                    |
+| Concern                       | MVP                                                                                                                                                                                                                                                                        |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Password                      | argon2id hash (OWASP minimum costs as named constants); never log plaintext                                                                                                                                                                                                |
+| Session                       | JWT access token (15 min TTL, in memory) + refresh token (httpOnly cookie, 1 day absolute TTL; D14)                                                                                                                                                                        |
+| Refresh                       | Rotate on every use; reuse revokes the whole session family (no grace window)                                                                                                                                                                                              |
+| Login / logout / refresh / me | `/api/v1/access/auth/*` (ADR 0036)                                                                                                                                                                                                                                         |
+| Password reset                | Admin-mediated only (D15 / ADR 0013): administrator sets `newPassword` on `POST /masters/users/resetPassword/:userId`; secret never returned; user receives it out of band. Signed-in self-service `POST /access/password/change` stays. No public forgot/reset-token flow |
+| Bootstrap                     | Startup seed sets default admin password from a named constant (ADR 0011) — no open signup                                                                                                                                                                                 |
 
-### 8.4 Admin API surface (`/api/v1`)
+### 8.4 Admin API surface (`/api/v1`, module/file/action — ADR 0036)
 
 ```text
-POST   /organizations (platform bootstrap only) | GET/PATCH /organizations/:orgId
-POST   /users | GET /users | GET/PATCH /users/:id | POST /users/:id/deactivate | POST /users/:id/activate
-POST   /users/:id/reset-password
-GET/POST /roles | PATCH /roles/:id
-POST/DELETE /projects/:id/members
-GET/PATCH  /projects/:id/settings
+POST   /masters/users/create | GET /masters/users/list | GET/PATCH /masters/users/get|update/:userId
+POST   /masters/users/deactivate|activate/:userId | POST /masters/users/resetPassword/:userId
+GET/POST /masters/roles/list|create | PATCH /masters/roles/update/:roleId
+POST/DELETE /masters/projectMembers/create|delete/:projectId[/:userId]
+GET/PATCH  /masters/projects/getSettings|updateSettings/:projectId
 ```
 
 Every handler: JWT → resolve org → RBAC + project ACL → audit sensitive actions (§9).
@@ -1026,7 +1025,7 @@ List endpoints default: `status:'A'` and `lifecycleStatus != archived` unless `?
 ### 10.3 Conversation search
 
 ```text
-GET /api/v1/projects/:projectId/conversations/search?q=&cursor=
+GET /api/v1/conversation/conversation/search/:projectId?q=&cursor=
 ```
 
 - Scope: caller’s accessible project + own conversations (or all project convos if `conversations.view` is org-wide — **MVP: own conversations + shared-if-any; org_admin can search all in project**).
@@ -1046,12 +1045,12 @@ Auto-title after first successful assistant answer (async or inline short prompt
 ### 11.1 Project Knowledge browse
 
 ```text
-GET /api/v1/projects/:projectId/knowledge
-GET /api/v1/projects/:projectId/knowledge/summary
-GET /api/v1/projects/:projectId/knowledge/workflows
-GET /api/v1/projects/:projectId/knowledge/apis
-GET /api/v1/projects/:projectId/knowledge/symbols?q=
-GET /api/v1/projects/:projectId/knowledge/health
+GET /api/v1/knowledge/knowledge/getIndex/:projectId
+GET /api/v1/knowledge/knowledge/getSummary/:projectId
+GET /api/v1/knowledge/knowledge/listWorkflows/:projectId
+GET /api/v1/knowledge/knowledge/listApis/:projectId
+GET /api/v1/knowledge/knowledge/listSymbols/:projectId?q=
+GET /api/v1/knowledge/knowledge/getHealth/:projectId
 ```
 
 All endpoints are scoped to the current graph and active document sections for the authorized
@@ -1063,7 +1062,7 @@ knowledge-updating/unavailable state. Requires `knowledge.browse` / `knowledge.v
 ### 11.2 Project Search API
 
 ```text
-GET /api/v1/projects/:projectId/search?q=&types=code,doc,symbol,workflow&cursor=
+GET /api/v1/knowledge/search/run/:projectId?q=&types=code,doc,symbol,workflow&cursor=
 ```
 
 | Step     | Behavior                                                                    |
@@ -1078,8 +1077,8 @@ scope, converted to evidence, and passed through the prompt budget before UNDERS
 ### 11.3 Source preview API
 
 ```text
-GET /api/v1/projects/:projectId/files?path=
-GET /api/v1/projects/:projectId/files/slice?path=&startLine=&endLine=
+GET /api/v1/knowledge/sourcePreview/getMetadata/:projectId?path=
+GET /api/v1/knowledge/sourcePreview/readSlice/:projectId?path=&startLine=&endLine=
 ```
 
 - Cap response bytes/tokens through validated configuration rather than an untested fixed line count.

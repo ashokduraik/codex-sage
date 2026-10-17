@@ -313,7 +313,8 @@ function createInferenceQueue() {
   const maxDepth = INFERENCE_QUEUE_MAX_DEPTH;
   let maxConcurrency = INFERENCE_QUEUE_MAX_CONCURRENCY;
   try {
-    maxConcurrency = loadConfig().llm.queueMaxConcurrency;
+    // Fall back when mocks omit the field — undefined never drains waiting tasks.
+    maxConcurrency = loadConfig().llm.queueMaxConcurrency ?? INFERENCE_QUEUE_MAX_CONCURRENCY;
   } catch {
     // Keep the module default when config is not loaded (unit tests).
   }

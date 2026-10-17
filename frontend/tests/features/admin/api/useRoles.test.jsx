@@ -34,7 +34,7 @@ describe('useRoles and usePermissionsCatalog', () => {
       'fetch',
       vi.fn(async (url) => {
         const path = String(url);
-        const body = path.includes('/permissions')
+        const body = path.includes('/access/permissions/list')
           ? { groups: [{ id: 'org', label: 'Organization', permissions: [] }] }
           : {
               items: [{ id: 'r1', name: 'Viewer', permissions: [] }],

@@ -71,7 +71,7 @@ describe('AuthContext', () => {
   it('logs in successfully and exposes the user', async () => {
     const user = buildTestAuthUser('admin@acme.io');
     const fetchMock = vi.fn(async (url) => {
-      if (String(url).endsWith('/auth/login')) {
+      if (String(url).endsWith('/access/auth/login')) {
         return jsonResponse({
           status: 200,
           body: {
@@ -81,7 +81,7 @@ describe('AuthContext', () => {
           },
         });
       }
-      if (String(url).endsWith('/auth/me')) {
+      if (String(url).endsWith('/access/auth/me')) {
         return jsonResponse({ status: 200, body: user });
       }
       return jsonResponse({
@@ -163,7 +163,7 @@ describe('AuthContext', () => {
 
     render(
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={['/projects']}>
+        <MemoryRouter initialEntries={['/masters/projects/list']}>
           <AuthProvider>
             <Probe />
           </AuthProvider>
@@ -186,7 +186,7 @@ describe('AuthContext', () => {
   it('logs out, clears the token, and navigates to login', async () => {
     const user = seedAuthSession('you@acme.io');
     const fetchMock = vi.fn(async (url) => {
-      if (String(url).endsWith('/auth/logout')) {
+      if (String(url).endsWith('/access/auth/logout')) {
         return {
           ok: true,
           status: 204,
@@ -246,7 +246,7 @@ describe('AuthContext', () => {
   it('boots successfully when refresh returns a token', async () => {
     const user = buildTestAuthUser('boot@acme.io');
     const fetchMock = vi.fn(async (url) => {
-      if (String(url).endsWith('/auth/refresh')) {
+      if (String(url).endsWith('/access/auth/refresh')) {
         return jsonResponse({
           status: 200,
           body: {
@@ -256,7 +256,7 @@ describe('AuthContext', () => {
           },
         });
       }
-      if (String(url).endsWith('/auth/me')) {
+      if (String(url).endsWith('/access/auth/me')) {
         return jsonResponse({ status: 200, body: user });
       }
       return jsonResponse({
@@ -278,7 +278,7 @@ describe('AuthContext', () => {
   it('ignores session-cleared notifications during intentional logout', async () => {
     const user = seedAuthSession('you@acme.io');
     const fetchMock = vi.fn(async (url) => {
-      if (String(url).endsWith('/auth/logout')) {
+      if (String(url).endsWith('/access/auth/logout')) {
         return {
           ok: true,
           status: 204,

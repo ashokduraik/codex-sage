@@ -65,7 +65,7 @@ describe('authApi', () => {
     expect(result.accessToken).toBe('access-1');
     expect(getAccessToken()).toBe('access-1');
     expect(fetchMock).toHaveBeenCalledWith(
-      `${API_BASE_URL}/auth/login`,
+      `${API_BASE_URL}/access/auth/login`,
       expect.objectContaining({
         method: 'POST',
         credentials: 'include',
@@ -118,7 +118,7 @@ describe('authApi', () => {
     await logout();
 
     expect(fetchMock).toHaveBeenCalledWith(
-      `${API_BASE_URL}/auth/logout`,
+      `${API_BASE_URL}/access/auth/logout`,
       expect.objectContaining({
         method: 'POST',
         headers: expect.objectContaining({ 'X-CSRF-Token': 'test-csrf' }),

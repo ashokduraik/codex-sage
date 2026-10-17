@@ -8,11 +8,26 @@ import { KnowledgeVersion } from '../../models/knowledgeVersion.model.js';
 import { SourceChangeSummary } from '../../models/sourceChangeSummary.model.js';
 import { RepositoryConnection } from '../../models/repositoryConnection.model.js';
 
-export { UPLOAD_MAX_ARCHIVE_BYTES, consumeSourceArchivePreHandler, sourceUploadRoutes } from './uploads.js';
-export { MULTIPART_MAX_FILES, sourceRoutes } from './sources.js';
-export { changeSummaryRoutes } from './changeSummary.js';
-export { loadSourceFileSlice, SOURCE_PREVIEW_MAX_BYTES, SOURCE_PREVIEW_MAX_LINES, sourcePreviewRoutes } from './sourcePreview.js';
-export { repositoryRoutes } from './repositories.js';
+export { UPLOAD_MAX_ARCHIVE_BYTES, consumeSourceArchivePreHandler, uploadProjectSourceHttp } from './uploads.js';
+export { MULTIPART_MAX_FILES, listProjectSourceVersionsHttp, reingestSourceHttp } from './sources.js';
+export { getLatestKnowledgeUpdateHttp } from './changeSummary.js';
+export {
+  loadSourceFileSlice,
+  SOURCE_PREVIEW_MAX_BYTES,
+  SOURCE_PREVIEW_MAX_LINES,
+  readSourceFileSliceHttp,
+  getSourceFileMetadataHttp,
+} from './sourcePreview.js';
+export {
+  probeRepositoryHttp,
+  attachRepositoryHttp,
+  syncRepositoryHttp,
+  getRepositoryConnectionHttp,
+  updateRepositoryBranchHttp,
+  replaceRepositoryCredentialHttp,
+  revokeRepositoryCredentialHttp,
+  retestRepositoryConnectionHttp,
+} from './repositories.js';
 export { repoSyncHandlerRegistration, enqueueDueRepositorySyncs, REPO_SYNC_SCHEDULER_TICK_MS } from './repoSync.js';
 export { ingestHandlerRegistration, reingestHandlerRegistration } from './ingest.js';
 export {
@@ -24,7 +39,6 @@ export {
   resolvePublishedHealth,
   publishKnowledgeVersion,
   assertKnowledgeReadable,
-  knowledgeBrowseRoutes,
   loadKnowledgeBrowse,
   clampBrowseLimit,
   KNOWLEDGE_SUMMARY_MAX_CHARS,
@@ -33,8 +47,14 @@ export {
   mapHealthDimensions,
   isRecoverableCodegraphFailure,
   runCodegraphUpdateWithRecovery,
+  getKnowledgeSummaryHttp,
+  listKnowledgeWorkflowsHttp,
+  listKnowledgeApisHttp,
+  listKnowledgeSymbolsHttp,
+  getKnowledgeHealthHttp,
+  getKnowledgeIndexHttp,
 } from './knowledge.js';
-export { searchRoutes, SEARCH_DOC_MAX_RESULTS, SEARCH_GRAPH_MAX_RESULTS, SEARCH_SNIPPET_MAX_CHARS } from './search.js';
+export { searchProjectHttp, SEARCH_DOC_MAX_RESULTS, SEARCH_GRAPH_MAX_RESULTS, SEARCH_SNIPPET_MAX_CHARS } from './search.js';
 export { createCodegraphAdapter, CODEGRAPH_READ_LEASE_TTL_MS } from './codegraph.js';
 export { resolveProjectWorkspacePath } from './sources.js';
 export { isDocumentPath, listDocumentFilesForVersion, listSectionsForPath, searchDocumentSections } from './documents.js';

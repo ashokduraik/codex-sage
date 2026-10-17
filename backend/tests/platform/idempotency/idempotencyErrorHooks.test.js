@@ -34,7 +34,7 @@ describe('idempotencyErrorHooks', () => {
     const request = {
       id: 'REQ-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
       method: 'POST',
-      url: '/users',
+      url: '/masters/users/create',
       log: { error: vi.fn(), warn: vi.fn() },
     };
     await app.errorHandler(new IdempotencyReplay(201, { id: 'u1' }), request, reply);
@@ -65,7 +65,7 @@ describe('idempotencyErrorHooks', () => {
     const request = {
       id: 'REQ-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
       method: 'POST',
-      url: '/users',
+      url: '/masters/users/create',
       log: { error: vi.fn(), warn: vi.fn() },
     };
     await app.errorHandler(/** @type {Error} */ ({ name: 'CustomReplay', responseStatus: 200, responseBody: { ok: true } }), request, reply);

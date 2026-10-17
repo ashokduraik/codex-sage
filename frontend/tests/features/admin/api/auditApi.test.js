@@ -66,7 +66,7 @@ describe('auditApi', () => {
     });
 
     const url = String(fetchMock.mock.calls[0][0]);
-    expect(url.startsWith(`${API_BASE_URL}/audit-events?`)).toBe(true);
+    expect(url.startsWith(`${API_BASE_URL}/access/audit/list?`)).toBe(true);
     expect(url).toContain('from=2026-09-01T00%3A00%3A00.000Z');
     expect(url).toContain('to=2026-09-13T00%3A00%3A00.000Z');
     expect(url).toContain('actor=507f1f77bcf86cd799439011');
@@ -88,6 +88,6 @@ describe('auditApi', () => {
     await listAuditEvents({});
 
     const url = String(fetchMock.mock.calls[0][0]);
-    expect(url).toBe(`${API_BASE_URL}/audit-events`);
+    expect(url).toBe(`${API_BASE_URL}/access/audit/list`);
   });
 });

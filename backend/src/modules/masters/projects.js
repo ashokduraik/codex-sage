@@ -5,7 +5,6 @@ import { z } from 'zod';
 import { ApiError } from '../../platform/errors.js';
 import { Project } from '../../models/projects.model.js';
 import { buildAuditContextFromRequest, recordAuditEvent } from '../access/index.js';
-import { requireProjectPermission } from '../../http/preHandlers/requireProjectPermission.js';
 import { buildProjectMemberSubdoc, resolveAccessibleProjectFilter } from './projectMembers.js';
 import {
   findProjectById,
@@ -65,204 +64,172 @@ const projectIdParamsSchema = z.object({
 });
 
 /**
- * Registers project routes under `/api/v1`.
- * @param {import('fastify').FastifyInstance} app Fastify app.
+ * POST /masters/projects/create — create a project for the org.
+ * @param {import('fastify').FastifyRequest} request Request.
+ * @param {import('fastify').FastifyReply} reply Reply.
  */
-export async function projectRoutes(app) {
-  app.post(
-    '/projects',
-    {
-      config: {
-        requiredPermissions: ['projects.create'],
-        requireIdempotencyKey: true,
-      },
-    },
-    async (request, reply) => {
-      const parsed = createBodySchema.safeParse(request.body ?? {});
-      if (!parsed.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
-      }
-      const ctx = serviceContext(request);
-      const project = await createProject({
-        ...ctx,
-        name: parsed.data.name,
-        description: parsed.data.description,
-        sourceType: parsed.data.sourceType,
-      });
-      return reply.code(201).send(project);
-    },
-  );
-
-  app.get('/projects', { config: { requiredPermissions: ['projects.view'] } }, async (request) => {
-    const parsed = listQuerySchema.safeParse(request.query ?? {});
-    if (!parsed.success) {
-      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
-    }
-    if (parsed.data.limit === 0) {
-      throw ApiError.fromCode('VALIDATION_ERROR', {
-        details: [{ path: 'limit', message: 'limit must be a positive integer' }],
-      });
-    }
-    return listProjects(request.principal.orgId, request.principal.userId, parsed.data);
+export async function createProjectHttp(request, reply) {
+  const parsed = createBodySchema.safeParse(request.body ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
+  }
+  const ctx = serviceContext(request);
+  const project = await createProject({
+    ...ctx,
+    name: parsed.data.name,
+    description: parsed.data.description,
+    sourceType: parsed.data.sourceType,
   });
+  return reply.code(201).send(project);
+}
 
-  app.get(
-    '/projects/:projectId',
-    {
-      config: { routeAccess: 'authenticated' },
-      preHandler: requireProjectPermission('projects.view'),
-    },
-    async (request) => {
-      const params = projectIdParamsSchema.safeParse(request.params ?? {});
-      if (!params.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
-      }
-      return getProject(request.projectScope.orgId, request.projectScope.projectId);
-    },
-  );
+/**
+ * GET /masters/projects/list — list projects visible to the caller.
+ * @param {import('fastify').FastifyRequest} request Request.
+ */
+export async function listProjectsHttp(request) {
+  const parsed = listQuerySchema.safeParse(request.query ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
+  }
+  if (parsed.data.limit === 0) {
+    throw ApiError.fromCode('VALIDATION_ERROR', {
+      details: [{ path: 'limit', message: 'limit must be a positive integer' }],
+    });
+  }
+  return listProjects(request.principal.orgId, request.principal.userId, parsed.data);
+}
 
-  app.post(
-    '/projects/:projectId/access',
-    {
-      config: { routeAccess: 'authenticated' },
-      preHandler: requireProjectPermission('projects.view'),
-    },
-    async (request) => {
-      const params = projectIdParamsSchema.safeParse(request.params ?? {});
-      if (!params.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
-      }
-      return recordProjectAccess(request.projectScope.orgId, request.projectScope.projectId);
-    },
-  );
+/**
+ * GET /masters/projects/get/:projectId — project detail (project ACL).
+ * @param {import('fastify').FastifyRequest} request Request.
+ */
+export async function getProjectHttp(request) {
+  const params = projectIdParamsSchema.safeParse(request.params ?? {});
+  if (!params.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+  }
+  return getProject(request.projectScope.orgId, request.projectScope.projectId);
+}
 
-  app.patch(
-    '/projects/:projectId',
-    {
-      config: { routeAccess: 'authenticated' },
-      preHandler: requireProjectPermission('projects.update'),
-    },
-    async (request) => {
-      const params = projectIdParamsSchema.safeParse(request.params ?? {});
-      if (!params.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
-      }
-      const parsed = patchBodySchema.safeParse(request.body ?? {});
-      if (!parsed.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
-      }
-      const ctx = serviceContext(request);
-      return updateProject({
-        ...ctx,
-        projectId: request.projectScope.projectId,
-        name: parsed.data.name,
-        description: parsed.data.description,
-      });
-    },
-  );
+/**
+ * POST /masters/projects/recordAccess/:projectId — record last-accessed for the caller.
+ * @param {import('fastify').FastifyRequest} request Request.
+ */
+export async function recordProjectAccessHttp(request) {
+  const params = projectIdParamsSchema.safeParse(request.params ?? {});
+  if (!params.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+  }
+  return recordProjectAccess(request.projectScope.orgId, request.projectScope.projectId);
+}
 
-  app.get(
-    '/projects/:projectId/settings',
-    {
-      config: { routeAccess: 'authenticated' },
-      preHandler: requireProjectPermission('settings.manage'),
-    },
-    async (request) => {
-      const params = projectIdParamsSchema.safeParse(request.params ?? {});
-      if (!params.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
-      }
-      return getProjectSettings(request.projectScope.orgId, request.projectScope.projectId);
-    },
-  );
+/**
+ * PATCH /masters/projects/update/:projectId — update project metadata (project ACL).
+ * @param {import('fastify').FastifyRequest} request Request.
+ */
+export async function updateProjectHttp(request) {
+  const params = projectIdParamsSchema.safeParse(request.params ?? {});
+  if (!params.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+  }
+  const parsed = patchBodySchema.safeParse(request.body ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
+  }
+  const ctx = serviceContext(request);
+  return updateProject({
+    ...ctx,
+    projectId: request.projectScope.projectId,
+    name: parsed.data.name,
+    description: parsed.data.description,
+  });
+}
 
-  app.patch(
-    '/projects/:projectId/settings',
-    {
-      config: { routeAccess: 'authenticated' },
-      preHandler: requireProjectPermission('settings.manage'),
-    },
-    async (request) => {
-      const params = projectIdParamsSchema.safeParse(request.params ?? {});
-      if (!params.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
-      }
-      const parsed = settingsBodySchema.safeParse(request.body ?? {});
-      if (!parsed.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
-      }
-      const ctx = serviceContext(request);
-      return patchProjectSettings({
-        ...ctx,
-        projectId: request.projectScope.projectId,
-        settings: parsed.data.settings,
-      });
-    },
-  );
+/**
+ * GET /masters/projects/getSettings/:projectId — read project settings (project ACL).
+ * @param {import('fastify').FastifyRequest} request Request.
+ */
+export async function getProjectSettingsHttp(request) {
+  const params = projectIdParamsSchema.safeParse(request.params ?? {});
+  if (!params.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+  }
+  return getProjectSettings(request.projectScope.orgId, request.projectScope.projectId);
+}
 
-  app.post(
-    '/projects/:projectId/archive',
-    {
-      config: { routeAccess: 'authenticated' },
-      preHandler: requireProjectPermission('projects.update'),
-    },
-    async (request) => {
-      const params = projectIdParamsSchema.safeParse(request.params ?? {});
-      if (!params.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
-      }
-      const ctx = serviceContext(request);
-      return archiveProject({ ...ctx, projectId: request.projectScope.projectId });
-    },
-  );
+/**
+ * PATCH /masters/projects/updateSettings/:projectId — merge project settings (project ACL).
+ * @param {import('fastify').FastifyRequest} request Request.
+ */
+export async function updateProjectSettingsHttp(request) {
+  const params = projectIdParamsSchema.safeParse(request.params ?? {});
+  if (!params.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+  }
+  const parsed = settingsBodySchema.safeParse(request.body ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
+  }
+  const ctx = serviceContext(request);
+  return patchProjectSettings({
+    ...ctx,
+    projectId: request.projectScope.projectId,
+    settings: parsed.data.settings,
+  });
+}
 
-  app.post(
-    '/projects/:projectId/restore',
-    {
-      config: { routeAccess: 'authenticated' },
-      preHandler: requireProjectPermission('projects.update'),
-    },
-    async (request) => {
-      const params = projectIdParamsSchema.safeParse(request.params ?? {});
-      if (!params.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
-      }
-      const ctx = serviceContext(request);
-      return restoreProject({ ...ctx, projectId: request.projectScope.projectId });
-    },
-  );
+/**
+ * POST /masters/projects/archive/:projectId — archive project lifecycle (project ACL).
+ * @param {import('fastify').FastifyRequest} request Request.
+ */
+export async function archiveProjectHttp(request) {
+  const params = projectIdParamsSchema.safeParse(request.params ?? {});
+  if (!params.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+  }
+  const ctx = serviceContext(request);
+  return archiveProject({ ...ctx, projectId: request.projectScope.projectId });
+}
 
-  app.get(
-    '/projects/:projectId/deletion-preview',
-    {
-      config: { routeAccess: 'authenticated' },
-      preHandler: requireProjectPermission('projects.delete'),
-    },
-    async (request) => {
-      const params = projectIdParamsSchema.safeParse(request.params ?? {});
-      if (!params.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
-      }
-      return getDeletionPreview(request.projectScope.orgId, request.projectScope.projectId);
-    },
-  );
+/**
+ * POST /masters/projects/restore/:projectId — restore archived project (project ACL).
+ * @param {import('fastify').FastifyRequest} request Request.
+ */
+export async function restoreProjectHttp(request) {
+  const params = projectIdParamsSchema.safeParse(request.params ?? {});
+  if (!params.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+  }
+  const ctx = serviceContext(request);
+  return restoreProject({ ...ctx, projectId: request.projectScope.projectId });
+}
 
-  app.delete(
-    '/projects/:projectId',
-    {
-      config: { routeAccess: 'authenticated' },
-      preHandler: requireProjectPermission('projects.delete'),
-    },
-    async (request, reply) => {
-      const params = projectIdParamsSchema.safeParse(request.params ?? {});
-      if (!params.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
-      }
-      const ctx = serviceContext(request);
-      await deleteProject({ ...ctx, projectId: request.projectScope.projectId });
-      return reply.code(204).send();
-    },
-  );
+/**
+ * GET /masters/projects/getDeletionPreview/:projectId — counts before delete (project ACL).
+ * @param {import('fastify').FastifyRequest} request Request.
+ */
+export async function getProjectDeletionPreviewHttp(request) {
+  const params = projectIdParamsSchema.safeParse(request.params ?? {});
+  if (!params.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+  }
+  return getDeletionPreview(request.projectScope.orgId, request.projectScope.projectId);
+}
+
+/**
+ * DELETE /masters/projects/delete/:projectId — soft-delete project (project ACL).
+ * @param {import('fastify').FastifyRequest} request Request.
+ * @param {import('fastify').FastifyReply} reply Reply.
+ */
+export async function deleteProjectHttp(request, reply) {
+  const params = projectIdParamsSchema.safeParse(request.params ?? {});
+  if (!params.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+  }
+  const ctx = serviceContext(request);
+  await deleteProject({ ...ctx, projectId: request.projectScope.projectId });
+  return reply.code(204).send();
 }
 
 /**
@@ -316,7 +283,7 @@ function serviceContext(request) {
 /**
  * Project use cases — CRUD, lifecycle transitions, audit, deletion preview.
  */
-/** Known setting keys accepted by PATCH /projects/:id/settings (empty in Phase 17). */
+/** Known setting keys accepted by PATCH /masters/projects/updateSettings/:projectId (empty in Phase 17). */
 export const PROJECT_SETTING_KEYS = Object.freeze([]);
 
 const PROJECT_SETTING_KEY_SET = new Set(PROJECT_SETTING_KEYS);

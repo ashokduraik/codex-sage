@@ -7,7 +7,6 @@ import { findProjectById } from '../masters/index.js';
 import { findKnowledgeVersionById } from './knowledge.js';
 import { assertOrgId, ROW_STATUS_ACTIVE } from '../../platform/data/index.js';
 import { SourceChangeSummary } from '../../models/sourceChangeSummary.model.js';
-import { requireProjectPermission } from '../../http/preHandlers/requireProjectPermission.js';
 
 // --- from sources/sourceChangeSummary.repository.js ---
 /**
@@ -196,25 +195,13 @@ export async function loadLatestChangeSummary(input) {
 
 // --- from sources/changeSummary.routes.js ---
 /**
- * Latest source change-summary HTTP route (knowledge updates URL).
+ * GET /knowledge/changeSummary/getLatest/:projectId — latest computed change summary.
+ * @param {import('fastify').FastifyRequest} request Fastify request.
+ * @returns {Promise<object>} Change summary DTO for the project.
  */
-/**
- * Registers GET /projects/:projectId/knowledge/updates/latest under `/api/v1`.
- * @param {import('fastify').FastifyInstance} app Fastify app.
- */
-export async function changeSummaryRoutes(app) {
-  app.get(
-    '/projects/:projectId/knowledge/updates/latest',
-    {
-      config: { routeAccess: 'authenticated' },
-      preHandler: requireProjectPermission(['knowledge.browse', 'knowledge.view'], {
-        mode: 'any',
-      }),
-    },
-    async (request) =>
-      loadLatestChangeSummary({
-        orgId: request.projectScope.orgId,
-        projectId: request.projectScope.projectId,
-      }),
-  );
+export async function getLatestKnowledgeUpdateHttp(request) {
+  return loadLatestChangeSummary({
+    orgId: request.projectScope.orgId,
+    projectId: request.projectScope.projectId,
+  });
 }

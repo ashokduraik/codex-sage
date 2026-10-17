@@ -1,7 +1,10 @@
+/**
+ * Health and readiness adapter unit tests.
+ */
 import Fastify from 'fastify';
 import { MONGO_UNAVAILABLE_CODE } from '../../src/platform/mongo.js';
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
-import { buildHealthResponse, buildReadinessResponse, healthRoutes } from '../../src/http/health.routes.js';
+import { getHealthHttp, getReadinessHttp, buildHealthResponse, buildReadinessResponse } from '../../src/http/health.routes.js';
 
 vi.mock('../../src/platform/mongo.js', async (importOriginal) => {
   const actual = await importOriginal();
@@ -19,6 +22,7 @@ afterEach(async () => {
   app = undefined;
   vi.clearAllMocks();
 });
+
 describe('buildHealthResponse', () => {
   it('returns ok with uptime and package version', () => {
     const body = buildHealthResponse();
@@ -28,6 +32,7 @@ describe('buildHealthResponse', () => {
     expect(body.version.length).toBeGreaterThan(0);
   });
 });
+
 describe('buildReadinessResponse', () => {
   beforeEach(() => {
     vi.mocked(checkMongoHealth).mockReset();
@@ -63,10 +68,12 @@ describe('buildReadinessResponse', () => {
     expect(result.body.checks.mongo.error).toEqual({ code: 'MONGO_UNAVAILABLE' });
   });
 });
-describe('healthRoutes', () => {
+
+describe('health Http handlers', () => {
   it('returns ok liveness payload', async () => {
     app = Fastify({ logger: false });
-    await app.register(healthRoutes);
+    app.get('/health', { config: { routeAccess: 'public' } }, getHealthHttp);
+    await app.ready();
     const res = await app.inject({ method: 'GET', url: '/health' });
     expect(res.statusCode).toBe(200);
     const body = res.json();
@@ -77,7 +84,8 @@ describe('healthRoutes', () => {
   it('returns ready readiness when mongo health is ok', async () => {
     vi.mocked(checkMongoHealth).mockResolvedValue({ ok: true, latencyMs: 2 });
     app = Fastify({ logger: false });
-    await app.register(healthRoutes);
+    app.get('/readiness', { config: { routeAccess: 'public' } }, getReadinessHttp);
+    await app.ready();
     const res = await app.inject({ method: 'GET', url: '/readiness' });
     expect(res.statusCode).toBe(200);
     expect(res.json().status).toBe('ready');
@@ -90,7 +98,8 @@ describe('healthRoutes', () => {
       error: { code: MONGO_UNAVAILABLE_CODE },
     });
     app = Fastify({ logger: false });
-    await app.register(healthRoutes);
+    app.get('/readiness', { config: { routeAccess: 'public' } }, getReadinessHttp);
+    await app.ready();
     const res = await app.inject({ method: 'GET', url: '/readiness' });
     expect(res.statusCode).toBe(503);
     expect(res.json().status).toBe('not_ready');

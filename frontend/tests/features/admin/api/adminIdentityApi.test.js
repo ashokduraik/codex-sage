@@ -78,7 +78,7 @@ describe('adminIdentityApi', () => {
     });
 
     const url = String(fetchMock.mock.calls[0][0]);
-    expect(url.startsWith(`${API_BASE_URL}/users?`)).toBe(true);
+    expect(url.startsWith(`${API_BASE_URL}/masters/users/list?`)).toBe(true);
     expect(url).toContain('q=ab');
     expect(url).toContain('userStatus=active');
     expect(url).toContain('roleId=507f1f77bcf86cd799439011');
@@ -104,7 +104,7 @@ describe('adminIdentityApi', () => {
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      `${API_BASE_URL}/users`,
+      `${API_BASE_URL}/masters/users/create`,
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({
@@ -128,7 +128,7 @@ describe('adminIdentityApi', () => {
     await patchUser('u1', { roleIds: ['r2', 'r3'] });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      `${API_BASE_URL}/users/u1`,
+      `${API_BASE_URL}/masters/users/update/u1`,
       expect.objectContaining({
         method: 'PATCH',
         body: JSON.stringify({ roleIds: ['r2', 'r3'] }),
@@ -147,9 +147,9 @@ describe('adminIdentityApi', () => {
     await deactivateUser('u1');
     await removeUser('u1');
 
-    expect(fetchMock.mock.calls[0][0]).toBe(`${API_BASE_URL}/users/u1/activate`);
-    expect(fetchMock.mock.calls[1][0]).toBe(`${API_BASE_URL}/users/u1/deactivate`);
-    expect(fetchMock.mock.calls[2][0]).toBe(`${API_BASE_URL}/users/u1`);
+    expect(fetchMock.mock.calls[0][0]).toBe(`${API_BASE_URL}/masters/users/activate/u1`);
+    expect(fetchMock.mock.calls[1][0]).toBe(`${API_BASE_URL}/masters/users/deactivate/u1`);
+    expect(fetchMock.mock.calls[2][0]).toBe(`${API_BASE_URL}/masters/users/delete/u1`);
     expect(fetchMock.mock.calls[2][1].method).toBe('DELETE');
   });
 
@@ -187,7 +187,7 @@ describe('adminIdentityApi', () => {
     await listRolesPage({ q: 'admin', cursor: 'cur1', limit: 25 });
 
     const url = String(fetchMock.mock.calls[0][0]);
-    expect(url.startsWith(`${API_BASE_URL}/roles?`)).toBe(true);
+    expect(url.startsWith(`${API_BASE_URL}/masters/roles/list?`)).toBe(true);
     expect(url).toContain('q=admin');
     expect(url).toContain('cursor=cur1');
     expect(url).toContain('limit=25');
@@ -232,7 +232,7 @@ describe('adminIdentityApi', () => {
 
     const catalog = await fetchPermissionsCatalog();
     expect(catalog.groups[0].id).toBe('org');
-    expect(fetchMock.mock.calls[0][0]).toBe(`${API_BASE_URL}/permissions`);
+    expect(fetchMock.mock.calls[0][0]).toBe(`${API_BASE_URL}/access/permissions/list`);
   });
 
   it('createRole posts code name and permissions', async () => {
@@ -251,7 +251,7 @@ describe('adminIdentityApi', () => {
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      `${API_BASE_URL}/roles`,
+      `${API_BASE_URL}/masters/roles/create`,
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({
@@ -272,9 +272,9 @@ describe('adminIdentityApi', () => {
     await patchRole('r1', { name: 'X' });
     await removeRole('r1');
 
-    expect(String(fetchMock.mock.calls[0][0])).toBe(`${API_BASE_URL}/roles/r1`);
+    expect(String(fetchMock.mock.calls[0][0])).toBe(`${API_BASE_URL}/masters/roles/update/r1`);
     expect(fetchMock.mock.calls[0][1].method).toBe('PATCH');
-    expect(String(fetchMock.mock.calls[1][0])).toBe(`${API_BASE_URL}/roles/r1`);
+    expect(String(fetchMock.mock.calls[1][0])).toBe(`${API_BASE_URL}/masters/roles/delete/r1`);
     expect(fetchMock.mock.calls[1][1].method).toBe('DELETE');
   });
 });

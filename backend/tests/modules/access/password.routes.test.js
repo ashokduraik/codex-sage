@@ -96,7 +96,7 @@ describe('password.routes and adminPasswordReset.routes', () => {
   async function login(instance, email, password) {
     const res = await instance.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/auth/login`,
+      url: `${API_BASE_PATH}/access/auth/login`,
       payload: { email, password },
     });
     expect(res.statusCode).toBe(200);
@@ -110,7 +110,7 @@ describe('password.routes and adminPasswordReset.routes', () => {
 
     const change = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/auth/password/change`,
+      url: `${API_BASE_PATH}/access/password/change`,
       headers: { authorization: `Bearer ${accessToken}` },
       payload: {
         currentPassword: DEFAULT_ADMIN_PASSWORD,
@@ -131,7 +131,7 @@ describe('password.routes and adminPasswordReset.routes', () => {
 
     const me = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/auth/me`,
+      url: `${API_BASE_PATH}/access/auth/me`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(me.statusCode).toBe(401);
@@ -148,7 +148,7 @@ describe('password.routes and adminPasswordReset.routes', () => {
 
     const change = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/auth/password/change`,
+      url: `${API_BASE_PATH}/access/password/change`,
       headers: { authorization: `Bearer ${accessToken}` },
       payload: {
         currentPassword: 'wrong-password',
@@ -167,7 +167,7 @@ describe('password.routes and adminPasswordReset.routes', () => {
 
     const me = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/auth/me`,
+      url: `${API_BASE_PATH}/access/auth/me`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(me.statusCode).toBe(200);
@@ -180,7 +180,7 @@ describe('password.routes and adminPasswordReset.routes', () => {
 
     const change = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/auth/password/change`,
+      url: `${API_BASE_PATH}/access/password/change`,
       headers: { authorization: `Bearer ${accessToken}` },
       payload: {
         currentPassword: DEFAULT_ADMIN_PASSWORD,
@@ -210,7 +210,7 @@ describe('password.routes and adminPasswordReset.routes', () => {
 
     const reset = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/users/${invited._id}/reset-password`,
+      url: `${API_BASE_PATH}/masters/users/resetPassword/${invited._id}`,
       headers: { authorization: `Bearer ${accessToken}` },
       payload: { newPassword: 'temp-secret' },
     });
@@ -233,7 +233,7 @@ describe('password.routes and adminPasswordReset.routes', () => {
 
     const blocked = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/users/${admin.id}/reset-password`,
+      url: `${API_BASE_PATH}/masters/users/resetPassword/${admin.id}`,
       headers: { authorization: `Bearer ${targetLogin.accessToken}` },
       payload: { newPassword: 'another1' },
     });
@@ -242,7 +242,7 @@ describe('password.routes and adminPasswordReset.routes', () => {
 
     const me = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/auth/me`,
+      url: `${API_BASE_PATH}/access/auth/me`,
       headers: { authorization: `Bearer ${targetLogin.accessToken}` },
     });
     expect(me.statusCode).toBe(200);
@@ -269,7 +269,7 @@ describe('password.routes and adminPasswordReset.routes', () => {
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const reset = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/users/${outsider._id}/reset-password`,
+      url: `${API_BASE_PATH}/masters/users/resetPassword/${outsider._id}`,
       headers: { authorization: `Bearer ${accessToken}` },
       payload: { newPassword: 'temp-secret' },
     });
@@ -283,7 +283,7 @@ describe('password.routes and adminPasswordReset.routes', () => {
     const { accessToken, user } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const reset = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/users/${user.id}/reset-password`,
+      url: `${API_BASE_PATH}/masters/users/resetPassword/${user.id}`,
       headers: { authorization: `Bearer ${accessToken}` },
       payload: { newPassword: 'temp-secret' },
     });
@@ -319,7 +319,7 @@ describe('password.routes and adminPasswordReset.routes', () => {
     const { accessToken } = await login(app, 'member@example.com', 'member1');
     const reset = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/users/${target._id}/reset-password`,
+      url: `${API_BASE_PATH}/masters/users/resetPassword/${target._id}`,
       headers: { authorization: `Bearer ${accessToken}` },
       payload: { newPassword: 'temp-secret' },
     });
@@ -345,7 +345,7 @@ describe('password.routes and adminPasswordReset.routes', () => {
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const reset = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/users/${gone._id}/reset-password`,
+      url: `${API_BASE_PATH}/masters/users/resetPassword/${gone._id}`,
       headers: { authorization: `Bearer ${accessToken}` },
       payload: { newPassword: 'temp-secret' },
     });
@@ -359,7 +359,7 @@ describe('password.routes and adminPasswordReset.routes', () => {
 
     const missing = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/auth/password/change`,
+      url: `${API_BASE_PATH}/access/password/change`,
       headers: { authorization: `Bearer ${accessToken}` },
       payload: {},
     });
@@ -368,7 +368,7 @@ describe('password.routes and adminPasswordReset.routes', () => {
 
     const short = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/auth/password/change`,
+      url: `${API_BASE_PATH}/access/password/change`,
       headers: { authorization: `Bearer ${accessToken}` },
       payload: {
         currentPassword: DEFAULT_ADMIN_PASSWORD,
@@ -395,7 +395,7 @@ describe('password.routes and adminPasswordReset.routes', () => {
 
     const missing = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/users/${target._id}/reset-password`,
+      url: `${API_BASE_PATH}/masters/users/resetPassword/${target._id}`,
       headers: { authorization: `Bearer ${accessToken}` },
       payload: {},
     });
@@ -403,7 +403,7 @@ describe('password.routes and adminPasswordReset.routes', () => {
 
     const short = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/users/${target._id}/reset-password`,
+      url: `${API_BASE_PATH}/masters/users/resetPassword/${target._id}`,
       headers: { authorization: `Bearer ${accessToken}` },
       payload: { newPassword: 'ab' },
     });
@@ -439,7 +439,7 @@ describe('password.routes and adminPasswordReset.routes', () => {
     const { accessToken } = await login(app, 'mgr@example.com', 'manager1');
     const reset = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/users/${target._id}/reset-password`,
+      url: `${API_BASE_PATH}/masters/users/resetPassword/${target._id}`,
       headers: { authorization: `Bearer ${accessToken}` },
       payload: { newPassword: 'fresh12' },
     });
@@ -463,7 +463,7 @@ describe('password.routes and adminPasswordReset.routes', () => {
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const reset = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/users/${target._id}/reset-password`,
+      url: `${API_BASE_PATH}/masters/users/resetPassword/${target._id}`,
       headers: { authorization: `Bearer ${accessToken}` },
       payload: { newPassword: 'sameold' },
     });
@@ -481,7 +481,7 @@ describe('password.routes and adminPasswordReset.routes', () => {
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/auth/password/change`,
+      url: `${API_BASE_PATH}/access/password/change`,
       headers: { authorization: `Bearer ${accessToken}` },
       payload: {
         currentPassword: DEFAULT_ADMIN_PASSWORD,

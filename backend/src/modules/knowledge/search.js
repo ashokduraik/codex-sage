@@ -9,7 +9,6 @@ import { resolveProjectWorkspacePath } from './sources.js';
 import { ROW_STATUS_ACTIVE } from '../../platform/data/index.js';
 import { findProjectById, recordProjectActivity } from '../masters/index.js';
 import { assertKnowledgeReadable, findKnowledgeVersionById } from './knowledge.js';
-import { requireProjectPermission } from '../../http/preHandlers/requireProjectPermission.js';
 
 // --- from search/search.ids.js ---
 /**
@@ -161,7 +160,7 @@ export function isAfterSearchCursor(item, cursor) {
 
 // --- from search/search.schemas.js ---
 /**
- * Query parsing for GET /projects/:projectId/search.
+ * Query parsing for GET /knowledge/search/run/:projectId.
  */
 /** Minimum search query length. */
 export const SEARCH_QUERY_MIN_LEN = 2;
@@ -776,38 +775,27 @@ export async function runProjectSearchFromQuery(input) {
 
 // --- from search/search.routes.js ---
 /**
- * Project search HTTP route under `/api/v1/projects/:projectId/search`.
+ * GET /knowledge/search/run/:projectId — unified project search (docs, code graph, symbols).
+ * @param {import('fastify').FastifyRequest} request Fastify request.
+ * @returns {Promise<object>} Merged search results for the current knowledge version.
  */
-/**
- * Registers search routes under `/api/v1`.
- * @param {import('fastify').FastifyInstance} app Fastify app.
- */
-export async function searchRoutes(app) {
-  app.get(
-    '/projects/:projectId/search',
-    {
-      config: { routeAccess: 'authenticated' },
-      preHandler: requireProjectPermission('search.run'),
-    },
-    async (request) => {
-      const result = await runProjectSearchFromQuery({
-        orgId: request.projectScope.orgId,
-        projectId: request.projectScope.projectId,
-        workspaceRoot: request.server.config.workspace.root,
-        query: request.query,
-      });
-      await recordProjectActivity({
-        orgId: request.projectScope.orgId,
-        projectId: request.projectScope.projectId,
-        userId: request.projectScope.userId,
-        kind: 'search.executed',
-        quantity: 1,
-        unit: 'calls',
-        sourceRef: request.id,
-        dedupeKey: `search.executed:${request.id}`,
-        log: request.log,
-      });
-      return result;
-    },
-  );
+export async function searchProjectHttp(request) {
+  const result = await runProjectSearchFromQuery({
+    orgId: request.projectScope.orgId,
+    projectId: request.projectScope.projectId,
+    workspaceRoot: request.server.config.workspace.root,
+    query: request.query,
+  });
+  await recordProjectActivity({
+    orgId: request.projectScope.orgId,
+    projectId: request.projectScope.projectId,
+    userId: request.projectScope.userId,
+    kind: 'search.executed',
+    quantity: 1,
+    unit: 'calls',
+    sourceRef: request.id,
+    dedupeKey: `search.executed:${request.id}`,
+    log: request.log,
+  });
+  return result;
 }

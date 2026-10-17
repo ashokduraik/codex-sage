@@ -52,7 +52,7 @@ describe('usageApi', () => {
     };
     fetchMock.mockResolvedValueOnce(jsonResponse({ status: 200, body }));
     await expect(fetchOrganizationUsage()).resolves.toEqual(body);
-    expect(String(fetchMock.mock.calls[0][0])).toBe(`${API_BASE_URL}/usage/organization`);
+    expect(String(fetchMock.mock.calls[0][0])).toBe(`${API_BASE_URL}/masters/projectActivities/getOrganizationUsage`);
     expect(organizationUsageQueryKey()).toEqual(['usage', 'organization']);
   });
 });

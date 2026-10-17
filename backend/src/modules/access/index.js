@@ -14,9 +14,12 @@ export {
   revokeAllLoginSessionsForUser,
   createAuthService,
   createAuthenticatePreHandler,
-  authRoutes,
+  loginHttp,
+  refreshSessionHttp,
+  logoutHttp,
+  getCurrentUserHttp,
 } from './auth.js';
-export { PASSWORD_MIN_LENGTH, adminSetPassword, getPasswordResetStatus, passwordRoutes } from './password.js';
+export { PASSWORD_MIN_LENGTH, adminSetPassword, getPasswordResetStatus, changeOwnPasswordHttp } from './password.js';
 export {
   isKnownPermissionKey,
   assertRolePermissionsInCatalog,
@@ -27,9 +30,9 @@ export {
   createAuthorizePreHandler,
   assertAllRoutesDeclareAccess,
   installRouteDeclarationCollector,
-  permissionsRoutes,
+  listPermissionsHttp,
 } from './permissions.js';
-export { buildAuditContextFromRequest, recordAuditEvent, auditRoutes } from './audit.js';
+export { buildAuditContextFromRequest, recordAuditEvent, listAuditEventsHttp, getAuditEventHttp } from './audit.js';
 
 /** Models whose indexes are synced on development API startup. */
 export const AUTH_MODELS = Object.freeze([LoginSession]);

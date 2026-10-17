@@ -41,18 +41,18 @@ describe('knowledge HTTP fetchers', () => {
     await fetchKnowledgeSymbols('p1', '');
     await fetchKnowledgeHealth('p1');
     await fetchProjectSearch({ projectId: 'p1', q: 'refund', types: 'doc' });
-    expect(apiRequest).toHaveBeenCalledWith('/projects/p1/knowledge', { signal: undefined });
-    expect(apiRequest).toHaveBeenCalledWith('/projects/p1/knowledge/symbols?q=re', {
+    expect(apiRequest).toHaveBeenCalledWith('/knowledge/knowledge/getIndex/p1', { signal: undefined });
+    expect(apiRequest).toHaveBeenCalledWith('/knowledge/knowledge/listSymbols/p1?q=re', {
       signal: undefined,
     });
-    expect(apiRequest).toHaveBeenCalledWith('/projects/p1/knowledge/symbols', {
+    expect(apiRequest).toHaveBeenCalledWith('/knowledge/knowledge/listSymbols/p1', {
       signal: undefined,
     });
-    expect(apiRequest).toHaveBeenCalledWith('/projects/p1/search?q=refund&types=doc', {
+    expect(apiRequest).toHaveBeenCalledWith('/knowledge/search/run/p1?q=refund&types=doc', {
       signal: undefined,
     });
     await fetchProjectSearch({ projectId: 'p1', q: 'auth' });
-    expect(apiRequest).toHaveBeenCalledWith('/projects/p1/search?q=auth', {
+    expect(apiRequest).toHaveBeenCalledWith('/knowledge/search/run/p1?q=auth', {
       signal: undefined,
     });
   });
@@ -61,7 +61,7 @@ describe('knowledge HTTP fetchers', () => {
     apiRequest.mockResolvedValue({ path: 'a.js' });
     await fetchSourceFileMetadata({ projectId: 'p1', path: 'src/a.js' });
     await fetchSourceSlice({ projectId: 'p1', path: 'src/a.js', startLine: 1, endLine: 4 });
-    expect(apiRequest).toHaveBeenCalledWith('/projects/p1/files?path=src%2Fa.js', {
+    expect(apiRequest).toHaveBeenCalledWith('/knowledge/sourcePreview/getMetadata/p1?path=src%2Fa.js', {
       signal: undefined,
     });
 

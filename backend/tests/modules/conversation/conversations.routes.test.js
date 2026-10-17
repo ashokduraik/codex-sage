@@ -73,7 +73,7 @@ describe('conversation routes', () => {
   async function login(instance, email, password) {
     const res = await instance.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/auth/login`,
+      url: `${API_BASE_PATH}/access/auth/login`,
       payload: { email, password },
     });
     expect(res.statusCode).toBe(200);
@@ -89,7 +89,7 @@ describe('conversation routes', () => {
   async function createProject(instance, accessToken, name, idempotencyKey) {
     const res = await instance.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects`,
+      url: `${API_BASE_PATH}/masters/projects/create`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': idempotencyKey,
@@ -115,7 +115,7 @@ describe('conversation routes', () => {
     }
     return instance.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${projectId}/conversations`,
+      url: `${API_BASE_PATH}/conversation/conversation/create/${projectId}`,
       headers,
       payload,
     });
@@ -180,7 +180,7 @@ describe('conversation routes', () => {
 
     const listActive = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/conversations`,
+      url: `${API_BASE_PATH}/conversation/conversation/list/${project.id}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(listActive.statusCode).toBe(200);
@@ -188,7 +188,7 @@ describe('conversation routes', () => {
 
     const archive = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${project.id}/conversations/${conversationId}/archive`,
+      url: `${API_BASE_PATH}/conversation/conversation/archive/${project.id}/${conversationId}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(archive.statusCode).toBe(200);
@@ -196,7 +196,7 @@ describe('conversation routes', () => {
 
     const archiveAgain = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${project.id}/conversations/${conversationId}/archive`,
+      url: `${API_BASE_PATH}/conversation/conversation/archive/${project.id}/${conversationId}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(archiveAgain.statusCode).toBe(409);
@@ -204,21 +204,21 @@ describe('conversation routes', () => {
 
     const listAfterArchive = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/conversations`,
+      url: `${API_BASE_PATH}/conversation/conversation/list/${project.id}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(listAfterArchive.json().items.map((item) => item.id)).not.toContain(conversationId);
 
     const listArchived = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/conversations?archived=true`,
+      url: `${API_BASE_PATH}/conversation/conversation/list/${project.id}?archived=true`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(listArchived.json().items.map((item) => item.id)).toContain(conversationId);
 
     const restore = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${project.id}/conversations/${conversationId}/restore`,
+      url: `${API_BASE_PATH}/conversation/conversation/restore/${project.id}/${conversationId}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(restore.statusCode).toBe(200);
@@ -226,14 +226,14 @@ describe('conversation routes', () => {
 
     const restoreAgain = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${project.id}/conversations/${conversationId}/restore`,
+      url: `${API_BASE_PATH}/conversation/conversation/restore/${project.id}/${conversationId}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(restoreAgain.statusCode).toBe(409);
 
     const messages = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/conversations/${conversationId}/messages`,
+      url: `${API_BASE_PATH}/conversation/conversation/listMessages/${project.id}/${conversationId}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(messages.statusCode).toBe(200);
@@ -241,14 +241,14 @@ describe('conversation routes', () => {
 
     const deleted = await app.inject({
       method: 'DELETE',
-      url: `${API_BASE_PATH}/projects/${project.id}/conversations/${conversationId}`,
+      url: `${API_BASE_PATH}/conversation/conversation/delete/${project.id}/${conversationId}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(deleted.statusCode).toBe(204);
 
     const getDeleted = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/conversations/${conversationId}`,
+      url: `${API_BASE_PATH}/conversation/conversation/get/${project.id}/${conversationId}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(getDeleted.statusCode).toBe(404);
@@ -256,7 +256,7 @@ describe('conversation routes', () => {
 
     const messagesAfter = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/conversations/${conversationId}/messages`,
+      url: `${API_BASE_PATH}/conversation/conversation/listMessages/${project.id}/${conversationId}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(messagesAfter.statusCode).toBe(404);
@@ -293,7 +293,7 @@ describe('conversation routes', () => {
 
     const getDenied = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/conversations/${conversationId}`,
+      url: `${API_BASE_PATH}/conversation/conversation/get/${project.id}/${conversationId}`,
       headers: { authorization: `Bearer ${other.accessToken}` },
     });
     expect(getDenied.statusCode).toBe(404);
@@ -301,14 +301,14 @@ describe('conversation routes', () => {
 
     const listOther = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/conversations`,
+      url: `${API_BASE_PATH}/conversation/conversation/list/${project.id}`,
       headers: { authorization: `Bearer ${other.accessToken}` },
     });
     expect(listOther.json().items.map((item) => item.id)).not.toContain(conversationId);
 
     const searchOther = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/conversations/search?q=private`,
+      url: `${API_BASE_PATH}/conversation/conversation/search/${project.id}?q=private`,
       headers: { authorization: `Bearer ${other.accessToken}` },
     });
     expect(searchOther.statusCode).toBe(200);
@@ -316,14 +316,14 @@ describe('conversation routes', () => {
 
     const archiveDenied = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${project.id}/conversations/${conversationId}/archive`,
+      url: `${API_BASE_PATH}/conversation/conversation/archive/${project.id}/${conversationId}`,
       headers: { authorization: `Bearer ${other.accessToken}` },
     });
     expect(archiveDenied.statusCode).toBe(404);
 
     const renameDenied = await app.inject({
       method: 'PATCH',
-      url: `${API_BASE_PATH}/projects/${project.id}/conversations/${conversationId}`,
+      url: `${API_BASE_PATH}/conversation/conversation/rename/${project.id}/${conversationId}`,
       headers: { authorization: `Bearer ${other.accessToken}` },
       payload: { title: 'Hijacked' },
     });
@@ -354,14 +354,14 @@ describe('conversation routes', () => {
 
     const shortQ = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/conversations/search?q=a`,
+      url: `${API_BASE_PATH}/conversation/conversation/search/${project.id}?q=a`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(shortQ.statusCode).toBe(400);
 
     const byTitle = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/conversations/search?q=Refund`,
+      url: `${API_BASE_PATH}/conversation/conversation/search/${project.id}?q=Refund`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(byTitle.statusCode).toBe(200);
@@ -370,7 +370,7 @@ describe('conversation routes', () => {
 
     const byMessage = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/conversations/search?q=checkout`,
+      url: `${API_BASE_PATH}/conversation/conversation/search/${project.id}?q=checkout`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(byMessage.statusCode).toBe(200);
@@ -378,37 +378,37 @@ describe('conversation routes', () => {
 
     const metaChars = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/conversations/search?q=${encodeURIComponent('checkout " ')}`,
+      url: `${API_BASE_PATH}/conversation/conversation/search/${project.id}?q=${encodeURIComponent('checkout " ')}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(metaChars.statusCode).toBe(200);
 
     await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${project.id}/conversations/${conversationId}/archive`,
+      url: `${API_BASE_PATH}/conversation/conversation/archive/${project.id}/${conversationId}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     const hidden = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/conversations/search?q=Refund`,
+      url: `${API_BASE_PATH}/conversation/conversation/search/${project.id}?q=Refund`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(hidden.json().items).toEqual([]);
     const archivedSearch = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/conversations/search?q=Refund&archived=1`,
+      url: `${API_BASE_PATH}/conversation/conversation/search/${project.id}?q=Refund&archived=1`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(archivedSearch.json().items.map((item) => item.id)).toContain(conversationId);
 
     await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${project.id}/conversations/${conversationId}/restore`,
+      url: `${API_BASE_PATH}/conversation/conversation/restore/${project.id}/${conversationId}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     const renamed = await app.inject({
       method: 'PATCH',
-      url: `${API_BASE_PATH}/projects/${project.id}/conversations/${conversationId}`,
+      url: `${API_BASE_PATH}/conversation/conversation/rename/${project.id}/${conversationId}`,
       headers: { authorization: `Bearer ${accessToken}` },
       payload: { title: 'Payment failure investigation' },
     });
@@ -418,7 +418,7 @@ describe('conversation routes', () => {
 
     const emptyTitle = await app.inject({
       method: 'PATCH',
-      url: `${API_BASE_PATH}/projects/${project.id}/conversations/${conversationId}`,
+      url: `${API_BASE_PATH}/conversation/conversation/rename/${project.id}/${conversationId}`,
       headers: { authorization: `Bearer ${accessToken}` },
       payload: { title: '   ' },
     });
@@ -426,7 +426,7 @@ describe('conversation routes', () => {
 
     const foundNew = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/conversations/search?q=Payment`,
+      url: `${API_BASE_PATH}/conversation/conversation/search/${project.id}?q=Payment`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(foundNew.json().items.map((item) => item.id)).toContain(conversationId);
@@ -472,14 +472,14 @@ describe('conversation routes', () => {
     const denied = await login(app, 'nochat@example.com', 'NoChatPass1!');
     const listForbidden = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/conversations`,
+      url: `${API_BASE_PATH}/conversation/conversation/list/${project.id}`,
       headers: { authorization: `Bearer ${denied.accessToken}` },
     });
     expect(listForbidden.statusCode).toBe(403);
 
     const missingProject = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${new mongoose.Types.ObjectId()}/conversations`,
+      url: `${API_BASE_PATH}/conversation/conversation/list/${new mongoose.Types.ObjectId()}`,
       headers: { authorization: `Bearer ${admin.accessToken}` },
     });
     expect(missingProject.statusCode).toBe(404);
@@ -487,7 +487,7 @@ describe('conversation routes', () => {
 
     const crossOrg = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/conversations/${new mongoose.Types.ObjectId()}`,
+      url: `${API_BASE_PATH}/conversation/conversation/get/${project.id}/${new mongoose.Types.ObjectId()}`,
       headers: { authorization: `Bearer ${admin.accessToken}` },
     });
     expect(crossOrg.statusCode).toBe(404);
@@ -496,14 +496,14 @@ describe('conversation routes', () => {
 
     const zeroLimit = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/conversations?limit=0`,
+      url: `${API_BASE_PATH}/conversation/conversation/list/${project.id}?limit=0`,
       headers: { authorization: `Bearer ${admin.accessToken}` },
     });
     expect(zeroLimit.statusCode).toBe(400);
 
     const badCursor = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/conversations?cursor=%%%`,
+      url: `${API_BASE_PATH}/conversation/conversation/list/${project.id}?cursor=%%%`,
       headers: { authorization: `Bearer ${admin.accessToken}` },
     });
     expect(badCursor.statusCode).toBe(400);
@@ -513,28 +513,28 @@ describe('conversation routes', () => {
 
     const badList = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/conversations?limit=nope`,
+      url: `${API_BASE_PATH}/conversation/conversation/list/${project.id}?limit=nope`,
       headers: { authorization: `Bearer ${admin.accessToken}` },
     });
     expect(badList.statusCode).toBe(400);
 
     const badSearch = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/conversations/search?q=ab&limit=nope`,
+      url: `${API_BASE_PATH}/conversation/conversation/search/${project.id}?q=ab&limit=nope`,
       headers: { authorization: `Bearer ${admin.accessToken}` },
     });
     expect(badSearch.statusCode).toBe(400);
 
     const badMessages = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/conversations/${created.json().id}/messages?limit=nope`,
+      url: `${API_BASE_PATH}/conversation/conversation/listMessages/${project.id}/${created.json().id}?limit=nope`,
       headers: { authorization: `Bearer ${admin.accessToken}` },
     });
     expect(badMessages.statusCode).toBe(400);
 
     const extraPatch = await app.inject({
       method: 'PATCH',
-      url: `${API_BASE_PATH}/projects/${project.id}/conversations/${created.json().id}`,
+      url: `${API_BASE_PATH}/conversation/conversation/rename/${project.id}/${created.json().id}`,
       headers: { authorization: `Bearer ${admin.accessToken}` },
       payload: { title: 'Ok', extra: true },
     });

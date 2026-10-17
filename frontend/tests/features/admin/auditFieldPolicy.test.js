@@ -68,13 +68,13 @@ describe('selectRenderableAuditContext', () => {
       selectRenderableAuditContext({
         permissionKey: 'audit.view',
         contextTruncated: true,
-        route: '/users',
+        route: '/masters/users/list',
         method: 'GET',
       }),
     ).toEqual([
       { key: 'permissionKey', value: 'audit.view' },
       { key: 'contextTruncated', value: true },
-      { key: 'route', value: '/users' },
+      { key: 'route', value: '/masters/users/list' },
       { key: 'method', value: 'GET' },
     ]);
   });

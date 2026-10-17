@@ -155,7 +155,7 @@ export async function listProjects(options = {}) {
     search.set(key, String(value));
   }
   const encoded = search.toString();
-  return apiRequest(`/projects${encoded ? `?${encoded}` : ''}`, { signal });
+  return apiRequest(`/masters/projects/list${encoded ? `?${encoded}` : ''}`, { signal });
 }
 
 /**
@@ -165,7 +165,7 @@ export async function listProjects(options = {}) {
  * @returns {Promise<ProjectDto>}
  */
 export async function getProject(projectId, options = {}) {
-  return apiRequest(`/projects/${encodeURIComponent(projectId)}`, {
+  return apiRequest(`/masters/projects/get/${encodeURIComponent(projectId)}`, {
     signal: options.signal,
   });
 }
@@ -181,7 +181,7 @@ export async function getProject(projectId, options = {}) {
  * @returns {Promise<ProjectDto>}
  */
 export async function createProject(input) {
-  return apiRequest('/projects', {
+  return apiRequest('/masters/projects/create', {
     method: 'POST',
     body: {
       name: input.name,
@@ -199,7 +199,7 @@ export async function createProject(input) {
  * @returns {Promise<ProjectDto>}
  */
 export async function patchProject(projectId, patch) {
-  return apiRequest(`/projects/${encodeURIComponent(projectId)}`, {
+  return apiRequest(`/masters/projects/update/${encodeURIComponent(projectId)}`, {
     method: 'PATCH',
     body: patch,
   });
@@ -211,7 +211,7 @@ export async function patchProject(projectId, patch) {
  * @returns {Promise<ProjectDto>}
  */
 export async function archiveProject(projectId) {
-  return apiRequest(`/projects/${encodeURIComponent(projectId)}/archive`, {
+  return apiRequest(`/masters/projects/archive/${encodeURIComponent(projectId)}`, {
     method: 'POST',
   });
 }
@@ -222,7 +222,7 @@ export async function archiveProject(projectId) {
  * @returns {Promise<ProjectDto>}
  */
 export async function restoreProject(projectId) {
-  return apiRequest(`/projects/${encodeURIComponent(projectId)}/restore`, {
+  return apiRequest(`/masters/projects/restore/${encodeURIComponent(projectId)}`, {
     method: 'POST',
   });
 }
@@ -233,7 +233,7 @@ export async function restoreProject(projectId) {
  * @returns {Promise<void>}
  */
 export async function deleteProject(projectId) {
-  return apiRequest(`/projects/${encodeURIComponent(projectId)}`, {
+  return apiRequest(`/masters/projects/delete/${encodeURIComponent(projectId)}`, {
     method: 'DELETE',
   });
 }
@@ -245,7 +245,7 @@ export async function deleteProject(projectId) {
  * @returns {Promise<ProjectDeletionPreview>}
  */
 export async function getProjectDeletionPreview(projectId, options = {}) {
-  return apiRequest(`/projects/${encodeURIComponent(projectId)}/deletion-preview`, {
+  return apiRequest(`/masters/projects/getDeletionPreview/${encodeURIComponent(projectId)}`, {
     signal: options.signal,
   });
 }
@@ -256,7 +256,7 @@ export async function getProjectDeletionPreview(projectId, options = {}) {
  * @returns {Promise<ProjectDto>}
  */
 export async function recordProjectAccess(projectId) {
-  return apiRequest(`/projects/${encodeURIComponent(projectId)}/access`, {
+  return apiRequest(`/masters/projects/recordAccess/${encodeURIComponent(projectId)}`, {
     method: 'POST',
   });
 }

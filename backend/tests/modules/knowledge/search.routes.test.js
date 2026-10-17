@@ -73,7 +73,7 @@ describe('search routes', () => {
   async function login(instance, email, password) {
     const res = await instance.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/auth/login`,
+      url: `${API_BASE_PATH}/access/auth/login`,
       payload: { email, password },
     });
     expect(res.statusCode).toBe(200);
@@ -89,7 +89,7 @@ describe('search routes', () => {
   async function createProject(instance, accessToken, name, idempotencyKey) {
     const res = await instance.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects`,
+      url: `${API_BASE_PATH}/masters/projects/create`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': idempotencyKey,
@@ -163,7 +163,7 @@ describe('search routes', () => {
 
     const res = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/search?q=refunds&types=doc`,
+      url: `${API_BASE_PATH}/knowledge/search/run/${project.id}?q=refunds&types=doc`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(res.statusCode).toBe(200);
@@ -192,7 +192,7 @@ describe('search routes', () => {
 
     const res = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/search?q=ab&types=doc`,
+      url: `${API_BASE_PATH}/knowledge/search/run/${project.id}?q=ab&types=doc`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(res.statusCode).toBe(200);
@@ -207,14 +207,14 @@ describe('search routes', () => {
 
     const shortQ = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/search?q=x`,
+      url: `${API_BASE_PATH}/knowledge/search/run/${project.id}?q=x`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(shortQ.statusCode).toBe(400);
 
     const unknown = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/search?q=ab&types=data`,
+      url: `${API_BASE_PATH}/knowledge/search/run/${project.id}?q=ab&types=data`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(unknown.statusCode).toBe(400);
@@ -227,7 +227,7 @@ describe('search routes', () => {
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const res = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${new mongoose.Types.ObjectId()}/search?q=ab`,
+      url: `${API_BASE_PATH}/knowledge/search/run/${new mongoose.Types.ObjectId()}?q=ab`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(res.statusCode).toBe(404);
@@ -267,7 +267,7 @@ describe('search routes', () => {
     const { accessToken } = await login(app, 'nosearch@example.com', 'NoSearchPass1!');
     const res = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/search?q=ab`,
+      url: `${API_BASE_PATH}/knowledge/search/run/${project.id}?q=ab`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(res.statusCode).toBe(403);

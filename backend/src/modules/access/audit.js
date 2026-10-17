@@ -580,77 +580,67 @@ export function assertAuditListDateRange(from, to) {
 }
 
 /**
- * Registers `GET /audit-events` and `GET /audit-events/:auditEventId`.
- * @param {import('fastify').FastifyInstance} app Fastify app.
+ * GET /access/audit/list — org-scoped audit log list with filters and keyset pagination.
+ * @param {import('fastify').FastifyRequest} request Authenticated request with query filters.
+ * @param {import('fastify').FastifyReply} _reply Reply (unused).
+ * @returns {Promise<object>} Page of audit events and pageInfo.
  */
-export async function auditRoutes(app) {
-  app.get(
-    '/audit-events',
-    {
-      config: {
-        requiredPermissions: ['audit.view'],
-      },
-    },
-    async (request) => {
-      const parsed = listQuerySchema.safeParse(request.query ?? {});
-      if (!parsed.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', {
-          details: parsed.error.issues.map((issue) => ({
-            path: issue.path.join('.') || 'query',
-            message: issue.message,
-          })),
-        });
-      }
+export async function listAuditEventsHttp(request, _reply) {
+  const parsed = listQuerySchema.safeParse(request.query ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', {
+      details: parsed.error.issues.map((issue) => ({
+        path: issue.path.join('.') || 'query',
+        message: issue.message,
+      })),
+    });
+  }
 
-      if (parsed.data.action && !isKnownAuditAction(parsed.data.action)) {
-        throw ApiError.fromCode('VALIDATION_ERROR', {
-          details: [{ path: 'action', message: 'unknown audit action' }],
-        });
-      }
-      if (parsed.data.actor && !mongoose.isValidObjectId(parsed.data.actor)) {
-        throw ApiError.fromCode('VALIDATION_ERROR', {
-          details: [{ path: 'actor', message: 'actor must be a valid ObjectId' }],
-        });
-      }
+  if (parsed.data.action && !isKnownAuditAction(parsed.data.action)) {
+    throw ApiError.fromCode('VALIDATION_ERROR', {
+      details: [{ path: 'action', message: 'unknown audit action' }],
+    });
+  }
+  if (parsed.data.actor && !mongoose.isValidObjectId(parsed.data.actor)) {
+    throw ApiError.fromCode('VALIDATION_ERROR', {
+      details: [{ path: 'actor', message: 'actor must be a valid ObjectId' }],
+    });
+  }
 
-      const from = parseOptionalInstant(parsed.data.from, 'from');
-      const to = parseOptionalInstant(parsed.data.to, 'to');
-      assertAuditListDateRange(from, to);
+  const from = parseOptionalInstant(parsed.data.from, 'from');
+  const to = parseOptionalInstant(parsed.data.to, 'to');
+  assertAuditListDateRange(from, to);
 
-      const principal = request.principal;
-      return listAuditEventsForOrg(principal.orgId, {
-        from,
-        to,
-        actor: parsed.data.actor,
-        action: parsed.data.action,
-        resourceType: parsed.data.resourceType,
-        cursor: parsed.data.cursor,
-        limit: parsed.data.limit,
-      });
-    },
-  );
+  const principal = request.principal;
+  return listAuditEventsForOrg(principal.orgId, {
+    from,
+    to,
+    actor: parsed.data.actor,
+    action: parsed.data.action,
+    resourceType: parsed.data.resourceType,
+    cursor: parsed.data.cursor,
+    limit: parsed.data.limit,
+  });
+}
 
-  app.get(
-    '/audit-events/:auditEventId',
-    {
-      config: {
-        requiredPermissions: ['audit.view'],
-      },
-    },
-    async (request) => {
-      const params = idParamsSchema.safeParse(request.params ?? {});
-      if (!params.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', {
-          details: params.error.issues.map((issue) => ({
-            path: issue.path.join('.') || 'auditEventId',
-            message: issue.message,
-          })),
-        });
-      }
-      const principal = request.principal;
-      return getAuditEventForOrg(principal.orgId, params.data.auditEventId);
-    },
-  );
+/**
+ * GET /access/audit/get/:auditEventId — single audit event detail for the caller's org.
+ * @param {import('fastify').FastifyRequest} request Authenticated request with path id.
+ * @param {import('fastify').FastifyReply} _reply Reply (unused).
+ * @returns {Promise<object>} Enriched audit event DTO.
+ */
+export async function getAuditEventHttp(request, _reply) {
+  const params = idParamsSchema.safeParse(request.params ?? {});
+  if (!params.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', {
+      details: params.error.issues.map((issue) => ({
+        path: issue.path.join('.') || 'auditEventId',
+        message: issue.message,
+      })),
+    });
+  }
+  const principal = request.principal;
+  return getAuditEventForOrg(principal.orgId, params.data.auditEventId);
 }
 
 /**

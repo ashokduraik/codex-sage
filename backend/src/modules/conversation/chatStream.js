@@ -10,7 +10,6 @@ import { buildStreamErrorEvent } from '../../platform/streamErrors.js';
 import { completeIdempotencyRecord } from '../../platform/idempotency/index.js';
 import { assertConversationWritable, loadConversationForUser } from './conversation.js';
 import { ApiError, caughtErrorFields, canSendJsonError } from '../../platform/errors.js';
-import { requireProjectPermission } from '../../http/preHandlers/requireProjectPermission.js';
 import { invokeChatGraph, buildChatGraphThreadId, createMongoChatCheckpointer } from './chatGraph.js';
 import { insertChatTurnPair, finalizeAssistantMessage as finalizeAssistantMessageInRepo } from './conversation.helper.js';
 
@@ -35,146 +34,133 @@ const askBodySchema = z
   .strict();
 
 /**
- * Registers the chat ask SSE route under `/api/v1`.
- * @param {import('fastify').FastifyInstance} app Fastify app.
+ * POST /conversation/chatStream/streamMessage/:projectId/:conversationId — grounded chat SSE.
+ * @param {import('fastify').FastifyRequest} request Request with projectScope and Accept stream.
+ * @param {import('fastify').FastifyReply} reply Hijacked for SSE or JSON errors.
  */
-export async function chatStreamRoutes(app) {
-  const askPreHandler = requireProjectPermission('chat.ask');
+export async function streamConversationMessageHttp(request, reply) {
+  const params = conversationParamsSchema.safeParse(request.params ?? {});
+  if (!params.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+  }
+  if (!acceptIncludesEventStream(request.headers.accept)) {
+    throw ApiError.fromCode('NOT_ACCEPTABLE');
+  }
+  const parsed = askBodySchema.safeParse(request.body ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
+  }
 
-  app.post(
-    '/projects/:projectId/conversations/:conversationId/messages',
-    {
-      config: {
-        routeAccess: 'authenticated',
-        requireIdempotencyKey: true,
-      },
-      preHandler: askPreHandler,
-    },
-    async (request, reply) => {
-      const params = conversationParamsSchema.safeParse(request.params ?? {});
-      if (!params.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
-      }
-      if (!acceptIncludesEventStream(request.headers.accept)) {
-        throw ApiError.fromCode('NOT_ACCEPTABLE');
-      }
-      const parsed = askBodySchema.safeParse(request.body ?? {});
-      if (!parsed.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
-      }
+  const scope = request.projectScope;
+  const audit = buildAuditContextFromRequest(request);
+  const correlationId = audit.correlationId ?? request.id;
 
-      const scope = request.projectScope;
-      const audit = buildAuditContextFromRequest(request);
-      const correlationId = audit.correlationId ?? request.id;
+  /** @type {boolean} */
+  let clientConnected = true;
+  const onClose = () => {
+    clientConnected = false;
+  };
+  request.raw.on('close', onClose);
 
-      /** @type {boolean} */
-      let clientConnected = true;
-      const onClose = () => {
-        clientConnected = false;
-      };
-      request.raw.on('close', onClose);
+  /** @type {ReturnType<typeof setInterval> | null} */
+  let keepaliveTimer = null;
+  /** @type {boolean} */
+  let headersOpened = false;
 
-      /** @type {ReturnType<typeof setInterval> | null} */
-      let keepaliveTimer = null;
-      /** @type {boolean} */
-      let headersOpened = false;
+  /**
+   * Writes one SSE event when the client is still connected.
+   * @param {string} event Event name.
+   * @param {unknown} data JSON-serializable payload.
+   */
+  function writeSse(event, data) {
+    if (!clientConnected || !headersOpened) {
+      return;
+    }
+    try {
+      reply.raw.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    } catch (error) {
+      clientConnected = false;
+      request.log?.warn?.({ ...caughtErrorFields(error) }, 'sse write failed');
+    }
+  }
 
-      /**
-       * Writes one SSE event when the client is still connected.
-       * @param {string} event Event name.
-       * @param {unknown} data JSON-serializable payload.
-       */
-      function writeSse(event, data) {
-        if (!clientConnected || !headersOpened) {
+  try {
+    const outcome = await runChatMessageStream({
+      orgId: scope.orgId,
+      projectId: scope.projectId,
+      conversationId: params.data.conversationId,
+      actorUserId: scope.userId,
+      content: parsed.data.content,
+      correlationId,
+      workspaceRoot: request.server.config.workspace.root,
+      log: request.log,
+      isClientConnected: () => clientConnected,
+      openSse: () => {
+        if (headersOpened) {
           return;
         }
-        try {
-          reply.raw.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
-        } catch (error) {
-          clientConnected = false;
-          request.log?.warn?.({ ...caughtErrorFields(error) }, 'sse write failed');
-        }
-      }
-
-      try {
-        const outcome = await runChatMessageStream({
-          orgId: scope.orgId,
-          projectId: scope.projectId,
-          conversationId: params.data.conversationId,
-          actorUserId: scope.userId,
-          content: parsed.data.content,
-          correlationId,
-          workspaceRoot: request.server.config.workspace.root,
-          log: request.log,
-          isClientConnected: () => clientConnected,
-          openSse: () => {
-            if (headersOpened) {
-              return;
-            }
-            reply.hijack();
-            reply.raw.writeHead(200, {
-              'Content-Type': 'text/event-stream; charset=utf-8',
-              'Cache-Control': 'no-cache, no-transform',
-              Connection: 'keep-alive',
-              [CORRELATION_ID_HEADER]: correlationId,
-            });
-            headersOpened = true;
-            keepaliveTimer = setInterval(() => {
-              if (!clientConnected || !headersOpened) {
-                return;
-              }
-              try {
-                reply.raw.write(': keepalive\n\n');
-              } catch {
-                clientConnected = false;
-              }
-            }, SSE_KEEPALIVE_INTERVAL_MS);
-            if (typeof keepaliveTimer.unref === 'function') {
-              keepaliveTimer.unref();
-            }
-          },
-          writeSse,
+        reply.hijack();
+        reply.raw.writeHead(200, {
+          'Content-Type': 'text/event-stream; charset=utf-8',
+          'Cache-Control': 'no-cache, no-transform',
+          Connection: 'keep-alive',
+          [CORRELATION_ID_HEADER]: correlationId,
         });
-
-        await completeChatIdempotency(request, {
-          userMessageId: outcome.userMessageId,
-          assistantMessageId: outcome.assistantMessageId,
-          messageStatus: outcome.messageStatus,
-        });
-
-        if (headersOpened) {
-          reply.raw.end();
-        }
-      } catch (error) {
-        request.log?.error?.({ ...caughtErrorFields(error), headersOpened }, 'chat stream request failed');
-        if (headersOpened) {
-          const frame = buildStreamErrorEvent(error, correlationId);
-          writeSse(frame.event, frame.data);
-          try {
-            await completeChatIdempotency(request, {
-              userMessageId: null,
-              assistantMessageId: null,
-              messageStatus: 'failed',
-            });
-          } catch (idempotencyError) {
-            request.log?.error?.({ ...caughtErrorFields(idempotencyError) }, 'chat stream idempotency complete failed after SSE error');
+        headersOpened = true;
+        keepaliveTimer = setInterval(() => {
+          if (!clientConnected || !headersOpened) {
+            return;
           }
-          reply.raw.end();
-          return;
+          try {
+            reply.raw.write(': keepalive\n\n');
+          } catch {
+            clientConnected = false;
+          }
+        }, SSE_KEEPALIVE_INTERVAL_MS);
+        if (typeof keepaliveTimer.unref === 'function') {
+          keepaliveTimer.unref();
         }
-        if (!canSendJsonError(reply)) {
-          request.log?.error?.({ ...caughtErrorFields(error) }, 'chat stream failed after headers');
-          return;
-        }
-        throw error;
-      } finally {
-        request.raw.off('close', onClose);
-        if (keepaliveTimer) {
-          clearInterval(keepaliveTimer);
-        }
+      },
+      writeSse,
+    });
+
+    await completeChatIdempotency(request, {
+      userMessageId: outcome.userMessageId,
+      assistantMessageId: outcome.assistantMessageId,
+      messageStatus: outcome.messageStatus,
+    });
+
+    if (headersOpened) {
+      reply.raw.end();
+    }
+  } catch (error) {
+    request.log?.error?.({ ...caughtErrorFields(error), headersOpened }, 'chat stream request failed');
+    if (headersOpened) {
+      const frame = buildStreamErrorEvent(error, correlationId);
+      writeSse(frame.event, frame.data);
+      try {
+        await completeChatIdempotency(request, {
+          userMessageId: null,
+          assistantMessageId: null,
+          messageStatus: 'failed',
+        });
+      } catch (idempotencyError) {
+        request.log?.error?.({ ...caughtErrorFields(idempotencyError) }, 'chat stream idempotency complete failed after SSE error');
       }
-    },
-  );
+      reply.raw.end();
+      return;
+    }
+    if (!canSendJsonError(reply)) {
+      request.log?.error?.({ ...caughtErrorFields(error) }, 'chat stream failed after headers');
+      return;
+    }
+    throw error;
+  } finally {
+    request.raw.off('close', onClose);
+    if (keepaliveTimer) {
+      clearInterval(keepaliveTimer);
+    }
+  }
 }
 
 /**

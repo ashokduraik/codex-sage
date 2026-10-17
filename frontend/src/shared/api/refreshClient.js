@@ -60,7 +60,7 @@ async function performRefresh() {
 
   let response;
   try {
-    response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+    response = await fetch(`${API_BASE_URL}/access/auth/refresh`, {
       method: 'POST',
       credentials: 'include',
       headers,

@@ -286,7 +286,7 @@ next stage boundary. A sweeper requeues or fails jobs whose heartbeat expired.
 
 ### 6.1 HTTP / SSE (API process)
 
-`POST /api/v1/projects/:projectId/conversations/:conversationId/messages` with
+`POST /api/v1/conversation/chatStream/streamMessage/:projectId/:conversationId` with
 `Accept: text/event-stream`.
 
 ```text
@@ -438,8 +438,9 @@ and must not be shown as graph-derived knowledge.
 
 Same tenant isolation as chat tools.
 
-Browse routes (`GET /api/v1/projects/:projectId/knowledge`, `/summary`, `/workflows`,
-`/apis`, `/symbols?q=`, `/health`) require `knowledge.browse` **or** `knowledge.view`.
+Browse routes under `/api/v1/knowledge/knowledge/*` (`getIndex`, `getSummary`,
+`listWorkflows`, `listApis`, `listSymbols`, `getHealth` + `:projectId`) require
+`knowledge.browse` **or** `knowledge.view`.
 They resolve the project's **current** knowledge version only and read CodeGraph through a
 read lease. Gate `allow` returns HTTP `200` with `{ state: "ready" }` plus payload.
 Gate `queue` / writer or a missing index that cannot be leased returns `200`

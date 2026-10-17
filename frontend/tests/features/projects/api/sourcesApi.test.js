@@ -35,7 +35,7 @@ describe('uploadProjectSource', () => {
       }),
     ).resolves.toEqual({ sourceVersionId: 'sv1', jobId: 'j1' });
     expect(apiUpload).toHaveBeenCalledWith(
-      '/projects/p1/sources',
+      '/knowledge/uploads/upload/p1',
       expect.objectContaining({
         method: 'POST',
         idempotencyKey: 'idem-1',
@@ -52,7 +52,7 @@ describe('uploadProjectSource', () => {
   it('lists source versions with the default page size', async () => {
     apiRequest.mockResolvedValue({ items: [], pageInfo: { nextCursor: null, hasMore: false } });
     await listProjectSourceVersions({ projectId: 'p1' });
-    expect(apiRequest).toHaveBeenCalledWith(`/projects/p1/source-versions?limit=${SOURCE_VERSION_LIST_PAGE_SIZE}`, { signal: undefined });
+    expect(apiRequest).toHaveBeenCalledWith(`/knowledge/sources/listVersions/p1?limit=${SOURCE_VERSION_LIST_PAGE_SIZE}`, { signal: undefined });
     expect(sourceVersionsQueryKey('p1')).toEqual(['projects', 'p1', 'source-versions']);
   });
 
@@ -65,7 +65,7 @@ describe('uploadProjectSource', () => {
         idempotencyKey: 'idem-re',
       }),
     ).resolves.toEqual({ jobId: 'j9', sourceVersionId: 'sv1', jobType: 'reingest' });
-    expect(apiRequest).toHaveBeenCalledWith('/projects/p1/sources/sv1/reingest', {
+    expect(apiRequest).toHaveBeenCalledWith('/knowledge/sources/reingest/p1/sv1', {
       method: 'POST',
       idempotencyKey: 'idem-re',
       signal: undefined,

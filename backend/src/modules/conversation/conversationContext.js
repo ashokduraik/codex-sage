@@ -10,7 +10,6 @@ import { listRecentMessages } from './conversation.helper.js';
 import { ROW_STATUS_ACTIVE } from '../../platform/data/index.js';
 import { PINNED_FACT_SOURCE_VALUES } from '../../models/conversations.model.js';
 import { assertConversationWritable, loadConversationForUser } from './conversation.js';
-import { requireProjectPermission } from '../../http/preHandlers/requireProjectPermission.js';
 
 /** Cap on protected pins stored on one conversation. */
 export const PINNED_FACTS_MAX_COUNT = 20;
@@ -408,42 +407,34 @@ export async function getConversationContextView(orgId, projectId, conversationI
 }
 
 /**
- * Registers GET `.../conversations/:conversationId/context`.
- * @param {import('fastify').FastifyInstance} app Fastify app.
+ * Parses conversation params or throws VALIDATION_ERROR.
+ * @param {unknown} params Route params.
+ * @returns {{ projectId: string, conversationId: string }}
  */
-export async function conversationContextRoutes(app) {
-  const askPreHandler = requireProjectPermission('chat.ask');
-  app.get(
-    '/projects/:projectId/conversations/:conversationId/context',
-    {
-      config: { routeAccess: 'authenticated' },
-      preHandler: askPreHandler,
-    },
-    async (request, reply) => {
-      const params = parseConversationParams(request.params);
-      const scope = request.projectScope;
-      const body = await getConversationContextView(scope.orgId, scope.projectId, params.conversationId, scope.userId);
-      return reply.send(body);
-    },
-  );
-
-  /**
-   * Parses conversation params or throws VALIDATION_ERROR.
-   * @param {unknown} params Route params.
-   * @returns {{ projectId: string, conversationId: string }}
-   */
-  function parseConversationParams(params) {
-    const parsed = conversationParamsSchema.safeParse(params ?? {});
-    if (!parsed.success) {
-      throw ApiError.fromCode('VALIDATION_ERROR', {
-        details: parsed.error.issues.map((issue) => ({
-          path: issue.path.join('.') || 'body',
-          message: issue.message,
-        })),
-      });
-    }
-    return parsed.data;
+function parseConversationParams(params) {
+  const parsed = conversationParamsSchema.safeParse(params ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', {
+      details: parsed.error.issues.map((issue) => ({
+        path: issue.path.join('.') || 'body',
+        message: issue.message,
+      })),
+    });
   }
+  return parsed.data;
+}
+
+/**
+ * GET /conversation/conversationContext/get/:projectId/:conversationId — summary/pins metrics view.
+ * @param {import('fastify').FastifyRequest} request Request with projectScope.
+ * @param {import('fastify').FastifyReply} reply Reply.
+ * @returns Context view body.
+ */
+export async function getConversationContextHttp(request, reply) {
+  const params = parseConversationParams(request.params);
+  const scope = request.projectScope;
+  const body = await getConversationContextView(scope.orgId, scope.projectId, params.conversationId, scope.userId);
+  return reply.send(body);
 }
 
 /**

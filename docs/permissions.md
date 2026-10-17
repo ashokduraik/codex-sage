@@ -47,5 +47,5 @@ TTL. User status and membership are **not** cached (Phase 07 principal resolutio
 
 ## API
 
-- `GET /api/v1/permissions` — full catalog; requires `roles.manage`
-- `GET /api/v1/auth/me` — includes the caller's effective `permissions[]`
+- `GET /api/v1/access/permissions/list` — full catalog; requires `roles.manage`
+- `GET /api/v1/access/auth/me` — includes the caller's effective `permissions[]`

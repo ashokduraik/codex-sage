@@ -9,7 +9,8 @@ alwaysApply: true
   Tests live under `tests/` mirroring `src/`; cross-app E2E goes in a Playwright
   suite when present.
 - Test the **public surface** of a module, not its internals.
-- **Descriptive file names.** One production file per resource; helper/util only
+- **Descriptive file names.** One production file per resource (plus
+  `http/route.js` for the URL catalog); helper/util only
   after 1000 code lines — see `file-colocation.mdc`. The 1000-line cap does not
   apply to files under `tests/`.
 - **No deep cross-module imports** — modules expose a public surface (`index.js`).

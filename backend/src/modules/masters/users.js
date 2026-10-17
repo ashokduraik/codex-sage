@@ -1109,168 +1109,198 @@ function serviceContext(request) {
 }
 
 /**
- * Registers user admin routes under `/api/v1`.
- * @param {import('fastify').FastifyInstance} app Fastify app.
+ * POST /masters/users/create — create an org user (admin).
+ * @param {import('fastify').FastifyRequest} request Request.
+ * @param {import('fastify').FastifyReply} reply Reply.
  */
-export async function userRoutes(app) {
-  app.post('/users', { config: { requiredPermissions: ['users.manage'], requireIdempotencyKey: true } }, async (request, reply) => {
-    const parsed = createUserBodySchema.safeParse(request.body ?? {});
-    if (!parsed.success) {
-      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
-    }
-    const ctx = serviceContext(request);
-    const user = await createUser({
-      ...ctx,
-      code: parsed.data.code,
-      email: parsed.data.email,
-      displayName: parsed.data.displayName,
-      roleIds: parsed.data.roleIds,
+export async function createUserHttp(request, reply) {
+  const parsed = createUserBodySchema.safeParse(request.body ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
+  }
+  const ctx = serviceContext(request);
+  const user = await createUser({
+    ...ctx,
+    code: parsed.data.code,
+    email: parsed.data.email,
+    displayName: parsed.data.displayName,
+    roleIds: parsed.data.roleIds,
+  });
+  return reply.code(201).send(user);
+}
+
+/**
+ * GET /masters/users/list — list org users (admin).
+ * @param {import('fastify').FastifyRequest} request Request.
+ */
+export async function listUsersHttp(request) {
+  const parsed = listUsersQuerySchema.safeParse(request.query ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
+  }
+  if (parsed.data.limit === 0) {
+    throw ApiError.fromCode('VALIDATION_ERROR', {
+      details: [{ path: 'limit', message: 'limit must be a positive integer' }],
     });
-    return reply.code(201).send(user);
-  });
+  }
+  return listUsers(request.principal.orgId, parsed.data);
+}
 
-  app.get('/users', { config: { requiredPermissions: ['users.manage'] } }, async (request) => {
-    const parsed = listUsersQuerySchema.safeParse(request.query ?? {});
-    if (!parsed.success) {
-      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
-    }
-    if (parsed.data.limit === 0) {
-      throw ApiError.fromCode('VALIDATION_ERROR', {
-        details: [{ path: 'limit', message: 'limit must be a positive integer' }],
-      });
-    }
-    return listUsers(request.principal.orgId, parsed.data);
-  });
+/**
+ * GET /masters/users/get/:userId — fetch one org user (admin).
+ * @param {import('fastify').FastifyRequest} request Request.
+ */
+export async function getUserHttp(request) {
+  const params = userIdParamsSchema.safeParse(request.params ?? {});
+  if (!params.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+  }
+  return getUser(request.principal.orgId, params.data.userId);
+}
 
-  app.get('/users/:userId', { config: { requiredPermissions: ['users.manage'] } }, async (request) => {
-    const params = userIdParamsSchema.safeParse(request.params ?? {});
-    if (!params.success) {
-      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
-    }
-    return getUser(request.principal.orgId, params.data.userId);
-  });
-
-  app.patch('/users/:userId', { config: { requiredPermissions: ['users.manage'] } }, async (request) => {
-    const params = userIdParamsSchema.safeParse(request.params ?? {});
-    if (!params.success) {
-      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
-    }
-    const parsed = patchUserBodySchema.safeParse(request.body ?? {});
-    if (!parsed.success) {
-      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
-    }
-    const ctx = serviceContext(request);
-    return updateUserDetails({
-      ...ctx,
-      targetUserId: params.data.userId,
-      displayName: parsed.data.displayName,
-      email: parsed.data.email,
-      roleIds: parsed.data.roleIds,
-    });
-  });
-
-  app.post('/users/:userId/activate', { config: { requiredPermissions: ['users.manage'] } }, async (request) => {
-    const params = userIdParamsSchema.safeParse(request.params ?? {});
-    if (!params.success) {
-      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
-    }
-    const ctx = serviceContext(request);
-    return activateUser({ ...ctx, targetUserId: params.data.userId });
-  });
-
-  app.post('/users/:userId/deactivate', { config: { requiredPermissions: ['users.manage'] } }, async (request) => {
-    const params = userIdParamsSchema.safeParse(request.params ?? {});
-    if (!params.success) {
-      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
-    }
-    const ctx = serviceContext(request);
-    return deactivateUser({ ...ctx, targetUserId: params.data.userId });
-  });
-
-  app.delete('/users/:userId', { config: { requiredPermissions: ['users.manage'] } }, async (request, reply) => {
-    const params = userIdParamsSchema.safeParse(request.params ?? {});
-    if (!params.success) {
-      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
-    }
-    const ctx = serviceContext(request);
-    await removeUser({ ...ctx, targetUserId: params.data.userId });
-    return reply.code(204).send();
-  });
-
-  app.put('/users/:userId/roles', { config: { requiredPermissions: ['users.manage', 'roles.manage'] } }, async (request) => {
-    const params = userIdParamsSchema.safeParse(request.params ?? {});
-    if (!params.success) {
-      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
-    }
-    const parsed = replaceRolesBodySchema.safeParse(request.body ?? {});
-    if (!parsed.success) {
-      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
-    }
-    const ctx = serviceContext(request);
-    return replaceUserRoles({
-      ...ctx,
-      targetUserId: params.data.userId,
-      roleIds: parsed.data.roleIds,
-    });
-  });
-
-  app.post('/users/:userId/reset-password', { config: { requiredPermissions: ['users.manage'] } }, async (request) => {
-    const params = userIdParamsSchema.safeParse(request.params ?? {});
-    if (!params.success) {
-      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
-    }
-    const parsed = resetBodySchema.safeParse(request.body ?? {});
-    if (!parsed.success) {
-      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
-    }
-    if (parsed.data.newPassword.length < PASSWORD_MIN_LENGTH) {
-      throw ApiError.fromCode('PASSWORD_POLICY_VIOLATION', {
-        details: { violations: ['TOO_SHORT'] },
-      });
-    }
-    const principal = request.principal;
-    const auditBase = buildAuditContextFromRequest(request);
-    const result = await adminSetPassword(
-      {
-        orgId: principal.orgId,
-        actorUserId: principal.userId,
-        targetUserId: params.data.userId,
-        newPassword: parsed.data.newPassword,
-      },
-      { log: request.log },
-    );
-    if (result.outcome === 'not_found') {
-      throw ApiError.fromCode('NOT_FOUND', { message: 'User not found.' });
-    }
-    if (result.outcome === 'policy_violation') {
-      throw ApiError.fromCode('PASSWORD_POLICY_VIOLATION', {
-        details: { violations: result.violations ?? [] },
-      });
-    }
-    if (result.outcome !== 'password_changed' || !result.passwordUpdatedAt) {
-      throw ApiError.fromCode('INTERNAL_ERROR');
-    }
-    await recordAuditEvent(
-      {
-        ...auditBase,
-        orgId: principal.orgId,
-        actorUserId: principal.userId,
-        action: 'user.password_set_by_admin',
-        resourceType: 'user',
-        resourceId: String(result.userId ?? params.data.userId),
-        result: 'success',
-        context: { reason: 'admin_set', sessionsRevoked: true },
-      },
-      { log: request.log },
-    );
-    return {
-      userId: result.userId,
-      passwordResetStatus: 'completed',
-      completedAt: result.passwordUpdatedAt.toISOString(),
-      sessionsRevoked: true,
-      deliveryChannel: 'administrator',
-    };
+/**
+ * PATCH /masters/users/update/:userId — update user profile and roles (admin).
+ * @param {import('fastify').FastifyRequest} request Request.
+ */
+export async function updateUserHttp(request) {
+  const params = userIdParamsSchema.safeParse(request.params ?? {});
+  if (!params.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+  }
+  const parsed = patchUserBodySchema.safeParse(request.body ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
+  }
+  const ctx = serviceContext(request);
+  return updateUserDetails({
+    ...ctx,
+    targetUserId: params.data.userId,
+    displayName: parsed.data.displayName,
+    email: parsed.data.email,
+    roleIds: parsed.data.roleIds,
   });
 }
 
-/** @deprecated Prefer {@link userRoutes}; kept for existing unit tests. */
+/**
+ * POST /masters/users/activate/:userId — re-enable a disabled user (admin).
+ * @param {import('fastify').FastifyRequest} request Request.
+ */
+export async function activateUserHttp(request) {
+  const params = userIdParamsSchema.safeParse(request.params ?? {});
+  if (!params.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+  }
+  const ctx = serviceContext(request);
+  return activateUser({ ...ctx, targetUserId: params.data.userId });
+}
+
+/**
+ * POST /masters/users/deactivate/:userId — disable a user (admin).
+ * @param {import('fastify').FastifyRequest} request Request.
+ */
+export async function deactivateUserHttp(request) {
+  const params = userIdParamsSchema.safeParse(request.params ?? {});
+  if (!params.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+  }
+  const ctx = serviceContext(request);
+  return deactivateUser({ ...ctx, targetUserId: params.data.userId });
+}
+
+/**
+ * DELETE /masters/users/delete/:userId — soft-delete a user (admin).
+ * @param {import('fastify').FastifyRequest} request Request.
+ * @param {import('fastify').FastifyReply} reply Reply.
+ */
+export async function deleteUserHttp(request, reply) {
+  const params = userIdParamsSchema.safeParse(request.params ?? {});
+  if (!params.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+  }
+  const ctx = serviceContext(request);
+  await removeUser({ ...ctx, targetUserId: params.data.userId });
+  return reply.code(204).send();
+}
+
+/**
+ * PUT /masters/users/replaceRoles/:userId — replace a user's role assignments (admin).
+ * @param {import('fastify').FastifyRequest} request Request.
+ */
+export async function replaceUserRolesHttp(request) {
+  const params = userIdParamsSchema.safeParse(request.params ?? {});
+  if (!params.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+  }
+  const parsed = replaceRolesBodySchema.safeParse(request.body ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
+  }
+  const ctx = serviceContext(request);
+  return replaceUserRoles({
+    ...ctx,
+    targetUserId: params.data.userId,
+    roleIds: parsed.data.roleIds,
+  });
+}
+
+/**
+ * POST /masters/users/resetPassword/:userId — admin-set password with audit (admin).
+ * @param {import('fastify').FastifyRequest} request Request.
+ */
+export async function resetUserPasswordHttp(request) {
+  const params = userIdParamsSchema.safeParse(request.params ?? {});
+  if (!params.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+  }
+  const parsed = resetBodySchema.safeParse(request.body ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
+  }
+  if (parsed.data.newPassword.length < PASSWORD_MIN_LENGTH) {
+    throw ApiError.fromCode('PASSWORD_POLICY_VIOLATION', {
+      details: { violations: ['TOO_SHORT'] },
+    });
+  }
+  const principal = request.principal;
+  const auditBase = buildAuditContextFromRequest(request);
+  const result = await adminSetPassword(
+    {
+      orgId: principal.orgId,
+      actorUserId: principal.userId,
+      targetUserId: params.data.userId,
+      newPassword: parsed.data.newPassword,
+    },
+    { log: request.log },
+  );
+  if (result.outcome === 'not_found') {
+    throw ApiError.fromCode('NOT_FOUND', { message: 'User not found.' });
+  }
+  if (result.outcome === 'policy_violation') {
+    throw ApiError.fromCode('PASSWORD_POLICY_VIOLATION', {
+      details: { violations: result.violations ?? [] },
+    });
+  }
+  if (result.outcome !== 'password_changed' || !result.passwordUpdatedAt) {
+    throw ApiError.fromCode('INTERNAL_ERROR');
+  }
+  await recordAuditEvent(
+    {
+      ...auditBase,
+      orgId: principal.orgId,
+      actorUserId: principal.userId,
+      action: 'user.password_set_by_admin',
+      resourceType: 'user',
+      resourceId: String(result.userId ?? params.data.userId),
+      result: 'success',
+      context: { reason: 'admin_set', sessionsRevoked: true },
+    },
+    { log: request.log },
+  );
+  return {
+    userId: result.userId,
+    passwordResetStatus: 'completed',
+    completedAt: result.passwordUpdatedAt.toISOString(),
+    sessionsRevoked: true,
+    deliveryChannel: 'administrator',
+  };
+}

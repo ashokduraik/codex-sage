@@ -27,7 +27,7 @@ describe('jobsApi', () => {
   it('lists project jobs with default page size', async () => {
     apiRequest.mockResolvedValue({ items: [], pageInfo: { nextCursor: null, hasMore: false } });
     await listProjectJobs({ projectId: 'p1' });
-    expect(apiRequest).toHaveBeenCalledWith(`/projects/p1/jobs?limit=${JOB_LIST_PAGE_SIZE}`, {
+    expect(apiRequest).toHaveBeenCalledWith(`/masters/jobs/list/p1?limit=${JOB_LIST_PAGE_SIZE}`, {
       signal: undefined,
     });
   });
@@ -41,19 +41,19 @@ describe('jobsApi', () => {
       jobStatus: 'failed',
       signal: undefined,
     });
-    expect(apiRequest).toHaveBeenCalledWith('/projects/p1/jobs?cursor=abc&limit=10&jobStatus=failed', { signal: undefined });
+    expect(apiRequest).toHaveBeenCalledWith('/masters/jobs/list/p1?cursor=abc&limit=10&jobStatus=failed', { signal: undefined });
   });
 
   it('gets job detail', async () => {
     apiRequest.mockResolvedValue({ id: 'j1' });
     await getJob('j1', { signal: undefined });
-    expect(apiRequest).toHaveBeenCalledWith('/jobs/j1', { signal: undefined });
+    expect(apiRequest).toHaveBeenCalledWith('/masters/jobs/get/j1', { signal: undefined });
   });
 
   it('retries with Idempotency-Key', async () => {
     apiRequest.mockResolvedValue({ jobId: 'j1', jobStatus: 'retrying' });
     await retryJob({ jobId: 'j1', idempotencyKey: 'idem-1' });
-    expect(apiRequest).toHaveBeenCalledWith('/jobs/j1/retry', {
+    expect(apiRequest).toHaveBeenCalledWith('/masters/jobs/retry/j1', {
       method: 'POST',
       idempotencyKey: 'idem-1',
       signal: undefined,
@@ -63,7 +63,7 @@ describe('jobsApi', () => {
   it('cancels without an idempotency key', async () => {
     apiRequest.mockResolvedValue({ jobId: 'j1', jobStatus: 'running' });
     await cancelJob({ jobId: 'j1' });
-    expect(apiRequest).toHaveBeenCalledWith('/jobs/j1/cancel', {
+    expect(apiRequest).toHaveBeenCalledWith('/masters/jobs/cancel/j1', {
       method: 'POST',
       signal: undefined,
     });

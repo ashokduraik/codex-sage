@@ -69,7 +69,7 @@ describe('audit routes', () => {
   async function login(instance, email, password) {
     const res = await instance.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/auth/login`,
+      url: `${API_BASE_PATH}/access/auth/login`,
       payload: { email, password },
     });
     expect(res.statusCode).toBe(200);
@@ -95,14 +95,14 @@ describe('audit routes', () => {
     app = await readyApp();
     const unauth = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/audit-events`,
+      url: `${API_BASE_PATH}/access/audit/list`,
     });
     expect(unauth.statusCode).toBe(401);
 
     const token = await login(app, user.email, password);
     const forbidden = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/audit-events`,
+      url: `${API_BASE_PATH}/access/audit/list`,
       headers: { authorization: `Bearer ${token}` },
     });
     expect(forbidden.statusCode).toBe(403);
@@ -159,7 +159,7 @@ describe('audit routes', () => {
     const tokenA = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const listA = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/audit-events?limit=2`,
+      url: `${API_BASE_PATH}/access/audit/list?limit=2`,
       headers: { authorization: `Bearer ${tokenA}` },
     });
     expect(listA.statusCode).toBe(200);
@@ -170,7 +170,7 @@ describe('audit routes', () => {
 
     const page2 = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/audit-events?limit=2&cursor=${encodeURIComponent(bodyA.pageInfo.nextCursor)}`,
+      url: `${API_BASE_PATH}/access/audit/list?limit=2&cursor=${encodeURIComponent(bodyA.pageInfo.nextCursor)}`,
       headers: { authorization: `Bearer ${tokenA}` },
     });
     expect(page2.statusCode).toBe(200);
@@ -184,7 +184,7 @@ describe('audit routes', () => {
     rangeTo.setUTCDate(rangeTo.getUTCDate() + 1);
     const filtered = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/audit-events?action=authz.denied&resourceType=route&actor=${actorA.toHexString()}&from=${encodeURIComponent(rangeFrom.toISOString())}&to=${encodeURIComponent(rangeTo.toISOString())}`,
+      url: `${API_BASE_PATH}/access/audit/list?action=authz.denied&resourceType=route&actor=${actorA.toHexString()}&from=${encodeURIComponent(rangeFrom.toISOString())}&to=${encodeURIComponent(rangeTo.toISOString())}`,
       headers: { authorization: `Bearer ${tokenA}` },
     });
     expect(filtered.statusCode).toBe(200);
@@ -193,7 +193,7 @@ describe('audit routes', () => {
 
     const clamped = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/audit-events?limit=${AUDIT_LIST_PAGE_SIZE_MAX + 50}`,
+      url: `${API_BASE_PATH}/access/audit/list?limit=${AUDIT_LIST_PAGE_SIZE_MAX + 50}`,
       headers: { authorization: `Bearer ${tokenA}` },
     });
     expect(clamped.statusCode).toBe(200);
@@ -202,7 +202,7 @@ describe('audit routes', () => {
     const tokenB = await login(app, userB.email, passwordB);
     const listB = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/audit-events`,
+      url: `${API_BASE_PATH}/access/audit/list`,
       headers: { authorization: `Bearer ${tokenB}` },
     });
     expect(listB.statusCode).toBe(200);
@@ -216,7 +216,7 @@ describe('audit routes', () => {
     const tokenA = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const rejected = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/audit-events?from=2026-09-01T00:00:00.000Z&to=2026-10-03T00:00:00.000Z`,
+      url: `${API_BASE_PATH}/access/audit/list?from=2026-09-01T00:00:00.000Z&to=2026-10-03T00:00:00.000Z`,
       headers: { authorization: `Bearer ${tokenA}` },
     });
     expect(rejected.statusCode).toBe(400);
@@ -249,7 +249,7 @@ describe('audit routes', () => {
     const token = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const ok = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/audit-events/${eventA._id}`,
+      url: `${API_BASE_PATH}/access/audit/get/${eventA._id}`,
       headers: { authorization: `Bearer ${token}` },
     });
     expect(ok.statusCode).toBe(200);
@@ -257,7 +257,7 @@ describe('audit routes', () => {
 
     const cross = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/audit-events/${eventB._id}`,
+      url: `${API_BASE_PATH}/access/audit/get/${eventB._id}`,
       headers: { authorization: `Bearer ${token}` },
     });
     expect(cross.statusCode).toBe(404);
@@ -279,7 +279,7 @@ describe('audit routes', () => {
     const token = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const list = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/audit-events`,
+      url: `${API_BASE_PATH}/access/audit/list`,
       headers: { authorization: `Bearer ${token}` },
     });
     expect(list.statusCode).toBe(200);
@@ -287,28 +287,28 @@ describe('audit routes', () => {
 
     const badQuery = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/audit-events?orgId=nope`,
+      url: `${API_BASE_PATH}/access/audit/list?orgId=nope`,
       headers: { authorization: `Bearer ${token}` },
     });
     expect(badQuery.statusCode).toBe(400);
 
     const badAction = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/audit-events?action=user.invented`,
+      url: `${API_BASE_PATH}/access/audit/list?action=user.invented`,
       headers: { authorization: `Bearer ${token}` },
     });
     expect(badAction.statusCode).toBe(400);
 
     const badActor = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/audit-events?actor=not-an-object-id`,
+      url: `${API_BASE_PATH}/access/audit/list?actor=not-an-object-id`,
       headers: { authorization: `Bearer ${token}` },
     });
     expect(badActor.statusCode).toBe(400);
 
     const badFrom = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/audit-events?from=not-a-date`,
+      url: `${API_BASE_PATH}/access/audit/list?from=not-a-date`,
       headers: { authorization: `Bearer ${token}` },
     });
     expect(badFrom.statusCode).toBe(400);
@@ -320,7 +320,7 @@ describe('audit routes', () => {
     const token = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const missing = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/audit-events/${new mongoose.Types.ObjectId()}`,
+      url: `${API_BASE_PATH}/access/audit/get/${new mongoose.Types.ObjectId()}`,
       headers: { authorization: `Bearer ${token}` },
     });
     expect(missing.statusCode).toBe(404);
@@ -332,7 +332,7 @@ describe('audit routes', () => {
     const token = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const change = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/auth/password/change`,
+      url: `${API_BASE_PATH}/access/password/change`,
       headers: { authorization: `Bearer ${token}` },
       payload: {
         currentPassword: DEFAULT_ADMIN_PASSWORD,
@@ -346,7 +346,7 @@ describe('audit routes', () => {
     const relogin = await login(app, DEFAULT_ADMIN_EMAIL, 'Changed-pass-audit-99');
     const list = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/audit-events?action=user.password_changed`,
+      url: `${API_BASE_PATH}/access/audit/list?action=user.password_changed`,
       headers: { authorization: `Bearer ${relogin}` },
     });
     expect(list.statusCode).toBe(200);
@@ -381,14 +381,14 @@ describe('audit routes', () => {
 
     const adminDenied = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/permissions`,
+      url: `${API_BASE_PATH}/access/permissions/list`,
       headers: { authorization: `Bearer ${token}` },
     });
     expect(adminDenied.statusCode).toBe(403);
 
     const auditDenied = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/audit-events`,
+      url: `${API_BASE_PATH}/access/audit/list`,
       headers: { authorization: `Bearer ${token}` },
     });
     expect(auditDenied.statusCode).toBe(403);
@@ -396,7 +396,7 @@ describe('audit routes', () => {
     const adminToken = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const list = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/audit-events?action=authz.denied`,
+      url: `${API_BASE_PATH}/access/audit/list?action=authz.denied`,
       headers: { authorization: `Bearer ${adminToken}` },
     });
     expect(list.statusCode).toBe(200);

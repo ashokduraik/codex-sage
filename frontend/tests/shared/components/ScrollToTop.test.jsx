@@ -22,8 +22,8 @@ describe('ScrollToTop', () => {
       <>
         <ScrollToTop />
         <Routes>
-          <Route path="/" element={<Link to="/projects">Go projects</Link>} />
-          <Route path="/projects" element={<div>Projects</div>} />
+          <Route path="/" element={<Link to="/masters/projects/list">Go projects</Link>} />
+          <Route path="/masters/projects/list" element={<div>Projects</div>} />
         </Routes>
       </>,
       { route: '/' },

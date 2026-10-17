@@ -70,7 +70,7 @@ describe('LoginPage', () => {
   it('submits login and navigates on success', async () => {
     const user = buildTestAuthUser('you@acme.io');
     const fetchMock = vi.fn(async (url) => {
-      if (String(url).endsWith('/auth/login')) {
+      if (String(url).endsWith('/access/auth/login')) {
         return jsonResponse({
           status: 200,
           body: {
@@ -80,7 +80,7 @@ describe('LoginPage', () => {
           },
         });
       }
-      if (String(url).endsWith('/auth/me')) {
+      if (String(url).endsWith('/access/auth/me')) {
         return jsonResponse({ status: 200, body: user });
       }
       return jsonResponse({
@@ -102,7 +102,7 @@ describe('LoginPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Log in' }));
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/auth/login'), expect.anything());
+      expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/access/auth/login'), expect.anything());
     });
   });
 
@@ -115,13 +115,13 @@ describe('LoginPage', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (url) => {
-        if (String(url).endsWith('/auth/refresh')) {
+        if (String(url).endsWith('/access/auth/refresh')) {
           return jsonResponse({
             status: 401,
             body: { error: { code: 'UNAUTHENTICATED', message: 'no' } },
           });
         }
-        if (String(url).endsWith('/auth/login')) {
+        if (String(url).endsWith('/access/auth/login')) {
           await loginPromise;
           return jsonResponse({
             status: 200,
@@ -132,7 +132,7 @@ describe('LoginPage', () => {
             },
           });
         }
-        if (String(url).endsWith('/auth/me')) {
+        if (String(url).endsWith('/access/auth/me')) {
           return jsonResponse({ status: 200, body: user });
         }
         return jsonResponse({
@@ -165,13 +165,13 @@ describe('LoginPage', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (url) => {
-        if (String(url).endsWith('/auth/refresh')) {
+        if (String(url).endsWith('/access/auth/refresh')) {
           return jsonResponse({
             status: 401,
             body: { error: { code: 'UNAUTHENTICATED', message: 'no' } },
           });
         }
-        if (String(url).endsWith('/auth/login')) {
+        if (String(url).endsWith('/access/auth/login')) {
           return jsonResponse({
             status: 401,
             body: {
@@ -205,13 +205,13 @@ describe('LoginPage', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (url) => {
-        if (String(url).endsWith('/auth/refresh')) {
+        if (String(url).endsWith('/access/auth/refresh')) {
           return jsonResponse({
             status: 401,
             body: { error: { code: 'UNAUTHENTICATED', message: 'no' } },
           });
         }
-        if (String(url).endsWith('/auth/login')) {
+        if (String(url).endsWith('/access/auth/login')) {
           return jsonResponse({
             status: 401,
             body: {

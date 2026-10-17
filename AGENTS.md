@@ -44,7 +44,9 @@ Additional docs and ADRs live under [`docs/`](./docs/).
   1000 code lines (comments/blanks do not count); overflow is `resource.helper.js`,
   then `resource.util.js` if the helper also exceeds 1000. The 1000-line cap
   applies to production files under `src/` only — not `backend/tests/` or
-  `frontend/tests/`.
+  `frontend/tests/`. **API URL map:** `backend/src/http/route.js` registers every
+  path with permissions and a named `*Http` handler from the owning module.
+
 - **No deep cross-module imports.** Modules expose a public surface; internals stay private.
 - **JavaScript** for all application code (frontend and backend); JSX for React.
 - **Tests** live under `backend/tests/` and `frontend/tests/`, mirroring `src/`;

@@ -76,7 +76,7 @@ describe('jobControl.routes', () => {
   async function login(instance, email, password) {
     const res = await instance.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/auth/login`,
+      url: `${API_BASE_PATH}/access/auth/login`,
       payload: { email, password },
     });
     expect(res.statusCode).toBe(200);
@@ -92,7 +92,7 @@ describe('jobControl.routes', () => {
   async function createProjectRequest(instance, accessToken, payload, idempotencyKey) {
     return instance.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects`,
+      url: `${API_BASE_PATH}/masters/projects/create`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': idempotencyKey,
@@ -141,7 +141,7 @@ describe('jobControl.routes', () => {
 
     const first = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/jobs/${jobId}/retry`,
+      url: `${API_BASE_PATH}/masters/jobs/retry/${jobId}`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': 'idem-retry-same-1',
@@ -157,7 +157,7 @@ describe('jobControl.routes', () => {
 
     const second = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/jobs/${jobId}/retry`,
+      url: `${API_BASE_PATH}/masters/jobs/retry/${jobId}`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': 'idem-retry-same-1',
@@ -168,7 +168,7 @@ describe('jobControl.routes', () => {
 
     const detail = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/jobs/${jobId}`,
+      url: `${API_BASE_PATH}/masters/jobs/get/${jobId}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(detail.statusCode).toBe(200);
@@ -205,7 +205,7 @@ describe('jobControl.routes', () => {
 
     const first = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/jobs/${jobId}/retry`,
+      url: `${API_BASE_PATH}/masters/jobs/retry/${jobId}`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': 'idem-retry-a',
@@ -215,7 +215,7 @@ describe('jobControl.routes', () => {
 
     const second = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/jobs/${jobId}/retry`,
+      url: `${API_BASE_PATH}/masters/jobs/retry/${jobId}`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': 'idem-retry-b',
@@ -251,7 +251,7 @@ describe('jobControl.routes', () => {
     );
     const notRetryable = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/jobs/${badUploadId}/retry`,
+      url: `${API_BASE_PATH}/masters/jobs/retry/${badUploadId}`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': 'idem-retry-bad',
@@ -268,7 +268,7 @@ describe('jobControl.routes', () => {
     await Job.updateOne({ _id: completedId }, { $set: { jobStatus: 'completed' } });
     const completed = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/jobs/${completedId}/retry`,
+      url: `${API_BASE_PATH}/masters/jobs/retry/${completedId}`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': 'idem-retry-done',
@@ -293,7 +293,7 @@ describe('jobControl.routes', () => {
     });
     const pendingCancel = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/jobs/${pendingId}/cancel`,
+      url: `${API_BASE_PATH}/masters/jobs/cancel/${pendingId}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(pendingCancel.statusCode).toBe(200);
@@ -307,7 +307,7 @@ describe('jobControl.routes', () => {
     await Job.updateOne({ _id: runningId }, { $set: { jobStatus: 'running', workerId: 'w1', startedAt: new Date() } });
     const runningCancel = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/jobs/${runningId}/cancel`,
+      url: `${API_BASE_PATH}/masters/jobs/cancel/${runningId}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(runningCancel.statusCode).toBe(202);
@@ -327,7 +327,7 @@ describe('jobControl.routes', () => {
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const missingKey = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/jobs/665f1c9d4b2a8e0012a4f001/retry`,
+      url: `${API_BASE_PATH}/masters/jobs/retry/665f1c9d4b2a8e0012a4f001`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(missingKey.statusCode).toBeGreaterThanOrEqual(400);
@@ -359,7 +359,7 @@ describe('jobControl.routes', () => {
 
     const unauth = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/jobs/${jobId}/retry`,
+      url: `${API_BASE_PATH}/masters/jobs/retry/${jobId}`,
       headers: { 'idempotency-key': 'idem-unauth' },
     });
     expect(unauth.statusCode).toBe(401);
@@ -388,7 +388,7 @@ describe('jobControl.routes', () => {
     const { accessToken: viewerToken } = await login(app, 'viewer-ctrl@example.com', 'ViewerPass1!');
     const forbidden = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/jobs/${jobId}/retry`,
+      url: `${API_BASE_PATH}/masters/jobs/retry/${jobId}`,
       headers: {
         authorization: `Bearer ${viewerToken}`,
         'idempotency-key': 'idem-viewer-retry',
@@ -399,7 +399,7 @@ describe('jobControl.routes', () => {
     const foreignJobId = new mongoose.Types.ObjectId().toHexString();
     const missing = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/jobs/${foreignJobId}/cancel`,
+      url: `${API_BASE_PATH}/masters/jobs/cancel/${foreignJobId}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(missing.statusCode).toBe(404);
@@ -407,7 +407,7 @@ describe('jobControl.routes', () => {
     await softDelete(Project, { _id: projectId, orgId: org._id });
     const deletedProject = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/jobs/${jobId}/retry`,
+      url: `${API_BASE_PATH}/masters/jobs/retry/${jobId}`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': 'idem-deleted-project',

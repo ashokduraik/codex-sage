@@ -87,7 +87,7 @@ describe('source preview and change-summary routes', () => {
   async function login(instance, email, password) {
     const res = await instance.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/auth/login`,
+      url: `${API_BASE_PATH}/access/auth/login`,
       payload: { email, password },
     });
     expect(res.statusCode).toBe(200);
@@ -103,7 +103,7 @@ describe('source preview and change-summary routes', () => {
   async function createProject(instance, accessToken, name, idempotencyKey) {
     const res = await instance.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects`,
+      url: `${API_BASE_PATH}/masters/projects/create`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': idempotencyKey,
@@ -198,7 +198,7 @@ describe('source preview and change-summary routes', () => {
 
     const meta = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/files?path=${encodeURIComponent(seeded.filePath)}`,
+      url: `${API_BASE_PATH}/knowledge/sourcePreview/getMetadata/${project.id}?path=${encodeURIComponent(seeded.filePath)}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(meta.statusCode).toBe(200);
@@ -211,7 +211,7 @@ describe('source preview and change-summary routes', () => {
 
     const slice = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/files/slice?path=${encodeURIComponent(seeded.filePath)}&startLine=2&endLine=3`,
+      url: `${API_BASE_PATH}/knowledge/sourcePreview/readSlice/${project.id}?path=${encodeURIComponent(seeded.filePath)}&startLine=2&endLine=3`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(slice.statusCode).toBe(200);
@@ -229,28 +229,28 @@ describe('source preview and change-summary routes', () => {
 
     const unsafe = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/files?path=${encodeURIComponent('../etc/passwd')}`,
+      url: `${API_BASE_PATH}/knowledge/sourcePreview/getMetadata/${project.id}?path=${encodeURIComponent('../etc/passwd')}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(unsafe.statusCode).toBe(400);
 
     const range = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/files/slice?path=src/payments/refund.js&startLine=4&endLine=1`,
+      url: `${API_BASE_PATH}/knowledge/sourcePreview/readSlice/${project.id}?path=src/payments/refund.js&startLine=4&endLine=1`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(range.statusCode).toBe(400);
 
     const missingPath = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/files`,
+      url: `${API_BASE_PATH}/knowledge/sourcePreview/getMetadata/${project.id}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(missingPath.statusCode).toBe(400);
 
     const missingSlice = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/files/slice?path=src/payments/refund.js`,
+      url: `${API_BASE_PATH}/knowledge/sourcePreview/readSlice/${project.id}?path=src/payments/refund.js`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(missingSlice.statusCode).toBe(400);
@@ -266,7 +266,7 @@ describe('source preview and change-summary routes', () => {
 
     const missing = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/files?path=nope.js`,
+      url: `${API_BASE_PATH}/knowledge/sourcePreview/getMetadata/${project.id}?path=nope.js`,
       headers: { authorization: `Bearer ${adminToken}` },
     });
     expect(missing.statusCode).toBe(404);
@@ -299,7 +299,7 @@ describe('source preview and change-summary routes', () => {
     const { accessToken } = await login(app, 'nopreview@example.com', 'NoPreviewPass1!');
     const forbidden = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/files?path=src/payments/refund.js`,
+      url: `${API_BASE_PATH}/knowledge/sourcePreview/getMetadata/${project.id}?path=src/payments/refund.js`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(forbidden.statusCode).toBe(403);
@@ -326,7 +326,7 @@ describe('source preview and change-summary routes', () => {
 
     const res = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/knowledge/updates/latest`,
+      url: `${API_BASE_PATH}/knowledge/changeSummary/getLatest/${project.id}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(res.statusCode).toBe(200);
@@ -340,7 +340,7 @@ describe('source preview and change-summary routes', () => {
     const emptyProject = await createProject(app, accessToken, 'Changes Empty', 'idem-changes-empty');
     const empty = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${emptyProject.id}/knowledge/updates/latest`,
+      url: `${API_BASE_PATH}/knowledge/changeSummary/getLatest/${emptyProject.id}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(empty.statusCode).toBe(404);

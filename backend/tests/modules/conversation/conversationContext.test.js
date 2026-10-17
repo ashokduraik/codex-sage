@@ -446,7 +446,7 @@ describe('conversationContext HTTP', () => {
   async function login(instance, email, password) {
     const res = await instance.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/auth/login`,
+      url: `${API_BASE_PATH}/access/auth/login`,
       payload: { email, password },
     });
     expect(res.statusCode).toBe(200);
@@ -460,7 +460,7 @@ describe('conversationContext HTTP', () => {
     const org = await findOrganizationBySlug('default');
     const project = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects`,
+      url: `${API_BASE_PATH}/masters/projects/create`,
       headers: { authorization: `Bearer ${accessToken}`, 'idempotency-key': 'ctx-proj-1' },
       payload: { name: 'Context HTTP', sourceType: 'upload' },
     });
@@ -468,7 +468,7 @@ describe('conversationContext HTTP', () => {
     const projectId = project.json().id;
     const created = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${projectId}/conversations`,
+      url: `${API_BASE_PATH}/conversation/conversation/create/${projectId}`,
       headers: { authorization: `Bearer ${accessToken}`, 'idempotency-key': 'ctx-conv-1' },
       payload: { title: 'Metrics thread' },
     });
@@ -492,7 +492,7 @@ describe('conversationContext HTTP', () => {
 
     const emptyContext = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${projectId}/conversations/${conversationId}/context`,
+      url: `${API_BASE_PATH}/conversation/conversationContext/get/${projectId}/${conversationId}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(emptyContext.statusCode).toBe(200);
@@ -511,7 +511,7 @@ describe('conversationContext HTTP', () => {
 
     const messages = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${projectId}/conversations/${conversationId}/messages`,
+      url: `${API_BASE_PATH}/conversation/conversation/listMessages/${projectId}/${conversationId}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(messages.statusCode).toBe(200);
@@ -521,7 +521,7 @@ describe('conversationContext HTTP', () => {
 
     const withMetrics = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${projectId}/conversations/${conversationId}/context`,
+      url: `${API_BASE_PATH}/conversation/conversationContext/get/${projectId}/${conversationId}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(withMetrics.json().lastRunMetrics).toEqual({
@@ -536,7 +536,7 @@ describe('conversationContext HTTP', () => {
     });
     const noPercent = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${projectId}/conversations/${conversationId}/context`,
+      url: `${API_BASE_PATH}/conversation/conversationContext/get/${projectId}/${conversationId}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(noPercent.json().lastRunMetrics.measuredInputTokens).toBe(11);
@@ -550,14 +550,14 @@ describe('conversationContext HTTP', () => {
     const org = await findOrganizationBySlug('default');
     const project = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects`,
+      url: `${API_BASE_PATH}/masters/projects/create`,
       headers: { authorization: `Bearer ${admin.accessToken}`, 'idempotency-key': 'ctx-proj-404' },
       payload: { name: 'Context 404', sourceType: 'upload' },
     });
     const projectId = project.json().id;
     const created = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${projectId}/conversations`,
+      url: `${API_BASE_PATH}/conversation/conversation/create/${projectId}`,
       headers: { authorization: `Bearer ${admin.accessToken}`, 'idempotency-key': 'ctx-conv-404' },
       payload: { title: 'Private' },
     });
@@ -576,7 +576,7 @@ describe('conversationContext HTTP', () => {
     const other = await login(app, 'ctx-other@example.com', 'OtherAdmin1!');
     const crossOwner = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${projectId}/conversations/${conversationId}/context`,
+      url: `${API_BASE_PATH}/conversation/conversationContext/get/${projectId}/${conversationId}`,
       headers: { authorization: `Bearer ${other.accessToken}` },
     });
     expect(crossOwner.statusCode).toBe(404);
@@ -584,12 +584,12 @@ describe('conversationContext HTTP', () => {
 
     await app.inject({
       method: 'DELETE',
-      url: `${API_BASE_PATH}/projects/${projectId}/conversations/${conversationId}`,
+      url: `${API_BASE_PATH}/conversation/conversation/delete/${projectId}/${conversationId}`,
       headers: { authorization: `Bearer ${admin.accessToken}` },
     });
     const deleted = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${projectId}/conversations/${conversationId}/context`,
+      url: `${API_BASE_PATH}/conversation/conversationContext/get/${projectId}/${conversationId}`,
       headers: { authorization: `Bearer ${admin.accessToken}` },
     });
     expect(deleted.statusCode).toBe(404);
@@ -603,14 +603,14 @@ describe('conversationContext HTTP', () => {
     const org = await findOrganizationBySlug('default');
     const project = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects`,
+      url: `${API_BASE_PATH}/masters/projects/create`,
       headers: { authorization: `Bearer ${admin.accessToken}`, 'idempotency-key': 'ctx-proj-auth' },
       payload: { name: 'Context auth', sourceType: 'upload' },
     });
     const projectId = project.json().id;
     const created = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${projectId}/conversations`,
+      url: `${API_BASE_PATH}/conversation/conversation/create/${projectId}`,
       headers: { authorization: `Bearer ${admin.accessToken}`, 'idempotency-key': 'ctx-conv-auth' },
       payload: { title: 'Admin thread' },
     });
@@ -641,7 +641,7 @@ describe('conversationContext HTTP', () => {
     const denied = await login(app, 'nochat-ctx@example.com', 'NoChatPass1!');
     const forbidden = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${projectId}/conversations/${created.json().id}/context`,
+      url: `${API_BASE_PATH}/conversation/conversationContext/get/${projectId}/${created.json().id}`,
       headers: { authorization: `Bearer ${denied.accessToken}` },
     });
     expect(forbidden.statusCode).toBe(403);

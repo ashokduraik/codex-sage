@@ -7,7 +7,6 @@ import { Job } from '../../models/job.model.js';
 import { ApiError } from '../../platform/errors.js';
 import { resolveProjectPermissions } from './projectMembers.js';
 import { hasRequiredPermissions, recordAuditEvent } from '../access/index.js';
-import { requireProjectPermission } from '../../http/preHandlers/requireProjectPermission.js';
 import {
   findJobById,
   appendJobEvent,
@@ -86,48 +85,6 @@ export function zodDetails(error, emptyPath = 'query') {
 }
 
 /**
- * Registers job read and control routes under `/api/v1`.
- * @param {import('fastify').FastifyInstance} app Fastify app.
- */
-export async function jobRoutes(app) {
-  await jobControlRoutes(app);
-
-  app.get(
-    '/projects/:projectId/jobs',
-    {
-      config: { routeAccess: 'authenticated' },
-      preHandler: requireProjectPermission('projects.view'),
-    },
-    async (request) => {
-      const params = projectIdParamsSchema.safeParse(request.params ?? {});
-      if (!params.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
-      }
-      const parsed = listQuerySchema.safeParse(request.query ?? {});
-      if (!parsed.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
-      }
-      if (parsed.data.limit === 0) {
-        throw ApiError.fromCode('VALIDATION_ERROR', {
-          details: [{ path: 'limit', message: 'limit must be a positive integer' }],
-        });
-      }
-      return listProjectJobs(request.projectScope.orgId, request.projectScope.projectId, parsed.data);
-    },
-  );
-
-  app.get('/jobs/:jobId', { config: { routeAccess: 'authenticated' } }, async (request) => {
-    const params = jobIdParamsSchema.safeParse(request.params ?? {});
-    if (!params.success) {
-      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
-    }
-    return getJobById(/** @type {string} */ (request.principal.orgId), /** @type {string} */ (request.principal.userId), params.data.jobId, {
-      requestMemo: request.projectAclMemo,
-    });
-  });
-}
-
-/**
  * Parses and validates `:jobId` route params.
  * @param {unknown} params Fastify request.params.
  * @returns {{ jobId: string }}
@@ -142,50 +99,72 @@ export function parseJobControlParams(params) {
 }
 
 /**
- * Registers job control routes under `/api/v1`.
- * @param {import('fastify').FastifyInstance} app Fastify app.
+ * POST /masters/jobs/retry/:jobId — user-initiated job retry.
+ * @param {import('fastify').FastifyRequest} request Request.
+ * @param {import('fastify').FastifyReply} reply Reply.
  */
-export async function jobControlRoutes(app) {
-  app.post(
-    '/jobs/:jobId/retry',
-    {
-      config: {
-        routeAccess: 'authenticated',
-        requireIdempotencyKey: true,
-      },
-    },
-    async (request, reply) => {
-      const params = parseJobControlParams(request.params);
-      if (!request.projectAclMemo) {
-        request.projectAclMemo = new Map();
-      }
-      const result = await retryJob({
-        ...controlContext(request),
-        jobId: params.jobId,
-      });
-      return reply.code(result.statusCode).send(result.body);
-    },
-  );
+export async function retryJobHttp(request, reply) {
+  const params = parseJobControlParams(request.params);
+  if (!request.projectAclMemo) {
+    request.projectAclMemo = new Map();
+  }
+  const result = await retryJob({
+    ...controlContext(request),
+    jobId: params.jobId,
+  });
+  return reply.code(result.statusCode).send(result.body);
+}
 
-  app.post(
-    '/jobs/:jobId/cancel',
-    {
-      config: {
-        routeAccess: 'authenticated',
-      },
-    },
-    async (request, reply) => {
-      const params = parseJobControlParams(request.params);
-      if (!request.projectAclMemo) {
-        request.projectAclMemo = new Map();
-      }
-      const result = await cancelJob({
-        ...controlContext(request),
-        jobId: params.jobId,
-      });
-      return reply.code(result.statusCode).send(result.body);
-    },
-  );
+/**
+ * POST /masters/jobs/cancel/:jobId — user-initiated job cancel.
+ * @param {import('fastify').FastifyRequest} request Request.
+ * @param {import('fastify').FastifyReply} reply Reply.
+ */
+export async function cancelJobHttp(request, reply) {
+  const params = parseJobControlParams(request.params);
+  if (!request.projectAclMemo) {
+    request.projectAclMemo = new Map();
+  }
+  const result = await cancelJob({
+    ...controlContext(request),
+    jobId: params.jobId,
+  });
+  return reply.code(result.statusCode).send(result.body);
+}
+
+/**
+ * GET /masters/jobs/list/:projectId — list jobs for a project (project ACL).
+ * @param {import('fastify').FastifyRequest} request Request.
+ */
+export async function listProjectJobsHttp(request) {
+  const params = projectIdParamsSchema.safeParse(request.params ?? {});
+  if (!params.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+  }
+  const parsed = listQuerySchema.safeParse(request.query ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
+  }
+  if (parsed.data.limit === 0) {
+    throw ApiError.fromCode('VALIDATION_ERROR', {
+      details: [{ path: 'limit', message: 'limit must be a positive integer' }],
+    });
+  }
+  return listProjectJobs(request.projectScope.orgId, request.projectScope.projectId, parsed.data);
+}
+
+/**
+ * GET /masters/jobs/get/:jobId — fetch one job when caller has project access.
+ * @param {import('fastify').FastifyRequest} request Request.
+ */
+export async function getJobHttp(request) {
+  const params = jobIdParamsSchema.safeParse(request.params ?? {});
+  if (!params.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+  }
+  return getJobById(/** @type {string} */ (request.principal.orgId), /** @type {string} */ (request.principal.userId), params.data.jobId, {
+    requestMemo: request.projectAclMemo,
+  });
 }
 
 /**

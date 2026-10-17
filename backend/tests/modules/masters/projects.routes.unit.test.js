@@ -11,50 +11,19 @@ vi.mock('../../../src/modules/access/index.js', () => ({
   }),
 }));
 
-vi.mock('../../../src/http/preHandlers/requireProjectPermission.js', () => ({
-  requireProjectPermission: () => async () => undefined,
-}));
-
-import { projectRoutes } from '../../../src/modules/masters/projects.js';
-
-/**
- * Captures registered handlers by method+path.
- * @returns {{
- *   handlers: Map<string, Function>,
- *   post: Function,
- *   get: Function,
- *   patch: Function,
- *   delete: Function,
- * }}
- */
-function createFakeApp() {
-  /** @type {Map<string, Function>} */
-  const handlers = new Map();
-  /**
-   * @param {string} method
-   * @param {string} path
-   * @param {object} _opts
-   * @param {Function} handler
-   */
-  function register(method, path, _opts, handler) {
-    handlers.set(`${method} ${path}`, handler);
-  }
-  return {
-    handlers,
-    post(path, opts, handler) {
-      register('POST', path, opts, handler);
-    },
-    get(path, opts, handler) {
-      register('GET', path, opts, handler);
-    },
-    patch(path, opts, handler) {
-      register('PATCH', path, opts, handler);
-    },
-    delete(path, opts, handler) {
-      register('DELETE', path, opts, handler);
-    },
-  };
-}
+import {
+  listProjectsHttp,
+  createProjectHttp,
+  getProjectHttp,
+  updateProjectHttp,
+  deleteProjectHttp,
+  recordProjectAccessHttp,
+  getProjectSettingsHttp,
+  archiveProjectHttp,
+  restoreProjectHttp,
+  updateProjectSettingsHttp,
+  getProjectDeletionPreviewHttp,
+} from '../../../src/modules/masters/projects.js';
 
 /**
  * @returns {{
@@ -79,11 +48,8 @@ function baseRequest() {
 
 describe('projects.routes unit edges', () => {
   it('rejects invalid create body and empty projectId params', async () => {
-    const app = createFakeApp();
-    await projectRoutes(/** @type {any} */ (app));
-
     await expect(
-      app.handlers.get('POST /projects')(
+      createProjectHttp(
         {
           ...baseRequest(),
           body: { name: '', sourceType: 'upload' },
@@ -93,7 +59,7 @@ describe('projects.routes unit edges', () => {
     ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
 
     await expect(
-      app.handlers.get('GET /projects/:projectId')({
+      getProjectHttp({
         ...baseRequest(),
         params: { projectId: '' },
       }),
@@ -101,18 +67,15 @@ describe('projects.routes unit edges', () => {
   });
 
   it('rejects limit=0 and empty patch body', async () => {
-    const app = createFakeApp();
-    await projectRoutes(/** @type {any} */ (app));
-
     await expect(
-      app.handlers.get('GET /projects')({
+      listProjectsHttp({
         ...baseRequest(),
         query: { limit: 0 },
       }),
     ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
 
     await expect(
-      app.handlers.get('PATCH /projects/:projectId')({
+      updateProjectHttp({
         ...baseRequest(),
         params: { projectId: 'p1' },
         body: {},
@@ -121,28 +84,25 @@ describe('projects.routes unit edges', () => {
   });
 
   it('rejects invalid settings body and empty params on mutation routes', async () => {
-    const app = createFakeApp();
-    await projectRoutes(/** @type {any} */ (app));
-
     await expect(
-      app.handlers.get('PATCH /projects/:projectId/settings')({
+      updateProjectSettingsHttp({
         ...baseRequest(),
         params: { projectId: 'p1' },
         body: { settings: 'nope' },
       }),
     ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
 
-    for (const key of [
-      'GET /projects/:projectId/settings',
-      'POST /projects/:projectId/access',
-      'POST /projects/:projectId/archive',
-      'POST /projects/:projectId/restore',
-      'GET /projects/:projectId/deletion-preview',
-      'DELETE /projects/:projectId',
-      'PATCH /projects/:projectId',
+    for (const handler of [
+      getProjectSettingsHttp,
+      recordProjectAccessHttp,
+      archiveProjectHttp,
+      restoreProjectHttp,
+      getProjectDeletionPreviewHttp,
+      deleteProjectHttp,
+      updateProjectHttp,
     ]) {
       await expect(
-        app.handlers.get(key)(
+        handler(
           {
             ...baseRequest(),
             params: { projectId: '' },
@@ -154,18 +114,15 @@ describe('projects.routes unit edges', () => {
   });
 
   it('rejects invalid list limit and empty settings projectId', async () => {
-    const app = createFakeApp();
-    await projectRoutes(/** @type {any} */ (app));
-
     await expect(
-      app.handlers.get('GET /projects')({
+      listProjectsHttp({
         ...baseRequest(),
         query: { limit: 'nope' },
       }),
     ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
 
     await expect(
-      app.handlers.get('PATCH /projects/:projectId/settings')({
+      updateProjectSettingsHttp({
         ...baseRequest(),
         params: { projectId: '' },
         body: { settings: {} },

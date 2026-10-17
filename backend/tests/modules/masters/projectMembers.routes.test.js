@@ -64,7 +64,7 @@ describe('projectMembers.routes', () => {
   async function login(instance, email, password) {
     const res = await instance.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/auth/login`,
+      url: `${API_BASE_PATH}/access/auth/login`,
       payload: { email, password },
     });
     expect(res.statusCode).toBe(200);
@@ -74,7 +74,7 @@ describe('projectMembers.routes', () => {
   async function createProject(instance, accessToken, name, key) {
     const res = await instance.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects`,
+      url: `${API_BASE_PATH}/masters/projects/create`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': key,
@@ -109,7 +109,7 @@ describe('projectMembers.routes', () => {
 
     const deniedBefore = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}`,
+      url: `${API_BASE_PATH}/masters/projects/get/${project.id}`,
       headers: {
         authorization: `Bearer ${(await login(app, 'target-member@example.com', 'memberpass1')).accessToken}`,
       },
@@ -119,7 +119,7 @@ describe('projectMembers.routes', () => {
 
     const addRes = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${project.id}/members`,
+      url: `${API_BASE_PATH}/masters/projectMembers/create/${project.id}`,
       headers,
       payload: { userId: String(target._id), permissions: ['projects.view', 'chat.ask'] },
     });
@@ -130,7 +130,7 @@ describe('projectMembers.routes', () => {
 
     const addAgain = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${project.id}/members`,
+      url: `${API_BASE_PATH}/masters/projectMembers/create/${project.id}`,
       headers,
       payload: { userId: String(target._id), permissions: ['projects.view'] },
     });
@@ -140,14 +140,14 @@ describe('projectMembers.routes', () => {
     const { accessToken: memberToken } = await login(app, 'target-member@example.com', 'memberpass1');
     const allowed = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}`,
+      url: `${API_BASE_PATH}/masters/projects/get/${project.id}`,
       headers: { authorization: `Bearer ${memberToken}` },
     });
     expect(allowed.statusCode).toBe(200);
 
     const listRes = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/members`,
+      url: `${API_BASE_PATH}/masters/projectMembers/list/${project.id}`,
       headers,
     });
     expect(listRes.statusCode).toBe(200);
@@ -156,7 +156,7 @@ describe('projectMembers.routes', () => {
 
     const extraQuery = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}/members?limit=10`,
+      url: `${API_BASE_PATH}/masters/projectMembers/list/${project.id}?limit=10`,
       headers,
     });
     expect(extraQuery.statusCode).toBe(400);
@@ -164,21 +164,21 @@ describe('projectMembers.routes', () => {
 
     const delRes = await app.inject({
       method: 'DELETE',
-      url: `${API_BASE_PATH}/projects/${project.id}/members/${target._id}`,
+      url: `${API_BASE_PATH}/masters/projectMembers/delete/${project.id}/${target._id}`,
       headers,
     });
     expect(delRes.statusCode).toBe(204);
 
     const deniedAfter = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}`,
+      url: `${API_BASE_PATH}/masters/projects/get/${project.id}`,
       headers: { authorization: `Bearer ${memberToken}` },
     });
     expect(deniedAfter.statusCode).toBe(404);
 
     const delAgain = await app.inject({
       method: 'DELETE',
-      url: `${API_BASE_PATH}/projects/${project.id}/members/${target._id}`,
+      url: `${API_BASE_PATH}/masters/projectMembers/delete/${project.id}/${target._id}`,
       headers,
     });
     expect(delAgain.statusCode).toBe(404);
@@ -186,7 +186,7 @@ describe('projectMembers.routes', () => {
 
     const reAdd = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${project.id}/members`,
+      url: `${API_BASE_PATH}/masters/projectMembers/create/${project.id}`,
       headers,
       payload: { userId: String(target._id), permissions: ['projects.view'] },
     });
@@ -233,7 +233,7 @@ describe('projectMembers.routes', () => {
 
     await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${a.id}/members`,
+      url: `${API_BASE_PATH}/masters/projectMembers/create/${a.id}`,
       headers: { authorization: `Bearer ${adminToken}` },
       payload: { userId: String(selectedUser._id), permissions: ['projects.view'] },
     });
@@ -241,7 +241,7 @@ describe('projectMembers.routes', () => {
     const { accessToken: selectedToken } = await login(app, 'selected@example.com', 'selpass12');
     const selectedList = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects?limit=20`,
+      url: `${API_BASE_PATH}/masters/projects/list?limit=20`,
       headers: { authorization: `Bearer ${selectedToken}` },
     });
     expect(selectedList.statusCode).toBe(200);
@@ -252,14 +252,14 @@ describe('projectMembers.routes', () => {
     const { accessToken: noneToken } = await login(app, 'none@example.com', 'nonepass12');
     const noneList = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects?limit=20`,
+      url: `${API_BASE_PATH}/masters/projects/list?limit=20`,
       headers: { authorization: `Bearer ${noneToken}` },
     });
     expect(noneList.json().items).toHaveLength(0);
 
     const adminList = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects?limit=20`,
+      url: `${API_BASE_PATH}/masters/projects/list?limit=20`,
       headers: { authorization: `Bearer ${adminToken}` },
     });
     expect(adminList.json().items.length).toBeGreaterThanOrEqual(2);
@@ -299,14 +299,14 @@ describe('projectMembers.routes', () => {
     });
     const crossGet = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${foreignProject._id}`,
+      url: `${API_BASE_PATH}/masters/projects/get/${foreignProject._id}`,
       headers: { authorization: `Bearer ${adminToken}` },
     });
     expect(crossGet.statusCode).toBe(404);
 
     const crossAdd = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${foreignProject._id}/members`,
+      url: `${API_BASE_PATH}/masters/projectMembers/create/${foreignProject._id}`,
       headers: { authorization: `Bearer ${adminToken}` },
       payload: {
         userId: String(otherUser._id),
@@ -317,7 +317,7 @@ describe('projectMembers.routes', () => {
 
     const foreignUserAdd = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${project.id}/members`,
+      url: `${API_BASE_PATH}/masters/projectMembers/create/${project.id}`,
       headers: { authorization: `Bearer ${adminToken}` },
       payload: {
         userId: String(otherUser._id),
@@ -341,7 +341,7 @@ describe('projectMembers.routes', () => {
     });
     await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${project.id}/members`,
+      url: `${API_BASE_PATH}/masters/projectMembers/create/${project.id}`,
       headers: { authorization: `Bearer ${adminToken}` },
       payload: {
         userId: String(viewer._id),
@@ -351,7 +351,7 @@ describe('projectMembers.routes', () => {
     const { accessToken: viewerToken } = await login(app, 'viewer-acl@example.com', 'viewpass12');
     const patchForbidden = await app.inject({
       method: 'PATCH',
-      url: `${API_BASE_PATH}/projects/${project.id}`,
+      url: `${API_BASE_PATH}/masters/projects/update/${project.id}`,
       headers: { authorization: `Bearer ${viewerToken}` },
       payload: { name: 'Nope' },
     });
@@ -369,14 +369,14 @@ describe('projectMembers.routes', () => {
     const { accessToken: noAccessToken } = await login(app, 'noaccess@example.com', 'nopass123');
     const noAccessGet = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${project.id}`,
+      url: `${API_BASE_PATH}/masters/projects/get/${project.id}`,
       headers: { authorization: `Bearer ${noAccessToken}` },
     });
     expect(noAccessGet.statusCode).toBe(404);
 
     const badId = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/not-an-object-id`,
+      url: `${API_BASE_PATH}/masters/projects/get/not-an-object-id`,
       headers: { authorization: `Bearer ${adminToken}` },
     });
     expect(badId.statusCode).toBe(400);
@@ -384,12 +384,12 @@ describe('projectMembers.routes', () => {
     await updateUser(org._id, viewer._id, { projectAccessMode: 'selected' });
     await app.inject({
       method: 'DELETE',
-      url: `${API_BASE_PATH}/projects/${project.id}/members/${viewer._id}`,
+      url: `${API_BASE_PATH}/masters/projectMembers/delete/${project.id}/${viewer._id}`,
       headers: { authorization: `Bearer ${adminToken}` },
     });
     await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${project.id}/members`,
+      url: `${API_BASE_PATH}/masters/projectMembers/create/${project.id}`,
       headers: { authorization: `Bearer ${adminToken}` },
       payload: {
         userId: String(viewer._id),
@@ -399,7 +399,7 @@ describe('projectMembers.routes', () => {
     const { accessToken: elevatedToken } = await login(app, 'viewer-acl@example.com', 'viewpass12');
     const elevatedPatch = await app.inject({
       method: 'PATCH',
-      url: `${API_BASE_PATH}/projects/${project.id}`,
+      url: `${API_BASE_PATH}/masters/projects/update/${project.id}`,
       headers: { authorization: `Bearer ${elevatedToken}` },
       payload: { name: 'Elevated' },
     });
@@ -408,7 +408,7 @@ describe('projectMembers.routes', () => {
 
     const emptyOverlay = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${project.id}/members`,
+      url: `${API_BASE_PATH}/masters/projectMembers/create/${project.id}`,
       headers: { authorization: `Bearer ${adminToken}` },
       payload: { userId: String(noAccessUser._id) },
     });
@@ -416,7 +416,7 @@ describe('projectMembers.routes', () => {
 
     const unknownRole = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${project.id}/members`,
+      url: `${API_BASE_PATH}/masters/projectMembers/create/${project.id}`,
       headers: { authorization: `Bearer ${adminToken}` },
       payload: {
         userId: String(noAccessUser._id),
@@ -428,7 +428,7 @@ describe('projectMembers.routes', () => {
 
     const extraBodyKey = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${project.id}/members`,
+      url: `${API_BASE_PATH}/masters/projectMembers/create/${project.id}`,
       headers: { authorization: `Bearer ${adminToken}` },
       payload: { userId: String(noAccessUser._id), permissions: ['projects.view'], extra: true },
     });

@@ -24,6 +24,8 @@ const { mockGenerateText, mockStreamText, mockPrepareModelInput, mockLoadConfig,
     ...LLM,
     artifactId: LLM.modelId,
     contextCapacity: 131072,
+    // Must match production loadConfig().llm — undefined concurrency never drains the queue.
+    queueMaxConcurrency: 1,
   };
   const configState = { llm: { ...READY_LLM } };
   return {

@@ -2,7 +2,7 @@
  * masters/projectActivities.js — observed ingest/search facts and usage reads.
  *
  * `recordProjectActivity` is best-effort: a write failure must not fail ingest or search.
- * GET /usage/* aggregates `projectActivities` by occurredAt; it never invents question or token numbers.
+ * Usage HTTP under `/masters/projectActivities/*` aggregates `projectActivities` by occurredAt; it never invents question or token numbers.
  */
 import { z } from 'zod';
 import mongoose from 'mongoose';
@@ -247,69 +247,57 @@ export async function loadUsageSummary(input) {
 }
 
 /**
- * Registers usage HTTP routes.
- * @param {import('fastify').FastifyInstance} app Fastify app.
+ * GET /masters/projectActivities/getOrganizationUsage — org-wide usage summary (usage.view).
+ * @param {import('fastify').FastifyRequest} request Request.
  */
-export async function usageRoutes(app) {
-  app.get(
-    '/usage/organization',
-    {
-      config: { requiredPermissions: ['usage.view'] },
-    },
-    async (request) => {
-      const parsed = orgQuerySchema.safeParse(request.query ?? {});
-      if (!parsed.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', {
-          details: parsed.error.issues.map((issue) => ({
-            path: issue.path.join('.') || 'query',
-            message: issue.message,
-          })),
-        });
-      }
-      const window = defaultUsageWindow();
-      const from = parseOptionalInstant(parsed.data.from, 'from') ?? window.from;
-      const to = parseOptionalInstant(parsed.data.to, 'to') ?? window.to;
-      return loadUsageSummary({ orgId: request.principal.orgId, from, to });
-    },
-  );
+export async function getOrganizationUsageHttp(request) {
+  const parsed = orgQuerySchema.safeParse(request.query ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', {
+      details: parsed.error.issues.map((issue) => ({
+        path: issue.path.join('.') || 'query',
+        message: issue.message,
+      })),
+    });
+  }
+  const window = defaultUsageWindow();
+  const from = parseOptionalInstant(parsed.data.from, 'from') ?? window.from;
+  const to = parseOptionalInstant(parsed.data.to, 'to') ?? window.to;
+  return loadUsageSummary({ orgId: request.principal.orgId, from, to });
+}
 
-  app.get(
-    '/usage/projects/:projectId',
-    {
-      config: { requiredPermissions: ['usage.view'] },
-    },
-    async (request) => {
-      const params = projectParamsSchema.safeParse(request.params ?? {});
-      if (!params.success) {
-        throw ApiError.fromCode('VALIDATION_ERROR', {
-          details: [{ path: 'projectId', message: 'projectId is required' }],
-        });
-      }
-      const window = defaultUsageWindow();
-      return loadUsageSummary({
-        orgId: request.principal.orgId,
-        projectId: params.data.projectId,
-        from: window.from,
-        to: window.to,
-      });
-    },
-  );
+/**
+ * GET /masters/projectActivities/getProjectUsage/:projectId — project-scoped usage summary (usage.view).
+ * @param {import('fastify').FastifyRequest} request Request.
+ */
+export async function getProjectUsageHttp(request) {
+  const params = projectParamsSchema.safeParse(request.params ?? {});
+  if (!params.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', {
+      details: [{ path: 'projectId', message: 'projectId is required' }],
+    });
+  }
+  const window = defaultUsageWindow();
+  return loadUsageSummary({
+    orgId: request.principal.orgId,
+    projectId: params.data.projectId,
+    from: window.from,
+    to: window.to,
+  });
+}
 
-  app.get(
-    '/usage/me',
-    {
-      config: { routeAccess: 'authenticated' },
-    },
-    async (request) => {
-      const window = defaultUsageWindow();
-      return loadUsageSummary({
-        orgId: request.principal.orgId,
-        userId: request.principal.userId,
-        from: window.from,
-        to: window.to,
-      });
-    },
-  );
+/**
+ * GET /masters/projectActivities/getMyUsage — usage summary for the signed-in user.
+ * @param {import('fastify').FastifyRequest} request Request.
+ */
+export async function getMyUsageHttp(request) {
+  const window = defaultUsageWindow();
+  return loadUsageSummary({
+    orgId: request.principal.orgId,
+    userId: request.principal.userId,
+    from: window.from,
+    to: window.to,
+  });
 }
 
 /**

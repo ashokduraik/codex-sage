@@ -105,7 +105,7 @@ describe('auth.routes', () => {
     app = await readyApp();
     const login = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/auth/login`,
+      url: `${API_BASE_PATH}/access/auth/login`,
       payload: { email: DEFAULT_ADMIN_EMAIL, password: DEFAULT_ADMIN_PASSWORD },
     });
     expect(login.statusCode).toBe(200);
@@ -116,7 +116,7 @@ describe('auth.routes', () => {
 
     const me = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/auth/me`,
+      url: `${API_BASE_PATH}/access/auth/me`,
       headers: { authorization: `Bearer ${body.accessToken}` },
     });
     expect(me.statusCode).toBe(200);
@@ -124,7 +124,7 @@ describe('auth.routes', () => {
 
     const unauth = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/auth/me`,
+      url: `${API_BASE_PATH}/access/auth/me`,
     });
     expect(unauth.statusCode).toBe(401);
     expect(unauth.json().error.code).toBe('UNAUTHENTICATED');
@@ -135,7 +135,7 @@ describe('auth.routes', () => {
     app = await readyApp();
     const login = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/auth/login`,
+      url: `${API_BASE_PATH}/access/auth/login`,
       payload: { email: DEFAULT_ADMIN_EMAIL, password: DEFAULT_ADMIN_PASSWORD },
     });
     const jar1 = cookieJarFromResponse(login);
@@ -151,7 +151,7 @@ describe('auth.routes', () => {
 
     const refresh1 = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/auth/refresh`,
+      url: `${API_BASE_PATH}/access/auth/refresh`,
       headers: {
         cookie: jar1.cookieHeader,
         'x-csrf-token': jar1.csrfToken,
@@ -162,7 +162,7 @@ describe('auth.routes', () => {
 
     const reuse = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/auth/refresh`,
+      url: `${API_BASE_PATH}/access/auth/refresh`,
       headers: {
         cookie: jar1.cookieHeader,
         'x-csrf-token': jar1.csrfToken,
@@ -173,7 +173,7 @@ describe('auth.routes', () => {
 
     const newestFails = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/auth/refresh`,
+      url: `${API_BASE_PATH}/access/auth/refresh`,
       headers: {
         cookie: jar2.cookieHeader,
         'x-csrf-token': jar2.csrfToken,
@@ -188,7 +188,7 @@ describe('auth.routes', () => {
     app = await readyApp();
     const res = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/auth/refresh`,
+      url: `${API_BASE_PATH}/access/auth/refresh`,
     });
     expect(res.statusCode).toBe(401);
     expect(res.json().error.code).toBe('SESSION_EXPIRED');
@@ -199,7 +199,7 @@ describe('auth.routes', () => {
     app = await readyApp();
     const login = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/auth/login`,
+      url: `${API_BASE_PATH}/access/auth/login`,
       payload: { email: DEFAULT_ADMIN_EMAIL, password: DEFAULT_ADMIN_PASSWORD },
     });
     const accessToken = login.json().accessToken;
@@ -207,7 +207,7 @@ describe('auth.routes', () => {
 
     const logout = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/auth/logout`,
+      url: `${API_BASE_PATH}/access/auth/logout`,
       headers: {
         cookie: jar.cookieHeader,
         'x-csrf-token': jar.csrfToken,
@@ -217,7 +217,7 @@ describe('auth.routes', () => {
 
     const me = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/auth/me`,
+      url: `${API_BASE_PATH}/access/auth/me`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(me.statusCode).toBe(401);
@@ -225,7 +225,7 @@ describe('auth.routes', () => {
 
     const login2 = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/auth/login`,
+      url: `${API_BASE_PATH}/access/auth/login`,
       payload: { email: DEFAULT_ADMIN_EMAIL, password: DEFAULT_ADMIN_PASSWORD },
     });
     const jarUnknown = cookieJarFromResponse(
@@ -237,7 +237,7 @@ describe('auth.routes', () => {
     );
     const logoutUnknown = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/auth/logout`,
+      url: `${API_BASE_PATH}/access/auth/logout`,
       headers: {
         cookie: jarUnknown.cookieHeader,
         'x-csrf-token': jarUnknown.csrfToken,
@@ -297,7 +297,7 @@ describe('auth.routes', () => {
     for (const payload of cases) {
       const res = await app.inject({
         method: 'POST',
-        url: `${API_BASE_PATH}/auth/login`,
+        url: `${API_BASE_PATH}/access/auth/login`,
         payload,
       });
       expect(res.statusCode).toBe(401);
@@ -314,7 +314,7 @@ describe('auth.routes', () => {
     app = await readyApp();
     const login = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/auth/login`,
+      url: `${API_BASE_PATH}/access/auth/login`,
       payload: { email: DEFAULT_ADMIN_EMAIL, password: DEFAULT_ADMIN_PASSWORD },
     });
     const accessToken = login.json().accessToken;
@@ -326,7 +326,7 @@ describe('auth.routes', () => {
 
     const meAfterPassword = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/auth/me`,
+      url: `${API_BASE_PATH}/access/auth/me`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(meAfterPassword.statusCode).toBe(401);
@@ -334,7 +334,7 @@ describe('auth.routes', () => {
 
     const login2 = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/auth/login`,
+      url: `${API_BASE_PATH}/access/auth/login`,
       payload: { email: DEFAULT_ADMIN_EMAIL, password: DEFAULT_ADMIN_PASSWORD },
     });
     const token2 = login2.json().accessToken;
@@ -342,7 +342,7 @@ describe('auth.routes', () => {
     await revokeLoginSession(claims2.sid, 'logout');
     const meAfterRevoke = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/auth/me`,
+      url: `${API_BASE_PATH}/access/auth/me`,
       headers: { authorization: `Bearer ${token2}` },
     });
     expect(meAfterRevoke.statusCode).toBe(401);

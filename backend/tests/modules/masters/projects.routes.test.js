@@ -69,7 +69,7 @@ describe('projects.routes', () => {
   async function login(instance, email, password) {
     const res = await instance.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/auth/login`,
+      url: `${API_BASE_PATH}/access/auth/login`,
       payload: { email, password },
     });
     expect(res.statusCode).toBe(200);
@@ -85,7 +85,7 @@ describe('projects.routes', () => {
   async function createProjectRequest(instance, accessToken, payload, idempotencyKey) {
     return instance.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects`,
+      url: `${API_BASE_PATH}/masters/projects/create`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': idempotencyKey,
@@ -112,7 +112,7 @@ describe('projects.routes', () => {
     app = await readyApp();
     const unauth = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects`,
+      url: `${API_BASE_PATH}/masters/projects/list`,
     });
     expect(unauth.statusCode).toBe(401);
 
@@ -168,7 +168,7 @@ describe('projects.routes', () => {
 
     const page1 = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects?limit=2`,
+      url: `${API_BASE_PATH}/masters/projects/list?limit=2`,
       headers,
     });
     expect(page1.statusCode).toBe(200);
@@ -178,7 +178,7 @@ describe('projects.routes', () => {
 
     const page2 = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects?limit=2&cursor=${encodeURIComponent(body1.pageInfo.nextCursor)}`,
+      url: `${API_BASE_PATH}/masters/projects/list?limit=2&cursor=${encodeURIComponent(body1.pageInfo.nextCursor)}`,
       headers,
     });
     expect(page2.statusCode).toBe(200);
@@ -186,7 +186,7 @@ describe('projects.routes', () => {
 
     const archiveRes = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${ids[0]}/archive`,
+      url: `${API_BASE_PATH}/masters/projects/archive/${ids[0]}`,
       headers,
     });
     expect(archiveRes.statusCode).toBe(200);
@@ -194,21 +194,21 @@ describe('projects.routes', () => {
 
     const activeList = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects?limit=20`,
+      url: `${API_BASE_PATH}/masters/projects/list?limit=20`,
       headers,
     });
     expect(activeList.json().items.every((row) => row.lifecycleStatus !== 'archived')).toBe(true);
 
     const archivedList = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects?includeArchived=true&limit=20`,
+      url: `${API_BASE_PATH}/masters/projects/list?includeArchived=true&limit=20`,
       headers,
     });
     expect(archivedList.json().items.some((row) => row.lifecycleStatus === 'archived')).toBe(true);
 
     const restoreRes = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${ids[0]}/restore`,
+      url: `${API_BASE_PATH}/masters/projects/restore/${ids[0]}`,
       headers,
     });
     expect(restoreRes.statusCode).toBe(200);
@@ -216,7 +216,7 @@ describe('projects.routes', () => {
 
     const badPatch = await app.inject({
       method: 'PATCH',
-      url: `${API_BASE_PATH}/projects/${ids[1]}`,
+      url: `${API_BASE_PATH}/masters/projects/update/${ids[1]}`,
       headers,
       payload: { lifecycleStatus: 'knowledge_ready' },
     });
@@ -226,7 +226,7 @@ describe('projects.routes', () => {
 
     const goodPatch = await app.inject({
       method: 'PATCH',
-      url: `${API_BASE_PATH}/projects/${ids[1]}`,
+      url: `${API_BASE_PATH}/masters/projects/update/${ids[1]}`,
       headers,
       payload: { name: 'Renamed', description: 'updated' },
     });
@@ -235,7 +235,7 @@ describe('projects.routes', () => {
 
     const badSettings = await app.inject({
       method: 'PATCH',
-      url: `${API_BASE_PATH}/projects/${ids[1]}/settings`,
+      url: `${API_BASE_PATH}/masters/projects/updateSettings/${ids[1]}`,
       headers,
       payload: { settings: { mystery: 1 } },
     });
@@ -244,7 +244,7 @@ describe('projects.routes', () => {
 
     const emptySettings = await app.inject({
       method: 'PATCH',
-      url: `${API_BASE_PATH}/projects/${ids[1]}/settings`,
+      url: `${API_BASE_PATH}/masters/projects/updateSettings/${ids[1]}`,
       headers,
       payload: { settings: {} },
     });
@@ -252,7 +252,7 @@ describe('projects.routes', () => {
 
     const accessRes = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/projects/${ids[0]}/access`,
+      url: `${API_BASE_PATH}/masters/projects/recordAccess/${ids[0]}`,
       headers,
     });
     expect(accessRes.statusCode).toBe(200);
@@ -260,7 +260,7 @@ describe('projects.routes', () => {
 
     const recentList = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects?sort=lastAccessedAt&limit=5`,
+      url: `${API_BASE_PATH}/masters/projects/list?sort=lastAccessedAt&limit=5`,
       headers,
     });
     expect(recentList.statusCode).toBe(200);
@@ -268,7 +268,7 @@ describe('projects.routes', () => {
 
     const preview = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${ids[1]}/deletion-preview`,
+      url: `${API_BASE_PATH}/masters/projects/getDeletionPreview/${ids[1]}`,
       headers,
     });
     expect(preview.statusCode).toBe(200);
@@ -277,14 +277,14 @@ describe('projects.routes', () => {
 
     const del = await app.inject({
       method: 'DELETE',
-      url: `${API_BASE_PATH}/projects/${ids[1]}`,
+      url: `${API_BASE_PATH}/masters/projects/delete/${ids[1]}`,
       headers,
     });
     expect(del.statusCode).toBe(204);
 
     const gone = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${ids[1]}`,
+      url: `${API_BASE_PATH}/masters/projects/get/${ids[1]}`,
       headers,
     });
     expect(gone.statusCode).toBe(404);
@@ -295,7 +295,7 @@ describe('projects.routes', () => {
     // Soft-deleted rows never appear in list
     const afterDelete = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects?includeArchived=true&limit=50`,
+      url: `${API_BASE_PATH}/masters/projects/list?includeArchived=true&limit=50`,
       headers,
     });
     expect(afterDelete.json().items.every((row) => row.id !== ids[1])).toBe(true);
@@ -309,14 +309,14 @@ describe('projects.routes', () => {
     const foreignId = new mongoose.Types.ObjectId().toHexString();
     const getRes = await app.inject({
       method: 'GET',
-      url: `${API_BASE_PATH}/projects/${foreignId}`,
+      url: `${API_BASE_PATH}/masters/projects/get/${foreignId}`,
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(getRes.statusCode).toBe(404);
 
     const patchRes = await app.inject({
       method: 'PATCH',
-      url: `${API_BASE_PATH}/projects/${foreignId}`,
+      url: `${API_BASE_PATH}/masters/projects/update/${foreignId}`,
       headers: { authorization: `Bearer ${accessToken}` },
       payload: { name: 'X' },
     });

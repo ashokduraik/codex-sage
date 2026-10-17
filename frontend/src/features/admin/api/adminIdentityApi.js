@@ -96,7 +96,7 @@ export async function listUsers(options = {}) {
     cursor: filters.cursor,
     limit: filters.limit,
   });
-  return apiRequest(`/users${query}`, { signal });
+  return apiRequest(`/masters/users/list${query}`, { signal });
 }
 
 /**
@@ -111,7 +111,7 @@ export async function listUsers(options = {}) {
  * @returns {Promise<object>} Created user DTO.
  */
 export async function createUser(input) {
-  return apiRequest('/users', {
+  return apiRequest('/masters/users/create', {
     method: 'POST',
     body: {
       code: input.code,
@@ -134,7 +134,7 @@ export async function createUser(input) {
  * @returns {Promise<object>} Updated user DTO.
  */
 export async function patchUser(userId, patch) {
-  return apiRequest(`/users/${userId}`, {
+  return apiRequest(`/masters/users/update/${userId}`, {
     method: 'PATCH',
     body: patch,
   });
@@ -146,7 +146,7 @@ export async function patchUser(userId, patch) {
  * @returns {Promise<object>} Updated user DTO.
  */
 export async function activateUser(userId) {
-  return apiRequest(`/users/${userId}/activate`, { method: 'POST' });
+  return apiRequest(`/masters/users/activate/${userId}`, { method: 'POST' });
 }
 
 /**
@@ -155,7 +155,7 @@ export async function activateUser(userId) {
  * @returns {Promise<object>} Updated user DTO.
  */
 export async function deactivateUser(userId) {
-  return apiRequest(`/users/${userId}/deactivate`, { method: 'POST' });
+  return apiRequest(`/masters/users/deactivate/${userId}`, { method: 'POST' });
 }
 
 /**
@@ -164,7 +164,7 @@ export async function deactivateUser(userId) {
  * @returns {Promise<object | undefined>}
  */
 export async function removeUser(userId) {
-  return apiRequest(`/users/${userId}`, { method: 'DELETE' });
+  return apiRequest(`/masters/users/delete/${userId}`, { method: 'DELETE' });
 }
 
 /**
@@ -174,7 +174,7 @@ export async function removeUser(userId) {
  * @returns {Promise<{ passwordResetStatus: string, completedAt?: string }>}
  */
 export async function resetUserPassword(userId, input) {
-  return apiRequest(`/users/${userId}/reset-password`, {
+  return apiRequest(`/masters/users/resetPassword/${userId}`, {
     method: 'POST',
     body: { newPassword: input.newPassword },
     idempotencyKey: input.idempotencyKey,
@@ -189,7 +189,7 @@ export async function resetUserPassword(userId, input) {
 export async function listRolesPage(options = {}) {
   const { signal, q, cursor, limit } = options;
   const query = toQueryString({ q, cursor, limit });
-  return apiRequest(`/roles${query}`, { signal });
+  return apiRequest(`/masters/roles/list${query}`, { signal });
 }
 
 /**
@@ -224,7 +224,7 @@ export async function listAllRoles(options = {}) {
  * @returns {Promise<{ groups: Array<{ id: string, label: string, permissions: object[] }> }>}
  */
 export async function fetchPermissionsCatalog(options = {}) {
-  return apiRequest('/permissions', { signal: options.signal });
+  return apiRequest('/access/permissions/list', { signal: options.signal });
 }
 
 /**
@@ -238,7 +238,7 @@ export async function fetchPermissionsCatalog(options = {}) {
  * @returns {Promise<object>} Created role DTO.
  */
 export async function createRole(input) {
-  return apiRequest('/roles', {
+  return apiRequest('/masters/roles/create', {
     method: 'POST',
     body: {
       code: input.code,
@@ -260,7 +260,7 @@ export async function createRole(input) {
  * @returns {Promise<object>} Updated role DTO.
  */
 export async function patchRole(roleId, patch) {
-  return apiRequest(`/roles/${roleId}`, {
+  return apiRequest(`/masters/roles/update/${roleId}`, {
     method: 'PATCH',
     body: patch,
   });
@@ -272,5 +272,5 @@ export async function patchRole(roleId, patch) {
  * @returns {Promise<object | undefined>}
  */
 export async function removeRole(roleId) {
-  return apiRequest(`/roles/${roleId}`, { method: 'DELETE' });
+  return apiRequest(`/masters/roles/delete/${roleId}`, { method: 'DELETE' });
 }

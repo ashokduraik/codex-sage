@@ -1,8 +1,13 @@
+/**
+ * Health and readiness HTTP adapters — liveness and dependency probes.
+ * URL registration lives in `http/route.js`.
+ */
 import { createRequire } from 'node:module';
 import { checkMongoHealth } from '../platform/mongo.js';
 
 const require = createRequire(import.meta.url);
 const { version: PACKAGE_VERSION } = require('../../package.json');
+
 /**
  * Builds the liveness payload (no dependency checks).
  * @returns Health response with process uptime and package version.
@@ -14,6 +19,7 @@ export function buildHealthResponse() {
     version: PACKAGE_VERSION,
   };
 }
+
 /**
  * Runs dependency checks and builds the readiness payload.
  * @returns Status code and readiness body (never includes driver text or URIs).
@@ -44,17 +50,22 @@ export async function buildReadinessResponse() {
     },
   };
 }
+
 /**
- * Fastify plugin that registers `/health` and `/readiness` on the given instance.
- * Mounted both under `API_BASE_PATH` and at the root for infra probes.
- * @param app - The Fastify application instance to register the routes on.
+ * GET /health — liveness (no dependency checks).
+ * @returns Liveness payload.
  */
-export async function healthRoutes(app) {
-  app.get('/health', { config: { routeAccess: 'public' } }, async () => {
-    return buildHealthResponse();
-  });
-  app.get('/readiness', { config: { routeAccess: 'public' } }, async (_request, reply) => {
-    const { statusCode, body } = await buildReadinessResponse();
-    return reply.status(statusCode).send(body);
-  });
+export async function getHealthHttp() {
+  return buildHealthResponse();
+}
+
+/**
+ * GET /readiness — Mongo dependency probe.
+ * @param {import('fastify').FastifyRequest} _request Unused request.
+ * @param {import('fastify').FastifyReply} reply Reply used for non-200 status.
+ * @returns Readiness body (status set on reply when not ready).
+ */
+export async function getReadinessHttp(_request, reply) {
+  const { statusCode, body } = await buildReadinessResponse();
+  return reply.status(statusCode).send(body);
 }

@@ -62,5 +62,5 @@ export async function listAuditEvents(options = {}) {
     search.set(key, String(value));
   }
   const encoded = search.toString();
-  return apiRequest(`/audit-events${encoded ? `?${encoded}` : ''}`, { signal });
+  return apiRequest(`/access/audit/list${encoded ? `?${encoded}` : ''}`, { signal });
 }

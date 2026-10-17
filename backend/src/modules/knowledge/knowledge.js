@@ -1,6 +1,6 @@
 /**
  * knowledge/knowledge.js — KnowledgeVersion persistence, readability gate, publish,
- * same-job CodeGraph recovery, and browse orchestration/routes.
+ * same-job CodeGraph recovery, and browse orchestration HTTP handlers.
  */
 import { z } from 'zod';
 import path from 'node:path';
@@ -18,7 +18,6 @@ import { resolveCodegraphDir, createCodegraphAdapter } from './codegraph.js';
 import { assertOrgId, ROW_STATUS_ACTIVE } from '../../platform/data/index.js';
 import { runMaterializeDocsStage, runCodegraphUpdateStage } from './ingest.util.js';
 import { SOURCE_FILE_STATE_STORED, resolveProjectWorkspacePath } from './sources.js';
-import { requireProjectPermission } from '../../http/preHandlers/requireProjectPermission.js';
 import { createJobFailureError, createJobFailureFromCaught } from '../../worker/retryPolicy.js';
 
 // --- from knowledge/knowledgeVersion.repository.js ---
@@ -56,7 +55,7 @@ export const KNOWLEDGE_SYMBOL_QUERY_MIN_LEN = 2;
 export const KNOWLEDGE_SUMMARY_MAX_CHARS = 4000;
 // --- from knowledge/knowledge.routes.js ---
 /**
- * Knowledge browse HTTP routes under `/api/v1/projects/:projectId/knowledge`.
+ * Knowledge browse HTTP routes under `/api/v1/knowledge/knowledge/*`.
  */
 const listQuerySchema = z.object({
   cursor: z.string().min(1).optional(),
@@ -65,10 +64,6 @@ const listQuerySchema = z.object({
 const symbolsQuerySchema = listQuerySchema.extend({
   q: z.string().min(KNOWLEDGE_SYMBOL_QUERY_MIN_LEN),
 });
-const browsePreHandler = requireProjectPermission(['knowledge.browse', 'knowledge.view'], {
-  mode: 'any',
-});
-
 /**
  * Counts stored SourceFile rows excluded from the graph for a version.
  * @param {{
@@ -909,49 +904,73 @@ export async function loadKnowledgeBrowse(input) {
 }
 
 /**
- * Registers knowledge browse routes under `/api/v1`.
- * @param {import('fastify').FastifyInstance} app Fastify app.
+ * GET /knowledge/knowledge/getSummary/:projectId — compact knowledge overview for the project.
+ * @param {import('fastify').FastifyRequest} request Fastify request.
+ * @returns {Promise<object>} Summary browse envelope.
  */
-export async function knowledgeBrowseRoutes(app) {
-  const config = { routeAccess: 'authenticated' };
+export async function getKnowledgeSummaryHttp(request) {
+  return handleBrowse(request, 'summary', {});
+}
 
-  app.get('/projects/:projectId/knowledge/summary', { config, preHandler: browsePreHandler }, async (request) =>
-    handleBrowse(request, 'summary', {}),
-  );
+/**
+ * GET /knowledge/knowledge/listWorkflows/:projectId — paginated workflow browse slice.
+ * @param {import('fastify').FastifyRequest} request Fastify request.
+ * @returns {Promise<object>} Workflows browse envelope.
+ */
+export async function listKnowledgeWorkflowsHttp(request) {
+  const parsed = listQuerySchema.safeParse(request.query ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
+  }
+  return handleBrowse(request, 'workflows', parsed.data);
+}
 
-  app.get('/projects/:projectId/knowledge/workflows', { config, preHandler: browsePreHandler }, async (request) => {
-    const parsed = listQuerySchema.safeParse(request.query ?? {});
-    if (!parsed.success) {
-      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
-    }
-    return handleBrowse(request, 'workflows', parsed.data);
-  });
+/**
+ * GET /knowledge/knowledge/listApis/:projectId — paginated API surface browse slice.
+ * @param {import('fastify').FastifyRequest} request Fastify request.
+ * @returns {Promise<object>} APIs browse envelope.
+ */
+export async function listKnowledgeApisHttp(request) {
+  const parsed = listQuerySchema.safeParse(request.query ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
+  }
+  return handleBrowse(request, 'apis', parsed.data);
+}
 
-  app.get('/projects/:projectId/knowledge/apis', { config, preHandler: browsePreHandler }, async (request) => {
-    const parsed = listQuerySchema.safeParse(request.query ?? {});
-    if (!parsed.success) {
-      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
-    }
-    return handleBrowse(request, 'apis', parsed.data);
-  });
+/**
+ * GET /knowledge/knowledge/listSymbols/:projectId — symbol search within published knowledge.
+ * @param {import('fastify').FastifyRequest} request Fastify request.
+ * @returns {Promise<object>} Symbols browse envelope.
+ */
+export async function listKnowledgeSymbolsHttp(request) {
+  const parsed = symbolsQuerySchema.safeParse(request.query ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
+  }
+  return handleBrowse(request, 'symbols', parsed.data);
+}
 
-  app.get('/projects/:projectId/knowledge/symbols', { config, preHandler: browsePreHandler }, async (request) => {
-    const parsed = symbolsQuerySchema.safeParse(request.query ?? {});
-    if (!parsed.success) {
-      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
-    }
-    return handleBrowse(request, 'symbols', parsed.data);
-  });
+/**
+ * GET /knowledge/knowledge/getHealth/:projectId — published knowledge health dimensions.
+ * @param {import('fastify').FastifyRequest} request Fastify request.
+ * @returns {Promise<object>} Health browse envelope.
+ */
+export async function getKnowledgeHealthHttp(request) {
+  return handleBrowse(request, 'health', {});
+}
 
-  app.get('/projects/:projectId/knowledge/health', { config, preHandler: browsePreHandler }, async (request) => handleBrowse(request, 'health', {}));
-
-  app.get('/projects/:projectId/knowledge', { config, preHandler: browsePreHandler }, async (request) => {
-    const parsed = listQuerySchema.safeParse(request.query ?? {});
-    if (!parsed.success) {
-      throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
-    }
-    return handleBrowse(request, 'index', parsed.data);
-  });
+/**
+ * GET /knowledge/knowledge/getIndex/:projectId — paginated knowledge index (faceted browse root).
+ * @param {import('fastify').FastifyRequest} request Fastify request.
+ * @returns {Promise<object>} Index browse envelope.
+ */
+export async function getKnowledgeIndexHttp(request) {
+  const parsed = listQuerySchema.safeParse(request.query ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
+  }
+  return handleBrowse(request, 'index', parsed.data);
 }
 
 /**

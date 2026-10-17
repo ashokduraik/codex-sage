@@ -175,7 +175,7 @@ domain; not row `status`), `jobId` (pending ingest job), `commitSha`, `branch`,
 are counted only here — they are never stored as `sourceFiles` or GridFS objects.
 
 Index (partial `status: 'A'`): `{ orgId, projectId, createdAt: -1 }`.
-`GET /api/v1/projects/:projectId/source-versions` lists active rows (permission
+`GET /api/v1/knowledge/sources/listVersions/:projectId` lists active rows (permission
 `projects.view`) with that keyset.
 
 ### `sourceChangeSummaries`
