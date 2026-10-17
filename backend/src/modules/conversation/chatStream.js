@@ -454,6 +454,7 @@ export async function runChatStreamForExistingUser(input) {
       });
       if (input.isClientConnected() && clarificationSet) {
         input.writeSse('clarification', {
+          messageId: assistantMessageId,
           clarificationSetId: clarificationSet.clarificationSetId,
           roundIndex: clarificationSet.roundIndex ?? 0,
           questions: clarificationSet.questions ?? [],

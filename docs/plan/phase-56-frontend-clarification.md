@@ -1,6 +1,6 @@
 # Phase 56 — Frontend clarification slice
 
-- **Layer:** FE
+- **Layer:** FE (+ small BE: `messageId` on SSE `clarification`)
 - **Depends on:** Phase 55 (frontend streaming answer — SSE client + composer), Phase 52
   (clarification API: set delivery, answers & resume)
 - **Unblocks:** None required (Phase 57 is parallel after 55); completes FLOW B clarification UX
@@ -20,7 +20,7 @@ steps through the set, and submits **all answers in one** `POST` when the last q
 answered — then resumes waiting on the same conversation’s stream/run lifecycle from Phase 55.
 
 Abandoned sets show `awaiting_clarification` state on return visits; the UI must not POST partial
-sets unless product explicitly allows (default: require all questions answered).
+sets (require all required questions answered).
 
 You can see it working by triggering a question that needs two clarifications: only Q1 shows
 first; after choosing Production, Q2 appears; after completing the set, one network POST fires and
@@ -40,29 +40,31 @@ evidence or metrics (57).
 
 ### In scope
 
-- `ClarificationPanel` (or inline block in `ChatWorkspace`) positioned per §49: inside active
-  chat, after latest assistant content, above `Composer`.
+- `ClarificationPanel` positioned per §49: inside active chat, after latest assistant content,
+  above `Composer`.
 - Local wizard state: `currentIndex`, `answersByQuestionId`, validation per type.
 - Question types from Phase 52:
   - `single_select` — radio group (options are plain strings; answer is one string)
   - `multi_select` — checkbox group, at least one when required (answer is string[])
-  - `free_text` — textarea; max length from backend constant (2000)
-- Navigation: Next / Back optional (§12); **only one active question visible** (§50).
+  - `free_text` — textarea; max length `CLARIFICATION_FREE_TEXT_MAX_LENGTH` (2000)
+- Navigation: **Back and Next**; **only one active question visible** (§50).
 - Submit: when all answered, one request to
   `POST /api/v1/conversation/clarification/answer/:projectId`
   with `Accept: text/event-stream`, required `Idempotency-Key`, and body
   `{ conversationId, messageId, clarificationSetId, answers: { [questionId]: string | string[] } }` —
   **SSE resume on the same POST**.
 - While POST pending: disable composer, `aria-busy`, inline errors from envelope / SSE `error`.
-- On stream `done` (or second `clarification`): clear local wizard; consume SSE like Phase 55.
-- Persist wizard state in session storage keyed by `conversationId + clarificationSetId` so navigate-
-  away-and-return restores in-progress answers (§52).
-- Handle second clarification round: if another `clarification` event arrives (max one extra per
-  architecture), replace wizard state; show notice that more detail is needed.
+- On stream `done`: clear local wizard; consume SSE like Phase 55. On second `clarification`:
+  replace wizard and show follow-up notice.
+- Persist wizard state in session storage keyed by `conversationId + clarificationSetId`.
 - `awaiting_clarification` on reload: rehydrate from listMessages embed
-  `message.clarification: { clarificationSetId, roundIndex, questions }`.
+  `message.clarification: { clarificationSetId, roundIndex, questions }` (plus `message.id`).
+- SSE `clarification` payload includes **`messageId`** (assistant id) so answer POST can run
+  without waiting on a refetch.
+- Stream ending after `clarification` (no `done`) is terminal **`awaiting_clarification`**, not
+  `interrupted`.
 - i18n for prompts, validation, submit labels; keyboard operable options; focus moves to first
-  option when question changes.
+  control when question changes.
 - Mobile: full-width controls, no horizontal scroll (375px).
 
 ### Out of scope (owner phase)
@@ -71,6 +73,7 @@ evidence or metrics (57).
 - Evidence, abstain, metrics — **Phase 57**.
 - Message edit — **Phase 53**.
 - Fake clarification from keyword heuristics — **removed in Phase 55**, must stay removed.
+- Cancel/dismiss clarification API — **not supported** (abandoned stays `awaiting_clarification`).
 - Playwright — **Phase 63**.
 
 ## 4. Design
@@ -78,13 +81,14 @@ evidence or metrics (57).
 ### 4.1 Data flow
 
 ```text
-SSE clarification event
-  → stash set { clarificationSetId, roundIndex, questions[] }
+SSE clarification event (+ messageId)
+  → stash set { clarificationSetId, roundIndex, questions[], messageId }
   → UI index = 0
   → user answers Q0 → index++
   → …
   → user answers Qn → POST answer (SSE) with all answers once
-  → on done / second clarification: clear or replace stash
+  → on done: clear stash
+  → on second clarification: replace stash + notice
 ```
 
 No POST per intermediate question.
@@ -93,47 +97,52 @@ No POST per intermediate question.
 
 ```text
 frontend/src/features/chat/
-  components/ClarificationPanel.jsx
-  components/ClarificationQuestion.jsx   type-specific controls
-  hooks/useClarificationWizard.js        index + answers + persistence
-  hooks/useSubmitClarificationAnswers.js mutation
-  api/clarificationsApi.js               POST answers
+  ClarificationPanel.jsx
+  ClarificationQuestion.jsx
+  hooks/useClarificationWizard.js
+  hooks/useSendMessage.js          (+ submitClarificationAnswers)
+  api/clarificationsApi.js
+  api/chatStreamApi.js             (awaiting_clarification terminal)
 ```
+
+Flat layout (no `components/` folder). Tests under `frontend/tests/features/chat/`.
 
 ### 4.3 Validation
 
 | Type | Client validation |
 |---|---|
 | `single_select` | exactly one option before Next |
-| `multi_select` | ≥1 if `required`; respect `maxSelections` if BE sends |
-| `free_text` | trim; min/max length from payload |
+| `multi_select` | ≥1 if `required`; each value in `options[]` |
+| `free_text` | trim; max length 2000 |
 
-Server remains authoritative; display `error.message` on 422.
+No `maxSelections` (not on Phase 52 schema). Server remains authoritative; display `error.message`
+on validation failures.
 
 ### 4.4 Composer interaction
 
-While wizard active: composer disabled or hidden per §49 (“above composer” implies clarification
-has focus); user cannot send a new project question until submit completes or user cancels if
-cancel is supported (§12).
+While wizard active: composer **disabled** (no cancel control). User cannot send a new project
+question until the set is submitted and the resume stream leaves clarification, or they navigate
+away (set stays open server-side).
 
 ### 4.5 Abandoned / awaiting
 
-If user leaves mid-wizard, session storage restores. If backend marks `awaiting_clarification` and
-deadline passed, show copy from Phase 52 + option to re-ask original question (new message) — do
-not invent timeout duration.
+If user leaves mid-wizard, session storage restores. Abandoned sets stay `awaiting_clarification`
+indefinitely (Phase 52) — no deadline UI.
 
 ## 5. Data model changes
 
 **None.**
 
-## 6. API contract (Phase 52 — locked)
+## 6. API contract (Phase 52 — locked; additive `messageId` on SSE)
 
-Owned by **Phase 52**. Consumed only; no new routes in this phase.
+Owned by **Phase 52**. Consumed here; only additive change is `messageId` on the SSE
+`clarification` event (ask + answer resume emit sites).
 
-### Clarification set (via SSE — Phase 50/52)
+### Clarification set (via SSE)
 
 ```json
 {
+  "messageId": "…assistant message id…",
   "clarificationSetId": "clr_r0_…",
   "roundIndex": 0,
   "questions": [
@@ -177,22 +186,25 @@ headers: `409 CLARIFICATION_NOT_OPEN`, `400 VALIDATION_ERROR`, `406 NOT_ACCEPTAB
 ## 7. Configuration & environment variables
 
 **None new.** Session storage key prefix as named constant in `useClarificationWizard.js`.
+FE free-text max mirrors backend `CLARIFICATION_FREE_TEXT_MAX_LENGTH` (2000).
 
 ## 8. Files to create or change
 
 | Path | Purpose |
 |---|---|
-| `frontend/src/features/chat/api/clarificationsApi.js` | **New:** POST answers |
-| `frontend/src/features/chat/api/clarificationsApi.test.js` | **New:** success, 422, 409 |
-| `frontend/src/features/chat/hooks/useClarificationWizard.js` | **New:** one-at-a-time state + sessionStorage |
-| `frontend/src/features/chat/hooks/useClarificationWizard.test.js` | **New:** advance, back, persistence |
-| `frontend/src/features/chat/hooks/useSubmitClarificationAnswers.js` | **New:** mutation |
-| `frontend/src/features/chat/components/ClarificationPanel.jsx` | **New:** panel chrome |
-| `frontend/src/features/chat/components/ClarificationQuestion.jsx` | **New:** type renderers |
-| `frontend/src/features/chat/components/ClarificationPanel.test.jsx` | **New:** sequential UX, submit once |
-| `frontend/src/features/chat/ChatWorkspace.jsx` | Mount panel; wire SSE stash from 55 |
-| `frontend/src/features/chat/ChatWorkspace.test.jsx` | Clarification flow integration |
-| `frontend/src/shared/i18n/locales/en.json` | Clarification strings, validation |
+| `frontend/src/features/chat/api/clarificationsApi.js` | **New:** POST answers (SSE) |
+| `frontend/src/features/chat/hooks/useClarificationWizard.js` | **New:** one-at-a-time + sessionStorage |
+| `frontend/src/features/chat/ClarificationPanel.jsx` | **New:** panel chrome |
+| `frontend/src/features/chat/ClarificationQuestion.jsx` | **New:** type renderers |
+| `frontend/src/features/chat/hooks/useSendMessage.js` | `submitClarificationAnswers` + awaiting terminal |
+| `frontend/src/features/chat/api/chatStreamApi.js` | Export shared POST SSE; awaiting_clarification terminal |
+| `frontend/src/features/chat/ChatWorkspace.jsx` | Mount panel; remove stub banner |
+| `frontend/src/features/chat/api/conversationTypes.js` | `MessageDto.clarification` |
+| `frontend/src/shared/i18n/locales/en.json` | Clarification strings |
+| `backend/src/modules/conversation/chatStream.js` | `messageId` on clarification SSE |
+| `backend/src/modules/conversation/clarification.js` | `messageId` on clarification SSE |
+| `docs/architecture.md` | Clarification payload includes `messageId` |
+| `frontend/tests/features/chat/…` | Wizard, panel, API, workspace, stream terminal |
 
 ## 9. Tests (≥ 80% line and branch)
 
@@ -202,6 +214,7 @@ headers: `409 CLARIFICATION_NOT_OPEN`, `400 VALIDATION_ERROR`, `406 NOT_ACCEPTAB
 - Submit handler called once with full `answers` object.
 - Session storage restore after unmount/remount.
 - Multi-select enforces at least one selection when required.
+- Stream ending after clarification → `awaiting_clarification` (not `interrupted`).
 
 ### Component
 
@@ -216,7 +229,7 @@ headers: `409 CLARIFICATION_NOT_OPEN`, `400 VALIDATION_ERROR`, `406 NOT_ACCEPTAB
 
 - Empty `questions` array from server — fail closed with error state, no blank panel.
 - Duplicate submit (409) — show server message, do not double-resume.
-- SSE arrives while previous wizard incomplete — policy in §12 (replace vs block).
+- Second clarification SSE — replace in-progress wizard + follow-up notice.
 
 ## 10. Definition of Done
 
@@ -227,16 +240,19 @@ headers: `409 CLARIFICATION_NOT_OPEN`, `400 VALIDATION_ERROR`, `406 NOT_ACCEPTAB
 - [ ] Session persistence for partial wizard (§52).
 - [ ] i18n + a11y + action feedback on submit.
 - [ ] ≥ 80% coverage on new clarification modules.
+- [ ] SSE clarification includes `messageId`; FE treats clarification end as awaiting (not interrupted).
 
 ## 11. Documentation & ADR updates
 
-- None expected.
+- This phase doc (locked decisions, flat paths, test locations).
+- `docs/architecture.md` §6.2 — clarification payload includes `messageId`.
+- No new ADR (additive field on existing SSE event).
 
-## 12. Risks & open questions
+## 12. Locked decisions
 
-1. **Resume after POST:** New SSE connection, long-poll, or refetch-only until message completes?
-2. **Cancel clarification:** Can user dismiss and leave thread `awaiting_clarification`?
-3. **Back button:** Required for multi-step, or forward-only?
-4. **Overlapping clarification events:** Replace in-progress wizard or reject as error?
-5. **GET clarification state:** Needed for reload, or embed in `GET conversation` message embed?
-6. **Free-text PII:** Any client-side max length before POST?
+1. **Resume after POST:** Same POST opens SSE and streams the resumed run (not long-poll / refetch-only).
+2. **Cancel clarification:** Not supported. Composer disabled while wizard active; abandon leaves `awaiting_clarification`.
+3. **Back button:** Yes — local Back/Next; one question visible.
+4. **Overlapping clarification events:** Replace wizard; clear prior sessionStorage key; show follow-up notice.
+5. **Reload state:** listMessages embed only — no GET clarification API.
+6. **Free-text max:** Client mirror of 2000 characters; server authoritative.

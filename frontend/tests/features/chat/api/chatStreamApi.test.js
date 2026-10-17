@@ -127,6 +127,87 @@ describe('streamConversationMessage', () => {
     expect(result.terminal).toBe('interrupted');
   });
 
+  it('marks awaiting_clarification when the stream ends after a clarification event', async () => {
+    const body = [
+      'event: status\ndata: {"stage":"understanding_question"}\n\n',
+      'event: clarification\ndata: {"messageId":"msg_a","clarificationSetId":"clr_1","roundIndex":0,"questions":[{"id":"q1","type":"free_text","prompt":"Env?"}]}\n\n',
+    ].join('');
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode(body));
+        controller.close();
+      },
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        headers: new Headers({ 'Content-Type': 'text/event-stream' }),
+        body: stream,
+      }),
+    );
+    const result = await streamConversationMessage({
+      projectId: 'p1',
+      conversationId: 'c1',
+      content: 'hi',
+      idempotencyKey: 'k1',
+    });
+    expect(result.terminal).toBe('awaiting_clarification');
+    expect(result.messageId).toBe('msg_a');
+  });
+
+  it('marks cancelled when the abort signal fires during SSE read', async () => {
+    const controller = new AbortController();
+    const stream = new ReadableStream({
+      start(streamController) {
+        streamController.enqueue(new TextEncoder().encode('event: status\ndata: {"stage":"accepted"}\n\n'));
+        controller.abort();
+        streamController.enqueue(new TextEncoder().encode('event: delta\ndata: {"text":"x"}\n\n'));
+        streamController.close();
+      },
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        headers: new Headers({ 'Content-Type': 'text/event-stream' }),
+        body: stream,
+      }),
+    );
+    const result = await streamConversationMessage({
+      projectId: 'p1',
+      conversationId: 'c1',
+      content: 'hi',
+      idempotencyKey: 'k1',
+      signal: controller.signal,
+    });
+    expect(result.terminal).toBe('cancelled');
+  });
+
+  it('treats JSON idempotent replay with assistantMessageId as done', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        headers: new Headers({ 'Content-Type': 'application/json' }),
+        json: async () => ({ assistantMessageId: 'replay_1', messageStatus: 'completed' }),
+      }),
+    );
+    const onEvent = vi.fn();
+    const result = await streamConversationMessage({
+      projectId: 'p1',
+      conversationId: 'c1',
+      content: 'hi',
+      idempotencyKey: 'k1',
+      onEvent,
+    });
+    expect(result).toEqual({ kind: 'stream', terminal: 'done', messageId: 'replay_1' });
+    expect(onEvent).toHaveBeenCalledWith({ event: 'done', data: { messageId: 'replay_1' } });
+  });
+
   it('surfaces pre-stream HTTP errors as ApiError', async () => {
     vi.stubGlobal(
       'fetch',

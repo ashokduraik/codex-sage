@@ -25,6 +25,7 @@ const restoreConversation = vi.fn();
 const deleteConversation = vi.fn();
 const streamConversationMessage = vi.fn();
 const retryConversationMessage = vi.fn();
+const answerClarificationStream = vi.fn();
 
 vi.mock('@/features/chat/api/conversationsApi.js', async (importOriginal) => {
   const actual = await importOriginal();
@@ -48,6 +49,14 @@ vi.mock('@/features/chat/api/chatStreamApi.js', async (importOriginal) => {
     ...actual,
     streamConversationMessage: (...args) => streamConversationMessage(...args),
     retryConversationMessage: (...args) => retryConversationMessage(...args),
+  };
+});
+
+vi.mock('@/features/chat/api/clarificationsApi.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    answerClarificationStream: (...args) => answerClarificationStream(...args),
   };
 });
 
@@ -124,6 +133,7 @@ beforeEach(() => {
   });
   streamConversationMessage.mockResolvedValue({ kind: 'stream', terminal: 'done', messageId: 'm_new' });
   retryConversationMessage.mockResolvedValue({ kind: 'stream', terminal: 'done', messageId: 'm_retry' });
+  answerClarificationStream.mockResolvedValue({ kind: 'stream', terminal: 'done', messageId: 'm_new' });
 });
 
 /**
@@ -342,5 +352,117 @@ describe('ChatWorkspace', () => {
     expect(await screen.findByText('msgs boom')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
     expect(await screen.findByText(/JWT-based session/i)).toBeTruthy();
+  });
+
+  it('rehydrates clarification panel from listMessages embed and disables composer', async () => {
+    listConversationMessages.mockResolvedValue({
+      items: [
+        {
+          id: 'm_user',
+          role: 'user',
+          content: 'Which env?',
+          messageStatus: 'completed',
+          createdAt: '2026-09-11T11:00:00Z',
+        },
+        {
+          id: 'm_asst',
+          role: 'assistant',
+          content: '',
+          messageStatus: 'awaiting_clarification',
+          createdAt: '2026-09-11T11:01:00Z',
+          clarification: {
+            clarificationSetId: 'clr_embed',
+            roundIndex: 0,
+            questions: [
+              {
+                id: 'q1',
+                type: 'single_select',
+                prompt: 'Which environment?',
+                options: ['Production', 'Staging'],
+                required: true,
+              },
+            ],
+          },
+        },
+      ],
+      nextCursor: null,
+    });
+    renderChat('/projects/prj_atlas/chat?conv=conv_1');
+    expect(await screen.findByText('Which environment?')).toBeTruthy();
+    expect(screen.getByTestId('clarification-panel')).toBeTruthy();
+    expect(screen.getByPlaceholderText(/Waiting for clarification/i).disabled).toBe(true);
+  });
+
+  it('submits clarification answers once from the panel', async () => {
+    listConversationMessages.mockResolvedValue({
+      items: [
+        {
+          id: 'm_asst',
+          role: 'assistant',
+          content: '',
+          messageStatus: 'awaiting_clarification',
+          createdAt: '2026-09-11T11:01:00Z',
+          clarification: {
+            clarificationSetId: 'clr_submit',
+            roundIndex: 0,
+            questions: [
+              {
+                id: 'q1',
+                type: 'single_select',
+                prompt: 'Pick one',
+                options: ['A', 'B'],
+                required: true,
+              },
+            ],
+          },
+        },
+      ],
+      nextCursor: null,
+    });
+    answerClarificationStream.mockResolvedValue({ kind: 'stream', terminal: 'done', messageId: 'm_asst' });
+    renderChat('/projects/prj_atlas/chat?conv=conv_1');
+    expect(await screen.findByText('Pick one')).toBeTruthy();
+    fireEvent.click(screen.getByLabelText('A'));
+    fireEvent.click(screen.getByRole('button', { name: /submit answers/i }));
+    await waitFor(() => {
+      expect(answerClarificationStream).toHaveBeenCalledTimes(1);
+    });
+    expect(answerClarificationStream).toHaveBeenCalledWith(
+      expect.objectContaining({
+        conversationId: 'conv_1',
+        messageId: 'm_asst',
+        clarificationSetId: 'clr_submit',
+        answers: { q1: 'A' },
+      }),
+    );
+  });
+
+  it('shows live clarification from SSE and keeps composer disabled', async () => {
+    streamConversationMessage.mockImplementation(async ({ onEvent }) => {
+      onEvent?.({
+        event: 'clarification',
+        data: {
+          messageId: 'm_live',
+          clarificationSetId: 'clr_live',
+          roundIndex: 0,
+          questions: [
+            {
+              id: 'q1',
+              type: 'free_text',
+              prompt: 'Live clarify?',
+              required: true,
+            },
+          ],
+        },
+      });
+      return { kind: 'stream', terminal: 'awaiting_clarification', messageId: 'm_live' };
+    });
+    renderChat('/projects/prj_atlas/chat?conv=conv_1');
+    await screen.findByText(/JWT-based session/i);
+    const input = screen.getByPlaceholderText(/Ask anything about this project/i);
+    fireEvent.change(input, { target: { value: 'Need help' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    expect(await screen.findByText('Live clarify?')).toBeTruthy();
+    expect(screen.getByPlaceholderText(/Waiting for clarification/i).disabled).toBe(true);
   });
 });

@@ -347,9 +347,9 @@ JSON (`rewrittenQuestion`, `needsClarification`, `clarificationQuestions[]`,
 Private model reasoning is off for this node (`enableThinking: false`).
 
 **CLARIFY_SET:** one SSE `clarification` payload with the full question list
-(`clarificationSetId`, `roundIndex`, `questions[]`). Sets are persisted in
-`clarificationSets` for refresh. The UI asks them one at a time locally, then
-POSTs **all** answers once to
+(`messageId` = assistant id, `clarificationSetId`, `roundIndex`, `questions[]`).
+Sets are persisted in `clarificationSets` for refresh. The UI asks them one at a
+time locally, then POSTs **all** answers once to
 `POST /conversation/clarification/answer/:projectId` with body
 `{ conversationId, messageId, clarificationSetId, answers }` and
 `Accept: text/event-stream` (same SSE events as ask). The workflow resumes

@@ -549,6 +549,7 @@ async function runClarificationAnswerStream(input) {
       });
       if (clarificationSet) {
         input.writeSse('clarification', {
+          messageId: String(input.assistantMessageId),
           clarificationSetId: clarificationSet.clarificationSetId,
           roundIndex: clarificationSet.roundIndex ?? 0,
           questions: clarificationSet.questions ?? [],

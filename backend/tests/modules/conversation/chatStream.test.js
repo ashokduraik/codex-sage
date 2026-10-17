@@ -196,6 +196,7 @@ describe('runChatMessageStream', () => {
     expect(mocks.finalizeAssistantMessage).toHaveBeenCalledWith(expect.objectContaining({ messageStatus: 'awaiting_clarification' }));
     expect(mocks.persistOpenClarificationSetFromInterrupt).toHaveBeenCalled();
     expect(baseInput.writeSse).toHaveBeenCalledWith('clarification', {
+      messageId: '507f1f77bcf86cd799439022',
       clarificationSetId: 'clr_1',
       roundIndex: 0,
       questions: [{ id: 'q1', type: 'free_text', prompt: 'Which env?' }],

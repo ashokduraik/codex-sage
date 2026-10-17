@@ -1,5 +1,5 @@
 /**
- * Sends / retries chat messages over SSE and holds the in-flight draft (stage, deltas, terminals).
+ * Sends / retries chat messages and clarification answers over SSE; holds in-flight draft state.
  */
 import { useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -10,10 +10,11 @@ import {
   CONVERSATIONS_LIST_QUERY_ROOT,
   CONVERSATIONS_MESSAGES_QUERY_ROOT,
 } from '@/features/chat/conversationQueryKeys.js';
+import { answerClarificationStream } from '@/features/chat/api/clarificationsApi.js';
 import { retryConversationMessage, streamConversationMessage } from '@/features/chat/api/chatStreamApi.js';
 
 /**
- * @typedef {'idle' | 'posting' | 'streaming' | 'completed' | 'failed' | 'cancelled' | 'interrupted' | 'queued'} StreamPhase
+ * @typedef {'idle' | 'posting' | 'streaming' | 'completed' | 'failed' | 'cancelled' | 'interrupted' | 'queued' | 'awaiting_clarification'} StreamPhase
  */
 
 /**
@@ -22,13 +23,13 @@ import { retryConversationMessage, streamConversationMessage } from '@/features/
  * @property {string} stage Latest status stage (or empty).
  * @property {string} draftText Accumulated assistant markdown.
  * @property {unknown[]} evidenceItems Evidence stash for Phase 57.
- * @property {unknown | null} clarification Clarification payload stash for Phase 56.
+ * @property {object | null} clarification Clarification payload for the wizard.
  * @property {string | null} assistantMessageId Server assistant id when known.
  * @property {string | null} userMessageId Optimistic / queued user id.
  * @property {string | null} errorMessage User-facing error copy.
  * @property {string | null} errorReference Correlation id when present.
  * @property {string | null} optimisticUserContent Pending user bubble text.
- * @property {boolean} needsClarification Stub flag when clarification event arrived.
+ * @property {boolean} needsClarification True while an open clarification set is active.
  */
 
 /** Initial idle stream state. */
@@ -67,7 +68,7 @@ export function messageStreamReducer(state = { ...INITIAL_STREAM_STATE }, action
     case 'status':
       return {
         ...state,
-        phase: state.phase === 'posting' ? 'streaming' : state.phase,
+        phase: state.phase === 'posting' || state.phase === 'awaiting_clarification' ? 'streaming' : state.phase,
         stage: typeof action.stage === 'string' ? action.stage : state.stage,
       };
     case 'delta':
@@ -75,18 +76,39 @@ export function messageStreamReducer(state = { ...INITIAL_STREAM_STATE }, action
         ...state,
         phase: 'streaming',
         draftText: `${state.draftText}${typeof action.text === 'string' ? action.text : ''}`,
+        clarification: null,
+        needsClarification: false,
       };
     case 'evidence':
       return {
         ...state,
         evidenceItems: Array.isArray(action.items) ? [...state.evidenceItems, ...action.items] : state.evidenceItems,
       };
-    case 'clarification':
+    case 'clarification': {
+      const payload = action.payload && typeof action.payload === 'object' ? action.payload : null;
+      const messageId =
+        payload && typeof (/** @type {{ messageId?: unknown }} */ (payload).messageId) === 'string'
+          ? /** @type {{ messageId: string }} */ (payload).messageId
+          : state.assistantMessageId;
       return {
         ...state,
-        clarification: action.payload ?? null,
+        clarification: payload,
         needsClarification: true,
         stage: 'awaiting_clarification',
+        phase: 'awaiting_clarification',
+        assistantMessageId: messageId,
+        draftText: '',
+        errorMessage: null,
+        errorReference: null,
+      };
+    }
+    case 'awaiting_clarification':
+      return {
+        ...state,
+        phase: 'awaiting_clarification',
+        needsClarification: true,
+        stage: 'awaiting_clarification',
+        assistantMessageId: typeof action.messageId === 'string' ? action.messageId : state.assistantMessageId,
       };
     case 'completed':
       return {
@@ -94,6 +116,8 @@ export function messageStreamReducer(state = { ...INITIAL_STREAM_STATE }, action
         phase: 'completed',
         assistantMessageId: typeof action.messageId === 'string' ? action.messageId : state.assistantMessageId,
         stage: '',
+        clarification: null,
+        needsClarification: false,
       };
     case 'failed':
       return {
@@ -113,21 +137,36 @@ export function messageStreamReducer(state = { ...INITIAL_STREAM_STATE }, action
         userMessageId: typeof action.messageId === 'string' ? action.messageId : state.userMessageId,
         stage: '',
       };
+    case 'clear_clarification':
+      return {
+        ...state,
+        clarification: null,
+        needsClarification: false,
+        stage: state.stage === 'awaiting_clarification' ? '' : state.stage,
+      };
     default:
       return state;
   }
 }
 
 /**
- * Hook: send / stop / retry grounded chat over SSE for one conversation.
+ * Hook: send / stop / retry / submit clarification answers over SSE for one conversation.
  * @param {{ projectId: string, conversationId: string | null }} input Scope.
  * @returns {{
  *   stream: MessageStreamState,
  *   isBusy: boolean,
+ *   isSubmittingClarification: boolean,
  *   send: (content: string, options?: { conversationId?: string }) => Promise<void>,
  *   retry: (assistantMessageId: string) => Promise<void>,
+ *   submitClarificationAnswers: (args: {
+ *     conversationId: string,
+ *     messageId: string,
+ *     clarificationSetId: string,
+ *     answers: Record<string, string | string[]>,
+ *   }) => Promise<void>,
  *   stop: () => void,
  *   clearStream: () => void,
+ *   clearClarification: () => void,
  * }}
  */
 export function useSendMessage(input) {
@@ -135,6 +174,8 @@ export function useSendMessage(input) {
   const [stream, setStream] = useState(() => ({ ...INITIAL_STREAM_STATE }));
   const abortRef = useRef(/** @type {AbortController | null} */ (null));
   const busyRef = useRef(false);
+  const submittingClarificationRef = useRef(false);
+  const [isSubmittingClarification, setIsSubmittingClarification] = useState(false);
 
   /**
    * Applies a reducer action.
@@ -179,7 +220,7 @@ export function useSendMessage(input) {
 
   /**
    * Runs a stream result into terminal reducer actions and invalidates caches.
-   * @param {Awaited<ReturnType<typeof streamConversationMessage>>} result API result.
+   * @param {{ kind: string, terminal?: string, messageId?: string, error?: object, body?: object }} result API result.
    * @returns {Promise<void>}
    */
   async function finishResult(result) {
@@ -194,6 +235,11 @@ export function useSendMessage(input) {
     }
     if (result.terminal === 'done') {
       dispatch({ type: 'completed', messageId: result.messageId });
+      await invalidateConversationQueries();
+      return;
+    }
+    if (result.terminal === 'awaiting_clarification') {
+      dispatch({ type: 'awaiting_clarification', messageId: result.messageId });
       await invalidateConversationQueries();
       return;
     }
@@ -226,7 +272,7 @@ export function useSendMessage(input) {
     const projectId = String(input.projectId || '');
     const conversationId = String(options.conversationId || input.conversationId || '');
     const trimmed = typeof content === 'string' ? content.trim() : '';
-    if (!projectId || !conversationId || !trimmed || busyRef.current) {
+    if (!projectId || !conversationId || !trimmed || busyRef.current || submittingClarificationRef.current) {
       return;
     }
     busyRef.current = true;
@@ -275,7 +321,7 @@ export function useSendMessage(input) {
     const projectId = String(input.projectId || '');
     const conversationId = input.conversationId ? String(input.conversationId) : '';
     const messageId = String(assistantMessageId || '');
-    if (!projectId || !conversationId || !messageId || busyRef.current) {
+    if (!projectId || !conversationId || !messageId || busyRef.current || submittingClarificationRef.current) {
       return;
     }
     busyRef.current = true;
@@ -311,6 +357,72 @@ export function useSendMessage(input) {
   }
 
   /**
+   * POSTs all clarification answers once and resumes the paused run over SSE.
+   * @param {{
+   *   conversationId: string,
+   *   messageId: string,
+   *   clarificationSetId: string,
+   *   answers: Record<string, string | string[]>,
+   * }} args Answer payload.
+   * @returns {Promise<void>}
+   */
+  async function submitClarificationAnswers(args) {
+    const projectId = String(input.projectId || '');
+    const conversationId = String(args.conversationId || '');
+    const messageId = String(args.messageId || '');
+    const clarificationSetId = String(args.clarificationSetId || '');
+    if (!projectId || !conversationId || !messageId || !clarificationSetId || busyRef.current || submittingClarificationRef.current) {
+      return;
+    }
+    submittingClarificationRef.current = true;
+    setIsSubmittingClarification(true);
+    busyRef.current = true;
+    const controller = new AbortController();
+    abortRef.current = controller;
+    dispatch({ type: 'streaming' });
+    try {
+      const result = await answerClarificationStream({
+        projectId,
+        conversationId,
+        messageId,
+        clarificationSetId,
+        answers: args.answers,
+        idempotencyKey: crypto.randomUUID(),
+        signal: controller.signal,
+        onEvent: (frame) => {
+          if (frame.event === 'status' || frame.event === 'delta') {
+            dispatch({ type: 'streaming' });
+          }
+          onEvent(frame);
+        },
+      });
+      await finishResult(result);
+    } catch (error) {
+      if (isRequestAbortedError(error) || controller.signal.aborted) {
+        dispatch({ type: 'cancelled' });
+        await invalidateConversationQueries();
+      } else {
+        const apiErr = error && typeof error === 'object' ? /** @type {Record<string, unknown>} */ (error) : {};
+        dispatch({
+          type: 'failed',
+          message: messageFromUnknown(error),
+          reference: typeof apiErr.correlationId === 'string' ? apiErr.correlationId : null,
+        });
+        // Keep clarification stash so the wizard can retry without losing answers.
+        dispatch({
+          type: 'awaiting_clarification',
+          messageId,
+        });
+      }
+    } finally {
+      submittingClarificationRef.current = false;
+      setIsSubmittingClarification(false);
+      busyRef.current = false;
+      abortRef.current = null;
+    }
+  }
+
+  /**
    * Aborts the in-flight fetch (Stop) so the backend marks interrupted.
    */
   function stop() {
@@ -324,14 +436,24 @@ export function useSendMessage(input) {
     dispatch({ type: 'reset' });
   }
 
+  /**
+   * Clears clarification stash after the wizard finishes successfully.
+   */
+  function clearClarification() {
+    dispatch({ type: 'clear_clarification' });
+  }
+
   const isBusy = stream.phase === 'posting' || stream.phase === 'streaming';
 
   return {
     stream,
     isBusy,
+    isSubmittingClarification,
     send,
     retry,
+    submitClarificationAnswers,
     stop,
     clearStream,
+    clearClarification,
   };
 }

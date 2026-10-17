@@ -55,6 +55,13 @@
  */
 
 /**
+ * @typedef {object} ClarificationEmbedDto
+ * @property {string} clarificationSetId Public set id matching SSE.
+ * @property {number} roundIndex 0 or 1.
+ * @property {Array<{ id: string, type: string, prompt: string, options?: string[], required?: boolean }>} questions Full set.
+ */
+
+/**
  * @typedef {object} MessageDto
  * @property {string} id Message id.
  * @property {MessageRole} role Turn author role.
@@ -66,6 +73,7 @@
  * @property {string} [queuedAt] Queue stamp when present.
  * @property {string} [supportLevel] Grounding support level when present.
  * @property {string} [knowledgeVersionId] Knowledge version id when present.
+ * @property {ClarificationEmbedDto} [clarification] Open set when awaiting_clarification.
  */
 
 /**

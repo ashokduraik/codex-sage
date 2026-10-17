@@ -1,22 +1,24 @@
 /**
- * Project chat workspace — conversation history, messages, and SSE send/stop/retry (Phase 55).
+ * Project chat workspace — conversation history, messages, SSE send/stop/retry, and clarification wizard.
  */
 import { Composer } from './Composer';
 import { MessageItem } from './MessageItem';
 import { useTranslation } from 'react-i18next';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ConversationList } from './ConversationList';
+import { ClarificationPanel } from './ClarificationPanel.jsx';
 import { Loader2, PanelLeftOpen, Sparkles } from 'lucide-react';
 import { useOutletContext, useSearchParams } from 'react-router-dom';
 import { useConversation } from '@/features/chat/hooks/useConversation.js';
 import { isProjectAskable, isProjectArchived } from '@/shared/components/StatusBadge.jsx';
 import { useCreateConversation } from '@/features/chat/hooks/useConversationMutations.js';
 import { useSendMessage } from '@/features/chat/hooks/useSendMessage.js';
+import { useClarificationWizard } from '@/features/chat/hooks/useClarificationWizard.js';
 import { isForbiddenApiError, isNotFoundApiError, messageFromUnknown } from '@/shared/api';
 import { useConversationMessages, flattenMessagePages } from '@/features/chat/hooks/useConversationMessages.js';
 
 /**
- * Project chat workspace with history, messages, and streaming composer.
+ * Project chat workspace with history, messages, streaming composer, and clarification panel.
  *
  * @returns Chat workspace UI
  */
@@ -40,7 +42,7 @@ export default function ChatWorkspace() {
   const askable = isProjectAskable(project);
   const knowledgeUpdating = project?.knowledgeHealth === 'updating' || project?.lifecycleStatus === 'updating';
   const title = conversation?.title || t('chat.newChat');
-  const { stream, isBusy, send, retry, stop } = useSendMessage({
+  const { stream, isBusy, isSubmittingClarification, send, retry, submitClarificationAnswers, stop, clearClarification } = useSendMessage({
     projectId,
     conversationId: activeConvId,
   });
@@ -66,6 +68,44 @@ export default function ChatWorkspace() {
       behavior: 'smooth',
     });
   }, [messages.length, lastMessageContent, stream.draftText, stream.stage]);
+
+  const awaitingMessage = useMemo(() => {
+    return [...messages].reverse().find((m) => m.role === 'assistant' && m.messageStatus === 'awaiting_clarification');
+  }, [messages]);
+
+  const clarificationSetPayload = useMemo(() => {
+    if (stream.clarification && typeof stream.clarification === 'object') {
+      return /** @type {object} */ (stream.clarification);
+    }
+    if (awaitingMessage?.clarification && typeof awaitingMessage.clarification === 'object') {
+      return {
+        ...awaitingMessage.clarification,
+        messageId: awaitingMessage.id,
+      };
+    }
+    return null;
+  }, [stream.clarification, awaitingMessage]);
+
+  const wizard = useClarificationWizard({
+    conversationId: activeConvId,
+    setPayload: clarificationSetPayload,
+  });
+
+  const clearWizard = wizard.clear;
+  const wizardWasActiveRef = useRef(false);
+  if (wizard.active) {
+    wizardWasActiveRef.current = true;
+  }
+  const prevPhaseRef = useRef(stream.phase);
+  useEffect(() => {
+    const prev = prevPhaseRef.current;
+    prevPhaseRef.current = stream.phase;
+    if (prev !== 'completed' && stream.phase === 'completed' && wizardWasActiveRef.current) {
+      wizardWasActiveRef.current = false;
+      clearWizard();
+      clearClarification();
+    }
+  }, [stream.phase, clearWizard, clearClarification]);
 
   /**
    * Creates a conversation and selects it.
@@ -129,7 +169,7 @@ export default function ChatWorkspace() {
    * @param {string} content Question text.
    */
   const handleSend = (content) => {
-    if (!askable || archivedProject || isBusy) {
+    if (!askable || archivedProject || isBusy || wizard.active || isSubmittingClarification) {
       return;
     }
     if (!activeConvId) {
@@ -164,6 +204,28 @@ export default function ChatWorkspace() {
   };
 
   /**
+   * Submits the full clarification answer map once.
+   * @param {Record<string, string | string[]>} answers Answer map.
+   */
+  const handleClarificationSubmit = (answers) => {
+    const messageId =
+      (clarificationSetPayload && typeof clarificationSetPayload.messageId === 'string' ? clarificationSetPayload.messageId : null) ||
+      stream.assistantMessageId ||
+      awaitingMessage?.id;
+    const clarificationSetId =
+      clarificationSetPayload && typeof clarificationSetPayload.clarificationSetId === 'string' ? clarificationSetPayload.clarificationSetId : '';
+    if (!activeConvId || !messageId || !clarificationSetId) {
+      return;
+    }
+    void submitClarificationAnswers({
+      conversationId: activeConvId,
+      messageId,
+      clarificationSetId,
+      answers,
+    });
+  };
+
+  /**
    * Tracks whether the user is near the bottom for auto-scroll.
    */
   const onScroll = () => {
@@ -179,13 +241,21 @@ export default function ChatWorkspace() {
   const detailFailed = activeConvId && detailQuery.isError && !detailForbidden && !detailMissing;
   const messagesPending = Boolean(activeConvId) && messagesQuery.isPending && !messagesQuery.data;
   const messagesFailed = Boolean(activeConvId) && messagesQuery.isError;
-  const composerDisabled = archivedProject || !askable || createMutation.isPending;
+  const clarificationActive = wizard.active || wizard.emptySetError;
+  const composerDisabled = archivedProject || !askable || createMutation.isPending || clarificationActive || isSubmittingClarification;
   const showOptimisticUser =
     Boolean(stream.optimisticUserContent) && (stream.phase === 'posting' || stream.phase === 'streaming' || stream.phase === 'queued');
-  const showStreamingAssistant = isBusy || stream.phase === 'cancelled' || stream.phase === 'interrupted' || stream.phase === 'failed';
+  const showStreamingAssistant =
+    (isBusy || stream.phase === 'cancelled' || stream.phase === 'interrupted' || stream.phase === 'failed') &&
+    stream.phase !== 'awaiting_clarification';
   const latestAssistant = [...messages].reverse().find((m) => m.role === 'assistant');
   const canRetryLatest =
-    latestAssistant && (latestAssistant.messageStatus === 'failed' || latestAssistant.messageStatus === 'interrupted') && !isBusy;
+    latestAssistant &&
+    (latestAssistant.messageStatus === 'failed' || latestAssistant.messageStatus === 'interrupted') &&
+    !isBusy &&
+    !clarificationActive;
+
+  const clarificationSubmitError = stream.phase === 'failed' && clarificationActive && stream.errorMessage ? stream.errorMessage : null;
 
   return (
     <div className="flex h-full overflow-x-hidden">
@@ -234,7 +304,7 @@ export default function ChatWorkspace() {
           </p>
         ) : null}
 
-        {stream.phase === 'failed' && stream.errorMessage ? (
+        {stream.phase === 'failed' && stream.errorMessage && !clarificationActive ? (
           <p className="border-b border-border px-4 py-2 text-xs text-destructive sm:px-6" role="alert">
             {stream.errorMessage}
             {stream.errorReference ? ` (${stream.errorReference})` : ''}
@@ -247,13 +317,12 @@ export default function ChatWorkspace() {
           </p>
         ) : null}
 
-        {stream.needsClarification ? (
-          <p className="border-b border-border px-4 py-2 text-xs text-amber-700 sm:px-6" role="status">
-            {t('chat.needsClarificationStub')}
-          </p>
-        ) : null}
-
-        <div ref={scrollRef} onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin" aria-busy={isBusy}>
+        <div
+          ref={scrollRef}
+          onScroll={onScroll}
+          className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin"
+          aria-busy={isBusy || isSubmittingClarification}
+        >
           {!activeConvId && !showOptimisticUser ? (
             <div className="flex h-full flex-col items-center justify-center px-6 text-center">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-muted text-brand">
@@ -348,14 +417,29 @@ export default function ChatWorkspace() {
           )}
         </div>
 
+        <ClarificationPanel
+          wizard={wizard}
+          submitting={isSubmittingClarification}
+          submitError={clarificationSubmitError}
+          onSubmit={handleClarificationSubmit}
+        />
+
         <Composer
           onSend={handleSend}
           onStop={stop}
-          isGenerating={isBusy}
+          isGenerating={isBusy && !isSubmittingClarification}
           queued={knowledgeUpdating || stream.phase === 'queued'}
           contextWarning={false}
           disabled={composerDisabled}
-          placeholder={archivedProject ? t('chat.archivedPlaceholder') : !askable ? t('chat.notAskablePlaceholder') : t('chat.askPlaceholder')}
+          placeholder={
+            clarificationActive
+              ? t('chat.awaitingClarification')
+              : archivedProject
+                ? t('chat.archivedPlaceholder')
+                : !askable
+                  ? t('chat.notAskablePlaceholder')
+                  : t('chat.askPlaceholder')
+          }
         />
       </div>
     </div>

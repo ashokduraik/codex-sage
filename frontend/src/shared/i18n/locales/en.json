@@ -190,7 +190,19 @@
     "generating": "Generating answer…",
     "awaitingClarification": "Waiting for clarification…",
     "generationStopped": "Generation stopped",
-    "needsClarificationStub": "This answer needs clarification — that step arrives in a later update.",
+    "clarification": {
+      "progress": "Question {{current}} of {{total}}",
+      "next": "Next",
+      "back": "Back",
+      "submit": "Submit answers",
+      "freeTextPlaceholder": "Enter your answer…",
+      "followUpNotice": "More detail is needed before answering.",
+      "emptySet": "Clarification questions were missing. Refresh the conversation or ask again.",
+      "unsupportedType": "This clarification type is not supported.",
+      "validationRequired": "Please answer this question to continue.",
+      "validationMultiRequired": "Select at least one option.",
+      "validationTooLong": "Keep your answer under {{max}} characters."
+    },
     "stages": {
       "accepted": "Accepted…",
       "understandingQuestion": "Understanding your question…",

@@ -8,11 +8,17 @@ import { messageStreamReducer, useSendMessage } from '@/features/chat/hooks/useS
 
 const streamConversationMessage = vi.fn();
 const retryConversationMessage = vi.fn();
+const answerClarificationStream = vi.fn();
 
 vi.mock('@/features/chat/api/chatStreamApi.js', () => ({
   streamConversationMessage: (...args) => streamConversationMessage(...args),
   retryConversationMessage: (...args) => retryConversationMessage(...args),
   stageToI18nKey: (s) => `chat.stages.${s || 'working'}`,
+}));
+
+vi.mock('@/features/chat/api/clarificationsApi.js', () => ({
+  answerClarificationStream: (...args) => answerClarificationStream(...args),
+  CLARIFICATION_FREE_TEXT_MAX_LENGTH: 2000,
 }));
 
 /**
@@ -27,6 +33,7 @@ function wrapper({ children }) {
 beforeEach(() => {
   streamConversationMessage.mockReset();
   retryConversationMessage.mockReset();
+  answerClarificationStream.mockReset();
 });
 
 afterEach(() => {
@@ -127,5 +134,140 @@ describe('useSendMessage', () => {
     });
     expect(retryConversationMessage).toHaveBeenCalledWith(expect.objectContaining({ messageId: 'asst_1', idempotencyKey: expect.any(String) }));
     expect(result.current.stream.phase).toBe('completed');
+  });
+
+  it('enters awaiting_clarification without marking interrupted', async () => {
+    streamConversationMessage.mockImplementation(async ({ onEvent }) => {
+      onEvent?.({
+        event: 'clarification',
+        data: {
+          messageId: 'msg_a',
+          clarificationSetId: 'clr_1',
+          roundIndex: 0,
+          questions: [{ id: 'q1', type: 'single_select', prompt: 'Env?', options: ['A'], required: true }],
+        },
+      });
+      return { kind: 'stream', terminal: 'awaiting_clarification', messageId: 'msg_a' };
+    });
+    const { result } = renderHook(() => useSendMessage({ projectId: 'p1', conversationId: 'c1' }), { wrapper });
+    await act(async () => {
+      await result.current.send('Need clarify');
+    });
+    expect(result.current.stream.phase).toBe('awaiting_clarification');
+    expect(result.current.stream.needsClarification).toBe(true);
+    expect(result.current.stream.assistantMessageId).toBe('msg_a');
+    expect(result.current.stream.clarification?.clarificationSetId).toBe('clr_1');
+  });
+
+  it('submits clarification answers once and completes', async () => {
+    answerClarificationStream.mockImplementation(async ({ onEvent }) => {
+      onEvent?.({ event: 'delta', data: { text: 'Answer' } });
+      return { kind: 'stream', terminal: 'done', messageId: 'msg_a' };
+    });
+    const { result } = renderHook(() => useSendMessage({ projectId: 'p1', conversationId: 'c1' }), { wrapper });
+    await act(async () => {
+      await result.current.submitClarificationAnswers({
+        conversationId: 'c1',
+        messageId: 'msg_a',
+        clarificationSetId: 'clr_1',
+        answers: { q1: 'Production' },
+      });
+    });
+    expect(answerClarificationStream).toHaveBeenCalledTimes(1);
+    expect(answerClarificationStream).toHaveBeenCalledWith(
+      expect.objectContaining({
+        clarificationSetId: 'clr_1',
+        answers: { q1: 'Production' },
+        idempotencyKey: expect.any(String),
+      }),
+    );
+    expect(result.current.stream.phase).toBe('completed');
+    expect(result.current.stream.needsClarification).toBe(false);
+  });
+
+  it('preserves clarification phase after answer POST HTTP failure', async () => {
+    const { ApiError } = await import('@/shared/api/ApiError.js');
+    answerClarificationStream.mockRejectedValue(new ApiError({ status: 409, code: 'CLARIFICATION_NOT_OPEN', message: 'not open' }));
+    let state = messageStreamReducer(undefined, {
+      type: 'clarification',
+      payload: { messageId: 'msg_a', clarificationSetId: 'clr_1', questions: [{ id: 'q1' }] },
+    });
+    expect(state.phase).toBe('awaiting_clarification');
+
+    const { result } = renderHook(() => useSendMessage({ projectId: 'p1', conversationId: 'c1' }), { wrapper });
+    await act(async () => {
+      await result.current.submitClarificationAnswers({
+        conversationId: 'c1',
+        messageId: 'msg_a',
+        clarificationSetId: 'clr_1',
+        answers: { q1: 'Production' },
+      });
+    });
+    expect(result.current.stream.phase).toBe('awaiting_clarification');
+    expect(result.current.stream.errorMessage).toMatch(/not open/i);
+  });
+
+  it('replaces clarification on a second-round event during answer resume', async () => {
+    answerClarificationStream.mockImplementation(async ({ onEvent }) => {
+      onEvent?.({
+        event: 'clarification',
+        data: {
+          messageId: 'msg_a',
+          clarificationSetId: 'clr_r1',
+          roundIndex: 1,
+          questions: [{ id: 'q9', type: 'free_text', prompt: 'More?', required: true }],
+        },
+      });
+      return { kind: 'stream', terminal: 'awaiting_clarification', messageId: 'msg_a' };
+    });
+    const { result } = renderHook(() => useSendMessage({ projectId: 'p1', conversationId: 'c1' }), { wrapper });
+    await act(async () => {
+      await result.current.submitClarificationAnswers({
+        conversationId: 'c1',
+        messageId: 'msg_a',
+        clarificationSetId: 'clr_r0',
+        answers: { q1: 'Production' },
+      });
+    });
+    expect(result.current.stream.phase).toBe('awaiting_clarification');
+    expect(result.current.stream.clarification?.clarificationSetId).toBe('clr_r1');
+  });
+
+  it('clearClarification drops the stash', () => {
+    let state = messageStreamReducer(undefined, {
+      type: 'clarification',
+      payload: { clarificationSetId: 'clr_1', questions: [] },
+    });
+    state = messageStreamReducer(state, { type: 'clear_clarification' });
+    expect(state.clarification).toBeNull();
+    expect(state.needsClarification).toBe(false);
+  });
+
+  it('clearStream resets to idle via the hook', () => {
+    const { result } = renderHook(() => useSendMessage({ projectId: 'p1', conversationId: 'c1' }), { wrapper });
+    act(() => {
+      result.current.clearStream();
+    });
+    expect(result.current.stream.phase).toBe('idle');
+  });
+
+  it('marks interrupted when the stream terminal is interrupted', async () => {
+    streamConversationMessage.mockResolvedValue({ kind: 'stream', terminal: 'interrupted' });
+    const { result } = renderHook(() => useSendMessage({ projectId: 'p1', conversationId: 'c1' }), { wrapper });
+    await act(async () => {
+      await result.current.send('Q');
+    });
+    expect(result.current.stream.phase).toBe('interrupted');
+  });
+
+  it('clears clarification stash on first delta after resume', () => {
+    let state = messageStreamReducer(undefined, {
+      type: 'clarification',
+      payload: { clarificationSetId: 'clr_1', messageId: 'm1', questions: [{ id: 'q1' }] },
+    });
+    state = messageStreamReducer(state, { type: 'delta', text: 'Hello' });
+    expect(state.clarification).toBeNull();
+    expect(state.needsClarification).toBe(false);
+    expect(state.draftText).toBe('Hello');
   });
 });

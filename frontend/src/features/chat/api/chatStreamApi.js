@@ -116,7 +116,7 @@ export function createSseParser() {
  *   signal?: AbortSignal,
  *   onEvent?: (frame: { event: string, data: unknown }) => void,
  * }} input Stream inputs.
- * @returns {Promise<{ kind: 'stream', terminal: 'done' | 'error' | 'interrupted' | 'cancelled', messageId?: string, error?: object } | { kind: 'queued', body: object }>}
+ * @returns {Promise<{ kind: 'stream', terminal: 'done' | 'error' | 'interrupted' | 'cancelled' | 'awaiting_clarification', messageId?: string, error?: object } | { kind: 'queued', body: object }>}
  */
 export async function streamConversationMessage(input) {
   const path = `/conversation/chatStream/streamMessage/${encodeURIComponent(input.projectId)}/${encodeURIComponent(input.conversationId)}`;
@@ -138,7 +138,7 @@ export async function streamConversationMessage(input) {
  *   signal?: AbortSignal,
  *   onEvent?: (frame: { event: string, data: unknown }) => void,
  * }} input Retry inputs.
- * @returns {Promise<{ kind: 'stream', terminal: 'done' | 'error' | 'interrupted' | 'cancelled', messageId?: string, error?: object } | { kind: 'queued', body: object }>}
+ * @returns {Promise<{ kind: 'stream', terminal: 'done' | 'error' | 'interrupted' | 'cancelled' | 'awaiting_clarification', messageId?: string, error?: object } | { kind: 'queued', body: object }>}
  */
 export async function retryConversationMessage(input) {
   const path = `/conversation/chatStream/retryMessage/${encodeURIComponent(input.projectId)}/${encodeURIComponent(input.conversationId)}/${encodeURIComponent(input.messageId)}`;
@@ -150,7 +150,7 @@ export async function retryConversationMessage(input) {
 }
 
 /**
- * Shared POST + Accept event-stream with optional JSON body.
+ * Shared POST + Accept event-stream with optional JSON body (ask, retry, clarification answer).
  * @param {string} path API path under base URL.
  * @param {{
  *   body?: object,
@@ -159,9 +159,9 @@ export async function retryConversationMessage(input) {
  *   onEvent?: (frame: { event: string, data: unknown }) => void,
  *   skipAuthRefresh?: boolean,
  * }} options Request options.
- * @returns {Promise<{ kind: 'stream', terminal: 'done' | 'error' | 'interrupted' | 'cancelled', messageId?: string, error?: object } | { kind: 'queued', body: object }>}
+ * @returns {Promise<{ kind: 'stream', terminal: 'done' | 'error' | 'interrupted' | 'cancelled' | 'awaiting_clarification', messageId?: string, error?: object } | { kind: 'queued', body: object }>}
  */
-async function postChatStream(path, options) {
+export async function postChatStream(path, options) {
   return executeChatStream(path, options, false);
 }
 
@@ -176,7 +176,7 @@ async function postChatStream(path, options) {
  *   skipAuthRefresh?: boolean,
  * }} options Request options.
  * @param {boolean} hasRetriedAfterRefresh Whether refresh already ran.
- * @returns {Promise<{ kind: 'stream', terminal: 'done' | 'error' | 'interrupted' | 'cancelled', messageId?: string, error?: object } | { kind: 'queued', body: object }>}
+ * @returns {Promise<{ kind: 'stream', terminal: 'done' | 'error' | 'interrupted' | 'cancelled' | 'awaiting_clarification', messageId?: string, error?: object } | { kind: 'queued', body: object }>}
  */
 async function executeChatStream(path, options, hasRetriedAfterRefresh) {
   /** @type {Record<string, string>} */
@@ -298,7 +298,7 @@ async function executeChatStream(path, options, hasRetriedAfterRefresh) {
  *   signal?: AbortSignal,
  *   onEvent?: (frame: { event: string, data: unknown }) => void,
  * }} options Stream callbacks.
- * @returns {Promise<{ kind: 'stream', terminal: 'done' | 'error' | 'interrupted' | 'cancelled', messageId?: string, error?: object }>}
+ * @returns {Promise<{ kind: 'stream', terminal: 'done' | 'error' | 'interrupted' | 'cancelled' | 'awaiting_clarification', messageId?: string, error?: object }>}
  */
 async function readSseResponse(response, options) {
   if (!response.body) {
@@ -313,12 +313,14 @@ async function readSseResponse(response, options) {
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   const parser = createSseParser();
-  /** @type {'done' | 'error' | 'interrupted' | 'cancelled' | null} */
+  /** @type {'done' | 'error' | 'interrupted' | 'cancelled' | 'awaiting_clarification' | null} */
   let terminal = null;
   /** @type {string | undefined} */
   let messageId;
   /** @type {object | undefined} */
   let errorPayload;
+  /** @type {boolean} */
+  let sawClarification = false;
 
   /**
    * Dispatches parsed frames and updates terminal state.
@@ -339,6 +341,12 @@ async function readSseResponse(response, options) {
       } else if (frame.event === 'error') {
         terminal = 'error';
         errorPayload = frame.data && typeof frame.data === 'object' ? /** @type {object} */ (frame.data) : { message: String(frame.data) };
+      } else if (frame.event === 'clarification') {
+        sawClarification = true;
+        const data = frame.data && typeof frame.data === 'object' ? /** @type {{ messageId?: unknown }} */ (frame.data) : null;
+        if (data && typeof data.messageId === 'string') {
+          messageId = data.messageId;
+        }
       }
     }
   }
@@ -378,6 +386,9 @@ async function readSseResponse(response, options) {
 
   if (terminal === 'done' || terminal === 'error' || terminal === 'cancelled') {
     return { kind: 'stream', terminal, messageId, error: errorPayload };
+  }
+  if (sawClarification) {
+    return { kind: 'stream', terminal: 'awaiting_clarification', messageId, error: errorPayload };
   }
   return { kind: 'stream', terminal: 'interrupted', messageId, error: errorPayload };
 }
