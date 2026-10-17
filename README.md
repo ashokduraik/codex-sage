@@ -1,11 +1,39 @@
 # codex-sage
 
-Multi-tenant SaaS enterprise software intelligence platform: connect or upload project
-source and documentation → build project knowledge → grounded chat answers with
-inspectable evidence.
+Connect a repository, build project knowledge, and ask questions that come back with
+**grounded answers and inspectable evidence** — not uncited guesses.
 
 > A personal project exploring how LLMs can answer questions about a real codebase with
 > grounded, verifiable evidence, built as a production-style Node.js system.
+
+**Status:** personal project, actively developed
+
+![Grounded chat answer with expandable source evidence](./docs/images/hero-chat-evidence.png)
+
+_Chat cites file paths and snippets you can open and verify._
+
+## Why this exists
+
+Most “chat with your code” demos answer from vibes. Codex Sage treats a connected project
+like a product knowledge base: ingest runs in background workers, chat tools gather evidence
+under a context budget, and the UI shows the sources behind each claim. The stack is built
+like multi-tenant SaaS (orgs, RBAC, encrypted secrets, audit) so the interesting part is not
+only the LLM call — it is everything around it.
+
+## Demo
+
+The GIF below was taken from a local demo tenant (`npm run dev`). There is no hosted public
+demo yet.
+
+![Create a project, connect a repository, then ask a grounded question](./docs/images/demo-create-repo-chat.gif)
+
+_Demo flow: create project → connect repository → grounded chat with sources._
+
+To regenerate the visuals after UI changes (requires local Chrome, `ffmpeg`, and `npm run dev`):
+
+```bash
+node scripts/capture-readme-demo.mjs
+```
 
 ## Features
 
@@ -52,7 +80,7 @@ Developed with Cursor, guided by project-wide engineering rules in `.cursor/rule
 
 ## Prerequisites
 
-- **Node.js >= 26**
+- **Node.js >=26**
 - **npm** (bundled with Node.js)
 - **MongoDB 8 replica set** for local development — see [docs/mongodb-setup.md](./docs/mongodb-setup.md)
 
@@ -100,6 +128,6 @@ bash scripts/clean.sh --yes
 - `backend/` — Node.js API + workers (Fastify), plain JavaScript
 - `frontend/` — React app (Vite), plain JavaScript / JSX
 - `scripts/` — root setup / install / run helpers
-- `docs/` — architecture, local MongoDB setup, and ADRs
+- `docs/` — architecture, local MongoDB setup, ADRs, and README demo images
 
 See [AGENTS.md](./AGENTS.md) for repo conventions.
