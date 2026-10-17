@@ -1,0 +1,249 @@
+{
+  "recordedAt": "2026-10-17T14:33:36.467Z",
+  "hostname": "Ashoks-MacBook-Pro.local",
+  "platform": "darwin",
+  "arch": "arm64",
+  "nodeVersion": "v26.5.0",
+  "hostMemoryBytes": 51539607552,
+  "baseUrl": "http://127.0.0.1:11434/v1",
+  "model": "qwen3.8:latest",
+  "context": {
+    "steps": [
+      {
+        "windowTokens": 32768,
+        "ok": true,
+        "oom": false,
+        "error": null,
+        "elapsedMs": 23665,
+        "promptTokens": 5192,
+        "completionTokens": 8
+      },
+      {
+        "windowTokens": 65536,
+        "ok": true,
+        "oom": false,
+        "error": null,
+        "elapsedMs": 20709,
+        "promptTokens": 10366,
+        "completionTokens": 8
+      },
+      {
+        "windowTokens": 131072,
+        "ok": true,
+        "oom": false,
+        "error": null,
+        "elapsedMs": 47333,
+        "promptTokens": 20713,
+        "completionTokens": 8
+      }
+    ],
+    "reservedOutput": {
+      "ok": true,
+      "oom": false,
+      "error": null,
+      "elapsedMs": 32218,
+      "promptTokens": 37,
+      "completionTokens": 551
+    },
+    "parity": {
+      "system": {
+        "ok": true,
+        "oom": false,
+        "error": null,
+        "elapsedMs": 466,
+        "promptTokens": 29,
+        "completionTokens": 1
+      },
+      "turns": {
+        "ok": true,
+        "oom": false,
+        "error": null,
+        "elapsedMs": 491,
+        "promptTokens": 33,
+        "completionTokens": 1
+      },
+      "toolJson": {
+        "ok": true,
+        "oom": false,
+        "error": null,
+        "elapsedMs": 518,
+        "promptTokens": 42,
+        "completionTokens": 1
+      },
+      "codeExcerpt": {
+        "ok": true,
+        "oom": false,
+        "error": null,
+        "elapsedMs": 514,
+        "promptTokens": 47,
+        "completionTokens": 1
+      }
+    },
+    "excerptFloor": {
+      "ok": true,
+      "oom": false,
+      "error": null,
+      "elapsedMs": 519,
+      "promptTokens": 25,
+      "completionTokens": 1
+    },
+    "recommendations": {
+      "validatedContextCapacity": 131072,
+      "reservedOutputTokens": 807,
+      "excerptMinTokens": 25
+    }
+  },
+  "queue": {
+    "levels": [
+      {
+        "concurrency": 1,
+        "ok": true,
+        "successCount": 1,
+        "failureCount": 0,
+        "wallMs": 784,
+        "errors": []
+      },
+      {
+        "concurrency": 2,
+        "ok": true,
+        "successCount": 2,
+        "failureCount": 0,
+        "wallMs": 937,
+        "errors": []
+      },
+      {
+        "concurrency": 4,
+        "ok": true,
+        "successCount": 4,
+        "failureCount": 0,
+        "wallMs": 1822,
+        "errors": []
+      }
+    ],
+    "recommendedMaxConcurrency": 4
+  },
+  "runBudgets": {
+    "iterations": [
+      {
+        "index": 1,
+        "ok": true,
+        "oom": false,
+        "error": null,
+        "elapsedMs": 2329,
+        "promptTokens": 59,
+        "completionTokens": 37
+      },
+      {
+        "index": 2,
+        "ok": true,
+        "oom": false,
+        "error": null,
+        "elapsedMs": 2710,
+        "promptTokens": 59,
+        "completionTokens": 42
+      },
+      {
+        "index": 3,
+        "ok": true,
+        "oom": false,
+        "error": null,
+        "elapsedMs": 3102,
+        "promptTokens": 59,
+        "completionTokens": 42
+      },
+      {
+        "index": 4,
+        "ok": true,
+        "oom": false,
+        "error": null,
+        "elapsedMs": 2777,
+        "promptTokens": 59,
+        "completionTokens": 42
+      },
+      {
+        "index": 5,
+        "ok": true,
+        "oom": false,
+        "error": null,
+        "elapsedMs": 2777,
+        "promptTokens": 59,
+        "completionTokens": 42
+      },
+      {
+        "index": 6,
+        "ok": true,
+        "oom": false,
+        "error": null,
+        "elapsedMs": 2799,
+        "promptTokens": 59,
+        "completionTokens": 42
+      },
+      {
+        "index": 7,
+        "ok": true,
+        "oom": false,
+        "error": null,
+        "elapsedMs": 2766,
+        "promptTokens": 59,
+        "completionTokens": 42
+      },
+      {
+        "index": 8,
+        "ok": true,
+        "oom": false,
+        "error": null,
+        "elapsedMs": 2764,
+        "promptTokens": 59,
+        "completionTokens": 42
+      },
+      {
+        "index": 9,
+        "ok": true,
+        "oom": false,
+        "error": null,
+        "elapsedMs": 3106,
+        "promptTokens": 59,
+        "completionTokens": 45
+      },
+      {
+        "index": 10,
+        "ok": true,
+        "oom": false,
+        "error": null,
+        "elapsedMs": 2816,
+        "promptTokens": 60,
+        "completionTokens": 48
+      },
+      {
+        "index": 11,
+        "ok": true,
+        "oom": false,
+        "error": null,
+        "elapsedMs": 2784,
+        "promptTokens": 60,
+        "completionTokens": 42
+      },
+      {
+        "index": 12,
+        "ok": true,
+        "oom": false,
+        "error": null,
+        "elapsedMs": 2772,
+        "promptTokens": 60,
+        "completionTokens": 42
+      }
+    ],
+    "successCount": 12,
+    "cumulativeInputTokens": 711,
+    "cumulativeOutputTokens": 508,
+    "wallMs": 33502,
+    "stoppedReason": null,
+    "recommendations": {
+      "maxCumulativeInputTokens": 888,
+      "maxCumulativeOutputTokens": 635,
+      "maxCumulativeToolResultBytes": 19840,
+      "maxTotalCalls": 30,
+      "maxWallTimeMs": 41877
+    }
+  }
+}

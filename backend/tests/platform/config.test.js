@@ -10,6 +10,12 @@ const VALID_ENV = {
   LLM_BASE_URL: 'http://127.0.0.1:11434/v1',
   LLM_MODEL_ID: 'qwen3.8:latest',
   LLM_CONTEXT_CAPACITY: '131072',
+  LLM_QUEUE_MAX_CONCURRENCY: '1',
+  LLM_RUN_MAX_CUMULATIVE_INPUT_TOKENS: '500000',
+  LLM_RUN_MAX_CUMULATIVE_OUTPUT_TOKENS: '50000',
+  LLM_RUN_MAX_CUMULATIVE_TOOL_RESULT_BYTES: '200000',
+  LLM_RUN_MAX_TOTAL_CALLS: '40',
+  LLM_RUN_MAX_WALL_TIME_MS: '120000',
 };
 describe('loadConfig', () => {
   it('uses defaults when optional env variables are absent', () => {
@@ -34,6 +40,14 @@ describe('loadConfig', () => {
     expect(cfg.llm.modelId).toBe(VALID_ENV.LLM_MODEL_ID);
     expect(cfg.llm.contextCapacity).toBe(131072);
     expect(cfg.llm.apiKey).toBeNull();
+    expect(cfg.llm.queueMaxConcurrency).toBe(1);
+    expect(cfg.llm.runBudget).toEqual({
+      maxCumulativeInputTokens: 500000,
+      maxCumulativeOutputTokens: 50000,
+      maxCumulativeToolResultBytes: 200000,
+      maxTotalCalls: 40,
+      maxWallTimeMs: 120000,
+    });
     expect(cfg.llm).not.toHaveProperty('artifactId');
   });
   it('reads overrides from env', () => {

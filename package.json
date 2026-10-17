@@ -16,8 +16,7 @@
     "playwright:install": "bash scripts/playwright-install-chromium.sh",
     "lint": "bash scripts/lint.sh",
     "clean": "bash scripts/clean.sh",
-    "measure-llm-context": "node scripts/measure-llm-context.mjs",
-    "measure-llm-queue": "node scripts/measure-llm-queue.mjs",
+    "measure-llm-host": "node scripts/measure-llm-host.mjs",
     "prepare": "husky",
     "format": "prettier --write ."
   },

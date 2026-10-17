@@ -36,6 +36,7 @@ export {
   streamText,
 } from './llm.js';
 export { executeTool, listToolDefinitionsForSchema } from './agentTools.js';
+export { assertRunBudget, getRunBudgetConfig } from './runBudget.js';
 export {
   PINNED_FACTS_MAX_COUNT,
   RECENT_TURNS_MAX_COUNT,
@@ -59,6 +60,7 @@ export {
   invokeChatGraph,
   parseChatGraphThreadId,
   resumeChatGraphFromClarification,
+  toolChoiceDecisionSchema,
   understandDecisionSchema,
 } from './chatGraph.js';
 

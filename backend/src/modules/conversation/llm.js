@@ -12,16 +12,16 @@ import { ApiError, apiErrorFromCaught, caughtErrorFields } from '../../platform/
 export const LLM_PROBE_TIMEOUT_MS = 10_000;
 
 /**
- * One in-flight Chat Completions call per API worker until a reviewed
- * measure-llm-queue run is promoted. Always host-safe; not a capacity guess.
- */
-export const INFERENCE_QUEUE_MAX_CONCURRENCY = 1;
-
-/**
  * Waiting + running tasks allowed per API worker before LLM_QUEUE_FULL.
  * Backpressure, not a measured host limit.
  */
 export const INFERENCE_QUEUE_MAX_DEPTH = 8;
+
+/**
+ * Host-safe default when config is unavailable (tests that mock loadConfig).
+ * Production concurrency comes from LLM_QUEUE_MAX_CONCURRENCY via loadConfig.
+ */
+export const INFERENCE_QUEUE_MAX_CONCURRENCY = 1;
 
 const defaultLog = {
   info: (obj, msg) => console.info(JSON.stringify({ level: 'info', msg, ...obj })),
@@ -311,7 +311,12 @@ function providerCallOptionsForThinking(enableThinking) {
  */
 function createInferenceQueue() {
   const maxDepth = INFERENCE_QUEUE_MAX_DEPTH;
-  const maxConcurrency = INFERENCE_QUEUE_MAX_CONCURRENCY;
+  let maxConcurrency = INFERENCE_QUEUE_MAX_CONCURRENCY;
+  try {
+    maxConcurrency = loadConfig().llm.queueMaxConcurrency;
+  } catch {
+    // Keep the module default when config is not loaded (unit tests).
+  }
   let running = 0;
   const waiting = [];
 

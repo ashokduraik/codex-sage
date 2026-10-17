@@ -796,16 +796,19 @@ status:'A'` before resolving a workspace path or Mongo query.
 
 ### 5.6 Run bounds
 
-| Bound                  | Policy                                            |
-| ---------------------- | ------------------------------------------------- |
-| Clarification sets     | One, plus at most one follow-up set               |
-| Tool rounds            | No fixed count                                    |
-| Total model/tool calls | Configurable value selected by evaluation         |
-| Cumulative tokens      | Configurable measured input/output budget         |
-| Tool-result bytes      | Configurable cumulative budget                    |
-| Wall time              | Configurable deadline                             |
-| Queue wait             | Configurable expiry; then retryable failure       |
-| Safety abort           | Structured terminal event/error + `correlationId` |
+| Bound                  | Policy                                                                                      |
+| ---------------------- | ------------------------------------------------------------------------------------------- |
+| Clarification sets     | One, plus at most one follow-up set                                                         |
+| Tool rounds            | No fixed count                                                                              |
+| Total model/tool calls | `LLM_RUN_MAX_TOTAL_CALLS` from `npm run measure-llm-host` (tool-choice LLM + `executeTool`) |
+| Cumulative tokens      | `LLM_RUN_MAX_CUMULATIVE_*_TOKENS` (not equal to per-prompt `LLM_CONTEXT_CAPACITY`)          |
+| Tool-result bytes      | `LLM_RUN_MAX_CUMULATIVE_TOOL_RESULT_BYTES`                                                  |
+| Wall time              | `LLM_RUN_MAX_WALL_TIME_MS` (monotonic clock)                                                |
+| Queue wait             | Configurable expiry; then retryable failure                                                 |
+| Safety abort           | Structured terminal event/error + `correlationId`                                           |
+
+Re-measure with `npm run measure-llm-host` when the host or model changes; copy printed values into
+`backend/.env` / `.env.example`. Exhausting a limit sets `budgetExhausted` on graph state for phase 49.
 
 ---
 

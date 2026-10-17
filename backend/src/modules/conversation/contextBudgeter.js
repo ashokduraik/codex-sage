@@ -10,12 +10,12 @@ import { ApiError, apiErrorFromCaught } from '../../platform/errors.js';
  * Reserved completion tokens (DRAFT eval_count 201 + margin 256) from the
  * reviewed measurement run. Not env — compaction math, not a host connection.
  */
-export const RESERVED_OUTPUT_TOKENS = 457;
+export const RESERVED_OUTPUT_TOKENS = 807;
 
 /**
  * Floor when shrinking an excerpt so a source-id stub stays measurable.
  */
-export const EXCERPT_MIN_TOKENS = 27;
+export const EXCERPT_MIN_TOKENS = 25;
 
 /** Prevents an infinite shrink / drop loop. */
 export const COMPACTION_MAX_PASSES = 8;

@@ -5,7 +5,8 @@ Re-run on every machine (and after artifact / provider / RAM changes). Runbook:
 [docs/evaluation/README.md](./README.md).
 
 Note: this checked-in run used the previous native Ollama `/api/generate` protocol.
-Re-run `npm run measure-llm-context` to replace it with OpenAI-compatible `/v1` usage.
+Superseded for operator workflow by `npm run measure-llm-host` (see [llm-host.md](./llm-host.md)).
+Kept for historical capacity notes.
 
 Recorded **2026-09-26T16:14:03.675Z** on `Ashoks-MacBook-Pro.local` (darwin arm64, Node v26.5.0).
 Ollama **0.33.2**. Host memory 51539607552 bytes.

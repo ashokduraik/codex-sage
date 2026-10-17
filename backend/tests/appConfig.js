@@ -42,5 +42,13 @@ export const TEST_APP_CONFIG = {
     modelId: 'qwen3.8:latest',
     contextCapacity: 131072,
     apiKey: null,
+    queueMaxConcurrency: 1,
+    runBudget: {
+      maxCumulativeInputTokens: 500_000,
+      maxCumulativeOutputTokens: 50_000,
+      maxCumulativeToolResultBytes: 200_000,
+      maxTotalCalls: 40,
+      maxWallTimeMs: 120_000,
+    },
   },
 };

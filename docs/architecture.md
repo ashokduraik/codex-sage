@@ -213,8 +213,8 @@ Client request
 
 The OpenAI-compatible LLM sits behind a **bounded inference queue** in
 `backend/src/modules/conversation/llm.js` (API process, **per worker** — not fleet-wide).
-Production ships `INFERENCE_QUEUE_MAX_CONCURRENCY = 1` until a reviewed
-`npm run measure-llm-queue` run is promoted. Depth (`INFERENCE_QUEUE_MAX_DEPTH = 8`) is
+Queue concurrency is `LLM_QUEUE_MAX_CONCURRENCY` from `npm run measure-llm-host`
+(env). Depth (`INFERENCE_QUEUE_MAX_DEPTH = 8`) is
 backpressure, not a guessed host-capacity number.
 CodeGraph telemetry is off everywhere (set in-process by the CodeGraph adapter before
 library import: `CODEGRAPH_TELEMETRY=0` and `DO_NOT_TRACK=1` — not via `.env`).
@@ -389,7 +389,9 @@ excerpts (keep source ids) → shrink excerpts at natural boundaries → still o
 clarify or abstain.
 
 There is no fixed “max tool rounds”. The run has cumulative token, tool-byte, call-count,
-and wall-time budgets from evaluation. Hitting any of them ends the run.
+and wall-time budgets from `npm run measure-llm-host` (env keys `LLM_RUN_MAX_*`). These are
+**not** the same as per-prompt `LLM_CONTEXT_CAPACITY`. Hitting any enforced limit ends
+AGENT_TOOLS with `budgetExhausted` on graph state.
 
 Follow-up questions reuse prior `evidence[]`. After a successful re-index, chat uses the
 **new** current graph; old messages keep their evidence snapshots; the UI is warned.

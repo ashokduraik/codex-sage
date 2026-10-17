@@ -308,6 +308,12 @@ export const ERROR_CATALOG = Object.freeze({
     retryability: 'user_action_required',
     message: 'The question does not fit in the validated context budget.',
   }),
+  RUN_BUDGET_EXCEEDED: Object.freeze({
+    class: 'user',
+    httpStatus: 422,
+    retryability: 'user_action_required',
+    message: 'This chat run hit a processing limit.',
+  }),
   LLM_CONFIG_UNAVAILABLE: Object.freeze({
     class: 'system',
     httpStatus: 503,

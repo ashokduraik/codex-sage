@@ -1,6 +1,6 @@
 /**
- * Overflow helpers for chatGraph: UNDERSTAND Zod schema and the Mongo
- * LangGraph checkpointer (tenant + soft-delete). Used only by chatGraph.js.
+ * Overflow helpers for chatGraph: UNDERSTAND / tool-choice Zod schemas and the
+ * Mongo LangGraph checkpointer (tenant + soft-delete). Used only by chatGraph.js.
  */
 import { z } from 'zod';
 import mongoose from 'mongoose';
@@ -16,6 +16,19 @@ export const CLARIFICATION_QUESTION_TYPES = Object.freeze(['single_select', 'mul
 
 /** Routes UNDERSTAND may choose (clarify uses needsClarification, not route). */
 export const UNDERSTAND_ROUTE_VALUES = Object.freeze(['retrieve', 'abstain_early']);
+
+/** Tool-choice actions for AGENT_TOOLS. */
+export const TOOL_CHOICE_ACTION_VALUES = Object.freeze(['call_tool', 'finish_retrieval']);
+
+/** Scoped agent tools the model may request (phase 46). */
+export const AGENT_TOOL_NAME_VALUES = Object.freeze([
+  'explore_code',
+  'search_documents',
+  'list_documents',
+  'read_document_slice',
+  'read_file_slice',
+  'abstain',
+]);
 
 /**
  * Zod schema for the UNDERSTAND structured decision.
@@ -36,6 +49,28 @@ export const understandDecisionSchema = z
     route: z.enum(UNDERSTAND_ROUTE_VALUES),
   })
   .strict();
+
+/**
+ * Zod schema for AGENT_TOOLS tool-choice structured output.
+ * `reason` is optional short product text — never chain-of-thought / SSE.
+ */
+export const toolChoiceDecisionSchema = z
+  .object({
+    action: z.enum(TOOL_CHOICE_ACTION_VALUES),
+    toolName: z.enum(AGENT_TOOL_NAME_VALUES).optional(),
+    toolArgs: z.record(z.string(), z.unknown()).optional(),
+    reason: z.string().max(500).optional(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (value.action === 'call_tool' && !value.toolName) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'toolName is required when action is call_tool',
+        path: ['toolName'],
+      });
+    }
+  });
 
 /**
  * Builds the LangGraph thread id for one pending assistant message.

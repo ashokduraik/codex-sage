@@ -14,9 +14,10 @@ import {
   resumeChatGraphFromClarification,
 } from '../../../src/modules/conversation/chatGraph.js';
 
-const { mockGenerateText, mockBuildConversationContext } = vi.hoisted(() => ({
+const { mockGenerateText, mockBuildConversationContext, mockExecuteTool } = vi.hoisted(() => ({
   mockGenerateText: vi.fn(),
   mockBuildConversationContext: vi.fn(),
+  mockExecuteTool: vi.fn(),
 }));
 
 vi.mock('../../../src/modules/conversation/llm.js', () => ({
@@ -33,6 +34,14 @@ vi.mock('../../../src/modules/conversation/conversationContext.js', async (impor
   return {
     ...actual,
     buildConversationContext: (...args) => mockBuildConversationContext(...args),
+  };
+});
+
+vi.mock('../../../src/modules/conversation/agentTools.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    executeTool: (...args) => mockExecuteTool(...args),
   };
 });
 
@@ -59,6 +68,15 @@ function scope() {
     assistantMessageId: String(assistantMessageId),
     knowledgeVersionId: new mongoose.Types.ObjectId().toString(),
     correlationId: 'corr-int',
+    workspaceRoot: '/tmp/codex-sage-workspace',
+    budgetState: {
+      modelArtifactRef: 'test-model',
+      options: {
+        validatedContextCapacity: 10_000,
+        reservedOutputTokens: 0,
+        llm: { contextCapacity: 10_000, artifactId: 'test-model' },
+      },
+    },
   };
 }
 
@@ -74,6 +92,36 @@ describe('chatGraph Mongo checkpointer', () => {
       summarySegment: undefined,
       pinnedSegments: [],
       recentMessageIds: [],
+    });
+    mockExecuteTool.mockResolvedValue({
+      evidenceRecords: [],
+      rejected: [],
+      usage: { resultBytes: 0, promptTokensAfterBudget: 0 },
+    });
+    mockGenerateText.mockImplementation(async (request) => {
+      if (request.purpose === 'tool_choice') {
+        return {
+          text: JSON.stringify({ action: 'finish_retrieval' }),
+          usage: { inputTokens: 1, outputTokens: 1, totalTokens: null },
+          durationMs: 1,
+          modelId: 'test-model',
+          contextMetrics: {},
+          enableThinking: false,
+        };
+      }
+      return {
+        text: JSON.stringify({
+          rewrittenQuestion: 'default',
+          needsClarification: false,
+          clarificationQuestions: [],
+          route: 'retrieve',
+        }),
+        usage: { inputTokens: 1, outputTokens: 1, totalTokens: null },
+        durationMs: 1,
+        modelId: 'test-model',
+        contextMetrics: {},
+        enableThinking: false,
+      };
     });
   });
 
@@ -167,7 +215,86 @@ describe('chatGraph Mongo checkpointer', () => {
     });
     expect(resumed.clarificationAnswers).toEqual({ q1: 'staging' });
     expect(resumed.route).toBe('retrieve');
+    expect(resumed.retrievalComplete).toBe(true);
     expect(resumed.rewrittenQuestion).toContain('staging');
+  });
+
+  it('runs UNDERSTAND retrieve through AGENT_TOOLS with two evidence batches', async () => {
+    const threadId = buildChatGraphThreadId(orgId, conversationId, `${assistantMessageId}-tools`);
+    mockGenerateText
+      .mockResolvedValueOnce({
+        text: JSON.stringify({
+          rewrittenQuestion: 'How does login work?',
+          needsClarification: false,
+          clarificationQuestions: [],
+          route: 'retrieve',
+        }),
+        usage: { inputTokens: 2, outputTokens: 1, totalTokens: null },
+        durationMs: 1,
+        modelId: 'test-model',
+        contextMetrics: {},
+        enableThinking: false,
+      })
+      .mockResolvedValueOnce({
+        text: JSON.stringify({
+          action: 'call_tool',
+          toolName: 'explore_code',
+          toolArgs: { query: 'login' },
+        }),
+        usage: { inputTokens: 2, outputTokens: 1, totalTokens: null },
+        durationMs: 1,
+        modelId: 'test-model',
+        contextMetrics: {},
+        enableThinking: false,
+      })
+      .mockResolvedValueOnce({
+        text: JSON.stringify({
+          action: 'call_tool',
+          toolName: 'search_documents',
+          toolArgs: { query: 'auth' },
+        }),
+        usage: { inputTokens: 2, outputTokens: 1, totalTokens: null },
+        durationMs: 1,
+        modelId: 'test-model',
+        contextMetrics: {},
+        enableThinking: false,
+      })
+      .mockResolvedValueOnce({
+        text: JSON.stringify({ action: 'finish_retrieval' }),
+        usage: { inputTokens: 1, outputTokens: 1, totalTokens: null },
+        durationMs: 1,
+        modelId: 'test-model',
+        contextMetrics: {},
+        enableThinking: false,
+      });
+    mockExecuteTool
+      .mockResolvedValueOnce({
+        evidenceRecords: [{ evidenceId: 'ev_01', path: 'src/a.js', kind: 'code', excerpt: 'a' }],
+        rejected: [],
+        usage: { resultBytes: 4, promptTokensAfterBudget: 1 },
+      })
+      .mockResolvedValueOnce({
+        evidenceRecords: [{ evidenceId: 'ev_02', path: 'docs/b.md', kind: 'document', excerpt: 'b' }],
+        rejected: [],
+        usage: { resultBytes: 4, promptTokensAfterBudget: 1 },
+      });
+    const checkpointer = createMongoChatCheckpointer();
+    const compiled = compileChatGraph({ checkpointer });
+    const result = await invokeChatGraph({
+      threadId,
+      compiled,
+      checkpointer,
+      input: {
+        scope: {
+          ...scope(),
+          assistantMessageId: `${assistantMessageId}-tools`,
+        },
+        question: 'How does login work?',
+      },
+    });
+    expect(result.toolResults).toHaveLength(2);
+    expect(result.retrievalComplete).toBe(true);
+    expect(result.cumulativeToolResultBytes).toBe(8);
   });
 
   it('fails closed when configurable org_id does not match the thread org', async () => {

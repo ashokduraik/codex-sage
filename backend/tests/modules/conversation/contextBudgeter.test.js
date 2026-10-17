@@ -70,8 +70,8 @@ describe('getContextBudgetConfig', () => {
       compactionMaxPasses: COMPACTION_MAX_PASSES,
       artifactId: TEST_ARTIFACT_ID,
     });
-    expect(RESERVED_OUTPUT_TOKENS).toBe(457);
-    expect(EXCERPT_MIN_TOKENS).toBe(27);
+    expect(RESERVED_OUTPUT_TOKENS).toBe(807);
+    expect(EXCERPT_MIN_TOKENS).toBe(25);
   });
 
   it('throws when llm capacity or artifact id is missing', () => {

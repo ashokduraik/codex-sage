@@ -59,6 +59,17 @@ const llmModelIdSchema = z.string().trim().min(1, { error: 'required model id (n
 /** Operational context window from env; must be a positive integer. */
 const llmContextCapacitySchema = z.coerce.number().int({ error: 'expected a positive integer' }).positive({ error: 'expected a positive integer' });
 
+/** Positive integer env knobs (queue concurrency, run budgets). */
+const positiveIntSchema = z.coerce.number().int({ error: 'expected a positive integer' }).positive({ error: 'expected a positive integer' });
+
+/** Test-only defaults when NODE_ENV=test and run-budget env keys are unset. */
+const TEST_DEFAULT_LLM_QUEUE_MAX_CONCURRENCY = 1;
+const TEST_DEFAULT_LLM_RUN_MAX_CUMULATIVE_INPUT_TOKENS = 500_000;
+const TEST_DEFAULT_LLM_RUN_MAX_CUMULATIVE_OUTPUT_TOKENS = 50_000;
+const TEST_DEFAULT_LLM_RUN_MAX_CUMULATIVE_TOOL_RESULT_BYTES = 200_000;
+const TEST_DEFAULT_LLM_RUN_MAX_TOTAL_CALLS = 40;
+const TEST_DEFAULT_LLM_RUN_MAX_WALL_TIME_MS = 120_000;
+
 /**
  * Reads the repository credential encryption key without requiring Mongo/JWT env.
  * @param {NodeJS.ProcessEnv} [env] Env overlay.
@@ -141,6 +152,30 @@ export function loadConfig(env = process.env) {
   const llmCapacityResult = llmContextCapacitySchema.safeParse(env.LLM_CONTEXT_CAPACITY ?? '');
   collectFieldError(errors, 'LLM_CONTEXT_CAPACITY', llmCapacityResult);
   const llmApiKey = parseOptionalLlmApiKey(env.LLM_API_KEY);
+  const queueConcurrencyResult = positiveIntSchema.safeParse(
+    env.LLM_QUEUE_MAX_CONCURRENCY ?? (nodeEnv === 'test' ? String(TEST_DEFAULT_LLM_QUEUE_MAX_CONCURRENCY) : ''),
+  );
+  collectFieldError(errors, 'LLM_QUEUE_MAX_CONCURRENCY', queueConcurrencyResult);
+  const runInputResult = positiveIntSchema.safeParse(
+    env.LLM_RUN_MAX_CUMULATIVE_INPUT_TOKENS ?? (nodeEnv === 'test' ? String(TEST_DEFAULT_LLM_RUN_MAX_CUMULATIVE_INPUT_TOKENS) : ''),
+  );
+  collectFieldError(errors, 'LLM_RUN_MAX_CUMULATIVE_INPUT_TOKENS', runInputResult);
+  const runOutputResult = positiveIntSchema.safeParse(
+    env.LLM_RUN_MAX_CUMULATIVE_OUTPUT_TOKENS ?? (nodeEnv === 'test' ? String(TEST_DEFAULT_LLM_RUN_MAX_CUMULATIVE_OUTPUT_TOKENS) : ''),
+  );
+  collectFieldError(errors, 'LLM_RUN_MAX_CUMULATIVE_OUTPUT_TOKENS', runOutputResult);
+  const runToolBytesResult = positiveIntSchema.safeParse(
+    env.LLM_RUN_MAX_CUMULATIVE_TOOL_RESULT_BYTES ?? (nodeEnv === 'test' ? String(TEST_DEFAULT_LLM_RUN_MAX_CUMULATIVE_TOOL_RESULT_BYTES) : ''),
+  );
+  collectFieldError(errors, 'LLM_RUN_MAX_CUMULATIVE_TOOL_RESULT_BYTES', runToolBytesResult);
+  const runTotalCallsResult = positiveIntSchema.safeParse(
+    env.LLM_RUN_MAX_TOTAL_CALLS ?? (nodeEnv === 'test' ? String(TEST_DEFAULT_LLM_RUN_MAX_TOTAL_CALLS) : ''),
+  );
+  collectFieldError(errors, 'LLM_RUN_MAX_TOTAL_CALLS', runTotalCallsResult);
+  const runWallTimeResult = positiveIntSchema.safeParse(
+    env.LLM_RUN_MAX_WALL_TIME_MS ?? (nodeEnv === 'test' ? String(TEST_DEFAULT_LLM_RUN_MAX_WALL_TIME_MS) : ''),
+  );
+  collectFieldError(errors, 'LLM_RUN_MAX_WALL_TIME_MS', runWallTimeResult);
 
   if (errors.length > 0) {
     throw new Error(`Invalid configuration:\n${errors.join('\n')}`);
@@ -180,6 +215,14 @@ export function loadConfig(env = process.env) {
       modelId: llmModelIdResult.data,
       contextCapacity: llmCapacityResult.data,
       apiKey: llmApiKey,
+      queueMaxConcurrency: queueConcurrencyResult.data,
+      runBudget: {
+        maxCumulativeInputTokens: runInputResult.data,
+        maxCumulativeOutputTokens: runOutputResult.data,
+        maxCumulativeToolResultBytes: runToolBytesResult.data,
+        maxTotalCalls: runTotalCallsResult.data,
+        maxWallTimeMs: runWallTimeResult.data,
+      },
     },
   };
 
