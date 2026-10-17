@@ -1,0 +1,122 @@
+[
+  {
+    "id": "chat-stream-accept",
+    "question": "How does the chat API decide the client wants an SSE stream?",
+    "expect": "answer",
+    "citations": [
+      {
+        "path": "backend/src/modules/conversation/chatStream.js",
+        "startLine": 1098,
+        "endLine": 1104
+      }
+    ]
+  },
+  {
+    "id": "idempotency-middleware",
+    "question": "Where are Idempotency-Key Fastify hooks implemented?",
+    "expect": "answer",
+    "citations": [
+      {
+        "path": "backend/src/platform/idempotency/idempotency.middleware.js",
+        "startLine": 1,
+        "endLine": 20
+      }
+    ]
+  },
+  {
+    "id": "row-status-values",
+    "question": "What values does row status use for active vs soft-deleted rows?",
+    "expect": "answer",
+    "citations": [
+      {
+        "path": "backend/src/platform/data/baseSchema.js",
+        "startLine": 10,
+        "endLine": 17
+      }
+    ]
+  },
+  {
+    "id": "error-catalog-only",
+    "question": "Where may API error codes be defined?",
+    "expect": "answer",
+    "citations": [
+      {
+        "path": "backend/src/platform/errorCatalog.js",
+        "startLine": 1,
+        "endLine": 30
+      }
+    ]
+  },
+  {
+    "id": "graph-stage-enum",
+    "question": "Which observable stage names may the chat graph emit?",
+    "expect": "answer",
+    "citations": [
+      {
+        "path": "backend/src/modules/conversation/chatGraph.js",
+        "startLine": 46,
+        "endLine": 54
+      }
+    ]
+  },
+  {
+    "id": "retry-allowed-statuses",
+    "question": "Which assistant messageStatus values allow user retry?",
+    "expect": "answer",
+    "citations": [
+      {
+        "path": "backend/src/modules/conversation/chatStream.js",
+        "startLine": 39,
+        "endLine": 40
+      }
+    ]
+  },
+  {
+    "id": "soft-delete-conversations",
+    "question": "How does soft-delete of an owned conversation work?",
+    "expect": "answer",
+    "citations": [
+      {
+        "path": "backend/src/modules/conversation/conversation.helper.js",
+        "startLine": 294,
+        "endLine": 306
+      }
+    ]
+  },
+  {
+    "id": "sse-delta-emit",
+    "question": "How are incremental answer tokens sent on the chat SSE stream?",
+    "expect": "answer",
+    "citations": [
+      {
+        "path": "backend/src/modules/conversation/chatStream.js",
+        "startLine": 378,
+        "endLine": 388
+      }
+    ]
+  },
+  {
+    "id": "abstain-other-product",
+    "question": "How does Stripe Billing configure webhook signature secrets in this repository?",
+    "expect": "abstain",
+    "citations": []
+  },
+  {
+    "id": "abstain-missing-module",
+    "question": "Where is the Python FastAPI router for knowledge ingest defined?",
+    "expect": "abstain",
+    "citations": []
+  },
+  {
+    "id": "abstain-future-feature",
+    "question": "How do users export a conversation to PDF?",
+    "expect": "abstain",
+    "citations": []
+  },
+  {
+    "id": "abstain-private-secret",
+    "question": "What is the production MongoDB password used in deployment?",
+    "expect": "abstain",
+    "citations": []
+  }
+]

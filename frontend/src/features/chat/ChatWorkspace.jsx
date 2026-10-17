@@ -1,6 +1,5 @@
 /**
- * Project chat workspace — conversation history and persisted messages (Phase 54 shell).
- * Streaming send arrives in Phase 55; the composer stays disabled here.
+ * Project chat workspace — conversation history, messages, and SSE send/stop/retry (Phase 55).
  */
 import { Composer } from './Composer';
 import { MessageItem } from './MessageItem';
@@ -12,11 +11,12 @@ import { useOutletContext, useSearchParams } from 'react-router-dom';
 import { useConversation } from '@/features/chat/hooks/useConversation.js';
 import { isProjectAskable, isProjectArchived } from '@/shared/components/StatusBadge.jsx';
 import { useCreateConversation } from '@/features/chat/hooks/useConversationMutations.js';
+import { useSendMessage } from '@/features/chat/hooks/useSendMessage.js';
 import { isForbiddenApiError, isNotFoundApiError, messageFromUnknown } from '@/shared/api';
 import { useConversationMessages, flattenMessagePages } from '@/features/chat/hooks/useConversationMessages.js';
 
 /**
- * Project chat workspace with history, messages, and a Phase-55-gated composer.
+ * Project chat workspace with history, messages, and streaming composer.
  *
  * @returns Chat workspace UI
  */
@@ -29,6 +29,7 @@ export default function ChatWorkspace() {
   const scrollRef = useRef(null);
   const historyToggleRef = useRef(null);
   const initRef = useRef(false);
+  const nearBottomRef = useRef(true);
   const projectId = project?.id ? String(project.id) : '';
   const createMutation = useCreateConversation(projectId);
   const detailQuery = useConversation(projectId, activeConvId);
@@ -39,6 +40,10 @@ export default function ChatWorkspace() {
   const askable = isProjectAskable(project);
   const knowledgeUpdating = project?.knowledgeHealth === 'updating' || project?.lifecycleStatus === 'updating';
   const title = conversation?.title || t('chat.newChat');
+  const { stream, isBusy, send, retry, stop } = useSendMessage({
+    projectId,
+    conversationId: activeConvId,
+  });
 
   useEffect(() => {
     if (initRef.current || !projectId) {
@@ -53,14 +58,14 @@ export default function ChatWorkspace() {
 
   const lastMessageContent = messages[messages.length - 1]?.content;
   useEffect(() => {
-    if (!messages.length) {
+    if (!nearBottomRef.current || (!messages.length && !stream.draftText)) {
       return;
     }
     scrollRef.current?.scrollTo({
       top: scrollRef.current.scrollHeight,
       behavior: 'smooth',
     });
-  }, [messages.length, lastMessageContent]);
+  }, [messages.length, lastMessageContent, stream.draftText, stream.stage]);
 
   /**
    * Creates a conversation and selects it.
@@ -119,11 +124,68 @@ export default function ChatWorkspace() {
     });
   };
 
+  /**
+   * Sends a question; creates a conversation first when none is selected.
+   * @param {string} content Question text.
+   */
+  const handleSend = (content) => {
+    if (!askable || archivedProject || isBusy) {
+      return;
+    }
+    if (!activeConvId) {
+      setCreateError('');
+      createMutation.mutate(
+        {
+          title: content.slice(0, 80),
+          idempotencyKey: crypto.randomUUID(),
+        },
+        {
+          onSuccess: (created) => {
+            setActiveConvId(created.id);
+            setSearchParams({ conv: created.id }, { replace: true });
+            void send(content, { conversationId: created.id });
+          },
+          onError: (error) => {
+            setCreateError(messageFromUnknown(error, t('chat.createFailed')));
+          },
+        },
+      );
+      return;
+    }
+    void send(content);
+  };
+
+  /**
+   * Retries the latest failed/interrupted assistant in the thread.
+   * @param {string} assistantMessageId Assistant id.
+   */
+  const handleRetry = (assistantMessageId) => {
+    void retry(assistantMessageId);
+  };
+
+  /**
+   * Tracks whether the user is near the bottom for auto-scroll.
+   */
+  const onScroll = () => {
+    const el = scrollRef.current;
+    if (!el) {
+      return;
+    }
+    nearBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+  };
+
   const detailForbidden = activeConvId && detailQuery.isError && isForbiddenApiError(detailQuery.error);
   const detailMissing = activeConvId && detailQuery.isError && isNotFoundApiError(detailQuery.error);
   const detailFailed = activeConvId && detailQuery.isError && !detailForbidden && !detailMissing;
   const messagesPending = Boolean(activeConvId) && messagesQuery.isPending && !messagesQuery.data;
   const messagesFailed = Boolean(activeConvId) && messagesQuery.isError;
+  const composerDisabled = archivedProject || !askable || createMutation.isPending;
+  const showOptimisticUser =
+    Boolean(stream.optimisticUserContent) && (stream.phase === 'posting' || stream.phase === 'streaming' || stream.phase === 'queued');
+  const showStreamingAssistant = isBusy || stream.phase === 'cancelled' || stream.phase === 'interrupted' || stream.phase === 'failed';
+  const latestAssistant = [...messages].reverse().find((m) => m.role === 'assistant');
+  const canRetryLatest =
+    latestAssistant && (latestAssistant.messageStatus === 'failed' || latestAssistant.messageStatus === 'interrupted') && !isBusy;
 
   return (
     <div className="flex h-full overflow-x-hidden">
@@ -172,15 +234,33 @@ export default function ChatWorkspace() {
           </p>
         ) : null}
 
-        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin">
-          {!activeConvId ? (
+        {stream.phase === 'failed' && stream.errorMessage ? (
+          <p className="border-b border-border px-4 py-2 text-xs text-destructive sm:px-6" role="alert">
+            {stream.errorMessage}
+            {stream.errorReference ? ` (${stream.errorReference})` : ''}
+          </p>
+        ) : null}
+
+        {stream.phase === 'cancelled' ? (
+          <p className="border-b border-border px-4 py-2 text-xs text-muted-foreground sm:px-6" role="status">
+            {t('chat.generationStopped')}
+          </p>
+        ) : null}
+
+        {stream.needsClarification ? (
+          <p className="border-b border-border px-4 py-2 text-xs text-amber-700 sm:px-6" role="status">
+            {t('chat.needsClarificationStub')}
+          </p>
+        ) : null}
+
+        <div ref={scrollRef} onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin" aria-busy={isBusy}>
+          {!activeConvId && !showOptimisticUser ? (
             <div className="flex h-full flex-col items-center justify-center px-6 text-center">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-muted text-brand">
                 <Sparkles className="h-6 w-6" aria-hidden="true" />
               </div>
               <h2 className="mt-4 font-display text-xl font-medium">{t('chat.emptyTitleNamed', { name: project?.name ?? '' })}</h2>
               <p className="mt-1.5 max-w-sm text-sm text-muted-foreground">{t('chat.emptyDescription')}</p>
-              <p className="mt-3 max-w-sm text-xs text-muted-foreground">{t('chat.composerPhase55Guard')}</p>
             </div>
           ) : detailForbidden ? (
             <div className="flex h-full items-center justify-center px-6 text-center" role="alert">
@@ -208,34 +288,74 @@ export default function ChatWorkspace() {
                 {t('common.retry')}
               </button>
             </div>
-          ) : messages.length === 0 ? (
-            <div className="flex h-full flex-col items-center justify-center px-6 text-center">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-muted text-brand">
-                <Sparkles className="h-6 w-6" aria-hidden="true" />
-              </div>
-              <h2 className="mt-4 font-display text-xl font-medium">{t('chat.emptyTitleNamed', { name: project?.name ?? '' })}</h2>
-              <p className="mt-1.5 max-w-sm text-sm text-muted-foreground">{t('chat.emptyDescription')}</p>
-              <p className="mt-3 max-w-sm text-xs text-muted-foreground">{t('chat.composerPhase55Guard')}</p>
-            </div>
           ) : (
             <div className="mx-auto max-w-3xl pb-4">
               {messages.map((message) => (
-                <MessageItem key={message.id} message={message} isUser={message.role === 'user'} canEdit={false} />
+                <MessageItem
+                  key={message.id}
+                  message={message}
+                  isUser={message.role === 'user'}
+                  canEdit={false}
+                  onRetry={canRetryLatest && message.id === latestAssistant?.id ? () => handleRetry(message.id) : undefined}
+                />
               ))}
+              {showOptimisticUser ? (
+                <MessageItem
+                  key="optimistic-user"
+                  message={{
+                    id: 'optimistic-user',
+                    role: 'user',
+                    content: stream.optimisticUserContent,
+                    messageStatus: stream.phase === 'queued' ? 'queued' : 'accepted',
+                  }}
+                  isUser
+                  canEdit={false}
+                />
+              ) : null}
+              {showStreamingAssistant && stream.phase !== 'queued' ? (
+                <MessageItem
+                  key="streaming-assistant"
+                  message={{
+                    id: 'streaming-assistant',
+                    role: 'assistant',
+                    content: stream.draftText,
+                    messageStatus:
+                      stream.phase === 'failed'
+                        ? 'failed'
+                        : stream.phase === 'cancelled'
+                          ? 'cancelled'
+                          : stream.phase === 'interrupted'
+                            ? 'interrupted'
+                            : 'generating',
+                    evidence: stream.evidenceItems,
+                  }}
+                  isUser={false}
+                  streaming={isBusy}
+                  streamStage={stream.stage}
+                  canEdit={false}
+                />
+              ) : null}
+              {messages.length === 0 && !showOptimisticUser ? (
+                <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-muted text-brand">
+                    <Sparkles className="h-6 w-6" aria-hidden="true" />
+                  </div>
+                  <h2 className="mt-4 font-display text-xl font-medium">{t('chat.emptyTitleNamed', { name: project?.name ?? '' })}</h2>
+                  <p className="mt-1.5 max-w-sm text-sm text-muted-foreground">{t('chat.emptyDescription')}</p>
+                </div>
+              ) : null}
             </div>
           )}
         </div>
 
         <Composer
-          onSend={() => undefined}
-          onStop={() => undefined}
-          isGenerating={false}
-          queued={knowledgeUpdating}
+          onSend={handleSend}
+          onStop={stop}
+          isGenerating={isBusy}
+          queued={knowledgeUpdating || stream.phase === 'queued'}
           contextWarning={false}
-          disabled
-          placeholder={
-            archivedProject ? t('chat.archivedPlaceholder') : !askable ? t('chat.notAskablePlaceholder') : t('chat.composerPhase55Placeholder')
-          }
+          disabled={composerDisabled}
+          placeholder={archivedProject ? t('chat.archivedPlaceholder') : !askable ? t('chat.notAskablePlaceholder') : t('chat.askPlaceholder')}
         />
       </div>
     </div>

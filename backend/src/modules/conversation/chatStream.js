@@ -120,8 +120,12 @@ export async function streamConversationMessageHttp(request, reply) {
 
   /** @type {boolean} */
   let clientConnected = true;
+  const runAbort = new AbortController();
   const onClose = () => {
     clientConnected = false;
+    if (!runAbort.signal.aborted) {
+      runAbort.abort();
+    }
   };
   request.raw.on('close', onClose);
 
@@ -159,6 +163,7 @@ export async function streamConversationMessageHttp(request, reply) {
       log: request.log,
       gate,
       skipConversationLoad: true,
+      abortSignal: runAbort.signal,
       isClientConnected: () => clientConnected,
       openSse: () => {
         if (headersOpened) {
@@ -241,6 +246,7 @@ export async function streamConversationMessageHttp(request, reply) {
  *   log?: import('fastify').FastifyBaseLogger,
  *   gate?: { action: string, knowledgeVersionId?: string, code?: string },
  *   skipConversationLoad?: boolean,
+ *   abortSignal?: AbortSignal,
  *   isClientConnected: () => boolean,
  *   openSse: () => void,
  *   writeSse: (event: string, data: unknown) => void,
@@ -297,6 +303,7 @@ export async function runChatMessageStream(input) {
  *   gate?: { action: string, knowledgeVersionId?: string, code?: string },
  *   removedMessageIds?: string[],
  *   editGeneration?: number,
+ *   abortSignal?: AbortSignal,
  *   isClientConnected: () => boolean,
  *   openSse: () => void,
  *   writeSse: (event: string, data: unknown) => void,
@@ -339,6 +346,8 @@ export async function runChatStreamForExistingUser(input) {
   let terminalStatus = 'completed';
   /** @type {boolean} */
   let sawDone = false;
+  /** @type {string} */
+  let streamedContent = '';
 
   try {
     const result = await invokeChatGraph({
@@ -355,6 +364,7 @@ export async function runChatStreamForExistingUser(input) {
           knowledgeVersionId: gate.knowledgeVersionId ? String(gate.knowledgeVersionId) : null,
           correlationId: input.correlationId,
           workspaceRoot: input.workspaceRoot,
+          abortSignal: input.abortSignal,
         },
         question: input.content,
       },
@@ -366,6 +376,9 @@ export async function runChatStreamForExistingUser(input) {
         input.writeSse('status', { stage: event.stage });
       },
       onDelta: (text) => {
+        if (typeof text === 'string' && text.length > 0) {
+          streamedContent += text;
+        }
         if (!input.isClientConnected()) {
           return;
         }
@@ -380,6 +393,9 @@ export async function runChatStreamForExistingUser(input) {
         input.writeSse('evidence', { items: Array.isArray(items) ? items : [] });
       },
       onDone: (payload) => {
+        if (input.abortSignal?.aborted) {
+          return;
+        }
         sawDone = true;
         terminalStatus = 'completed';
         if (!input.isClientConnected()) {
@@ -388,6 +404,10 @@ export async function runChatStreamForExistingUser(input) {
         input.writeSse('done', { messageId: String(payload?.messageId ?? assistantMessageId) });
       },
       onError: (error) => {
+        if (isChatRunAbortError(error) || input.abortSignal?.aborted) {
+          terminalStatus = 'interrupted';
+          return;
+        }
         terminalStatus = 'failed';
         if (!input.isClientConnected()) {
           return;
@@ -396,6 +416,19 @@ export async function runChatStreamForExistingUser(input) {
         input.writeSse(frame.event, frame.data);
       },
     });
+
+    if (input.abortSignal?.aborted && !sawDone) {
+      await finalizeAssistantMessageInRepo({
+        orgId: input.orgId,
+        projectId: input.projectId,
+        conversationId: input.conversationId,
+        assistantMessageId,
+        content: streamedContent,
+        messageStatus: 'interrupted',
+        updatedBy: input.actorUserId,
+      });
+      return buildExistingUserStreamOutcome(input, userMessageId, assistantMessageId, 'interrupted', removedMessageIds);
+    }
 
     if (result?.__interrupt__) {
       const clarificationSet = result.__interrupt__[0]?.value;
@@ -449,19 +482,26 @@ export async function runChatStreamForExistingUser(input) {
 
     return buildExistingUserStreamOutcome(input, userMessageId, assistantMessageId, terminalStatus, removedMessageIds);
   } catch (error) {
-    terminalStatus = 'failed';
+    const aborted = input.abortSignal?.aborted || isChatRunAbortError(error);
+    terminalStatus = aborted ? 'interrupted' : 'failed';
     try {
       await finalizeAssistantMessageInRepo({
         orgId: input.orgId,
         projectId: input.projectId,
         conversationId: input.conversationId,
         assistantMessageId,
-        content: '',
-        messageStatus: 'failed',
+        content: aborted ? streamedContent : '',
+        messageStatus: terminalStatus,
         updatedBy: input.actorUserId,
       });
     } catch (persistError) {
-      input.log?.error?.({ ...caughtErrorFields(persistError) }, 'chat stream failed to mark assistant failed');
+      input.log?.error?.(
+        { ...caughtErrorFields(persistError) },
+        aborted ? 'chat stream failed to mark assistant interrupted' : 'chat stream failed to mark assistant failed',
+      );
+    }
+    if (aborted) {
+      return buildExistingUserStreamOutcome(input, userMessageId, assistantMessageId, 'interrupted', removedMessageIds);
     }
     throw error;
   }
@@ -857,8 +897,12 @@ async function applyUserMessageEditReplaceDownstream(input) {
 async function streamExistingUserTurnReply(request, reply, streamInput) {
   /** @type {boolean} */
   let clientConnected = true;
+  const runAbort = new AbortController();
   const onClose = () => {
     clientConnected = false;
+    if (!runAbort.signal.aborted) {
+      runAbort.abort();
+    }
   };
   request.raw.on('close', onClose);
 
@@ -889,6 +933,7 @@ async function streamExistingUserTurnReply(request, reply, streamInput) {
       ...streamInput,
       workspaceRoot: request.server.config.workspace.root,
       log: request.log,
+      abortSignal: runAbort.signal,
       isClientConnected: () => clientConnected,
       openSse: () => {
         if (headersOpened) {
@@ -992,6 +1037,15 @@ async function recordChatEditAudit(request, scope, conversationId, correlationId
     },
     { log: request.log },
   );
+}
+
+/**
+ * True when the error is a cooperative AbortError from graph/tools cancel.
+ * @param {unknown} error Caught value.
+ * @returns {boolean}
+ */
+function isChatRunAbortError(error) {
+  return Boolean(error && typeof error === 'object' && 'name' in error && error.name === 'AbortError');
 }
 
 /**

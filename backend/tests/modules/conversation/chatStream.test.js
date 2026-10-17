@@ -133,26 +133,49 @@ describe('runChatMessageStream', () => {
     expect(result.messageStatus).toBe('completed');
   });
 
-  it('stops writes after disconnect but still invokes the graph', async () => {
+  it('stops writes after abort and marks the assistant interrupted', async () => {
+    const runAbort = new AbortController();
     let connected = true;
     mocks.assertKnowledgeReadable.mockResolvedValue({ action: 'allow', knowledgeVersionId: '507f1f77bcf86cd799439099' });
     mocks.invokeChatGraph.mockImplementation(async (args) => {
+      expect(args.input.scope.abortSignal).toBe(runAbort.signal);
+      // Simulate client Stop: disconnect + abort before further SSE writes.
       connected = false;
-      args.onDelta('secret');
+      runAbort.abort();
+      args.onDelta('partial');
       args.onDone({ messageId: '507f1f77bcf86cd799439022' });
-      return {};
+      return { answerContent: 'partial' };
     });
 
     const writeSse = vi.fn();
-    await runChatMessageStream({
+    const result = await runChatMessageStream({
       ...baseInput,
+      abortSignal: runAbort.signal,
       isClientConnected: () => connected,
       writeSse,
     });
     expect(mocks.invokeChatGraph).toHaveBeenCalled();
+    expect(result.messageStatus).toBe('interrupted');
+    expect(mocks.finalizeAssistantMessage).toHaveBeenCalledWith(expect.objectContaining({ messageStatus: 'interrupted', content: 'partial' }));
     expect(writeSse).toHaveBeenCalledWith('status', expect.objectContaining({ stage: 'accepted' }));
     expect(writeSse).not.toHaveBeenCalledWith('delta', expect.anything());
     expect(writeSse).not.toHaveBeenCalledWith('done', expect.anything());
+  });
+
+  it('marks assistant interrupted when the graph throws AbortError', async () => {
+    const runAbort = new AbortController();
+    runAbort.abort();
+    mocks.assertKnowledgeReadable.mockResolvedValue({ action: 'allow', knowledgeVersionId: '507f1f77bcf86cd799439099' });
+    const abortError = new Error('The operation was aborted.');
+    abortError.name = 'AbortError';
+    mocks.invokeChatGraph.mockRejectedValue(abortError);
+
+    const result = await runChatMessageStream({
+      ...baseInput,
+      abortSignal: runAbort.signal,
+    });
+    expect(result.messageStatus).toBe('interrupted');
+    expect(mocks.finalizeAssistantMessage).toHaveBeenCalledWith(expect.objectContaining({ messageStatus: 'interrupted' }));
   });
 
   it('emits clarification and marks awaiting_clarification on interrupt', async () => {

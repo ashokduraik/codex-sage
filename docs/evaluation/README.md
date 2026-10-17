@@ -12,6 +12,7 @@ review a run, copy the printed env lines into `backend/.env` and
 |---|---|---|
 | [`scripts/measure-llm-host.mjs`](../../scripts/measure-llm-host.mjs) (`npm run measure-llm-host`) | [llm-host.md](./llm-host.md), [llm-host.raw.json](./llm-host.raw.json) + **console recommendations** | New host, new model id, RAM/GPU change, or before go-live |
 | [run-phase-05-codegraph.mjs](./run-phase-05-codegraph.mjs) | [phase-05-codegraph.md](./phase-05-codegraph.md), [phase-05-codegraph.raw.json](./phase-05-codegraph.raw.json) | After CodeGraph adapter or preview-cap changes |
+| [run-answer-quality.mjs](./run-answer-quality.mjs) | [answer-quality.md](./answer-quality.md), [answer-quality.raw.json](./answer-quality.raw.json) | After chat graph / retrieval / citation changes; needs LLM + knowledge-ready dogfood project |
 
 ---
 
@@ -77,3 +78,34 @@ node docs/evaluation/run-phase-05-codegraph.mjs
 
 D4: measures this product’s fixtures and `backend/src` only. See
 [phase-05-codegraph.md](./phase-05-codegraph.md).
+
+---
+
+## Answer quality (citation accuracy + abstain)
+
+Operator script (Phase 55). Not a Vitest CI gate — needs a running API, LLM host, and a
+knowledge-ready project whose indexed tree includes `backend/src` (dogfood). Pure scorer
+unit tests live in `backend/tests/evaluation/answerQualityScore.test.js`.
+
+Gold cases: [answer-quality/cases.json](./answer-quality/cases.json) (path + line citations
+and abstain prompts).
+
+### Run (from the repository root)
+
+```bash
+node docs/evaluation/run-answer-quality.mjs \
+  --base-url "${API_BASE_URL:-http://127.0.0.1:3000/api/v1}" \
+  --project-id "<knowledge-ready-project-id>" \
+  --token "<access-jwt>"
+```
+
+Optional: `--cases`, `--out-dir`, `--help`.
+
+### Scoring
+
+- **Citation hit:** same normalized path and overlapping `startLine`/`endLine`.
+- **Answer case pass:** citation recall ≥ 1.0 (every gold citation hit).
+- **Abstain case pass:** terminal abstain with no invented evidence.
+- Suite exits non-zero if citation-pass rate or abstain-pass rate is below **0.8**.
+
+Re-pin gold line numbers in `cases.json` when the cited symbols move; keep case `id`s stable.

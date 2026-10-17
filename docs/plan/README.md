@@ -337,7 +337,7 @@ measurement/decision · `DOC` documentation.
 | # | Phase | Layer | Depends on | Primary requirements |
 |---|---|---|---|---|
 | 54 | [Frontend conversations slice](./phase-54-frontend-conversations.md) | FE | 19, 41, 42 | fe §31–35, §39–44, §80, §106 |
-| 55 | [Frontend streaming answer slice](./phase-55-frontend-streaming-answer.md) | FE | 50, 54 | fe §45, §55–64 |
+| 55 | [Frontend streaming answer slice](./phase-55-frontend-streaming-answer.md) | FE (+ small BE abort) | 50, 53, 54 | fe §45, §55–64; ADR 0037 |
 | 56 | [Frontend clarification slice](./phase-56-frontend-clarification.md) | FE | 52, 55 | fe §47–52 |
 | 57 | [Frontend evidence, metrics, abstain & version notices](./phase-57-frontend-evidence-and-metrics.md) | FE | 39, 49, 55 | fe §61, §64A, §66–70, §97, §108 |
 

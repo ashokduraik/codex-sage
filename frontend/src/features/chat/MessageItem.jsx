@@ -1,5 +1,5 @@
 /**
- * Single chat message row for persisted user/assistant turns (static; no streaming).
+ * Single chat message row for user/assistant turns (persisted or in-flight streaming).
  */
 import { useState } from 'react';
 import { cn } from '@/shared/lib/utils';
@@ -7,6 +7,8 @@ import { Button } from '@/shared/ui/button';
 import { useTranslation } from 'react-i18next';
 import { Textarea } from '@/shared/ui/textarea';
 import { MarkdownRenderer, AbstainNotice } from '@/shared/components';
+import { StreamingMarkdown } from '@/features/chat/StreamingMarkdown.jsx';
+import { ExecutionStatus } from '@/features/chat/ExecutionStatus.jsx';
 import { X, Ban, Check, Clock, Pencil, Loader2, FileCode, RefreshCw, ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react';
 
 const STATUS_META = {
@@ -45,6 +47,11 @@ const STATUS_META = {
     labelKey: 'chat.statusInterrupted',
     icon: Ban,
     tone: 'text-amber-600',
+  },
+  cancelled: {
+    labelKey: 'chat.statusCancelled',
+    icon: Ban,
+    tone: 'text-muted-foreground',
   },
   // Legacy mock display strings (tests / transitional props)
   Searching: {
@@ -148,19 +155,28 @@ function EvidenceSources({ evidence }) {
 /**
  * Single chat message row for user or assistant turns.
  *
- * @param props - Message data and edit/retry handlers
+ * @param {{
+ *   message: object,
+ *   isUser?: boolean,
+ *   onEdit?: (content: string) => void,
+ *   onRetry?: () => void,
+ *   canEdit?: boolean,
+ *   streaming?: boolean,
+ *   streamStage?: string,
+ * }} props Message data and edit/retry/stream handlers.
  * @returns Message row
  */
-export function MessageItem({ message, isUser, onEdit, onRetry, canEdit = false }) {
+export function MessageItem({ message, isUser, onEdit, onRetry, canEdit = false, streaming = false, streamStage = '' }) {
   const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(message.content);
   const statusCode = resolveMessageStatus(message);
   const meta = STATUS_META[statusCode];
-  const isCompleted = statusCode === 'completed' || statusCode === 'Completed';
+  const isCompleted = !streaming && (statusCode === 'completed' || statusCode === 'Completed');
   const isFailed = statusCode === 'failed' || statusCode === 'Failed';
+  const isInterrupted = statusCode === 'interrupted' || statusCode === 'Interrupted' || statusCode === 'cancelled' || statusCode === 'Cancelled';
   const isAbstained = statusCode === 'abstained' || message.abstain || message.supportLevel === 'insufficient';
-  const showStatusChrome = Boolean(meta?.icon) && !isCompleted;
+  const showStatusChrome = !streaming && Boolean(meta?.icon) && !isCompleted;
   /**
    * Persist an edited user message when the draft changed.
    */
@@ -222,18 +238,19 @@ export function MessageItem({ message, isUser, onEdit, onRetry, canEdit = false 
           )
         ) : (
           <div>
+            {streaming && streamStage ? <ExecutionStatus stage={streamStage} className="mb-2" /> : null}
             {showStatusChrome && meta?.icon ? (
               <div className={cn('flex items-center gap-1.5 text-sm', meta.tone)}>
                 <meta.icon className={cn('h-3.5 w-3.5', meta.spin && 'animate-spin')} aria-hidden="true" />
                 {t(meta.labelKey)}
               </div>
             ) : null}
-            {message.content ? <MarkdownRenderer content={message.content} /> : null}
+            {message.content ? streaming ? <StreamingMarkdown content={message.content} /> : <MarkdownRenderer content={message.content} /> : null}
             {isAbstained && typeof onRetry === 'function' ? <AbstainNotice missing={message.missing} onRetry={onRetry} onNarrow={onRetry} /> : null}
             {isAbstained && typeof onRetry !== 'function' ? <p className="mt-2 text-sm text-muted-foreground">{t('chat.statusAbstained')}</p> : null}
-            {isFailed && !isAbstained ? (
+            {(isFailed || isInterrupted) && !isAbstained && !streaming ? (
               <div className="mt-2 flex items-center gap-2">
-                <span className="text-sm text-destructive">{t('chat.generationFailed')}</span>
+                <span className="text-sm text-destructive">{isInterrupted ? t('chat.statusInterrupted') : t('chat.generationFailed')}</span>
                 {typeof onRetry === 'function' ? (
                   <Button size="sm" variant="outline" onClick={onRetry}>
                     <RefreshCw className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />

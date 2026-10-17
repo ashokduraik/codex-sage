@@ -188,6 +188,38 @@ describe('MessageItem', () => {
     fireEvent.click(screen.getByRole('button', { name: /Retry/i }));
     expect(onRetry).toHaveBeenCalled();
   });
+
+  it('renders interrupted assistant messages with retry', () => {
+    const onRetry = vi.fn();
+    renderWithProviders(
+      <MessageItem
+        message={buildMessage({
+          content: 'Partial…',
+          messageStatus: 'interrupted',
+        })}
+        isUser={false}
+        onRetry={onRetry}
+      />,
+    );
+    expect(screen.getAllByText(/Interrupted/i).length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole('button', { name: /Retry/i }));
+    expect(onRetry).toHaveBeenCalled();
+  });
+
+  it('shows stream stage chrome while streaming', () => {
+    renderWithProviders(
+      <MessageItem
+        message={buildMessage({
+          content: '## Draft',
+          messageStatus: 'generating',
+        })}
+        isUser={false}
+        streaming
+        streamStage="generating_answer"
+      />,
+    );
+    expect(screen.getByText(/Generating answer/i)).toBeTruthy();
+  });
   it('expands evidence sources and shows searching status', () => {
     renderWithProviders(
       <MessageItem

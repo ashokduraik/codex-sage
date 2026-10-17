@@ -1,5 +1,5 @@
 /**
- * ChatWorkspace shell against mocked conversation APIs (no streaming).
+ * ChatWorkspace shell against mocked conversation + stream APIs.
  */
 import { ApiError } from '@/shared/api/index';
 import { Route, Routes } from 'react-router-dom';
@@ -23,6 +23,8 @@ const renameConversation = vi.fn();
 const archiveConversation = vi.fn();
 const restoreConversation = vi.fn();
 const deleteConversation = vi.fn();
+const streamConversationMessage = vi.fn();
+const retryConversationMessage = vi.fn();
 
 vi.mock('@/features/chat/api/conversationsApi.js', async (importOriginal) => {
   const actual = await importOriginal();
@@ -37,6 +39,15 @@ vi.mock('@/features/chat/api/conversationsApi.js', async (importOriginal) => {
     archiveConversation: (...args) => archiveConversation(...args),
     restoreConversation: (...args) => restoreConversation(...args),
     deleteConversation: (...args) => deleteConversation(...args),
+  };
+});
+
+vi.mock('@/features/chat/api/chatStreamApi.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    streamConversationMessage: (...args) => streamConversationMessage(...args),
+    retryConversationMessage: (...args) => retryConversationMessage(...args),
   };
 });
 
@@ -111,6 +122,8 @@ beforeEach(() => {
     createdAt: '2026-09-11T12:00:00Z',
     updatedAt: '2026-09-11T12:00:00Z',
   });
+  streamConversationMessage.mockResolvedValue({ kind: 'stream', terminal: 'done', messageId: 'm_new' });
+  retryConversationMessage.mockResolvedValue({ kind: 'stream', terminal: 'done', messageId: 'm_retry' });
 });
 
 /**
@@ -129,12 +142,85 @@ function renderChat(route = '/projects/prj_atlas/chat') {
 }
 
 describe('ChatWorkspace', () => {
-  it('loads messages for ?conv= and keeps the composer disabled', async () => {
+  it('loads messages for ?conv= and enables the composer when askable', async () => {
     renderChat('/projects/prj_atlas/chat?conv=conv_1');
     expect(await screen.findByText(/How does authentication work in this project/i)).toBeTruthy();
     expect(screen.getByText(/JWT-based session/i)).toBeTruthy();
-    const input = screen.getByPlaceholderText(/Sending answers connects/i);
-    expect(input.disabled).toBe(true);
+    const input = screen.getByPlaceholderText(/Ask anything about this project/i);
+    expect(input.disabled).toBe(false);
+  });
+
+  it('sends a question over SSE and marks the message region busy', async () => {
+    streamConversationMessage.mockImplementation(async ({ onEvent }) => {
+      onEvent?.({ event: 'status', data: { stage: 'generating_answer' } });
+      onEvent?.({ event: 'delta', data: { text: 'Hello ' } });
+      onEvent?.({ event: 'delta', data: { text: 'world' } });
+      return { kind: 'stream', terminal: 'done', messageId: 'm_stream' };
+    });
+    renderChat('/projects/prj_atlas/chat?conv=conv_1');
+    await screen.findByText(/JWT-based session/i);
+    const input = screen.getByPlaceholderText(/Ask anything about this project/i);
+    fireEvent.change(input, { target: { value: 'Explain auth' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await waitFor(() => {
+      expect(streamConversationMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          projectId: 'prj_atlas',
+          conversationId: 'conv_1',
+          content: 'Explain auth',
+          idempotencyKey: expect.any(String),
+        }),
+      );
+    });
+    await waitFor(() => {
+      expect(screen.queryByText(/Generating answer/i)).toBeFalsy();
+    });
+  });
+
+  it('stops an in-flight stream', async () => {
+    let rejectAbort;
+    streamConversationMessage.mockImplementation(
+      ({ signal }) =>
+        new Promise((_resolve, reject) => {
+          rejectAbort = () => {
+            const err = new Error('aborted');
+            err.name = 'AbortError';
+            reject(err);
+          };
+          signal?.addEventListener('abort', () => rejectAbort());
+        }),
+    );
+    renderChat('/projects/prj_atlas/chat?conv=conv_1');
+    await screen.findByText(/JWT-based session/i);
+    const input = screen.getByPlaceholderText(/Ask anything about this project/i);
+    fireEvent.change(input, { target: { value: 'Long question' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    expect(await screen.findByRole('button', { name: 'Stop' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Stop' }));
+    expect(await screen.findByText(/Generation stopped/i)).toBeTruthy();
+  });
+
+  it('shows HTTP error before stream opens', async () => {
+    streamConversationMessage.mockRejectedValue(new ApiError({ status: 403, code: 'FORBIDDEN', message: 'forbidden ask', correlationId: 'REQ-abc' }));
+    renderChat('/projects/prj_atlas/chat?conv=conv_1');
+    await screen.findByText(/JWT-based session/i);
+    const input = screen.getByPlaceholderText(/Ask anything about this project/i);
+    fireEvent.change(input, { target: { value: 'Secret?' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    expect(await screen.findByText(/forbidden ask/i)).toBeTruthy();
+  });
+
+  it('handles 202 queued without streaming', async () => {
+    streamConversationMessage.mockResolvedValue({
+      kind: 'queued',
+      body: { messageId: 'm_q', jobId: 'j1', messageStatus: 'queued' },
+    });
+    renderChat('/projects/prj_atlas/chat?conv=conv_1');
+    await screen.findByText(/JWT-based session/i);
+    const input = screen.getByPlaceholderText(/Ask anything about this project/i);
+    fireEvent.change(input, { target: { value: 'Queued ask' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    expect(await screen.findByText(/Queued ask/i)).toBeTruthy();
   });
 
   it('creates a conversation from New Chat', async () => {
@@ -186,8 +272,7 @@ describe('ChatWorkspace', () => {
     listConversationMessages.mockResolvedValue({ items: [], nextCursor: null });
     renderChat('/projects/prj_atlas/chat?conv=conv_1');
     expect(await screen.findByText(/Ask anything about Atlas Commerce/i)).toBeTruthy();
-    expect(screen.getByText(/browse history now/i)).toBeTruthy();
-    expect(screen.getByPlaceholderText(/Sending answers connects/i)).toBeTruthy();
+    expect(screen.getByPlaceholderText(/Ask anything about this project/i)).toBeTruthy();
   });
 
   it('clears selection when handleSelect receives null via delete flow', async () => {

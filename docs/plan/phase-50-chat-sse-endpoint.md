@@ -17,8 +17,9 @@ answer stream. The handler enforces the knowledge gate (`ready` / `partially_ava
 `failed` / unreadable → `KNOWLEDGE_UNAVAILABLE`; updating → `KNOWLEDGE_UPDATING` JSON until phase
 51). It saves the user + pending assistant messages, runs the phase 47–49 LangGraph in the **API
 process**, maps graph hooks to SSE events (`status`, `delta`, `clarification`, `evidence`, `done`,
-`error`), and honours **`Idempotency-Key`**. On client disconnect the run **continues** until
-persist completes; the UI reloads the assistant message by id.
+`error`), and honours **`Idempotency-Key`**. On client disconnect this phase originally let the
+run **continue** until persist completed. **Superseded by Phase 55 / ADR 0037:** disconnect
+(and Stop) abort the graph and persist `messageStatus: interrupted`.
 
 ## 2. Why this phase is here
 
@@ -119,9 +120,11 @@ mis-store a raw stream payload.
 
 ### 4.5 Disconnect
 
-`request.raw.on('close')` → `clientConnected = false`; `writeSse` no-ops; graph continues.
-Final `messageStatus` comes from persist (`completed` / `abstained` / `failed` /
-`awaiting_clarification`). Do **not** set `interrupted` on disconnect alone.
+**Historical (this phase):** `request.raw.on('close')` → `clientConnected = false`; `writeSse`
+no-ops; graph continues. Do **not** set `interrupted` on disconnect alone.
+
+**Superseded by Phase 55 / ADR 0037:** disconnect aborts `scope.abortSignal` and finalizes the
+assistant as `interrupted`.
 
 ### 4.6 Keepalive
 
@@ -222,6 +225,6 @@ Do **not** add `backend/src/modules/chat/`.
 1. Updating gate → `KNOWLEDGE_UPDATING` JSON (not 501/202 stub).
 2. Idempotent replay → JSON pointing at message ids (not re-opened SSE).
 3. Accept must include `text/event-stream` → else `NOT_ACCEPTABLE`.
-4. Disconnect → continue run; no cancel-on-disconnect in this phase.
+4. Disconnect → continue run; no cancel-on-disconnect in this phase (**superseded by Phase 55 / ADR 0037**).
 5. SSE comment keepalive via named constant.
 6. Body is `{ content }` only (no ask-about-this fields).

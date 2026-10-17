@@ -39,6 +39,7 @@
 | [0034](./0034-openai-compatible-llm.md) | OpenAI-compatible LLM env, probe, and artifact id | Accepted |
 | [0035](./0035-langgraph-mongo-checkpointer.md) | LangGraph in-process with Mongo chat checkpoints | Accepted |
 | [0036](./0036-module-file-action-api-paths.md) | Module / file / action API paths | Accepted |
+| [0037](./0037-chat-sse-abort-on-disconnect.md) | Chat SSE abort on client disconnect | Accepted |
 
 One decision = one ADR. Accepted ADRs are immutable; supersede with a new number rather
 than rewriting history.

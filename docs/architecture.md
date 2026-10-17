@@ -309,8 +309,9 @@ The worker is **not** on this path unless the graph is updating (step 4). The
 OpenAI-compatible LLM is the only network hop for model inference. CodeGraph and
 LangGraph are in-process calls.
 
-If the browser disconnects mid-stream, the run still finishes in Mongo (`completed` or
-`failed`). The UI reloads the message by id.
+If the browser disconnects mid-stream (including Stop), the API aborts the in-flight graph
+via `AbortSignal` and persists the assistant as `interrupted` (partial content kept when
+available). The UI reloads by conversation messages and may Retry. See ADR 0037.
 
 ### 6.2 LangGraph workflow
 
