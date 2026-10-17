@@ -101,17 +101,22 @@ export async function assertLlmAvailable(llm, log = defaultLog) {
  *   toolSchemaTokenOverhead?: number,
  *   abortSignal?: AbortSignal,
  *   outputSchema?: object,
+ *   enableThinking?: boolean,
  * }} request Assembly for prepareModelInput plus optional abort/schema.
+ *   `enableThinking` defaults to false (UNDERSTAND / tool-choice). Phase 49 may
+ *   pass true for DRAFT; private reasoning is never returned or logged.
  * @returns {Promise<{
  *   text: string,
  *   usage: object | null,
  *   durationMs: number,
  *   modelId: string,
  *   contextMetrics: object,
+ *   enableThinking: boolean,
  * }>}
  * @throws When config, budget, queue, or the provider fails.
  */
 export async function generateText(request) {
+  const enableThinking = request.enableThinking === true;
   const llm = loadConfig().llm;
   const prepared = prepareModelInput({
     modelArtifactRef: llm.artifactId ?? llm.modelId,
@@ -134,6 +139,7 @@ export async function generateText(request) {
         messages: prepared.messages,
         abortSignal: request.abortSignal,
         maxRetries: 0,
+        ...providerCallOptionsForThinking(enableThinking),
       };
       if (request.outputSchema) {
         call.output = Output.json({ schema: request.outputSchema });
@@ -151,6 +157,7 @@ export async function generateText(request) {
       durationMs,
       modelId: llm.modelId,
       contextMetrics: contextMetricsFromPrepared(prepared),
+      enableThinking,
     };
   } catch (error) {
     if (error instanceof ApiError) {
@@ -172,17 +179,21 @@ export async function generateText(request) {
  *   toolSchemaTokenOverhead?: number,
  *   abortSignal?: AbortSignal,
  *   outputSchema?: object,
+ *   enableThinking?: boolean,
  * }} request Assembly for prepareModelInput plus optional abort/schema.
+ *   `enableThinking` defaults to false; private reasoning is never yielded or logged.
  * @returns {Promise<{
  *   textStream: AsyncIterable<string>,
  *   usage: Promise<object | null>,
  *   durationMs: Promise<number>,
  *   modelId: string,
  *   contextMetrics: object,
+ *   enableThinking: boolean,
  * }>}
  * @throws When config, budget, queue, or starting the provider fails.
  */
 export async function streamText(request) {
+  const enableThinking = request.enableThinking === true;
   const llm = loadConfig().llm;
   const prepared = prepareModelInput({
     modelArtifactRef: llm.artifactId ?? llm.modelId,
@@ -216,6 +227,7 @@ export async function streamText(request) {
         messages: prepared.messages,
         abortSignal: request.abortSignal,
         maxRetries: 0,
+        ...providerCallOptionsForThinking(enableThinking),
       };
       if (request.outputSchema) {
         call.output = Output.json({ schema: request.outputSchema });
@@ -272,6 +284,24 @@ export async function streamText(request) {
     durationMs: durationPromise,
     modelId: llm.modelId,
     contextMetrics: contextMetricsFromPrepared(prepared),
+    enableThinking,
+  };
+}
+
+/**
+ * Provider extras for private model reasoning. Default is off. Hosts that ignore
+ * these options still get enableThinking=false documented on the return value;
+ * callers must never log or persist reasoning text if a host emits it anyway.
+ * @param {boolean} enableThinking Whether DRAFT-style reasoning may be requested.
+ * @returns {object} Spread into the ai SDK generate/stream call.
+ */
+function providerCallOptionsForThinking(enableThinking) {
+  return {
+    providerOptions: {
+      openai: {
+        chat_template_kwargs: { enable_thinking: enableThinking },
+      },
+    },
   };
 }
 

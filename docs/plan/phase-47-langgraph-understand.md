@@ -11,13 +11,14 @@
 ## 1. Goal
 
 After this phase a **LangGraph state machine** exists for the first segment of FLOW B: load run
-context, run **UNDERSTAND** with thinking **disabled**, parse a structured routing decision, optionally
-enter **CLARIFY_SET** (interrupt + Mongo checkpoint), or route toward retrieval / early abstain. The
-graph exposes **hooks** for observable stages (`understanding_question`, etc.) that phase 50 wires to
-SSE — this phase does not open HTTP streams. Checkpoints persist in Mongo so clarification resume and
-client disconnect recovery have a durable thread id. You can see it working in integration tests:
-invoke the graph with a fixture question → state contains `rewrittenQuestion` and `route`; a
-`needsClarification: true` fixture interrupts with a full clarification set shape ready for phase 52.
+context, run **UNDERSTAND** with model private reasoning **off** (`enableThinking: false`), parse a
+structured routing decision, optionally enter **CLARIFY_SET** (interrupt + Mongo checkpoint), or
+route toward retrieval / early abstain. The graph exposes **hooks** for observable stages
+(`understanding_question`, etc.) that phase 50 wires to SSE — this phase does not open HTTP streams.
+Checkpoints persist in Mongo so clarification resume and client disconnect recovery have a durable
+thread id. You can see it working in integration tests: invoke the graph with a fixture question →
+state contains `rewrittenQuestion` and `route`; a `needsClarification: true` fixture interrupts with
+a full clarification set shape ready for phase 52.
 
 ## 2. Why this phase is here
 
@@ -35,22 +36,17 @@ here.
 
 - Install **`@langchain/langgraph`** (and **`@langchain/core`** if required by the graph API) at
   implementation time per `dependency-versions.mdc` — **do not pin versions in this document**.
-- Graph module: initial state type, node functions, conditional edges from UNDERSTAND (solution §5.2
-  diagram).
-- **UNDERSTAND** node: build messages from phase 44 context; phase 43 budget preflight; call phase 45
-  `generateText` with **thinking disabled**; validate structured JSON (Zod or equivalent).
-- Structured output fields (solution §5.2 node A): `rewrittenQuestion`, `needsClarification`,
-  `clarificationQuestions[]` (typed: single_select | multi_select | free_text), `route`
-  (`retrieve` | `clarify` | `abstain_early` — exact enum PROPOSED below).
-- **CLARIFY_SET** node: persist clarification set on run state / message placeholder; **graph
-  interrupt** with checkpoint; define interrupt resume input shape (answers map) — **no** HTTP route.
-- **ABSTAIN_EARLY** node: terminal insufficient-info path before tools (routes to persist stub or
-  end state consumed by 49).
-- Mongo **checkpointer** adapter (collection name PROPOSED in §6) scoped by `orgId`, `conversationId`,
-  `runId` / `threadId`.
-- Stage hook interface: `onStage({ stage, data })` — phase 50 subscribes to emit SSE `status`.
-- Record context metrics from phase 44 on UNDERSTAND (measured tokens, compaction actions — no
-  fabricated numbers).
+- Graph module under **`conversation/`**: state, nodes, conditional edges from UNDERSTAND.
+- **UNDERSTAND** node: `buildConversationContext` (44); budget via `generateText` / `prepareModelInput`;
+  `enableThinking: false`; validate structured JSON (Zod).
+- Structured output: `rewrittenQuestion`, `needsClarification`, `clarificationQuestions[]`
+  (`single_select` | `multi_select` | `free_text`), `route` (`retrieve` | `abstain_early`).
+  Clarification is **`needsClarification: true`**, not a `route` value.
+- **CLARIFY_SET**: interrupt + checkpoint; resume input shape — **no** HTTP route.
+- **ABSTAIN_EARLY**: terminal early path before tools (hand off to 49).
+- Mongo checkpointer on collection **`chatCheckpoints`** (see §5; needs schema approval).
+- Stage hooks: `onStage({ stage, data })` for phase 50.
+- Record measured context metrics (no fabricated numbers).
 
 ### Out of scope (owner phase)
 
@@ -59,127 +55,136 @@ here.
 - `POST .../messages` SSE, knowledge gate, idempotency — **phase 50**.
 - Clarification HTTP `POST .../answers` — **phase 52**.
 - Tool registry implementations — **phase 46** (graph may reference route only).
+- Bounded thinking for DRAFT — **phase 49**.
 
 ## 4. Design
 
 ### 4.1 Process placement
 
-Per architecture §2 and §6.1, LangGraph runs **in the API process** on the chat request path — not
-in the worker. This phase builds `compileChatGraph({ checkpointer, hooks })` callable from phase 50's
-service. Heavy ingest remains on the worker; only model inference and in-process graph/CodeGraph run
-here.
+LangGraph runs **in the API process** on the chat request path — not in the worker.
+`compileChatGraph({ checkpointer, onStage })` is callable from phase 50’s service.
 
 ### 4.2 Graph topology (this phase)
 
 ```text
-START → load_context (optional node or service pre-step)
+START → load_context
      → UNDERSTAND
             ├─ needsClarification → CLARIFY_SET → INTERRUPT (checkpoint)
-            ├─ route retrieve     → END (hand off to phase 48 entry: AGENT_TOOLS)
+            ├─ route retrieve     → END (phase 48 adds AGENT_TOOLS on this edge)
             └─ abstain_early      → ABSTAIN_EARLY → END (hand off to 49 persist)
 ```
 
-Phase 48 **extends** the compiled graph by adding AGENT_TOOLS and edges from the `retrieve` exit — or
-merges into one graph file with placeholder nodes throwing `NOT_IMPLEMENTED` until 48 lands. Prefer
-one `chatGraph.js` with staged node registration to avoid two compilers.
+One [`chatGraph.js`](../../backend/src/modules/conversation/chatGraph.js). Phase 48 extends the same
+file; this phase ends on `retrieve` (no `NOT_IMPLEMENTED` stubs).
 
 ### 4.3 UNDERSTAND node
 
-**Prompt intent (backend §51):** rewrite the user question using conversation context; decide if
-clarification is needed; **do not answer the project question yet** (solution §5.2, architecture
-§6.2).
+**Prompt intent:** rewrite the user question using conversation context; decide if clarification is
+needed; **do not answer the project question yet**.
 
-**LLM call:** phase 45 queue → `generateText` with structured output schema. **Thinking disabled**
-for this node (product rule — no private chain-of-thought in UNDERSTAND output or logs).
+**LLM call:** `generateText({ purpose: 'understand', enableThinking: false, outputSchema })`.
 
-**On success:**
+**On success:** write decision fields; `onStage({ stage: 'understanding_question' })`; accumulate
+measured token usage.
 
-- Write `rewrittenQuestion`, `clarificationQuestions`, `route` into graph state.
-- Invoke hook: `{ stage: 'understanding_question' }` (maps to SSE in 50).
-- Append measured token usage to state counters for phase 48 budgets.
-
-**On validation failure:** retry once with repair prompt; still invalid → structured error or
-`abstain_early` — do not silently default route (no-assumptions).
+**On validation failure:** one repair retry; still invalid → `route: 'abstain_early'` (never silent
+default to `retrieve`).
 
 ### 4.4 CLARIFY_SET interrupt shape
 
 When `needsClarification: true`:
 
-1. Normalise questions to stable ids (`q1`, `q2`, …).
-2. Build **clarification set** object (persisted in phase 52 collection; here written to state +
-   optional draft fields on pending assistant message if phase 41 defines them):
+1. Normalise question ids (`q1`, `q2`, …).
+2. Build interrupt value:
 
 ```text
-ClarificationSet (interrupt value)
+ClarificationSet
 ├── clarificationSetId
 ├── questions[]: { id, type, prompt, options? }
 ├── issuedAt
-└── roundIndex              0 = first set; max one follow-up set (solution §5.6)
+└── roundIndex              0 = first set; at most one follow-up (roundIndex 1)
 ```
 
-3. Call LangGraph `interrupt(clarificationSet)`; checkpoint to Mongo.
-4. Hook: `{ stage: 'awaiting_clarification' }` — **not** the SSE `clarification` event payload;
-   phase 50 sends full list in `clarification` event when wiring.
+3. `interrupt(clarificationSet)`; checkpoint to Mongo.
+4. `onStage({ stage: 'awaiting_clarification' })`.
 
-**Resume input (internal, from phase 52 service later):**
+**Resume input (internal, phase 52 later):**
 
 ```text
 { clarificationSetId, answers: Record<questionId, string | string[]> }
 ```
 
-Graph resumes → merge answers into state → re-enter UNDERSTAND or proceed to `retrieve` per policy
-(solution §5.4: resume at UNDERSTAND or AGENT_TOOLS — **open question** §12).
+**Locked:** graph resumes at **UNDERSTAND** with answers bound. Max two sets enforced in the graph
+(`roundIndex` 0 then 1); a third clarify attempt forces early abstain.
 
 ### 4.5 Checkpointer
 
-Use LangGraph's MongoDB checkpointer pattern or a thin custom saver:
+Thin custom Mongo saver (tenant `orgId` + row `status` `A`/`D`):
 
-- Keys: `thread_id` = `{orgId}:{conversationId}:{assistantMessageId}` (PROPOSED — confirm with 50
-  idempotency story).
-- Store: channel values + interrupt metadata; **no** raw LLM chain-of-thought fields.
-- TTL / cleanup: defer to phase 60 retention unless orphaned checkpoints need a constant sweeper
-  (ask).
+- `threadId` = `{orgId}:{conversationId}:{assistantMessageId}`
+- Store channel values + interrupt metadata; **no** private reasoning text
+- TTL / cleanup: phase 60 retention
 
-### 4.6 Initial graph state (extends solution §5.1 step 3)
+### 4.6 Initial graph state
 
 ```text
 ChatGraphState
-├── scope: orgId, projectId, userId, conversationId, userMessageId, knowledgeVersionId, correlationId
+├── scope: orgId, projectId, userId, conversationId, userMessageId, assistantMessageId,
+│          knowledgeVersionId, correlationId
 ├── question, rewrittenQuestion
 ├── clarificationSet, clarificationAnswers
 ├── route, toolResults (empty until 48)
-├── contextSummary, pinnedFacts, recentMessages (handles from 44)
-├── metrics: contextLimit, measuredInput, reservedOutput, compactionActions
-├── cumulativeInputTokens, cumulativeOutputTokens, cumulativeToolResultBytes, startedAt
+├── context segments / summary / pins (from 44)
+├── metrics + cumulative token / tool-byte counters, startedAt
 └── draftAnswer, verifyResult (null until 49)
 ```
 
-## 5. Data model changes
+## 5. Data model changes (needs explicit user approval before model code)
 
-**PROPOSED — needs approval:**
+**Collection purpose:** When a chat answer run pauses (clarification) or the client disconnects,
+Node must resume the **same** LangGraph run. `chatCheckpoints` stores those durable snapshots.
+It is **not** the user-visible clarification Q&A document (phase 52), not message content, and not
+private model reasoning.
 
-- **`chatCheckpoints`** (or name aligned with LangGraph saver): `orgId`, `threadId`, `checkpointNs`,
-  `checkpoint`, `metadata`, `status: 'A'|'D'`, timestamps. Indexes:
-  `{ orgId, threadId, createdAt }` for resume lookup.
+**Collection / model:** `chatCheckpoints` / `ChatCheckpoint`
 
-Clarification persistence may live on **`clarifications`** collection (phase 52); this phase may only
-write interrupt payload into checkpoint until 52 defines the canonical store — **open question**.
+| Field | Type | Required | Purpose (why it exists) |
+| --- | --- | --- | --- |
+| `orgId` | ObjectId | yes (base) | Tenant isolation; resume must never load another org’s run |
+| `status` | `'A'` \| `'D'` | yes (base) | Soft-delete; list/resume only active rows |
+| `createdBy` / `updatedBy` | ObjectId \| null | base | Audit actors (system writes may be null) |
+| `createdAt` / `updatedAt` | Date | base | Ordering and later retention |
+| `threadId` | string | yes | LangGraph thread key: `{orgId}:{conversationId}:{assistantMessageId}` |
+| `checkpointNs` | string | yes, default `''` | LangGraph namespace; empty unless a second graph shares a thread |
+| `checkpointId` | string | yes | Snapshot id within the thread (library-generated) |
+| `parentCheckpointId` | string \| null | no | Previous snapshot — history chain for resume |
+| `checkpoint` | Mixed | yes | Serialized graph channels at this step; no thinking/CoT |
+| `metadata` | Mixed | no | Small hints: projectId, conversationId, assistantMessageId, interrupt pending |
 
-No change to `Message` required if clarification is checkpoint-only until persist in 52/49.
+**Indexes:**
 
-## 6. API contract — PROPOSED (needs approval before implementation)
+- Unique partial `{ orgId, threadId, checkpointId }` where `status: 'A'`
+- List/resume partial `{ orgId, threadId, createdAt: -1 }` where `status: 'A'`
 
-**No public HTTP in this phase.** Internal surfaces:
+**Out of this collection:** canonical clarification answers (phase 52), SSE payloads, UI evidence.
+
+**Approval gate:** do not write `backend/src/models/chatCheckpoint.model.js` until the user approves
+this exact list in the current conversation.
+
+No `Message` schema change in this phase.
+
+## 6. API contract (internal — no public HTTP)
 
 ```json
 {
   "compileChatGraph": "(deps) => CompiledGraph",
-  "invokeUnderstand": {
-    "input": "ChatGraphState partial + runContext from phase 50",
+  "invokeChatGraph": {
+    "input": "threadId + ChatGraphState partial",
     "output": "state | Interrupt<ClarificationSet>"
   },
-  "resumeFromClarification": {
+  "resumeChatGraphFromClarification": {
     "threadId": "string",
+    "clarificationSetId": "string",
     "answers": "Record<string, string | string[]>"
   },
   "understandDecisionSchema": {
@@ -197,76 +202,66 @@ No change to `Message` required if clarification is checkpoint-only until persis
 }
 ```
 
-Allowed `stage` strings for hooks in this phase: `understanding_question`, `awaiting_clarification`,
-`abstain_early` (observable only — backend §66, §67).
+Stages this phase: `understanding_question`, `awaiting_clarification`, `abstain_early`.
 
 ## 7. Configuration & environment variables
 
-**None** for graph topology. Ollama URL and model id remain phase 45 env. Checkpoint batch size or
-saver poll interval, if needed, are named constants — create only when code reads them.
+**None** for graph topology. LLM env remains phase 45. Any saver tunables are named constants next
+to the consumer.
 
 ## 8. Files to create or change
 
 | Path | Purpose |
 |---|---|
 | `backend/package.json` | Add `@langchain/langgraph`, `@langchain/core` at implementation (latest stable) |
-| `backend/src/modules/chat/graph/chatGraph.js` (+ `.test.js`) | Graph build, compile, export |
-| `backend/src/modules/chat/graph/chatGraph.state.js` | State schema / initialiser |
-| `backend/src/modules/chat/graph/nodes/understandNode.js` (+ `.test.js`) | UNDERSTAND + structured parse |
-| `backend/src/modules/chat/graph/nodes/clarifySetNode.js` (+ `.test.js`) | Interrupt + set shape |
-| `backend/src/modules/chat/graph/nodes/abstainEarlyNode.js` (+ `.test.js`) | Early exit state |
-| `backend/src/modules/chat/graph/nodes/loadContextNode.js` (+ `.test.js`) | Bind phase 44 context |
-| `backend/src/modules/chat/graph/checkpoint/mongoCheckpointer.js` (+ `.test.js`) | Mongo saver |
-| `backend/src/modules/chat/graph/routing.js` (+ `.test.js`) | Conditional edges from UNDERSTAND |
-| `backend/src/modules/chat/graph/stageHooks.js` | Hook registry for SSE bridge (50) |
-| `backend/src/modules/chat/index.js` | Public exports: `compileChatGraph`, types |
+| `backend/src/modules/conversation/chatGraph.js` (+ tests) | Compile, invoke, resume; UNDERSTAND / CLARIFY / ABSTAIN runners |
+| `backend/src/modules/conversation/chatGraph.helper.js` | Only if over 1000 code lines (checkpointer overflow) |
+| `backend/src/models/chatCheckpoint.model.js` | After schema approval |
+| `backend/src/modules/conversation/llm.js` | `enableThinking` boolean (default false) |
+| `backend/src/modules/conversation/index.js` | Export graph APIs + model list |
+
+Do **not** add `backend/src/modules/chat/`.
 
 ## 9. Tests (≥ 80% line and branch)
 
 ### Unit
 
-- UNDERSTAND schema rejects missing fields, extra keys policy, invalid `route`.
-- Thinking-disabled flag passed to LLM client mock on every UNDERSTAND call.
-- Route `retrieve` does not set clarification set; `needsClarification` always enters CLARIFY_SET.
-- Hook invoked once per stage transition; hook throw does not corrupt checkpoint.
-- Budget preflight failure surfaces `CONTEXT_ACCOUNTING_UNAVAILABLE` without LLM call.
+- UNDERSTAND schema rejects missing fields / invalid `route`.
+- `enableThinking: false` on every UNDERSTAND `generateText` call.
+- `needsClarification` enters CLARIFY_SET; `retrieve` does not set a clarification set.
+- Hook throw does not corrupt checkpoint.
+- Budget preflight failure → `CONTEXT_ACCOUNTING_UNAVAILABLE` without LLM call.
+- Malformed JSON twice → `abstain_early`.
 
 ### Integration
 
-- Graph invoke → checkpoint row exists with `threadId` scoped to org.
-- Interrupt → resume with answers → state contains `clarificationAnswers` map.
-- Wrong-org resume attempt fails closed (no checkpoint leak).
-
-### Unhappy paths
-
-- LLM timeout → classified temporary error on state for 50 to map to SSE `error`.
-- Malformed JSON twice → abstain_early or failed run — document chosen behaviour in tests.
+- Interrupt → `chatCheckpoints` row with org-scoped `threadId`.
+- Resume with answers → `clarificationAnswers` in state; re-enters UNDERSTAND.
+- Wrong-org resume fails closed.
 
 ## 10. Definition of Done
 
-- [ ] `@langchain/langgraph` installed per dependency-versions rule; versions in lockfile only.
-- [ ] UNDERSTAND runs with thinking disabled and validated structured JSON.
-- [ ] CLARIFY_SET interrupt shape documented and covered by tests; no HTTP clarification route.
-- [ ] Mongo checkpointer persists and resumes interrupt state.
-- [ ] Stage hooks exist; no SSE writes inside graph nodes (50 owns stream).
-- [ ] No AGENT_TOOLS, DRAFT, or VERIFY nodes implemented (48/49).
-- [ ] No private chain-of-thought stored or logged (§67).
-- [ ] `npm run lint`, `npm test` pass; coverage ≥ 80% line and branch.
+- [x] `@langchain/langgraph` installed per dependency-versions; versions in lockfile only.
+- [x] UNDERSTAND uses `enableThinking: false` and validated structured JSON.
+- [x] CLARIFY_SET interrupt shape tested; no HTTP clarification route.
+- [x] Mongo checkpointer persists and resumes (after schema approval).
+- [x] Stage hooks only; no SSE inside graph nodes.
+- [x] No AGENT_TOOLS, DRAFT, or VERIFY nodes.
+- [x] No private reasoning stored or logged.
+- [x] Lint/tests pass; coverage ≥ 80% line and branch.
 
 ## 11. Documentation & ADR updates
 
-- Record LangGraph + Mongo checkpointer choice in **`docs/adr/`** if not already covered by phase 4
-  stack ADRs (new ADR if checkpoint storage is a new decision).
-- `docs/architecture.md` §6.2: align node names with `chatGraph.js`.
-- `backend/solution.md` §5.2 node A/B unchanged unless this doc proposes a schema fix.
+- ADR `docs/adr/0035-langgraph-mongo-checkpointer.md`.
+- `docs/architecture.md` §6.2: conversation `chatGraph.js` + checkpoint purpose.
+- `backend/solution.md` §5.4: resume at UNDERSTAND.
+- `docs/data-model.md` when schema is approved.
 
-## 12. Risks & open questions
+## 12. Locked decisions (closed)
 
-1. **Resume target after clarification:** UNDERSTAND again vs straight to AGENT_TOOLS (solution §5.4
-   step 6) — confirm before phase 52 implements resume.
-2. **thread_id composition:** tie to `assistantMessageId` vs separate `runId` for idempotent retries
-   (phase 12 + 50).
-3. **Checkpointer collection** vs reusing LangGraph official MongoDB package API — install-time choice.
-4. **Follow-up clarification set:** enforce max one extra set in graph or in 52 only?
-5. **Phase 05:** model id and context sizes affect UNDERSTAND prompt size — blocked on evaluation for
-   production limits, not for graph shape.
+1. **Resume target:** UNDERSTAND again with answers bound.
+2. **threadId:** `{orgId}:{conversationId}:{assistantMessageId}`.
+3. **Checkpointer:** custom Mongo saver on `chatCheckpoints` (tenant + status); official package
+   only as optional in-module adapter if latest + maintained at install time.
+4. **Follow-up clarification:** max two sets enforced in the graph (`roundIndex` 0 then 1).
+5. **Prompt size / model id:** phase 05 / env; not blocking graph shape.

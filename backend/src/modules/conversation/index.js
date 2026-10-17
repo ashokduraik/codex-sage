@@ -3,6 +3,7 @@
  */
 import { Message } from '../../models/messages.model.js';
 import { Conversation } from '../../models/conversations.model.js';
+import { ChatCheckpoint } from '../../models/chatCheckpoint.model.js';
 
 export {
   refreshConversationSearchText,
@@ -48,6 +49,18 @@ export {
   updateConversationSummary,
 } from './conversationContext.js';
 export { Message } from '../../models/messages.model.js';
+export { ChatCheckpoint } from '../../models/chatCheckpoint.model.js';
+export {
+  CHAT_GRAPH_STAGE_VALUES,
+  CLARIFICATION_MAX_ROUNDS,
+  buildChatGraphThreadId,
+  compileChatGraph,
+  createMongoChatCheckpointer,
+  invokeChatGraph,
+  parseChatGraphThreadId,
+  resumeChatGraphFromClarification,
+  understandDecisionSchema,
+} from './chatGraph.js';
 
 /** Models whose indexes are synced on development API startup. */
-export const CONVERSATION_MODELS = Object.freeze([Conversation, Message]);
+export const CONVERSATION_MODELS = Object.freeze([Conversation, Message, ChatCheckpoint]);

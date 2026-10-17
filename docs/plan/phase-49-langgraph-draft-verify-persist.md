@@ -194,16 +194,12 @@ quality SLOs (open). Model id from phase 45 env.
 
 | Path | Purpose |
 |---|---|
-| `backend/src/modules/chat/graph/nodes/draftAnswerNode.js` (+ `.test.js`) | streamText + onDelta |
-| `backend/src/modules/chat/graph/nodes/verifyAnswerNode.js` (+ `.test.js`) | Deterministic + conditional LLM |
-| `backend/src/modules/chat/graph/nodes/persistDoneNode.js` (+ `.test.js`) | Mongo writes |
-| `backend/src/modules/chat/graph/nodes/persistAbstainNode.js` (+ `.test.js`) | Abstain persist |
-| `backend/src/modules/chat/verify/claimParser.js` (+ `.test.js`) | Extract verifiable claims |
-| `backend/src/modules/chat/verify/deterministicVerify.js` (+ `.test.js`) | Rules engine |
-| `backend/src/modules/chat/persist/assistantMessageWriter.js` (+ `.test.js`) | Message + evidence |
-| `backend/src/modules/chat/graph/chatGraph.js` | Wire D–F nodes |
-| `backend/src/modules/conversations/` (41) | Message repository create/update |
-| `backend/src/modules/chat/graph/stageHooks.js` | Extend stages for draft/verify |
+| `backend/src/modules/conversation/chatGraph.js` (+ tests) | Wire DRAFT / VERIFY / PERSIST nodes into phase 47–48 graph |
+| `backend/src/modules/conversation/chatGraph.helper.js` | Overflow if draft/verify/persist runners exceed file cap |
+| `backend/src/modules/conversation/conversation.js` / helper | Message create/update for persist |
+| `backend/src/modules/conversation/index.js` | Export any new public persist helpers |
+
+Do **not** add `backend/src/modules/chat/` or a deep `graph/nodes/` tree.
 
 ## 9. Tests (≥ 80% line and branch)
 

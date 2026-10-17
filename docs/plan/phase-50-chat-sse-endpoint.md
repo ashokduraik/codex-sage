@@ -207,15 +207,14 @@ module. No rate-limit env vars.
 
 | Path | Purpose |
 |---|---|
-| `backend/src/modules/chat/chat.routes.js` (+ `.test.js`) | POST messages SSE route |
-| `backend/src/modules/chat/chatStream.service.js` (+ `.test.js`) | Gate, idempotency, graph invoke |
-| `backend/src/modules/chat/sse/sseWriter.js` (+ `.test.js`) | Pure SSE framing |
-| `backend/src/modules/chat/sse/sseEventMap.js` (+ `.test.js`) | Hook → event mapping |
-| `backend/src/http/routes.js` | Register chat routes |
+| `backend/src/modules/conversation/chatStream.js` (+ `.test.js`) | POST messages SSE route + stream service (overflow helper if needed) |
+| `backend/src/http/routes.js` | Register conversation chat-stream routes |
 | `backend/src/modules/knowledge/` (28) | `assertKnowledgeReadable` / health gate |
-| `backend/src/modules/idempotency/` (12) | Message create idempotency |
+| Idempotency (phase 12) | Message create idempotency |
 | `backend/src/platform/streamErrors.js` (02) | Terminal error payload |
-| `backend/src/modules/chat/graph/chatGraph.js` (47–49) | Invoke entry |
+| `backend/src/modules/conversation/chatGraph.js` (47–49) | Invoke entry |
+
+Do **not** add `backend/src/modules/chat/`.
 
 ## 9. Tests (≥ 80% line and branch)
 

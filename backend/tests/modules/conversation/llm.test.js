@@ -270,6 +270,32 @@ describe('generateText', () => {
     );
   });
 
+  it('defaults enableThinking to false and asks the provider to disable thinking', async () => {
+    mockGenerateText.mockResolvedValue({ text: '{}' });
+    const result = await generateText(underBudgetRequest);
+    expect(result.enableThinking).toBe(false);
+    expect(mockGenerateText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        providerOptions: {
+          openai: { chat_template_kwargs: { enable_thinking: false } },
+        },
+      }),
+    );
+  });
+
+  it('passes enableThinking true into provider options when requested', async () => {
+    mockGenerateText.mockResolvedValue({ text: 'draft' });
+    const result = await generateText({ ...underBudgetRequest, purpose: 'draft', enableThinking: true });
+    expect(result.enableThinking).toBe(true);
+    expect(mockGenerateText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        providerOptions: {
+          openai: { chat_template_kwargs: { enable_thinking: true } },
+        },
+      }),
+    );
+  });
+
   it('does not call the SDK when prepareModelInput fails', async () => {
     mockPrepareModelInput.mockImplementation(() => {
       throw ApiError.fromCode('CONTEXT_ACCOUNTING_UNAVAILABLE');

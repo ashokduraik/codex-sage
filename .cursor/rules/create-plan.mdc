@@ -1,0 +1,18 @@
+---
+description: Always use the create-plan skill before CreatePlan or phase implementation plans
+alwaysApply: true
+---
+
+# Create plan — always use the skill
+
+Before writing a Cursor plan (CreatePlan), rewriting `docs/plan/phase-*.md` for
+implementation, or proposing a multi-file implementation approach:
+
+1. **Read and follow** [`.cursor/skills/create-plan/SKILL.md`](../skills/create-plan/SKILL.md).
+2. Inspect the real four-module layout; do not invent `modules/chat/` or other
+   domain modules.
+3. If Mongo collections, fields, or indexes are involved, the plan **must** include
+   the skill’s **Schema changes** section (collection purpose + per-field purpose
+   table + indexes + approval gate). Unexplained schema jargon is not acceptable.
+4. Lock open product decisions in the plan; do not leave Option A/B for implementers.
+5. A plan or “go implement” is **not** schema approval — see `schema-change-approval.mdc`.

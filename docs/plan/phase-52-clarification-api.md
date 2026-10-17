@@ -229,15 +229,15 @@ First exposure remains:
 
 | Path | Purpose |
 |---|---|
-| `backend/src/modules/chat/clarification.model.js` (+ test) | **New:** schema + indexes |
-| `backend/src/modules/chat/clarification.service.js` (+ `.test.js`) | **New:** validate answers, persist, resume hook |
-| `backend/src/modules/chat/clarification.routes.js` (+ `.test.js`) | **New:** POST answers route |
-| `backend/src/modules/chat/clarification.schemas.js` | **New:** request validation |
-| `backend/src/modules/chat/index.js` | Export clarification routes |
-| `backend/src/modules/chat/chat.langgraph.js` (47) | **Change:** create set on interrupt; accept resume payload |
-| `backend/src/modules/chat/message.model.js` | **Change:** `awaiting_clarification` enum |
-| `backend/src/modules/audit/audit.actions.js` | **Change:** `chat.clarification_answered` |
+| `backend/src/models/clarificationSet.model.js` (or approved name) | **New:** schema + indexes — **needs schema approval** |
+| `backend/src/modules/conversation/clarification.js` (+ `.test.js`) | Validate answers, persist, call `resumeChatGraphFromClarification` |
+| `backend/src/modules/conversation/index.js` | Export clarification routes |
+| `backend/src/modules/conversation/chatGraph.js` (47) | Interrupt set shape + resume payload (already defined) |
+| `backend/src/models/messages.model.js` | **Change:** `awaiting_clarification` on message status — **needs schema approval** |
+| Audit actions | `chat.clarification_answered` |
 | `backend/src/http/routes.js` | Register clarification routes under conversations |
+
+Public HTTP may use `clarificationId`; graph resume uses phase 47 `clarificationSetId` (map 1:1 in the service). Do **not** add `backend/src/modules/chat/`.
 
 ## 9. Tests (≥ 80% line and branch)
 

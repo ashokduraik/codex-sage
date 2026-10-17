@@ -603,7 +603,8 @@ artifact through `ai.generateText` with thinking disabled → validates the stru
 3. Graph **interrupts / waits** (checkpoint in Mongo).
 4. **UI** shows Q1, then Q2, … locally.
 5. **UI** one POST: `{ clarificationId, answers: { q1: "...", q2: "..." } }`.
-6. **Node** loads checkpoint, merges answers into state, resumes LangGraph at UNDERSTAND (or AGENT_TOOLS) with answers bound.
+6. **Node** loads checkpoint, merges answers into state, resumes LangGraph at **UNDERSTAND**
+   with answers bound (re-route / optional one follow-up clarify set).
 
 No per-question server round-trip after the set is issued. Max **1** extra clarification set if answers still insufficient.
 

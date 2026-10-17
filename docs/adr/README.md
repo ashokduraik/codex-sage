@@ -37,6 +37,7 @@
 | [0032](./0032-dynamic-roles-and-identity-code.md) | Dynamic org roles and identity `code` | Accepted |
 | [0033](./0033-qwen-artifact-and-context-budget.md) | Ollama env, live digest, and context-budget numbers | Superseded by 0034 |
 | [0034](./0034-openai-compatible-llm.md) | OpenAI-compatible LLM env, probe, and artifact id | Accepted |
+| [0035](./0035-langgraph-mongo-checkpointer.md) | LangGraph in-process with Mongo chat checkpoints | Accepted |
 
 One decision = one ADR. Accepted ADRs are immutable; supersede with a new number rather
 than rewriting history.

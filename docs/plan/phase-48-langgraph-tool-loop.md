@@ -90,7 +90,7 @@ Model output schema PROPOSED:
 
 ### 4.3 Run budget enforcer
 
-Module `backend/src/modules/chat/runBudget.js`:
+Module `backend/src/modules/conversation/runBudget.js`:
 
 ```text
 RunBudgetConfig (values from phase 05 — OPEN)
@@ -184,14 +184,12 @@ without new deps.
 
 | Path | Purpose |
 |---|---|
-| `backend/src/modules/chat/graph/nodes/agentToolsNode.js` (+ `.test.js`) | Loop body |
-| `backend/src/modules/chat/graph/nodes/budgetStopNode.js` (+ `.test.js`) | Budget terminal |
-| `backend/src/modules/chat/runBudget.js` (+ `.test.js`) | Enforcer + state updates |
-| `backend/src/modules/chat/runBudget.constants.js` | Placeholder exports for 05-derived values |
-| `backend/src/modules/chat/graph/chatGraph.js` | Wire AGENT_TOOLS edges into compile |
-| `backend/src/modules/chat/graph/routing.js` | Loop vs exit conditions |
-| `backend/src/modules/conversation/index.js` (`executeTool`) | **Consume** executeTool |
+| `backend/src/modules/conversation/chatGraph.js` (+ tests) | Wire AGENT_TOOLS + budget stop into same graph as phase 47 |
+| `backend/src/modules/conversation/runBudget.js` (+ `.test.js`) | Enforcer + state updates (overflow `runBudget.helper.js` if needed) |
+| `backend/src/modules/conversation/index.js` | Export run-budget helpers if needed; **consume** `executeTool` |
 | `backend/src/platform/errorCatalog.js` | Register `RUN_BUDGET_EXCEEDED` if new code needed |
+
+Do **not** add `backend/src/modules/chat/`.
 
 ## 9. Tests (≥ 80% line and branch)
 
@@ -227,8 +225,8 @@ without new deps.
 
 ## 11. Documentation & ADR updates
 
-- `backend/solution.md` §5.6 run bounds table: reference `runBudget.constants.js` as single source
-  once phase 05 fills values.
+- `backend/solution.md` §5.6 run bounds table: reference named constants in `runBudget.js` as
+  single source once phase 05 fills values.
 - `docs/architecture.md` §6.2: confirm "no fixed max tool rounds" in implementation.
 
 ## 12. Risks & open questions

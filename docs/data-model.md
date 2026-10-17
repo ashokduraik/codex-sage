@@ -341,6 +341,21 @@ Indexes (partial `status: 'A'`): `{ orgId, conversationId, createdAt: 1, _id: 1 
 `{ orgId, projectId, conversationId }`. Thread pages are oldest-first on
 `(createdAt, _id)`.
 
+### `chatCheckpoints`
+
+Durable LangGraph snapshots for one chat answer run (Phase 47; ADR 0035). Used so
+clarification pause and client disconnect can resume the same run. Not the
+user-visible clarification Q&A document (Phase 52), not message content, and not
+private model reasoning.
+
+Fields: `threadId` (`{orgId}:{conversationId}:{assistantMessageId}`),
+`checkpointNs` (default `''`), `checkpointId`, `parentCheckpointId` (null at
+root), `checkpoint` (Mixed — serialized saver blob), `metadata` (Mixed — product
+hints plus LangGraph metadata / pending writes), plus base fields.
+
+Indexes (partial `status: 'A'`): unique `{ orgId, threadId, checkpointId }`;
+list `{ orgId, threadId, createdAt: -1 }`.
+
 ### `notifications`
 
 Tenant- and user-scoped inbox rows (Phase 58). Fields: `userId`, `type`

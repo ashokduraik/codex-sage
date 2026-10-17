@@ -339,12 +339,16 @@ artifact mismatch → `CONTEXT_ACCOUNTING_UNAVAILABLE`. Still over after compact
                 PERSIST + DONE       Message, evidence[], usage, summary
 ```
 
-**UNDERSTAND** returns JSON (`rewrittenQuestion`, `needsClarification`,
-`clarificationQuestions[]`, `route`). It does not answer the project question.
+**UNDERSTAND** (implemented in `backend/src/modules/conversation/chatGraph.js`) returns
+JSON (`rewrittenQuestion`, `needsClarification`, `clarificationQuestions[]`,
+`route`: `retrieve` | `abstain_early`). It does not answer the project question.
+Private model reasoning is off for this node (`enableThinking: false`).
 
 **CLARIFY_SET:** one SSE `clarification` payload with the full question list. The UI
 asks them one at a time locally, then POSTs **all** answers once. The workflow resumes
-from a Mongo checkpoint. At most one extra clarification round.
+from a Mongo **`chatCheckpoints`** snapshot (`threadId` =
+`{orgId}:{conversationId}:{assistantMessageId}`) at **UNDERSTAND** with answers bound.
+At most one extra clarification round (two sets total).
 
 **AGENT_TOOLS** (every tool is scoped to org + project + current knowledge version +
 active rows):

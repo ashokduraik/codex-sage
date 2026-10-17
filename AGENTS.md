@@ -30,6 +30,11 @@ Additional docs and ADRs live under [`docs/`](./docs/).
    edits to an existing model are allowed.
 7. **Comments are required** on every production module and every schema field, in the
    same change as the code (`.cursor/rules/comments-required.mdc`).
+8. **Plans use the create-plan skill.** Before CreatePlan, rewriting
+   `docs/plan/phase-*.md` for implementation, or proposing a multi-file approach, read
+   and follow [`.cursor/skills/create-plan/SKILL.md`](./.cursor/skills/create-plan/SKILL.md)
+   (also `.cursor/rules/create-plan.mdc`). Schema proposals must include collection
+   purpose and a per-field purpose table.
 
 ## Code style & structure
 
