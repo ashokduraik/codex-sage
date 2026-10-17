@@ -3,7 +3,7 @@
  */
 import mongoose from 'mongoose';
 import { ApiError } from '../../platform/errors.js';
-import { MESSAGE_ROLE_VALUES, MESSAGE_STATUS_VALUES, Message } from '../../models/messages.model.js';
+import { Message, MESSAGE_ROLE_VALUES, MESSAGE_STATUS_VALUES, MESSAGE_SUPPORT_LEVEL_VALUES } from '../../models/messages.model.js';
 import { assertOrgId, decodeCursor, encodeCursor, softDelete, ROW_STATUS_ACTIVE } from '../../platform/data/index.js';
 import {
   Conversation,
@@ -35,6 +35,7 @@ export {
   CONVERSATION_TITLE_SOURCE_VALUES,
   MESSAGE_ROLE_VALUES,
   MESSAGE_STATUS_VALUES,
+  MESSAGE_SUPPORT_LEVEL_VALUES,
 };
 
 /** Maximum stored conversation title length (see model). */
@@ -563,4 +564,99 @@ function encodeRowCursor(row, stampField) {
     t: stamp instanceof Date ? stamp.toISOString() : String(stamp),
     i: String(row._id),
   });
+}
+
+/**
+ * Finalizes a pending assistant message after DRAFT/VERIFY (phase 49).
+ * Updates the existing row identified by assistantMessageId — never inserts a second turn.
+ * @param {{
+ *   orgId: import('mongoose').Types.ObjectId | string,
+ *   projectId: string,
+ *   conversationId: string,
+ *   assistantMessageId: string,
+ *   content: string,
+ *   messageStatus: string,
+ *   evidence?: unknown,
+ *   supportLevel?: string | null,
+ *   usage?: object | null,
+ *   durationMs?: number | null,
+ *   modelId?: string | null,
+ *   contextMetrics?: object | null,
+ *   knowledgeVersionId?: string | null,
+ *   trace?: object | null,
+ *   updatedBy?: import('mongoose').Types.ObjectId | string | null,
+ * }} input Finalize fields.
+ * @returns {Promise<import('mongoose').Document>}
+ * @throws {import('../../platform/errors.js').ApiError} When the pending row is missing or ids are invalid.
+ */
+export async function finalizeAssistantMessage(input) {
+  assertOrgId(input.orgId);
+  if (
+    !mongoose.isValidObjectId(input.projectId) ||
+    !mongoose.isValidObjectId(input.conversationId) ||
+    !mongoose.isValidObjectId(input.assistantMessageId)
+  ) {
+    throw ApiError.fromCode('VALIDATION_ERROR', {
+      details: [{ path: 'assistantMessageId', message: 'org/project/conversation/assistant ids must be valid ObjectIds' }],
+    });
+  }
+  if (!MESSAGE_STATUS_VALUES.includes(input.messageStatus)) {
+    throw ApiError.fromCode('VALIDATION_ERROR', {
+      details: [{ path: 'messageStatus', message: 'invalid messageStatus' }],
+    });
+  }
+  if (input.supportLevel != null && !MESSAGE_SUPPORT_LEVEL_VALUES.includes(input.supportLevel)) {
+    throw ApiError.fromCode('VALIDATION_ERROR', {
+      details: [{ path: 'supportLevel', message: 'invalid supportLevel' }],
+    });
+  }
+
+  /** @type {Record<string, unknown>} */
+  const $set = {
+    content: typeof input.content === 'string' ? input.content : '',
+    messageStatus: input.messageStatus,
+    evidence: input.evidence ?? null,
+    supportLevel: input.supportLevel ?? null,
+    usage: input.usage ?? null,
+    durationMs: Number.isFinite(input.durationMs) ? input.durationMs : null,
+    modelId: typeof input.modelId === 'string' && input.modelId !== '' ? input.modelId : null,
+    contextMetrics: input.contextMetrics ?? null,
+    knowledgeVersionId:
+      input.knowledgeVersionId && mongoose.isValidObjectId(input.knowledgeVersionId)
+        ? new mongoose.Types.ObjectId(String(input.knowledgeVersionId))
+        : null,
+    trace: input.trace ?? null,
+  };
+  if (input.updatedBy && mongoose.isValidObjectId(input.updatedBy)) {
+    $set.updatedBy = new mongoose.Types.ObjectId(String(input.updatedBy));
+  }
+
+  const updated = await Message.findOneAndUpdate(
+    {
+      _id: new mongoose.Types.ObjectId(String(input.assistantMessageId)),
+      orgId: input.orgId,
+      projectId: new mongoose.Types.ObjectId(String(input.projectId)),
+      conversationId: new mongoose.Types.ObjectId(String(input.conversationId)),
+      role: 'assistant',
+      status: ROW_STATUS_ACTIVE,
+    },
+    { $set },
+    { returnDocument: 'after' },
+  ).exec();
+
+  if (!updated) {
+    throw ApiError.fromCode('CONVERSATION_NOT_FOUND');
+  }
+
+  await Conversation.updateOne(
+    {
+      _id: new mongoose.Types.ObjectId(String(input.conversationId)),
+      orgId: input.orgId,
+      projectId: new mongoose.Types.ObjectId(String(input.projectId)),
+      status: ROW_STATUS_ACTIVE,
+    },
+    { $set: { lastMessageAt: updated.updatedAt ?? new Date() } },
+  ).exec();
+
+  return updated;
 }

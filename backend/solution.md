@@ -645,8 +645,9 @@ Document/configuration tools:
 
 #### Node D — DRAFT_ANSWER
 
-**Who:** Node builds the exact prompt, applies §1.2, and calls `ai.streamText` with the configured
-Qwen3.8 artifact and bounded thinking. Node maps text deltas to SSE.
+**Who:** Node builds the exact prompt, applies §1.2, and calls `streamText` (conversation `llm.js`)
+with the configured artifact and **bounded thinking enabled**. Phase 50 maps `onDelta` to SSE;
+this node never touches `reply`.
 
 **Prompt contents (assembled by Node):**
 
@@ -657,40 +658,42 @@ Qwen3.8 artifact and bounded thinking. Node maps text deltas to SSE.
 
 **Node:**
 
-- SSE `status: generating_answer`
-- SSE `delta` for each token from `streamText`
+- Hook `generating_answer` (SSE `status` in phase 50)
+- `onDelta` for each answer token from `textStream` (never private thinking)
 - Record measured preflight context and provider usage when present
 - Stores full draft on graph state
 
 #### Node E — VERIFY_ANSWER
 
-**Who:** Node first runs deterministic checks. Only unresolved checks call the configured Qwen3.8
-artifact through budgeted `ai.generateText` with bounded thinking.
+**Who:** Node first runs deterministic checks (`runDeterministicVerify`). Only unresolved
+**ambiguous** claims call budgeted `generateText` with bounded thinking (`MAX_VERIFY_REVISE = 1`
+re-entry to AGENT_TOOLS).
 
 **Checks (programmatic + LLM structured):**
 
 1. Every non-trivial claim maps to an evidence id in `toolResults`.
-2. Cited path/lines exist; optional Node re-`read_file_slice` to confirm quote.
-3. Same `knowledgeVersionId` / project scope.
-4. If evidence empty → must abstain, not invent.
+2. Cited path exists; same `knowledgeVersionId` / project scope.
+3. If evidence empty and draft asserts project facts → must abstain, not invent.
 
 | Result                        | Next                                                   |
 | ----------------------------- | ------------------------------------------------------ |
-| PASS                          | Node F                                                 |
-| FAIL while run budgets remain | Retrieve/revise again                                  |
-| FAIL and budget exhausted     | Persist abstain / partial grounded answer with warning |
+| PASS / PARTIAL                | Node F (PERSIST_DONE)                                  |
+| FAIL while revise budget left | AGENT_TOOLS once more (`MAX_VERIFY_REVISE = 1`)        |
+| FAIL exhausted / ABSTAIN      | PERSIST_ABSTAIN (or partial grounded answer + warning) |
 
-SSE: `status: verifying_answer` (no internal reasoning text).
+Hook: `verifying_answer` (no internal reasoning text).
 
 #### Node F — PERSIST + DONE
 
-**Who:** Node + Mongoose
+**Who:** Node + Mongoose (`finalizeAssistantMessage`)
 
-1. Insert assistant `Message`: markdown, `evidence[]`, support level, tokens, duration, `knowledgeVersionId`, `messageStatus: 'completed'`.
-2. Persist context-limit metrics, compaction actions, and the model identifier supplied by the
-   human-controlled configuration.
-3. Persist/update the conversation summary before older turns would exceed the validated budget.
-4. Update title if needed; SSE `evidence`, `usage`, `done { messageId }`; close stream.
+1. **Update** the pending assistant `Message` (same `_id` as `threadId`’s `assistantMessageId`):
+   markdown, `evidence[]` snapshots, `supportLevel`, tokens, `durationMs`, `modelId`,
+   `knowledgeVersionId`, `contextMetrics`, `trace` (§146), `messageStatus`
+   (`completed` \| `abstained` \| `failed`).
+2. Fire `onEvidence` then `onDone` (never `onDone` if Mongo write failed — `onError` instead).
+3. Best-effort truncated auto-title; never block `onDone`.
+4. Phase 50 maps hooks to SSE `evidence` / `done`.
 
 ---
 

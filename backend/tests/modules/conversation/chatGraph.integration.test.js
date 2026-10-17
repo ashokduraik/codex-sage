@@ -1,9 +1,11 @@
 /**
- * Mongo integration tests for chatCheckpoints checkpointer and clarify resume.
+ * Mongo integration tests for chatCheckpoints, clarify resume, and persist.
  */
 import mongoose from 'mongoose';
 import { TEST_APP_CONFIG } from '../../appConfig.js';
 import { createMongoHarness } from '../../mongoHarness.js';
+import { Message } from '../../../src/models/messages.model.js';
+import { Conversation } from '../../../src/models/conversations.model.js';
 import { ChatCheckpoint } from '../../../src/models/chatCheckpoint.model.js';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -14,15 +16,17 @@ import {
   resumeChatGraphFromClarification,
 } from '../../../src/modules/conversation/chatGraph.js';
 
-const { mockGenerateText, mockBuildConversationContext, mockExecuteTool } = vi.hoisted(() => ({
+const { mockGenerateText, mockStreamText, mockBuildConversationContext, mockExecuteTool, mockGetRunBudgetConfig } = vi.hoisted(() => ({
   mockGenerateText: vi.fn(),
+  mockStreamText: vi.fn(),
   mockBuildConversationContext: vi.fn(),
   mockExecuteTool: vi.fn(),
+  mockGetRunBudgetConfig: vi.fn(),
 }));
 
 vi.mock('../../../src/modules/conversation/llm.js', () => ({
   generateText: (...args) => mockGenerateText(...args),
-  streamText: vi.fn(),
+  streamText: (...args) => mockStreamText(...args),
   assertLlmAvailable: vi.fn(),
   getLlmConfigStatus: vi.fn(),
   INFERENCE_QUEUE_MAX_CONCURRENCY: 1,
@@ -45,8 +49,16 @@ vi.mock('../../../src/modules/conversation/agentTools.js', async (importOriginal
   };
 });
 
+vi.mock('../../../src/modules/conversation/runBudget.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    getRunBudgetConfig: (...args) => mockGetRunBudgetConfig(...args),
+  };
+});
+
 const harness = createMongoHarness({
-  models: [ChatCheckpoint],
+  models: [ChatCheckpoint, Conversation, Message],
   uri: TEST_APP_CONFIG.mongo.uri,
 });
 
@@ -87,6 +99,13 @@ describe('chatGraph Mongo checkpointer', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetRunBudgetConfig.mockReturnValue({
+      maxCumulativeInputTokens: null,
+      maxCumulativeOutputTokens: null,
+      maxCumulativeToolResultBytes: null,
+      maxTotalCalls: null,
+      maxWallTimeMs: null,
+    });
     mockBuildConversationContext.mockResolvedValue({
       segments: [],
       summarySegment: undefined,
@@ -98,6 +117,16 @@ describe('chatGraph Mongo checkpointer', () => {
       rejected: [],
       usage: { resultBytes: 0, promptTokensAfterBudget: 0 },
     });
+    mockStreamText.mockResolvedValue({
+      textStream: (async function* streamChunks() {
+        yield 'Login uses JWT per ev_01.';
+      })(),
+      usage: Promise.resolve({ inputTokens: 4, outputTokens: 3, totalTokens: null }),
+      durationMs: Promise.resolve(9),
+      modelId: 'test-model',
+      contextMetrics: { measuredInputTokens: 4 },
+      enableThinking: true,
+    });
     mockGenerateText.mockImplementation(async (request) => {
       if (request.purpose === 'tool_choice') {
         return {
@@ -107,6 +136,16 @@ describe('chatGraph Mongo checkpointer', () => {
           modelId: 'test-model',
           contextMetrics: {},
           enableThinking: false,
+        };
+      }
+      if (request.purpose === 'verify') {
+        return {
+          text: JSON.stringify({ result: 'pass', failures: [] }),
+          usage: { inputTokens: 1, outputTokens: 1, totalTokens: null },
+          durationMs: 1,
+          modelId: 'test-model',
+          contextMetrics: {},
+          enableThinking: true,
         };
       }
       return {
@@ -295,6 +334,168 @@ describe('chatGraph Mongo checkpointer', () => {
     expect(result.toolResults).toHaveLength(2);
     expect(result.retrievalComplete).toBe(true);
     expect(result.cumulativeToolResultBytes).toBe(8);
+  });
+
+  it('persists a completed assistant message with evidence after draft verify', async () => {
+    const projectId = new mongoose.Types.ObjectId();
+    const userId = new mongoose.Types.ObjectId();
+    const knowledgeVersionId = new mongoose.Types.ObjectId();
+    const pendingAssistantId = new mongoose.Types.ObjectId();
+    const threadId = buildChatGraphThreadId(orgId, conversationId, pendingAssistantId);
+
+    await Conversation.create({
+      orgId,
+      projectId,
+      ownerUserId: userId,
+      title: 'Persist test',
+      titleSource: 'default',
+      searchText: '',
+      lifecycleStatus: 'active',
+      messageCount: 1,
+      createdBy: userId,
+      updatedBy: userId,
+    });
+    await Message.create({
+      _id: pendingAssistantId,
+      orgId,
+      projectId,
+      conversationId,
+      role: 'assistant',
+      content: '(pending)',
+      messageStatus: 'completed',
+      createdBy: userId,
+      updatedBy: userId,
+    });
+
+    mockGenerateText
+      .mockResolvedValueOnce({
+        text: JSON.stringify({
+          rewrittenQuestion: 'How does login work?',
+          needsClarification: false,
+          clarificationQuestions: [],
+          route: 'retrieve',
+        }),
+        usage: { inputTokens: 2, outputTokens: 1, totalTokens: null },
+        durationMs: 1,
+        modelId: 'test-model',
+        contextMetrics: {},
+        enableThinking: false,
+      })
+      .mockResolvedValueOnce({
+        text: JSON.stringify({
+          action: 'call_tool',
+          toolName: 'explore_code',
+          toolArgs: { query: 'login' },
+        }),
+        usage: { inputTokens: 2, outputTokens: 1, totalTokens: null },
+        durationMs: 1,
+        modelId: 'test-model',
+        contextMetrics: {},
+        enableThinking: false,
+      })
+      .mockResolvedValueOnce({
+        text: JSON.stringify({ action: 'finish_retrieval' }),
+        usage: { inputTokens: 1, outputTokens: 1, totalTokens: null },
+        durationMs: 1,
+        modelId: 'test-model',
+        contextMetrics: {},
+        enableThinking: false,
+      });
+    mockExecuteTool.mockResolvedValueOnce({
+      evidenceRecords: [
+        {
+          evidenceId: 'ev_01',
+          path: 'src/a.js',
+          kind: 'code',
+          excerpt: 'jwt',
+          knowledgeVersionId: String(knowledgeVersionId),
+        },
+      ],
+      rejected: [],
+      usage: { resultBytes: 4, promptTokensAfterBudget: 1 },
+    });
+
+    const checkpointer = createMongoChatCheckpointer();
+    const compiled = compileChatGraph({ checkpointer });
+    const result = await invokeChatGraph({
+      threadId,
+      compiled,
+      checkpointer,
+      input: {
+        scope: {
+          ...scope(),
+          projectId: String(projectId),
+          userId: String(userId),
+          assistantMessageId: String(pendingAssistantId),
+          knowledgeVersionId: String(knowledgeVersionId),
+        },
+        question: 'How does login work?',
+      },
+    });
+
+    expect(result.supportLevel).toBe('evidence_backed');
+    expect(result.persistFailed).toBe(false);
+    const stored = await Message.findById(pendingAssistantId).lean();
+    expect(stored.messageStatus).toBe('completed');
+    expect(stored.supportLevel).toBe('evidence_backed');
+    expect(stored.content).toContain('ev_01');
+    expect(Array.isArray(stored.evidence)).toBe(true);
+    expect(stored.evidence[0].evidenceId).toBe('ev_01');
+    expect(stored.trace?.evidenceIds).toEqual(['ev_01']);
+    expect(stored.modelId).toBe('test-model');
+  });
+
+  it('persists abstained status when retrieval finishes with empty evidence', async () => {
+    const projectId = new mongoose.Types.ObjectId();
+    const userId = new mongoose.Types.ObjectId();
+    const pendingAssistantId = new mongoose.Types.ObjectId();
+    const threadId = buildChatGraphThreadId(orgId, conversationId, pendingAssistantId);
+
+    await Conversation.create({
+      orgId,
+      projectId,
+      ownerUserId: userId,
+      title: 'Abstain test',
+      titleSource: 'default',
+      searchText: '',
+      lifecycleStatus: 'active',
+      messageCount: 1,
+      createdBy: userId,
+      updatedBy: userId,
+    });
+    await Message.create({
+      _id: pendingAssistantId,
+      orgId,
+      projectId,
+      conversationId,
+      role: 'assistant',
+      content: '(pending)',
+      messageStatus: 'completed',
+      createdBy: userId,
+      updatedBy: userId,
+    });
+
+    const checkpointer = createMongoChatCheckpointer();
+    const compiled = compileChatGraph({ checkpointer });
+    await invokeChatGraph({
+      threadId,
+      compiled,
+      checkpointer,
+      input: {
+        scope: {
+          ...scope(),
+          projectId: String(projectId),
+          userId: String(userId),
+          assistantMessageId: String(pendingAssistantId),
+        },
+        question: 'How does login work?',
+      },
+    });
+
+    const stored = await Message.findById(pendingAssistantId).lean();
+    expect(stored.messageStatus).toBe('abstained');
+    expect(stored.supportLevel).toBe('insufficient');
+    expect(stored.evidence).toBeNull();
   });
 
   it('fails closed when configurable org_id does not match the thread org', async () => {

@@ -1,7 +1,7 @@
 /**
  * LangGraph chat workflow: load context, UNDERSTAND, clarify interrupt,
- * AGENT_TOOLS loop with run budgets, or early abstain. No HTTP or SSE —
- * phase 50 maps onStage hooks to the stream; phase 49 adds DRAFT/VERIFY/PERSIST.
+ * AGENT_TOOLS, DRAFT, VERIFY, and PERSIST. No HTTP or SSE — phase 50 maps
+ * stream hooks (onStage / onDelta / onEvidence / onDone / onError).
  */
 import { generateText } from './llm.js';
 import { randomUUID } from 'node:crypto';
@@ -18,6 +18,11 @@ import {
   ensureRunMonotonicStartedAt,
 } from './runBudget.js';
 import {
+  MAX_VERIFY_REVISE,
+  runDraftAnswerNode,
+  runVerifyAnswerNode,
+  runPersistDoneNode,
+  runPersistAbstainNode,
   buildChatGraphThreadId,
   parseChatGraphThreadId,
   CLARIFICATION_MAX_ROUNDS,
@@ -27,12 +32,14 @@ import {
 } from './chatGraph.helper.js';
 
 export {
+  MAX_VERIFY_REVISE,
   CLARIFICATION_MAX_ROUNDS,
   buildChatGraphThreadId,
   createMongoChatCheckpointer,
   parseChatGraphThreadId,
   toolChoiceDecisionSchema,
   understandDecisionSchema,
+  runDeterministicVerify,
 } from './chatGraph.helper.js';
 
 /** Stage names this phase may emit for phase 50 SSE mapping. */
@@ -42,6 +49,8 @@ export const CHAT_GRAPH_STAGE_VALUES = Object.freeze([
   'abstain_early',
   'searching_code',
   'reviewing_sources',
+  'generating_answer',
+  'verifying_answer',
 ]);
 
 const DOCUMENT_TOOL_NAMES = new Set(['search_documents', 'list_documents', 'read_document_slice', 'read_file_slice']);
@@ -140,19 +149,73 @@ const ChatGraphState = Annotation.Root({
     reducer: (_left, right) => right,
     default: () => null,
   }),
+  draftAnswer: Annotation({
+    reducer: (_left, right) => right,
+    default: () => null,
+  }),
+  answerContent: Annotation({
+    reducer: (_left, right) => right,
+    default: () => null,
+  }),
+  verifyResult: Annotation({
+    reducer: (_left, right) => right,
+    default: () => null,
+  }),
+  reviseCount: Annotation({
+    reducer: (_left, right) => right,
+    default: () => 0,
+  }),
+  supportLevel: Annotation({
+    reducer: (_left, right) => right,
+    default: () => null,
+  }),
+  persistedEvidence: Annotation({
+    reducer: (_left, right) => right,
+    default: () => null,
+  }),
+  stages: Annotation({
+    reducer: (_left, right) => right,
+    default: () => [],
+  }),
+  modelId: Annotation({
+    reducer: (_left, right) => right,
+    default: () => null,
+  }),
+  draftUsage: Annotation({
+    reducer: (_left, right) => right,
+    default: () => null,
+  }),
+  draftDurationMs: Annotation({
+    reducer: (_left, right) => right,
+    default: () => null,
+  }),
+  persistFailed: Annotation({
+    reducer: (_left, right) => right,
+    default: () => false,
+  }),
 });
 
 /**
- * Compiles the chat graph (UNDERSTAND + AGENT_TOOLS).
+ * Compiles the chat graph through DRAFT / VERIFY / PERSIST.
  * @param {{
  *   checkpointer?: object,
  *   onStage?: (event: { stage: string, data?: object }) => void,
- * }} [deps] Optional saver and stage hook (phase 50).
+ *   onDelta?: (text: string) => void,
+ *   onEvidence?: (evidence: object[]) => void,
+ *   onDone?: (payload: object) => void,
+ *   onError?: (error: unknown) => void,
+ * }} [deps] Optional saver and stream/persist hooks (phase 50).
  * @returns {object} Compiled LangGraph app.
  */
 export function compileChatGraph(deps = {}) {
   const onStage = typeof deps.onStage === 'function' ? deps.onStage : () => {};
+  const onDelta = typeof deps.onDelta === 'function' ? deps.onDelta : () => {};
+  const onEvidence = typeof deps.onEvidence === 'function' ? deps.onEvidence : () => {};
+  const onDone = typeof deps.onDone === 'function' ? deps.onDone : () => {};
+  const onError = typeof deps.onError === 'function' ? deps.onError : () => {};
   const checkpointer = deps.checkpointer ?? createMongoChatCheckpointer();
+  const streamHooks = { onStage, onDelta };
+  const persistHooks = { onEvidence, onDone, onError };
 
   const graph = new StateGraph(ChatGraphState)
     .addNode('load_context', (state) => runLoadContextNode(state))
@@ -161,6 +224,10 @@ export function compileChatGraph(deps = {}) {
     .addNode('clarify_wait', (state) => runClarifyWaitNode(state))
     .addNode('abstain_early', (state) => runAbstainEarlyNode(state, onStage))
     .addNode('agent_tools', (state) => runAgentToolsNode(state, onStage))
+    .addNode('draft_answer', (state) => runDraftAnswerNode(state, streamHooks))
+    .addNode('verify_answer', (state) => runVerifyAnswerNode(state, { onStage }))
+    .addNode('persist_done', (state) => runPersistDoneNode(state, persistHooks))
+    .addNode('persist_abstain', (state) => runPersistAbstainNode(state, persistHooks))
     .addEdge(START, 'load_context')
     .addEdge('load_context', 'understand')
     .addConditionalEdges('understand', routeAfterUnderstand, {
@@ -173,11 +240,20 @@ export function compileChatGraph(deps = {}) {
       understand: 'understand',
       abstain_early: 'abstain_early',
     })
-    .addEdge('abstain_early', END)
+    .addEdge('abstain_early', 'persist_abstain')
     .addConditionalEdges('agent_tools', routeAfterAgentTools, {
       agent_tools: 'agent_tools',
-      end: END,
-    });
+      draft_answer: 'draft_answer',
+      persist_abstain: 'persist_abstain',
+    })
+    .addEdge('draft_answer', 'verify_answer')
+    .addConditionalEdges('verify_answer', routeAfterVerify, {
+      persist_done: 'persist_done',
+      agent_tools: 'agent_tools',
+      persist_abstain: 'persist_abstain',
+    })
+    .addEdge('persist_done', END)
+    .addEdge('persist_abstain', END);
 
   return graph.compile({ checkpointer });
 }
@@ -191,14 +267,23 @@ export function compileChatGraph(deps = {}) {
  *     question: string,
  *   },
  *   onStage?: (event: { stage: string, data?: object }) => void,
+ *   onDelta?: (text: string) => void,
+ *   onEvidence?: (evidence: object[]) => void,
+ *   onDone?: (payload: object) => void,
+ *   onError?: (error: unknown) => void,
  *   checkpointer?: object,
  *   compiled?: object,
  * }} args Invoke args.
  * @returns {Promise<object>} Final state or interrupt payload on clarify.
  */
 export async function invokeChatGraph(args) {
-  const onStage = typeof args.onStage === 'function' ? args.onStage : () => {};
-  const compiled = args.compiled ?? compileChatGraph({ checkpointer: args.checkpointer, onStage });
+  const hooks = pickStreamHooks(args);
+  const compiled =
+    args.compiled ??
+    compileChatGraph({
+      checkpointer: args.checkpointer,
+      ...hooks,
+    });
   const parsed = parseChatGraphThreadId(args.threadId);
   const result = await compiled.invoke(
     {
@@ -224,14 +309,23 @@ export async function invokeChatGraph(args) {
  *   clarificationSetId: string,
  *   answers: Record<string, string | string[]>,
  *   onStage?: (event: { stage: string, data?: object }) => void,
+ *   onDelta?: (text: string) => void,
+ *   onEvidence?: (evidence: object[]) => void,
+ *   onDone?: (payload: object) => void,
+ *   onError?: (error: unknown) => void,
  *   checkpointer?: object,
  *   compiled?: object,
  * }} args Resume args.
  * @returns {Promise<object>} Continued graph state.
  */
 export async function resumeChatGraphFromClarification(args) {
-  const onStage = typeof args.onStage === 'function' ? args.onStage : () => {};
-  const compiled = args.compiled ?? compileChatGraph({ checkpointer: args.checkpointer, onStage });
+  const hooks = pickStreamHooks(args);
+  const compiled =
+    args.compiled ??
+    compileChatGraph({
+      checkpointer: args.checkpointer,
+      ...hooks,
+    });
   const parsed = parseChatGraphThreadId(args.threadId);
   return compiled.invoke(
     new Command({
@@ -247,6 +341,21 @@ export async function resumeChatGraphFromClarification(args) {
       },
     },
   );
+}
+
+/**
+ * Picks stream/persist hooks from invoke/resume args.
+ * @param {object} args Invoke args.
+ * @returns {object}
+ */
+function pickStreamHooks(args) {
+  return {
+    onStage: typeof args.onStage === 'function' ? args.onStage : () => {},
+    onDelta: typeof args.onDelta === 'function' ? args.onDelta : () => {},
+    onEvidence: typeof args.onEvidence === 'function' ? args.onEvidence : () => {},
+    onDone: typeof args.onDone === 'function' ? args.onDone : () => {},
+    onError: typeof args.onError === 'function' ? args.onError : () => {},
+  };
 }
 
 /**
@@ -534,15 +643,35 @@ function routeAfterClarifyWait(state) {
 }
 
 /**
- * After AGENT_TOOLS: loop while retrieval continues; otherwise END for phase 49.
+ * After AGENT_TOOLS: loop, draft when evidence exists, or abstain when empty.
  * @param {object} state Graph state.
- * @returns {'agent_tools' | 'end'}
+ * @returns {'agent_tools' | 'draft_answer' | 'persist_abstain'}
  */
 function routeAfterAgentTools(state) {
-  if (state.budgetExhausted || state.toolStop || state.retrievalComplete) {
-    return 'end';
+  if (!(state.budgetExhausted || state.toolStop || state.retrievalComplete)) {
+    return 'agent_tools';
   }
-  return 'agent_tools';
+  const hasEvidence = Array.isArray(state.toolResults) && state.toolResults.length > 0;
+  if (hasEvidence) {
+    return 'draft_answer';
+  }
+  return 'persist_abstain';
+}
+
+/**
+ * After VERIFY: persist, revise once into tools, or abstain/partial persist.
+ * @param {object} state Graph state.
+ * @returns {'persist_done' | 'agent_tools' | 'persist_abstain'}
+ */
+function routeAfterVerify(state) {
+  const result = state.verifyResult?.result;
+  if (result === 'pass' || result === 'partial') {
+    return 'persist_done';
+  }
+  if (result === 'revise') {
+    return 'agent_tools';
+  }
+  return 'persist_abstain';
 }
 
 /**

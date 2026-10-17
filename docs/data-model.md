@@ -328,14 +328,18 @@ Conversations do not write `KnowledgeVersion` or other project knowledge.
 
 One row per chat turn (Phase 41 schema; HTTP create is Phase 50). Fields:
 `projectId`, `conversationId`, `role` (`user` \| `assistant` \| `system`), `content`,
-`messageStatus` (`completed` in this slice; Phase 50 extends the enum),
-`knowledgeVersionId`, `parentMessageId` (reserved for Phase 53), optional
-`evidence` / `usage` / `contextMetrics` (null until written), plus base fields.
+`messageStatus` (`completed` \| `abstained` \| `failed`; Phase 50 may add interrupted /
+awaiting-clarification), `knowledgeVersionId`, `parentMessageId` (reserved for Phase 53),
+optional `evidence` / `usage` / `contextMetrics` / `supportLevel` /
+`durationMs` / `modelId` / `trace` (null until written), plus base fields.
+`supportLevel` is `evidence_backed` \| `insufficient` \| `conflict` \| `partial`.
+`trace` is Mixed for §146 linkage (`userMessageId`, `knowledgeVersionId`, `evidenceIds[]`,
+`stages[]`, `correlationId`) — never private model reasoning.
 `contextMetrics` is Mixed: when Phase 43 accounting succeeds it holds
 `validatedContextCapacity`, `measuredInputTokens`, `maximumInputBudget`,
 `reservedOutputTokens`, `compactionActions[]`, and `contextPercentUsed` (0–1)
 only when the budget denominator exists. `usage` is provider-reported tokens
-(Phase 45). The UI omits either key when null.
+(Phase 45). The UI omits null reserved keys.
 
 Indexes (partial `status: 'A'`): `{ orgId, conversationId, createdAt: 1, _id: 1 }`,
 `{ orgId, projectId, conversationId }`. Thread pages are oldest-first on

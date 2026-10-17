@@ -51,16 +51,32 @@ describe('conversations.types', () => {
     expect(plain.evidence).toBeUndefined();
     expect(plain.usage).toBeUndefined();
     expect(plain.contextMetrics).toBeUndefined();
+    expect(plain.supportLevel).toBeUndefined();
+    expect(plain.durationMs).toBeUndefined();
+    expect(plain.modelId).toBeUndefined();
+    expect(plain.knowledgeVersionId).toBeUndefined();
+    expect(plain.trace).toBeUndefined();
 
+    const knowledgeVersionId = new mongoose.Types.ObjectId();
     const rich = mapMessageToDto({
       ...base,
       evidence: [{ path: 'a.js' }],
       usage: { tokens: 1 },
       contextMetrics: { used: 10 },
+      supportLevel: 'evidence_backed',
+      durationMs: 42,
+      modelId: 'qwen',
+      knowledgeVersionId,
+      trace: { stages: ['generating_answer'] },
     });
     expect(rich.evidence).toEqual([{ path: 'a.js' }]);
     expect(rich.usage).toEqual({ tokens: 1 });
     expect(rich.contextMetrics).toEqual({ used: 10 });
+    expect(rich.supportLevel).toBe('evidence_backed');
+    expect(rich.durationMs).toBe(42);
+    expect(rich.modelId).toBe('qwen');
+    expect(rich.knowledgeVersionId).toBe(String(knowledgeVersionId));
+    expect(rich.trace).toEqual({ stages: ['generating_answer'] });
   });
 
   it('stringifies non-date timestamps', () => {

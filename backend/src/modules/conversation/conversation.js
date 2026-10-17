@@ -27,6 +27,7 @@ import {
   CONVERSATION_TRUNCATED_TITLE_MAX_CHARS,
   CONVERSATION_AUTO_TITLE_MAX_INPUT_CHARS,
   listRecentMessages as listRecentMessagesInRepo,
+  finalizeAssistantMessage as finalizeAssistantMessageInRepo,
 } from './conversation.helper.js';
 
 // --- from conversations/conversations.routes.js ---
@@ -384,7 +385,32 @@ export function mapMessageToDto(message) {
   if (message.contextMetrics != null) {
     dto.contextMetrics = message.contextMetrics;
   }
+  if (message.supportLevel != null) {
+    dto.supportLevel = message.supportLevel;
+  }
+  if (message.durationMs != null) {
+    dto.durationMs = message.durationMs;
+  }
+  if (message.modelId != null) {
+    dto.modelId = message.modelId;
+  }
+  if (message.knowledgeVersionId != null) {
+    dto.knowledgeVersionId = String(message.knowledgeVersionId);
+  }
+  if (message.trace != null) {
+    dto.trace = message.trace;
+  }
   return dto;
+}
+
+/**
+ * Finalizes a pending assistant message after draft/verify (phase 49 graph).
+ * @param {Parameters<typeof finalizeAssistantMessageInRepo>[0]} input Finalize fields.
+ * @returns {Promise<object>} Message DTO.
+ */
+export async function finalizeAssistantMessage(input) {
+  const row = await finalizeAssistantMessageInRepo(input);
+  return mapMessageToDto(row);
 }
 
 /**
@@ -918,6 +944,7 @@ export {
   CONVERSATIONS_LIST_MAX_LIMIT,
   MESSAGE_ROLE_VALUES,
   MESSAGE_STATUS_VALUES,
+  MESSAGE_SUPPORT_LEVEL_VALUES,
   MESSAGES_LIST_DEFAULT_LIMIT,
   MESSAGES_LIST_MAX_LIMIT,
   buildOwnConversationFilter,

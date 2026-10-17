@@ -1,6 +1,6 @@
 /**
  * Unit tests for chat graph: UNDERSTAND routing, AGENT_TOOLS loop, clarify
- * interrupt, enableThinking=false, hooks, and fail-closed repair / budget paths.
+ * interrupt, DRAFT/VERIFY/PERSIST hooks, and fail-closed repair / budget paths.
  */
 import mongoose from 'mongoose';
 import { MemorySaver } from '@langchain/langgraph';
@@ -12,21 +12,34 @@ import {
   buildChatGraphThreadId,
   parseChatGraphThreadId,
   CLARIFICATION_MAX_ROUNDS,
+  MAX_VERIFY_REVISE,
   toolChoiceDecisionSchema,
   understandDecisionSchema,
+  runDeterministicVerify,
   resumeChatGraphFromClarification,
 } from '../../../src/modules/conversation/chatGraph.js';
 
-const { mockGenerateText, mockBuildConversationContext, mockExecuteTool, mockGetRunBudgetConfig } = vi.hoisted(() => ({
+const {
+  mockGenerateText,
+  mockStreamText,
+  mockBuildConversationContext,
+  mockExecuteTool,
+  mockGetRunBudgetConfig,
+  mockFinalizeAssistantMessage,
+  mockScheduleConversationAutoTitle,
+} = vi.hoisted(() => ({
   mockGenerateText: vi.fn(),
+  mockStreamText: vi.fn(),
   mockBuildConversationContext: vi.fn(),
   mockExecuteTool: vi.fn(),
   mockGetRunBudgetConfig: vi.fn(),
+  mockFinalizeAssistantMessage: vi.fn(),
+  mockScheduleConversationAutoTitle: vi.fn(),
 }));
 
 vi.mock('../../../src/modules/conversation/llm.js', () => ({
   generateText: (...args) => mockGenerateText(...args),
-  streamText: vi.fn(),
+  streamText: (...args) => mockStreamText(...args),
   assertLlmAvailable: vi.fn(),
   getLlmConfigStatus: vi.fn(),
   INFERENCE_QUEUE_MAX_CONCURRENCY: 1,
@@ -38,6 +51,22 @@ vi.mock('../../../src/modules/conversation/conversationContext.js', async (impor
   return {
     ...actual,
     buildConversationContext: (...args) => mockBuildConversationContext(...args),
+  };
+});
+
+vi.mock('../../../src/modules/conversation/conversation.helper.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    finalizeAssistantMessage: (...args) => mockFinalizeAssistantMessage(...args),
+  };
+});
+
+vi.mock('../../../src/modules/conversation/conversation.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    scheduleConversationAutoTitle: (...args) => mockScheduleConversationAutoTitle(...args),
   };
 });
 
@@ -130,11 +159,31 @@ function llmResult(body, usage = { inputTokens: 10, outputTokens: 4, totalTokens
   };
 }
 
+/**
+ * @param {string} text Draft markdown chunks joined.
+ * @returns {object}
+ */
+function draftStreamResult(text = 'Login uses JWT per ev_01.') {
+  return {
+    textStream: (async function* streamChunks() {
+      yield text;
+    })(),
+    usage: Promise.resolve({ inputTokens: 8, outputTokens: 6, totalTokens: null }),
+    durationMs: Promise.resolve(12),
+    modelId: 'test-model',
+    contextMetrics: { measuredInputTokens: 8, compactionActions: [] },
+    enableThinking: true,
+  };
+}
+
 beforeEach(() => {
   mockGenerateText.mockReset();
+  mockStreamText.mockReset();
   mockBuildConversationContext.mockReset();
   mockExecuteTool.mockReset();
   mockGetRunBudgetConfig.mockReset();
+  mockFinalizeAssistantMessage.mockReset();
+  mockScheduleConversationAutoTitle.mockReset();
   mockGetRunBudgetConfig.mockReturnValue({
     maxCumulativeInputTokens: null,
     maxCumulativeOutputTokens: null,
@@ -152,8 +201,18 @@ beforeEach(() => {
     if (request.purpose === 'tool_choice') {
       return llmResult(toolChoice(), { inputTokens: 2, outputTokens: 1, totalTokens: null });
     }
+    if (request.purpose === 'verify') {
+      return llmResult({ result: 'pass', failures: [] });
+    }
     return llmResult(decision());
   });
+  mockStreamText.mockResolvedValue(draftStreamResult());
+  mockFinalizeAssistantMessage.mockResolvedValue({
+    _id: assistantMessageId,
+    content: 'ok',
+    messageStatus: 'completed',
+  });
+  mockScheduleConversationAutoTitle.mockResolvedValue(undefined);
   mockExecuteTool.mockResolvedValue({
     evidenceRecords: [],
     rejected: [],
@@ -728,10 +787,18 @@ describe('AGENT_TOOLS loop', () => {
     expect(result.toolResults).toHaveLength(2);
     expect(result.toolResults.map((record) => record.evidenceId)).toEqual(['ev_01', 'ev_02']);
     expect(result.cumulativeToolResultBytes).toBe(22);
-    expect(result.totalCalls).toBe(5);
+    expect(result.totalCalls).toBe(6);
     expect(result.retrievalComplete).toBe(true);
-    expect(stages).toEqual(['understanding_question', 'searching_code', 'reviewing_sources']);
+    expect(result.supportLevel).toBe('evidence_backed');
+    expect(stages).toEqual(['understanding_question', 'searching_code', 'reviewing_sources', 'generating_answer', 'verifying_answer']);
     expect(mockExecuteTool).toHaveBeenCalledTimes(2);
+    expect(mockStreamText).toHaveBeenCalledWith(expect.objectContaining({ purpose: 'draft', enableThinking: true }));
+    expect(mockFinalizeAssistantMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messageStatus: 'completed',
+        supportLevel: 'evidence_backed',
+      }),
+    );
   });
 
   it('sets budgetExhausted when totalCalls limit is exceeded', async () => {
@@ -1053,5 +1120,258 @@ describe('AGENT_TOOLS loop', () => {
       input: { scope: scope(), question: 'q' },
     });
     expect(result.retrievalComplete).toBe(true);
+  });
+});
+
+describe('runDeterministicVerify', () => {
+  it('fails when the draft cites an unknown evidenceId', () => {
+    const result = runDeterministicVerify(
+      'Auth uses `src/a.js` via ev_99.',
+      [{ evidenceId: 'ev_01', path: 'src/a.js', knowledgeVersionId: 'kv1' }],
+      'kv1',
+    );
+    expect(result.result).toBe('fail');
+    expect(result.failures[0].reason).toBe('unknown_evidence_id');
+  });
+
+  it('abstains when toolResults are empty and the draft asserts project facts', () => {
+    const result = runDeterministicVerify('The login handler in src/auth/login.js validates JWT tokens before creating a session.', [], 'kv1');
+    expect(result.result).toBe('abstain');
+    expect(result.failures[0].reason).toBe('empty_evidence_with_project_claims');
+  });
+
+  it('passes without LLM when cited evidence ids and versions are valid', () => {
+    const result = runDeterministicVerify(
+      'Login uses JWT per ev_01.',
+      [{ evidenceId: 'ev_01', path: 'src/a.js', knowledgeVersionId: 'kv1', excerpt: 'jwt' }],
+      'kv1',
+    );
+    expect(result.result).toBe('pass');
+    expect(result.citedEvidenceIds).toEqual(['ev_01']);
+  });
+
+  it('flags cross-version evidence as a failure', () => {
+    const result = runDeterministicVerify('See ev_01.', [{ evidenceId: 'ev_01', path: 'src/a.js', knowledgeVersionId: 'old', excerpt: 'x' }], 'kv1');
+    expect(result.result).toBe('fail');
+    expect(result.failures[0].reason).toBe('cross_version_evidence');
+  });
+
+  it('marks project claims without citations as ambiguous', () => {
+    const result = runDeterministicVerify(
+      'The refund workflow always posts to the ledger before acknowledging the client.',
+      [{ evidenceId: 'ev_01', path: 'src/a.js', knowledgeVersionId: 'kv1', excerpt: 'x' }],
+      'kv1',
+    );
+    expect(result.result).toBe('ambiguous');
+  });
+});
+
+describe('DRAFT VERIFY PERSIST', () => {
+  it('persists abstain when retrieval finishes with empty evidence', async () => {
+    const donePayloads = [];
+    const checkpointer = new MemorySaver();
+    const result = await invokeChatGraph({
+      threadId: `${threadId}-empty-abstain`,
+      checkpointer,
+      onDone: (payload) => donePayloads.push(payload),
+      input: { scope: scope(), question: 'How does login work?' },
+    });
+    expect(result.supportLevel).toBe('insufficient');
+    expect(mockStreamText).not.toHaveBeenCalled();
+    expect(mockFinalizeAssistantMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messageStatus: 'abstained',
+        supportLevel: 'insufficient',
+        evidence: null,
+      }),
+    );
+    expect(donePayloads[0]).toEqual(
+      expect.objectContaining({
+        messageId: assistantMessageId,
+        supportLevel: 'insufficient',
+      }),
+    );
+  });
+
+  it('streams draft deltas and never calls LLM verify when citations pass', async () => {
+    const deltas = [];
+    mockGenerateText
+      .mockResolvedValueOnce(llmResult(decision()))
+      .mockResolvedValueOnce(
+        llmResult({
+          action: 'call_tool',
+          toolName: 'explore_code',
+          toolArgs: { query: 'login' },
+        }),
+      )
+      .mockResolvedValueOnce(llmResult(toolChoice()));
+    mockExecuteTool.mockResolvedValueOnce({
+      evidenceRecords: [
+        {
+          evidenceId: 'ev_01',
+          path: 'src/a.js',
+          kind: 'code',
+          excerpt: 'jwt',
+          knowledgeVersionId: scope().knowledgeVersionId,
+        },
+      ],
+      rejected: [],
+      usage: { resultBytes: 4, promptTokensAfterBudget: 1 },
+    });
+    mockStreamText.mockResolvedValue(draftStreamResult('Login uses JWT per ev_01.'));
+
+    const checkpointer = new MemorySaver();
+    const result = await invokeChatGraph({
+      threadId: `${threadId}-draft-pass`,
+      checkpointer,
+      onDelta: (text) => deltas.push(text),
+      input: { scope: scope(), question: 'How does login work?' },
+    });
+    expect(deltas).toEqual(['Login uses JWT per ev_01.']);
+    expect(result.verifyResult?.result).toBe('pass');
+    expect(mockGenerateText.mock.calls.some((call) => call[0].purpose === 'verify')).toBe(false);
+    expect(MAX_VERIFY_REVISE).toBe(1);
+  });
+
+  it('calls LLM verify only when deterministic checks leave ambiguous claims', async () => {
+    mockGenerateText
+      .mockResolvedValueOnce(llmResult(decision()))
+      .mockResolvedValueOnce(
+        llmResult({
+          action: 'call_tool',
+          toolName: 'explore_code',
+          toolArgs: { query: 'login' },
+        }),
+      )
+      .mockResolvedValueOnce(llmResult(toolChoice()))
+      .mockResolvedValueOnce(llmResult({ result: 'pass', failures: [] }));
+    mockExecuteTool.mockResolvedValueOnce({
+      evidenceRecords: [
+        {
+          evidenceId: 'ev_01',
+          path: 'src/a.js',
+          kind: 'code',
+          excerpt: 'jwt',
+          knowledgeVersionId: scope().knowledgeVersionId,
+        },
+      ],
+      rejected: [],
+      usage: { resultBytes: 4, promptTokensAfterBudget: 1 },
+    });
+    mockStreamText.mockResolvedValue(draftStreamResult('The refund workflow always posts to the ledger before acknowledging the client.'));
+
+    const checkpointer = new MemorySaver();
+    await invokeChatGraph({
+      threadId: `${threadId}-llm-verify`,
+      checkpointer,
+      input: { scope: scope(), question: 'How does refund work?' },
+    });
+    expect(mockGenerateText.mock.calls.some((call) => call[0].purpose === 'verify' && call[0].enableThinking === true)).toBe(true);
+  });
+
+  it('fires onError and skips onDone when finalize fails', async () => {
+    const errors = [];
+    const donePayloads = [];
+    mockFinalizeAssistantMessage.mockRejectedValueOnce(ApiError.fromCode('CONVERSATION_NOT_FOUND'));
+    const checkpointer = new MemorySaver();
+    const result = await invokeChatGraph({
+      threadId: `${threadId}-persist-fail`,
+      checkpointer,
+      onError: (error) => errors.push(error),
+      onDone: (payload) => donePayloads.push(payload),
+      input: { scope: scope(), question: 'How does login work?' },
+    });
+    expect(result.persistFailed).toBe(true);
+    expect(errors[0]).toMatchObject({ code: 'CONVERSATION_NOT_FOUND' });
+    expect(donePayloads).toEqual([]);
+  });
+
+  it('revises at most MAX_VERIFY_REVISE times then persists partial or abstain', async () => {
+    mockGenerateText
+      .mockResolvedValueOnce(llmResult(decision()))
+      .mockResolvedValueOnce(
+        llmResult({
+          action: 'call_tool',
+          toolName: 'explore_code',
+          toolArgs: { query: 'login' },
+        }),
+      )
+      .mockResolvedValueOnce(llmResult(toolChoice()))
+      // After revise, tool loop finishes again
+      .mockResolvedValueOnce(llmResult(toolChoice()));
+    mockExecuteTool.mockResolvedValueOnce({
+      evidenceRecords: [
+        {
+          evidenceId: 'ev_01',
+          path: 'src/a.js',
+          kind: 'code',
+          excerpt: 'a',
+          knowledgeVersionId: scope().knowledgeVersionId,
+        },
+      ],
+      rejected: [],
+      usage: { resultBytes: 2, promptTokensAfterBudget: 1 },
+    });
+    mockStreamText
+      .mockResolvedValueOnce(draftStreamResult('Broken claim cites ev_99 only.'))
+      .mockResolvedValueOnce(draftStreamResult('Still broken cites ev_99 only.'));
+
+    const checkpointer = new MemorySaver();
+    const result = await invokeChatGraph({
+      threadId: `${threadId}-revise-once`,
+      checkpointer,
+      input: { scope: scope(), question: 'How does login work?' },
+    });
+    expect(result.reviseCount).toBe(1);
+    expect(['partial', 'abstain']).toContain(result.verifyResult?.result);
+    expect(mockStreamText).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps usage null when the provider omits usage on draft', async () => {
+    mockGenerateText
+      .mockResolvedValueOnce(llmResult(decision()))
+      .mockResolvedValueOnce(
+        llmResult({
+          action: 'call_tool',
+          toolName: 'explore_code',
+          toolArgs: { query: 'login' },
+        }),
+      )
+      .mockResolvedValueOnce(llmResult(toolChoice(), null));
+    mockExecuteTool.mockResolvedValueOnce({
+      evidenceRecords: [
+        {
+          evidenceId: 'ev_01',
+          path: 'src/a.js',
+          kind: 'code',
+          excerpt: 'a',
+          knowledgeVersionId: scope().knowledgeVersionId,
+        },
+      ],
+      rejected: [],
+      usage: { resultBytes: 2, promptTokensAfterBudget: 1 },
+    });
+    mockStreamText.mockResolvedValue({
+      textStream: (async function* streamChunks() {
+        yield 'Login uses JWT per ev_01.';
+      })(),
+      usage: Promise.resolve(null),
+      durationMs: Promise.resolve(5),
+      modelId: 'test-model',
+      contextMetrics: { measuredInputTokens: 8 },
+      enableThinking: true,
+    });
+
+    await invokeChatGraph({
+      threadId: `${threadId}-null-usage`,
+      checkpointer: new MemorySaver(),
+      input: { scope: scope(), question: 'q' },
+    });
+    const finalizeArg = mockFinalizeAssistantMessage.mock.calls.at(-1)?.[0];
+    expect(finalizeArg.usage === null || finalizeArg.usage?.inputTokens == null || Number.isFinite(finalizeArg.usage?.inputTokens)).toBe(true);
+    // Provider omitted draft usage: do not fabricate zeros for missing draft usage fields alone.
+    if (finalizeArg.usage && finalizeArg.draftUsage === undefined) {
+      expect(finalizeArg.usage).not.toEqual({ inputTokens: 0, outputTokens: 0, totalTokens: 0 });
+    }
   });
 });

@@ -367,12 +367,16 @@ go through `prepareModelInput` **before** they enter graph state. Evidence ids a
 run-scoped (`ev_01`, `ev_02`, …). Slice tools reuse the same `loadSourceFileSlice`
 helper as `GET …/files/slice`.
 
-**DRAFT** prompt: rewritten question, short chat history, **only** accepted tool
-results (with ids), and grounding rules.
+**DRAFT** (phase 49): rewritten question, short chat history, **only** accepted tool
+results (with ids), and grounding rules. `streamText` with bounded thinking; answer
+tokens only via `onDelta` (phase 50 → SSE `delta`).
 
-**VERIFY:** every non-trivial claim → an evidence id; path/lines exist; same knowledge
-version. Empty evidence → abstain. Fail with budget left → retrieve/revise. Fail with
-budget exhausted → abstain or a grounded partial answer.
+**VERIFY** (phase 49): deterministic citation / path / `knowledgeVersionId` checks first;
+LLM verify only for remaining ambiguous claims. Empty evidence → abstain. Fail with revise
+budget (`MAX_VERIFY_REVISE = 1`) → AGENT_TOOLS once. Fail exhausted → abstain or grounded
+partial. **PERSIST** updates the pending assistant `Message` (evidence snapshots,
+`supportLevel`, usage, `durationMs`, `modelId`, `trace` for §146) — no separate
+`responseTraces` collection.
 
 **Context budget** (every node that calls the model):
 

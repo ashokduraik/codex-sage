@@ -11,6 +11,7 @@ export {
   assertConversationWritable,
   createConversation,
   deleteConversation,
+  finalizeAssistantMessage,
   getConversation,
   listConversationMessages,
   listConversations,
@@ -54,12 +55,14 @@ export { ChatCheckpoint } from '../../models/chatCheckpoint.model.js';
 export {
   CHAT_GRAPH_STAGE_VALUES,
   CLARIFICATION_MAX_ROUNDS,
+  MAX_VERIFY_REVISE,
   buildChatGraphThreadId,
   compileChatGraph,
   createMongoChatCheckpointer,
   invokeChatGraph,
   parseChatGraphThreadId,
   resumeChatGraphFromClarification,
+  runDeterministicVerify,
   toolChoiceDecisionSchema,
   understandDecisionSchema,
 } from './chatGraph.js';
