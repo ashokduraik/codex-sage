@@ -33,6 +33,13 @@ vi.mock('@/features/knowledge/api/knowledgeApi.js', async (importOriginal) => {
     fetchKnowledgeSummary: (...args) => fetchKnowledgeSummary(...args),
     fetchKnowledgeApis: (...args) => fetchKnowledgeApis(...args),
     fetchKnowledgeSymbols: (...args) => fetchKnowledgeSymbols(...args),
+  };
+});
+
+vi.mock('@/shared/source-preview/sourcePreviewApi.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
     fetchSourceFileMetadata: (...args) => fetchSourceFileMetadata(...args),
     fetchSourceSlice: (...args) => fetchSourceSlice(...args),
   };

@@ -214,8 +214,34 @@
       "abstainEarly": "Checking whether this can be answered…",
       "working": "Working…"
     },
-    "evidence": "Evidence",
+    "evidence": {
+      "lineRange": "L{{start}}–{{end}}",
+      "lineStart": "L{{start}}",
+      "preview": "Preview",
+      "openInKnowledge": "Open in knowledge",
+      "excludedFromGraph": "This file is not in the code map. Chat will not treat it as graph knowledge.",
+      "kind": {
+        "code": "Code",
+        "document": "Document"
+      }
+    },
+    "support": {
+      "insufficient": "Not enough project evidence to answer confidently.",
+      "conflict": "Sources disagree — review the cited evidence carefully.",
+      "partial": "Answer is only partially supported by project evidence.",
+      "evidenceBacked": "Grounded in project evidence"
+    },
+    "metrics": {
+      "duration": "{{value}}s",
+      "inputTokens": "{{count}} in",
+      "outputTokens": "{{count}} out",
+      "totalTokens": "{{count}} tokens"
+    },
     "knowledgeVersion": "Knowledge {{version}}",
+    "knowledgeVersionStale": "Based on older knowledge {{version}}",
+    "knowledgeVersionNotice": "Project knowledge was updated. New questions use the current map; older answers keep their cited version.",
+    "askAboutPrefixed": "Regarding «{{title}}»: {{question}}",
+    "clearAttachment": "Clear attachment",
     "suggested": "Suggested questions",
     "suggestedAuth": "How does authentication work?",
     "suggestedCheckout": "Explain the checkout flow",
@@ -285,6 +311,7 @@
     "nodeType": "Type",
     "open": "Open",
     "askAboutThis": "Ask about this",
+    "backToChat": "Back to conversation",
     "loading": "Loading knowledge…",
     "loadingFacet": "Loading…",
     "error": "Knowledge could not be loaded.",
@@ -822,6 +849,7 @@
   "common": {
     "cancel": "Cancel",
     "confirm": "Confirm",
+    "dismiss": "Dismiss",
     "save": "Save",
     "close": "Close",
     "back": "Back",

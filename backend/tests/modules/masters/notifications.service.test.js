@@ -232,4 +232,25 @@ describe('notifications.service', () => {
       code: 'NOT_FOUND',
     });
   });
+
+  it('excludes soft-deleted rows from list and keeps title/body free of job error tokens', async () => {
+    const { orgId, userId, projectId } = await seedNotifyProject();
+    const jobId = new mongoose.Types.ObjectId().toHexString();
+    await emitProjectNotification({
+      orgId,
+      projectId,
+      type: 'knowledge.failed',
+      jobId,
+    });
+    const listed = await listNotificationsForUser(orgId, userId);
+    expect(listed.items).toHaveLength(1);
+    const row = listed.items[0];
+    expect(row.body).not.toMatch(/stack|token|Bearer |password|sk-/i);
+    expect(row.title).not.toMatch(/Error:|Exception/i);
+
+    await Notification.updateOne({ _id: row.id }, { $set: { status: 'D' } });
+    const afterSoftDelete = await listNotificationsForUser(orgId, userId);
+    expect(afterSoftDelete.items).toHaveLength(0);
+    expect(afterSoftDelete.unreadTotal).toBe(0);
+  });
 });

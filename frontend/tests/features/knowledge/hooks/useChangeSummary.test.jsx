@@ -1,23 +1,18 @@
 /**
- * Hook tests for change summary and source preview.
+ * Hook tests for knowledge change summary.
  */
 import { describe, expect, it, vi } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useChangeSummary } from '@/features/knowledge/hooks/useChangeSummary.js';
-import { useSourcePreview } from '@/features/knowledge/hooks/useSourcePreview.js';
 
 const fetchChangeSummary = vi.fn();
-const fetchSourceFileMetadata = vi.fn();
-const fetchSourceSlice = vi.fn();
 
 vi.mock('@/features/knowledge/api/knowledgeApi.js', async (importOriginal) => {
   const actual = await importOriginal();
   return {
     ...actual,
     fetchChangeSummary: (...args) => fetchChangeSummary(...args),
-    fetchSourceFileMetadata: (...args) => fetchSourceFileMetadata(...args),
-    fetchSourceSlice: (...args) => fetchSourceSlice(...args),
   };
 });
 
@@ -29,7 +24,7 @@ function wrapper({ children }) {
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
 
-describe('useChangeSummary / useSourcePreview', () => {
+describe('useChangeSummary', () => {
   it('stays disabled without a project id', () => {
     const { result } = renderHook(() => useChangeSummary(''), { wrapper });
     expect(result.current.fetchStatus).toBe('idle');
@@ -40,26 +35,5 @@ describe('useChangeSummary / useSourcePreview', () => {
     const { result } = renderHook(() => useChangeSummary('p1'), { wrapper });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data.counts.added).toBe(1);
-  });
-
-  it('stays disabled without a preview target', () => {
-    const { result } = renderHook(() => useSourcePreview('p1', null), { wrapper });
-    expect(result.current.fetchStatus).toBe('idle');
-  });
-
-  it('loads metadata only when preview is unavailable', async () => {
-    fetchSourceFileMetadata.mockResolvedValue({ previewAvailable: false });
-    const { result } = renderHook(() => useSourcePreview('p1', { path: 'logo.png', startLine: 1, endLine: 2 }), { wrapper });
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data.slice).toBeNull();
-    expect(fetchSourceSlice).not.toHaveBeenCalled();
-  });
-
-  it('loads a slice when preview is available', async () => {
-    fetchSourceFileMetadata.mockResolvedValue({ previewAvailable: true });
-    fetchSourceSlice.mockResolvedValue({ content: 'hi' });
-    const { result } = renderHook(() => useSourcePreview('p1', { path: 'a.js' }), { wrapper });
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data.slice.content).toBe('hi');
   });
 });

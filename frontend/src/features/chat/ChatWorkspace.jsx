@@ -9,8 +9,11 @@ import { ConversationList } from './ConversationList';
 import { ClarificationPanel } from './ClarificationPanel.jsx';
 import { Loader2, PanelLeftOpen, Sparkles } from 'lucide-react';
 import { useOutletContext, useSearchParams } from 'react-router-dom';
+import { SourcePreviewDrawer } from '@/shared/source-preview';
 import { useConversation } from '@/features/chat/hooks/useConversation.js';
+import KnowledgeVersionNotice from './KnowledgeVersionNotice.jsx';
 import { isProjectAskable, isProjectArchived } from '@/shared/components/StatusBadge.jsx';
+import { useAskAboutContext } from '@/features/chat/hooks/useAskAboutContext.js';
 import { useCreateConversation } from '@/features/chat/hooks/useConversationMutations.js';
 import { useSendMessage } from '@/features/chat/hooks/useSendMessage.js';
 import { useClarificationWizard } from '@/features/chat/hooks/useClarificationWizard.js';
@@ -28,11 +31,14 @@ export default function ChatWorkspace() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [showHistory, setShowHistory] = useState(false);
   const [createError, setCreateError] = useState('');
+  const [previewTarget, setPreviewTarget] = useState(null);
   const scrollRef = useRef(null);
   const historyToggleRef = useRef(null);
   const initRef = useRef(false);
   const nearBottomRef = useRef(true);
   const projectId = project?.id ? String(project.id) : '';
+  const currentKnowledgeVersionId = typeof project?.currentKnowledgeVersionId === 'string' ? project.currentKnowledgeVersionId : null;
+  const { attachment, clearAttachment } = useAskAboutContext();
   const createMutation = useCreateConversation(projectId);
   const detailQuery = useConversation(projectId, activeConvId);
   const messagesQuery = useConversationMessages(projectId, activeConvId);
@@ -46,6 +52,12 @@ export default function ChatWorkspace() {
     projectId,
     conversationId: activeConvId,
   });
+
+  const contextWarning = useMemo(() => {
+    const latestAssistant = [...messages].reverse().find((m) => m.role === 'assistant' && m.messageStatus === 'completed');
+    const percent = latestAssistant?.contextMetrics?.contextPercentUsed;
+    return typeof percent === 'number' && Number.isFinite(percent) && percent >= 0.8;
+  }, [messages]);
 
   useEffect(() => {
     if (initRef.current || !projectId) {
@@ -358,62 +370,73 @@ export default function ChatWorkspace() {
               </button>
             </div>
           ) : (
-            <div className="mx-auto max-w-3xl pb-4">
-              {messages.map((message) => (
-                <MessageItem
-                  key={message.id}
-                  message={message}
-                  isUser={message.role === 'user'}
-                  canEdit={false}
-                  onRetry={canRetryLatest && message.id === latestAssistant?.id ? () => handleRetry(message.id) : undefined}
-                />
-              ))}
-              {showOptimisticUser ? (
-                <MessageItem
-                  key="optimistic-user"
-                  message={{
-                    id: 'optimistic-user',
-                    role: 'user',
-                    content: stream.optimisticUserContent,
-                    messageStatus: stream.phase === 'queued' ? 'queued' : 'accepted',
-                  }}
-                  isUser
-                  canEdit={false}
-                />
-              ) : null}
-              {showStreamingAssistant && stream.phase !== 'queued' ? (
-                <MessageItem
-                  key="streaming-assistant"
-                  message={{
-                    id: 'streaming-assistant',
-                    role: 'assistant',
-                    content: stream.draftText,
-                    messageStatus:
-                      stream.phase === 'failed'
-                        ? 'failed'
-                        : stream.phase === 'cancelled'
-                          ? 'cancelled'
-                          : stream.phase === 'interrupted'
-                            ? 'interrupted'
-                            : 'generating',
-                    evidence: stream.evidenceItems,
-                  }}
-                  isUser={false}
-                  streaming={isBusy}
-                  streamStage={stream.stage}
-                  canEdit={false}
-                />
-              ) : null}
-              {messages.length === 0 && !showOptimisticUser ? (
-                <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-muted text-brand">
-                    <Sparkles className="h-6 w-6" aria-hidden="true" />
+            <>
+              <KnowledgeVersionNotice projectId={projectId} currentKnowledgeVersionId={currentKnowledgeVersionId} messages={messages} />
+              <div className="mx-auto max-w-3xl pb-4">
+                {messages.map((message) => (
+                  <MessageItem
+                    key={message.id}
+                    message={message}
+                    isUser={message.role === 'user'}
+                    canEdit={false}
+                    projectId={projectId}
+                    conversationId={activeConvId}
+                    currentKnowledgeVersionId={currentKnowledgeVersionId}
+                    onPreview={setPreviewTarget}
+                    onRetry={canRetryLatest && message.id === latestAssistant?.id ? () => handleRetry(message.id) : undefined}
+                  />
+                ))}
+                {showOptimisticUser ? (
+                  <MessageItem
+                    key="optimistic-user"
+                    message={{
+                      id: 'optimistic-user',
+                      role: 'user',
+                      content: stream.optimisticUserContent,
+                      messageStatus: stream.phase === 'queued' ? 'queued' : 'accepted',
+                    }}
+                    isUser
+                    canEdit={false}
+                  />
+                ) : null}
+                {showStreamingAssistant && stream.phase !== 'queued' ? (
+                  <MessageItem
+                    key="streaming-assistant"
+                    message={{
+                      id: 'streaming-assistant',
+                      role: 'assistant',
+                      content: stream.draftText,
+                      messageStatus:
+                        stream.phase === 'failed'
+                          ? 'failed'
+                          : stream.phase === 'cancelled'
+                            ? 'cancelled'
+                            : stream.phase === 'interrupted'
+                              ? 'interrupted'
+                              : 'generating',
+                      evidence: stream.evidenceItems,
+                    }}
+                    isUser={false}
+                    streaming={isBusy}
+                    streamStage={stream.stage}
+                    canEdit={false}
+                    projectId={projectId}
+                    conversationId={activeConvId}
+                    currentKnowledgeVersionId={currentKnowledgeVersionId}
+                    onPreview={setPreviewTarget}
+                  />
+                ) : null}
+                {messages.length === 0 && !showOptimisticUser ? (
+                  <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-muted text-brand">
+                      <Sparkles className="h-6 w-6" aria-hidden="true" />
+                    </div>
+                    <h2 className="mt-4 font-display text-xl font-medium">{t('chat.emptyTitleNamed', { name: project?.name ?? '' })}</h2>
+                    <p className="mt-1.5 max-w-sm text-sm text-muted-foreground">{t('chat.emptyDescription')}</p>
                   </div>
-                  <h2 className="mt-4 font-display text-xl font-medium">{t('chat.emptyTitleNamed', { name: project?.name ?? '' })}</h2>
-                  <p className="mt-1.5 max-w-sm text-sm text-muted-foreground">{t('chat.emptyDescription')}</p>
-                </div>
-              ) : null}
-            </div>
+                ) : null}
+              </div>
+            </>
           )}
         </div>
 
@@ -429,7 +452,9 @@ export default function ChatWorkspace() {
           onStop={stop}
           isGenerating={isBusy && !isSubmittingClarification}
           queued={knowledgeUpdating || stream.phase === 'queued'}
-          contextWarning={false}
+          contextWarning={contextWarning}
+          attachment={attachment}
+          onClearAttachment={clearAttachment}
           disabled={composerDisabled}
           placeholder={
             clarificationActive
@@ -442,6 +467,7 @@ export default function ChatWorkspace() {
           }
         />
       </div>
+      <SourcePreviewDrawer projectId={projectId} target={previewTarget} onClose={() => setPreviewTarget(null)} />
     </div>
   );
 }

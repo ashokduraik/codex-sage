@@ -1,8 +1,8 @@
 /**
- * Source file metadata + slice query for the preview drawer.
+ * React Query hook that loads source metadata + a line slice for the shared preview drawer.
  */
 import { useQuery } from '@tanstack/react-query';
-import { fetchSourceFileMetadata, fetchSourceSlice, sourcePreviewQueryKey } from '../api/knowledgeApi.js';
+import { fetchSourceFileMetadata, fetchSourceSlice, sourcePreviewQueryKey } from './sourcePreviewApi.js';
 
 /**
  * Loads metadata and a slice when a path is selected.

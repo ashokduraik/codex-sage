@@ -1,5 +1,5 @@
 /**
- * Header inbox bell backed by GET /notifications.
+ * Header inbox bell backed by GET /masters/notifications/list.
  *
  * Badge uses API `unreadTotal` only. Opening a row marks it read and navigates
  * via `resourceRef` (processing when a job id is present, otherwise sources).

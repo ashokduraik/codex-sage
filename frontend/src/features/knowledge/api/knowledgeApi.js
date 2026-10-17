@@ -1,7 +1,12 @@
 /**
  * Knowledge browse, search, preview, health, and change-summary HTTP calls.
+ * Source preview HTTP helpers live in shared/source-preview and are re-exported here
+ * so existing knowledge callers keep a stable import path.
  */
 import { ApiError, apiRequest } from '@/shared/api';
+import { fetchSourceFileMetadata, fetchSourceSlice, sourcePreviewQueryKey } from '@/shared/source-preview/sourcePreviewApi.js';
+
+export { fetchSourceFileMetadata, fetchSourceSlice, sourcePreviewQueryKey };
 
 /**
  * Builds the knowledge facets query key.
@@ -41,17 +46,6 @@ export function knowledgeHealthQueryKey(projectId) {
  */
 export function projectSearchQueryKey(projectId, q, types) {
   return Object.freeze(['projects', String(projectId), 'search', q, types]);
-}
-
-/**
- * Builds the source preview query key.
- * @param {string} projectId Project id.
- * @param {string} path File path.
- * @param {{ startLine?: number, endLine?: number }} [range] Optional slice.
- * @returns {readonly unknown[]}
- */
-export function sourcePreviewQueryKey(projectId, path, range = {}) {
-  return Object.freeze(['projects', String(projectId), 'files', path, range.startLine ?? null, range.endLine ?? null]);
 }
 
 /**
@@ -178,34 +172,4 @@ export async function fetchProjectSearch(options) {
     search.set('types', options.types);
   }
   return apiRequest(`/knowledge/search/run/${encodeURIComponent(options.projectId)}?${search.toString()}`, { signal: options.signal });
-}
-
-/**
- * Loads file metadata for a project-relative path.
- * @param {{ projectId: string, path: string, signal?: AbortSignal }} options Request.
- * @returns {Promise<object>}
- */
-export async function fetchSourceFileMetadata(options) {
-  const search = new URLSearchParams({ path: options.path });
-  return apiRequest(`/knowledge/sourcePreview/getMetadata/${encodeURIComponent(options.projectId)}?${search.toString()}`, { signal: options.signal });
-}
-
-/**
- * Loads a bounded line slice.
- * @param {{
- *   projectId: string,
- *   path: string,
- *   startLine: number,
- *   endLine: number,
- *   signal?: AbortSignal,
- * }} options Request.
- * @returns {Promise<object>}
- */
-export async function fetchSourceSlice(options) {
-  const search = new URLSearchParams({
-    path: options.path,
-    startLine: String(options.startLine),
-    endLine: String(options.endLine),
-  });
-  return apiRequest(`/knowledge/sourcePreview/readSlice/${encodeURIComponent(options.projectId)}?${search.toString()}`, { signal: options.signal });
 }

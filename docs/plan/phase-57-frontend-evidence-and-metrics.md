@@ -2,7 +2,8 @@
 
 - **Layer:** FE
 - **Depends on:** Phase 55 (streaming answer — message payload + SSE `evidence`/`done`), Phase 39
-  (source preview API), Phase 49 (draft/verify/persist — evidence[] + usage on messages)
+  (source preview API), Phase 49 (draft/verify/persist — evidence[] + usage on messages), Phase 40
+  (ask-about navigation via `searchAttachment`)
 - **Unblocks:** Phase 63 E2E (grounded answer inspection path); completes trust UX for chat
 - **Size:** 1–2 days
 - **Requirements covered:** `frontend/requirments.md` §61 (response metrics), §64A (abstain),
@@ -15,12 +16,12 @@
 ## 1. Goal
 
 After this phase, completed assistant messages show **expandable evidence** grounded in backend
-`evidence[]`, open **source preview** via Phase 39 file/slice APIs without leaving the conversation,
-render **abstain / insufficient evidence** answers with distinct non-success styling (§64A),
-display **response metrics** only when the message or `done` event includes them (§61, §98),
-warn when **project knowledge version changed** after re-index while preserving old message
-snapshots (§35, §108), and accept **“Ask about this”** context from Phase 40 by pre-filling or
-attaching context to the Phase 55 composer — without fabricating counts or confidence scores.
+`evidence[]`, open **source preview** via Phase 39 `sourcePreview` APIs without leaving the
+conversation, render **abstain / insufficient evidence** answers with distinct non-success styling
+(§64A), display **response metrics** only when the message includes them (§61, §98), warn when
+**project knowledge version changed** after re-index while preserving old message snapshots
+(§35, §108), and accept **“Ask about this”** context from Phase 40 by attaching a composer chip
+and prepending readable context into `content` — without fabricating counts or confidence scores.
 
 You can see it working by expanding “Sources · N” on an answer, opening a file preview with line
 range, returning to the same thread, and seeing a banner after knowledge publish that newer
@@ -34,36 +35,36 @@ presentation and preview wiring, not SSE protocol. Splitting it avoids overloadi
 keeps preview API consumption testable against Phase 39 mocks.
 
 It depends on 55 so message objects exist with `evidence`, `supportLevel`, `knowledgeVersionId`,
-and optional `usage` / `contextMetrics`. Phase 40 should already expose navigation hooks; this
-phase completes the chat-side receiver.
+and optional `usage` / `contextMetrics` / `durationMs`. Phase 40 already emits `searchAttachment`
+navigation state; this phase completes the chat-side receiver.
 
 ## 3. Scope
 
 ### In scope
 
 - `EvidenceList` collapsible under assistant messages (§66): count label from array length only.
-- `EvidenceItem` rows: title/path, type label from backend, line range when present; excluded-from-
-  graph flag from Phase 39 rules — show callout, do not present as graph fact.
-- `SourcePreviewDrawer` (or side panel): `GET …/files/slice?path=&startLine=&endLine=` from
-  Phase 39 PROPOSED; loading/error; return focus to evidence row on close (§67).
-- Abstain / partial support: when `supportLevel` or backend abstain flag indicates insufficient
-  evidence, apply distinct typography/border (§64A, §97) — not the same as success grounded answer.
-- Metrics row (§61): render subset of `{ durationMs, inputTokens, outputTokens, contextUsed,
-  contextLimit }` **only if present** on message; format with locale helpers; omit missing fields —
-  never placeholders like “— tokens”.
-- Context warning (§37–§38): when message includes `contextMetrics.percentUsed` (Phase 44/49),
-  show subtle banner on that thread — do not compute % client-side.
-- Knowledge version notice (§35, §108): compare conversation’s last known `knowledgeVersionId` from
-  project detail (Phase 19/28) vs message snapshot; after re-index success, show non-blocking
-  banner that new questions use current knowledge; old messages show “Based on knowledge version …”
-  when backend supplies id/label — do not invent version names.
-- **Ask about this** (§68, §70): listen for router state / search param / shared event from Phase 40
-  (`askAbout` payload with resolved ids from Phase 38); activate chat tab, focus composer with
-  structured context chip or prefilled prompt **as Phase 38 defines** — do not invent resolution
-  shape.
-- Chat → Knowledge (§69): from evidence link, navigate to knowledge explorer route with return
-  token so user can come back to same `conversationId`.
-- Trust copy for conflicting/stale markers when evidence items include backend flags (§97).
+- `EvidenceItem` rows: path, kind, line range when present; `excludedFromGraph` callout — do not
+  present as graph fact.
+- Shared `SourcePreviewDrawer` (lifted from knowledge): `GET /knowledge/sourcePreview/readSlice/:projectId`
+  (+ metadata); loading/error; return focus to evidence row on close (§67).
+- Abstain / partial / conflict: when `supportLevel` or `messageStatus === 'abstained'` indicates
+  insufficient evidence, apply distinct typography/border (§64A, §97) — not the same as success
+  grounded answer.
+- Metrics row (§61): render subset of top-level `durationMs` plus `usage.{inputTokens,outputTokens,totalTokens}`
+  **only if present** on message; format with locale helpers; omit missing fields — never
+  placeholders like “— tokens”.
+- Context warning (§37–§38): when latest completed assistant message has
+  `contextMetrics.contextPercentUsed >= 0.8` (fraction 0–1 from backend), show subtle composer
+  banner — do not recompute % from raw token counts.
+- Knowledge version notice (§35, §108): compare `project.currentKnowledgeVersionId` vs message
+  snapshot; after re-index, show non-blocking thread banner once per session; old messages show
+  “Based on knowledge version …” with shortened id — do not invent version names.
+- **Ask about this** (§68, §70): consume Phase 40 `location.state.searchAttachment`
+  (`{ id, knowledgeVersionId, title }`); focus composer with non-editable context chip; send
+  remains `{ content }` with human-readable context prepended.
+- Chat → Knowledge (§69): from evidence link, navigate to knowledge explorer with
+  `state: { returnConversationId }` so user can come back to same conversation.
+- Trust copy for message-level `supportLevel: 'conflict'` (§97) — no item-level conflict flags.
 - i18n, keyboard, reduced-motion for drawer; 375px preview scroll.
 
 ### Out of scope (owner phase)
@@ -71,6 +72,8 @@ phase completes the chat-side receiver.
 - Knowledge explorer tree itself — **Phase 40**.
 - Preview API implementation — **Phase 39**.
 - Streaming deltas — **Phase 55**; clarification — **Phase 56**.
+- Expanding SSE `done` beyond `{ messageId }` — metrics come from persisted message DTO after
+  invalidate/refetch.
 - Usage admin dashboards — **Phase 59**.
 - Live DB query evidence — README §5 out of scope.
 - Playwright — **Phase 63**.
@@ -82,10 +85,11 @@ phase completes the chat-side receiver.
 ```text
 MessageItem (assistant, completed)
   └── Markdown body
-  └── SupportLevelBanner (abstain | partial | grounded)
+  └── SupportLevelBanner (insufficient | conflict | partial | evidence_backed)
   └── MetricsLine (optional fields only)
   └── EvidenceList collapsed by default
-        └── EvidenceItem → opens SourcePreviewDrawer
+        └── EvidenceItem → opens shared SourcePreviewDrawer
+        └── Open in knowledge → returnConversationId state
 ```
 
 Progressive disclosure (§96): collapsed default keeps conversation readable (§66).
@@ -93,43 +97,41 @@ Progressive disclosure (§96): collapsed default keeps conversation readable (§
 ### 4.2 Preview flow
 
 ```text
-tap evidence → drawer open → GET slice (Phase 39)
+tap evidence → drawer open → GET /knowledge/sourcePreview/readSlice/:projectId
   → show path, lines, content excerpt
-  → [Ask about this] prefills composer context from evidence id
   → Close → restore conversation scroll position
 ```
 
-Byte/token caps are server-side (Phase 39); show truncated message if API returns `truncated:
-true`.
+Byte/token caps are server-side (Phase 39); show truncated message if API returns `truncated: true`.
+
+Shared placement: `frontend/src/shared/source-preview/` (drawer + hook + slice client). Knowledge
+and chat both import from shared — no deep cross-feature imports.
 
 ### 4.3 Version change detection
 
 ```text
-on project detail fetch:
+on project detail:
   currentKnowledgeVersionId = project.currentKnowledgeVersionId
 on message render:
-  if message.knowledgeVersionId && !== current → show subtle stale/version label on that message
-on first open after project knowledgeHealth returns ready from updating:
-  show thread-level banner once (session flag) explaining new graph in use
+  if message.knowledgeVersionId && !== current → show subtle stale/version label
+on first open after knowledge is ready and older messages cite a different version:
+  show thread-level banner once (sessionStorage flag keyed by projectId)
 ```
 
 Do not query historical graphs (architecture §6.2).
 
 ### 4.4 Ask-about-this integration
 
-Phase 40 PROPOSED pattern (consume when approved):
-
 ```text
-navigate to …/chat?conversation=:id&askAbout=:token
-ChatWorkspace reads askAbout, resolves display label via cached search/knowledge payload
-Composer shows non-editable context chip + user question field
-Send includes askAbout reference in POST body only if Phase 50 defines field — else prepend
-  human-readable context per §12
+Phase 40: navigate to …/chat with state.searchAttachment
+ChatWorkspace: useAskAboutContext reads + clears state
+Composer: non-editable chip + user question field
+Send: prepend "Regarding «{title}»:" (or equivalent i18n) into content; body stays { content }
 ```
 
 ### 4.5 Anti-fabrication
 
-- Source count = `evidence.length`.
+- Source count = `evidence.length`; hide list when empty (no “Sources · 0”).
 - No confidence percentage unless backend sends a documented field (requirements forbid meaningless
   scores — §97).
 
@@ -137,114 +139,81 @@ Send includes askAbout reference in POST body only if Phase 50 defines field —
 
 **None.**
 
-## 6. API contract — PROPOSED (needs approval before implementation)
-
-### Phase 49 — message fields (via GET conversation / done event)
-
-Illustrative persisted assistant message (PROPOSED):
-
-```json
-{
-  "id": "6650…",
-  "role": "assistant",
-  "content": "…markdown…",
-  "messageStatus": "completed",
-  "supportLevel": "grounded",
-  "knowledgeVersionId": "6650…",
-  "evidence": [
-    {
-      "id": "ev1",
-      "kind": "code",
-      "path": "src/checkout/service.js",
-      "startLine": 40,
-      "endLine": 88,
-      "label": "processPayment",
-      "excludedFromGraph": false
-    }
-  ],
-  "usage": {
-    "durationMs": 2800,
-    "inputTokens": 18400,
-    "outputTokens": 4800
-  },
-  "contextMetrics": {
-    "percentUsed": 82,
-    "compactionApplied": true
-  }
-}
-```
-
-Exact names follow Phase 49 section 6.
-
-### Phase 39 — preview (PROPOSED)
-
-| Method | Path | Permission |
-|---|---|---|
-| `GET` | `/api/v1/projects/:projectId/sources/files/slice?path=&startLine=&endLine=` | `sources.preview` |
-
-Response: `{ path, startLine, endLine, content, truncated?, excludedFromGraph? }`.
-
-Optional full file metadata route from Phase 39 — use only if approved.
-
-### Phase 50 — send with ask-about context (PROPOSED)
-
-If Phase 38/50 define a structured field:
-
-```json
-{ "content": "…", "askAbout": { "kind": "symbol", "id": "…" } }
-```
-
-Otherwise UI-only prefill — confirm in §12.
+## 6. API contract — as implemented (consume only)
 
 This phase **does not add** backend routes.
 
+### Message fields (GET conversation / persisted DTO)
+
+| Field | Shape |
+| --- | --- |
+| `supportLevel` | `'evidence_backed' \| 'insufficient' \| 'conflict' \| 'partial'` (nullable) |
+| `messageStatus` | includes `'abstained'` for abstain turns |
+| `evidence[]` | `{ evidenceId, kind, path, startLine?, endLine?, heading?, excerpt, excludedFromGraph?, … }` |
+| `usage` | `{ inputTokens, outputTokens, totalTokens }` (nullable fields) |
+| `durationMs` | number \| null (sibling of `usage`, not nested) |
+| `contextMetrics` | includes `contextPercentUsed` (0–1 fraction) when present |
+| `knowledgeVersionId` | string when present |
+
+SSE `done` remains `{ messageId }` only — FE refetches the message for metrics.
+
+### Source preview (Phase 39)
+
+| Method | Path | Permission |
+| --- | --- | --- |
+| `GET` | `/knowledge/sourcePreview/readSlice/:projectId?path=&startLine=&endLine=` | `sources.preview` |
+| `GET` | `/knowledge/sourcePreview/getMetadata/:projectId?path=` | `sources.preview` |
+
+Response includes `{ path, startLine, endLine, content, truncated?, excludedFromGraph? }`.
+
 ## 7. Configuration & environment variables
 
-**None new.** Preview max display lines optional constant in drawer component.
+**None new.** Preview display defaults stay named constants next to the shared hook.
 
 ## 8. Files to create or change
 
 | Path | Purpose |
-|---|---|
-| `frontend/src/features/chat/components/EvidenceList.jsx` | **New:** collapsible list |
-| `frontend/src/features/chat/components/EvidenceItem.jsx` | **New:** row + open preview |
-| `frontend/src/features/chat/components/SourcePreviewDrawer.jsx` | **New:** Phase 39 slice viewer |
-| `frontend/src/features/chat/components/SupportLevelBanner.jsx` | **New:** abstain/partial |
-| `frontend/src/features/chat/components/MetricsLine.jsx` | **New:** conditional metrics |
-| `frontend/src/features/chat/components/KnowledgeVersionNotice.jsx` | **New:** thread banner |
-| `frontend/src/features/chat/hooks/useSourcePreview.js` | **New:** React Query for slice |
-| `frontend/src/features/chat/hooks/useAskAboutContext.js` | **New:** parse Phase 40 entry |
-| `frontend/src/features/chat/utils/formatMessageMetrics.js` | **New:** omit missing fields |
-| `frontend/src/features/chat/*.test.jsx` | Coverage for above |
-| `frontend/src/features/chat/MessageItem.jsx` | Integrate evidence/metrics/abstain |
-| `frontend/src/features/chat/ChatWorkspace.jsx` | Version notice + askAbout |
+| --- | --- |
+| `frontend/src/shared/source-preview/SourcePreviewDrawer.jsx` | Shared Phase 39 slice viewer (lifted from knowledge) |
+| `frontend/src/shared/source-preview/useSourcePreview.js` | React Query for metadata + slice |
+| `frontend/src/shared/source-preview/sourcePreviewApi.js` | Client wrappers for preview routes |
+| `frontend/src/features/chat/EvidenceList.jsx` | Collapsible list |
+| `frontend/src/features/chat/EvidenceItem.jsx` | Row + open preview / knowledge |
+| `frontend/src/features/chat/SupportLevelBanner.jsx` | insufficient / conflict / partial / evidence_backed |
+| `frontend/src/features/chat/MetricsLine.jsx` | Conditional metrics |
+| `frontend/src/features/chat/KnowledgeVersionNotice.jsx` | Thread banner |
+| `frontend/src/features/chat/hooks/useAskAboutContext.js` | Parse Phase 40 `searchAttachment` |
+| `frontend/src/features/chat/utils/formatMessageMetrics.js` | Omit missing fields |
+| `frontend/src/features/chat/MessageItem.jsx` | Integrate evidence/metrics/abstain/version |
+| `frontend/src/features/chat/ChatWorkspace.jsx` | Version notice + askAbout + context warning |
 | `frontend/src/features/chat/Composer.jsx` | Context chip for ask-about |
-| `frontend/src/features/knowledge/*` | **Touch only if needed:** emit askAbout navigation (Phase 40) |
+| `frontend/src/features/chat/api/conversationTypes.js` | Typed evidence / usage / supportLevel |
+| `frontend/src/features/knowledge/*` | Import shared preview; back-to-chat when `returnConversationId` |
 | `frontend/src/shared/i18n/locales/en.json` | Evidence, abstain, stale, metrics keys |
+| `frontend/tests/features/chat/*` | Coverage for above |
 
 ## 9. Tests (≥ 80% line and branch)
 
 ### Unit
 
-- `formatMessageMetrics` omits undefined tokens; never returns zero placeholders.
-- Abstain `supportLevel` maps to abstain banner key, not error key.
+- `formatMessageMetrics` omits undefined tokens; never returns zero placeholders for missing fields.
+- Abstain `supportLevel` / `messageStatus` maps to abstain banner key, not error key.
 - Version label shown when message version ≠ project current.
 
 ### Component
 
 - Evidence collapsed by default; expand shows N items.
 - Preview drawer: loading skeleton, error alert, truncated content message.
-- Excluded-from-graph evidence shows warning callout (Phase 39 flag).
-- MetricsLine: with full usage object shows formatted line; with `{}` renders nothing.
-- Ask-about: arriving with query param focuses composer with chip.
+- Excluded-from-graph evidence shows warning callout.
+- MetricsLine: with full usage object shows formatted line; with `{}` / missing renders nothing.
+- Ask-about: arriving with `searchAttachment` focuses composer with chip.
 - Abstain message does not use success-green styling.
 - Preview `403` shows forbidden, not raw JSON.
+- Empty `evidence[]` — hide list.
 
 ### Unhappy paths (required)
 
-- Preview network failure retry.
-- Empty `evidence[]` on grounded message — hide list, no “Sources · 0” unless product wants zero
-  (§12).
+- Preview network failure.
 - Missing `knowledgeVersionId` — no version string invented.
 - Unauthorized preview attempt.
 
@@ -260,15 +229,18 @@ This phase **does not add** backend routes.
 
 ## 11. Documentation & ADR updates
 
-- None unless preview drawer pattern is reused outside chat — then note in `docs/architecture.md`
-  §8 cross-link only.
+- Note shared preview placement in `docs/architecture.md` where preview UX is described (one-line
+  cross-link only). No new ADR.
 
-## 12. Risks & open questions
+## 12. Locked decisions (closed)
 
-1. **Ask-about POST shape:** Structured body field vs text prefill only?
-2. **supportLevel enum:** Exact values from Phase 49 (`grounded` | `partial` | `abstain`)?
-3. **Show “Sources · 0”** for abstain with empty evidence?
-4. **Knowledge version display:** Human label from API or raw id substring?
-5. **Conflict flags on evidence:** Does Phase 39/49 send doc-vs-code conflict on items yet?
-6. **Cross-feature import:** May chat import a thin helper from `features/knowledge` or must
-   shared hook live in `shared/`?
+1. **Ask-about POST shape:** UI-only — chip + prepend into `content`; no structured body field.
+2. **supportLevel enum:** `evidence_backed` \| `insufficient` \| `conflict` \| `partial` (plus
+   `messageStatus: 'abstained'`).
+3. **Show “Sources · 0”:** No — hide EvidenceList when empty.
+4. **Knowledge version display:** i18n + shortened id (first 8 chars); never invent names.
+5. **Conflict flags on evidence items:** Message-level `supportLevel: 'conflict'` only.
+6. **Cross-feature preview:** Shared module under `frontend/src/shared/source-preview/`.
+7. **Metrics on SSE done:** Not expanded; use persisted message after refetch.
+8. **Context warning threshold:** `contextPercentUsed >= 0.8` on latest completed assistant message.
+9. **Chat → Knowledge return:** `state: { returnConversationId }` on knowledge route.

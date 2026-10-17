@@ -6,10 +6,14 @@ import { cn } from '@/shared/lib/utils';
 import { Button } from '@/shared/ui/button';
 import { useTranslation } from 'react-i18next';
 import { Textarea } from '@/shared/ui/textarea';
+import MetricsLine from '@/features/chat/MetricsLine.jsx';
+import EvidenceList from '@/features/chat/EvidenceList.jsx';
 import { MarkdownRenderer, AbstainNotice } from '@/shared/components';
+import SupportLevelBanner from '@/features/chat/SupportLevelBanner.jsx';
 import { StreamingMarkdown } from '@/features/chat/StreamingMarkdown.jsx';
 import { ExecutionStatus } from '@/features/chat/ExecutionStatus.jsx';
-import { X, Ban, Check, Clock, Pencil, Loader2, FileCode, RefreshCw, ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react';
+import { shortenKnowledgeVersionId } from '@/features/chat/utils/formatMessageMetrics.js';
+import { X, Ban, Check, Clock, Pencil, Loader2, RefreshCw, AlertTriangle } from 'lucide-react';
 
 const STATUS_META = {
   queued: {
@@ -105,54 +109,6 @@ function resolveMessageStatus(message) {
 }
 
 /**
- * Collapsible evidence list attached to a completed assistant message.
- *
- * @param props - Evidence items
- * @returns Evidence disclosure UI, or null when empty
- */
-function EvidenceSources({ evidence }) {
-  const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
-  const items = Array.isArray(evidence) ? evidence : [];
-  if (items.length === 0) return null;
-  return (
-    <div className="mt-3 border-t border-border pt-2.5">
-      <button
-        type="button"
-        onClick={() => setOpen((wasOpen) => !wasOpen)}
-        className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
-      >
-        {open ? <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" /> : <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />}
-        {t('chat.sourceCount', { count: items.length })}
-      </button>
-      {open && (
-        <div className="mt-2 space-y-2">
-          {items.map((item, index) => {
-            const file = item.file ?? item.path ?? item.locator?.path ?? 'source';
-            const location = item.location ?? item.locator?.range ?? '';
-            const snippet = item.snippet ?? item.text ?? '';
-            return (
-              <div key={`${file}-${index}`} className="rounded-lg border border-border bg-muted/30 p-2.5">
-                <div className="flex items-center gap-1.5 text-xs font-medium text-foreground">
-                  <FileCode className="h-3.5 w-3.5 text-brand" aria-hidden="true" />
-                  <span className="font-mono">{file}</span>
-                  {location ? <span className="text-muted-foreground">· {location}</span> : null}
-                </div>
-                {snippet ? (
-                  <pre className="mt-1.5 overflow-x-auto rounded bg-[hsl(215_28%_8%)] p-2.5 font-mono text-[12px] leading-relaxed text-white/85 scrollbar-thin">
-                    {snippet}
-                  </pre>
-                ) : null}
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/**
  * Single chat message row for user or assistant turns.
  *
  * @param {{
@@ -163,10 +119,26 @@ function EvidenceSources({ evidence }) {
  *   canEdit?: boolean,
  *   streaming?: boolean,
  *   streamStage?: string,
+ *   projectId?: string,
+ *   conversationId?: string | null,
+ *   currentKnowledgeVersionId?: string | null,
+ *   onPreview?: (target: { path: string, startLine?: number, endLine?: number }) => void,
  * }} props Message data and edit/retry/stream handlers.
  * @returns Message row
  */
-export function MessageItem({ message, isUser, onEdit, onRetry, canEdit = false, streaming = false, streamStage = '' }) {
+export function MessageItem({
+  message,
+  isUser,
+  onEdit,
+  onRetry,
+  canEdit = false,
+  streaming = false,
+  streamStage = '',
+  projectId = '',
+  conversationId = null,
+  currentKnowledgeVersionId = null,
+  onPreview,
+}) {
   const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(message.content);
@@ -177,6 +149,9 @@ export function MessageItem({ message, isUser, onEdit, onRetry, canEdit = false,
   const isInterrupted = statusCode === 'interrupted' || statusCode === 'Interrupted' || statusCode === 'cancelled' || statusCode === 'Cancelled';
   const isAbstained = statusCode === 'abstained' || message.abstain || message.supportLevel === 'insufficient';
   const showStatusChrome = !streaming && Boolean(meta?.icon) && !isCompleted;
+  const versionId = typeof message.knowledgeVersionId === 'string' ? message.knowledgeVersionId : null;
+  const versionShort = shortenKnowledgeVersionId(versionId);
+  const versionStale = Boolean(versionId && currentKnowledgeVersionId && versionId !== currentKnowledgeVersionId);
   /**
    * Persist an edited user message when the draft changed.
    */
@@ -187,7 +162,13 @@ export function MessageItem({ message, isUser, onEdit, onRetry, canEdit = false,
     setEditing(false);
   };
   return (
-    <div className={cn('group flex gap-3 px-4 py-4 sm:px-6', isUser && 'bg-muted/20')}>
+    <div
+      className={cn(
+        'group flex gap-3 px-4 py-4 sm:px-6',
+        isUser && 'bg-muted/20',
+        !isUser && isAbstained && 'border-l-2 border-amber-400 bg-amber-50/40',
+      )}
+    >
       <div
         className={cn(
           'flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold',
@@ -246,8 +227,13 @@ export function MessageItem({ message, isUser, onEdit, onRetry, canEdit = false,
               </div>
             ) : null}
             {message.content ? streaming ? <StreamingMarkdown content={message.content} /> : <MarkdownRenderer content={message.content} /> : null}
+            {!streaming && (isCompleted || isAbstained) ? (
+              <SupportLevelBanner supportLevel={message.supportLevel} messageStatus={statusCode} />
+            ) : null}
             {isAbstained && typeof onRetry === 'function' ? <AbstainNotice missing={message.missing} onRetry={onRetry} onNarrow={onRetry} /> : null}
-            {isAbstained && typeof onRetry !== 'function' ? <p className="mt-2 text-sm text-muted-foreground">{t('chat.statusAbstained')}</p> : null}
+            {isAbstained && typeof onRetry !== 'function' && !message.supportLevel ? (
+              <p className="mt-2 text-sm text-muted-foreground">{t('chat.statusAbstained')}</p>
+            ) : null}
             {(isFailed || isInterrupted) && !isAbstained && !streaming ? (
               <div className="mt-2 flex items-center gap-2">
                 <span className="text-sm text-destructive">{isInterrupted ? t('chat.statusInterrupted') : t('chat.generationFailed')}</span>
@@ -259,16 +245,15 @@ export function MessageItem({ message, isUser, onEdit, onRetry, canEdit = false,
                 ) : null}
               </div>
             ) : null}
-            {isCompleted ? <EvidenceSources evidence={message.evidence} /> : null}
-            {isCompleted && (message.evidence || message.knowledgeVersion || message.knowledgeVersionId) ? (
+            {!streaming && (isCompleted || isAbstained) ? <MetricsLine message={message} /> : null}
+            {!streaming && (isCompleted || isAbstained) && typeof onPreview === 'function' ? (
+              <EvidenceList evidence={message.evidence} projectId={projectId} conversationId={conversationId} onPreview={onPreview} />
+            ) : null}
+            {!streaming && (isCompleted || isAbstained) && versionShort ? (
               <div className="mt-2 flex items-center gap-3 text-[11px] text-muted-foreground">
-                {(message.knowledgeVersion || message.knowledgeVersionId) && (
-                  <span>
-                    {t('chat.knowledgeVersion', {
-                      version: message.knowledgeVersion || message.knowledgeVersionId,
-                    })}
-                  </span>
-                )}
+                <span className={versionStale ? 'text-amber-700' : undefined}>
+                  {versionStale ? t('chat.knowledgeVersionStale', { version: versionShort }) : t('chat.knowledgeVersion', { version: versionShort })}
+                </span>
               </div>
             ) : null}
           </div>

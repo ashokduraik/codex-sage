@@ -49,23 +49,29 @@ describe('MessageItem', () => {
         message={buildMessage({
           content: '## How authentication works\n\nJWT sessions.',
           status: 'Completed',
-          knowledgeVersion: 'v3',
+          knowledgeVersionId: '6650abcd9999',
           evidence: [
             {
-              file: 'src/auth/login.ts',
-              location: 'L10-L40',
-              snippet: 'export function login() {}',
+              evidenceId: 'ev1',
+              kind: 'code',
+              path: 'src/auth/login.ts',
+              startLine: 10,
+              endLine: 40,
+              excerpt: 'export function login() {}',
             },
           ],
         })}
         isUser={false}
         onEdit={() => undefined}
         onRetry={() => undefined}
+        onPreview={() => undefined}
+        projectId="p1"
       />,
     );
     expect(screen.getByText('S')).toBeTruthy();
     expect(screen.getByText(/How authentication works/i)).toBeTruthy();
     expect(screen.getByText(/1 source/i)).toBeTruthy();
+    expect(screen.getByText(/Knowledge 6650abcd/i)).toBeTruthy();
   });
 
   it('maps BE messageStatus without crashing on unknown values', () => {
@@ -221,6 +227,7 @@ describe('MessageItem', () => {
     expect(screen.getByText(/Generating answer/i)).toBeTruthy();
   });
   it('expands evidence sources and shows searching status', () => {
+    const onPreview = vi.fn();
     renderWithProviders(
       <MessageItem
         message={buildMessage({
@@ -238,22 +245,64 @@ describe('MessageItem', () => {
         message={buildMessage({
           content: 'Done',
           status: 'Completed',
-          knowledgeVersion: 'v3',
+          knowledgeVersionId: '6650abcd9999',
           evidence: [
             {
-              file: 'src/auth/login.ts',
-              location: 'L10-L40',
-              snippet: 'export function login() {}',
+              evidenceId: 'ev1',
+              kind: 'code',
+              path: 'src/auth/login.ts',
+              startLine: 10,
+              endLine: 40,
+              excerpt: 'export function login() {}',
             },
           ],
         })}
         isUser={false}
         onEdit={() => undefined}
         onRetry={() => undefined}
+        onPreview={onPreview}
+        projectId="p1"
+        currentKnowledgeVersionId="current999"
       />,
     );
     fireEvent.click(screen.getByRole('button', { name: /1 source/i }));
     expect(screen.getByText('src/auth/login.ts')).toBeTruthy();
     expect(screen.getByText('export function login() {}')).toBeTruthy();
+    expect(screen.getByText(/Based on older knowledge 6650abcd/i)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /Preview/i }));
+    expect(onPreview).toHaveBeenCalledWith({ path: 'src/auth/login.ts', startLine: 10, endLine: 40 });
+  });
+
+  it('hides sources when evidence is empty and shows metrics when present', () => {
+    renderWithProviders(
+      <MessageItem
+        message={buildMessage({
+          content: 'Done',
+          messageStatus: 'completed',
+          evidence: [],
+          durationMs: 2500,
+          usage: { inputTokens: 100, outputTokens: 50 },
+        })}
+        isUser={false}
+        onPreview={() => undefined}
+        projectId="p1"
+      />,
+    );
+    expect(screen.queryByRole('button', { name: /source/i })).toBeNull();
+    expect(screen.getByTestId('metrics-line')).toBeTruthy();
+  });
+
+  it('shows insufficient support banner for abstained turns', () => {
+    renderWithProviders(
+      <MessageItem
+        message={buildMessage({
+          content: 'Cannot say',
+          messageStatus: 'abstained',
+          supportLevel: 'insufficient',
+        })}
+        isUser={false}
+      />,
+    );
+    expect(screen.getByText(/Not enough project evidence/i)).toBeTruthy();
   });
 });

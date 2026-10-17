@@ -85,4 +85,15 @@ describe('NotificationBell', () => {
     renderWithProviders(<NotificationBell />);
     expect(document.querySelector('.bg-brand')).toBeNull();
   });
+
+  it('renders without inventing unread when the query errored', () => {
+    useNotifications.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      error: new Error('boom'),
+    });
+    renderWithProviders(<NotificationBell />);
+    expect(screen.getByLabelText('Notifications')).toBeTruthy();
+    expect(document.querySelector('.bg-brand')).toBeNull();
+  });
 });

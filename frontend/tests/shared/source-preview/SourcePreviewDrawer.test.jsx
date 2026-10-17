@@ -1,15 +1,15 @@
 /**
- * Source preview drawer tests.
+ * Shared source preview drawer tests.
  */
 import { cleanup, screen } from '@testing-library/react';
 import { renderWithProviders } from '@tests/renderWithProviders';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import SourcePreviewDrawer from '@/features/knowledge/SourcePreviewDrawer.jsx';
+import SourcePreviewDrawer from '@/shared/source-preview/SourcePreviewDrawer.jsx';
 
 const fetchSourceFileMetadata = vi.fn();
 const fetchSourceSlice = vi.fn();
 
-vi.mock('@/features/knowledge/api/knowledgeApi.js', async (importOriginal) => {
+vi.mock('@/shared/source-preview/sourcePreviewApi.js', async (importOriginal) => {
   const actual = await importOriginal();
   return {
     ...actual,

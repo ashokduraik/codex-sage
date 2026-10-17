@@ -467,9 +467,12 @@ Gate `queue` / writer or a missing index that cannot be leased returns `200`
 | `GET /projects/:id/knowledge/symbols?q=` | `getNodesByNamePrefix` / `searchNodes` |
 | `GET /projects/:id/knowledge/health` | Published health + exclusion count |
 | `GET /projects/:id/files` | Current `SourceFile` metadata + excluded-from-graph labels |
-| `GET /projects/:id/files/slice` | GridFS bytes, line-bounded and capped; `truncated` when a cap applies |
+| `GET /knowledge/sourcePreview/readSlice/:projectId` | GridFS bytes, line-bounded and capped; `truncated` when a cap applies (`sources.preview`) |
+| `GET /knowledge/sourcePreview/getMetadata/:projectId` | File metadata + excluded-from-graph labels for preview |
 | `GET /projects/:id/knowledge/updates/latest` | Latest computed `sourceChangeSummaries` row (file counts only; impact fields null) |
-| Chat “ask about this” | Resolve ids again under org/project/current version → evidence → budgeter → UNDERSTAND |
+| Chat “ask about this” | FE chip via `searchAttachment` navigation state; send prepends readable context into `content` |
+
+Chat and knowledge share the preview drawer under `frontend/src/shared/source-preview/` (Phase 57).
 
 ---
 

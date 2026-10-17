@@ -50,4 +50,23 @@ describe('Composer', () => {
     expect(screen.getByText(/queued/i)).toBeTruthy();
     expect(screen.getByText(/context/i)).toBeTruthy();
   });
+
+  it('prepends ask-about context and clears the chip on send', () => {
+    const onSend = vi.fn();
+    const onClearAttachment = vi.fn();
+    renderWithProviders(
+      <Composer
+        onSend={onSend}
+        onStop={() => undefined}
+        attachment={{ id: 'sym1', title: 'CheckoutService' }}
+        onClearAttachment={onClearAttachment}
+      />,
+    );
+    expect(screen.getByTestId('ask-about-chip')).toBeTruthy();
+    const input = screen.getByPlaceholderText('Ask anything about this project…');
+    fireEvent.change(input, { target: { value: 'How does this work?' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    expect(onSend).toHaveBeenCalledWith('Regarding «CheckoutService»: How does this work?');
+    expect(onClearAttachment).toHaveBeenCalled();
+  });
 });

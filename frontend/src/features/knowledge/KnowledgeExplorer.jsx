@@ -4,9 +4,9 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { EmptyState } from '@/shared/components';
-import SourcePreviewDrawer from './SourcePreviewDrawer.jsx';
-import { Link, useNavigate, useOutletContext } from 'react-router-dom';
-import { ArrowRight, BookOpen, Boxes, ChevronDown, ChevronRight } from 'lucide-react';
+import { SourcePreviewDrawer } from '@/shared/source-preview';
+import { Link, useLocation, useNavigate, useOutletContext } from 'react-router-dom';
+import { ArrowLeft, ArrowRight, BookOpen, Boxes, ChevronDown, ChevronRight } from 'lucide-react';
 import { useKnowledgeFacet, useKnowledgeFacets, useKnowledgeHealth } from './hooks/useKnowledgeFacets.js';
 
 /**
@@ -135,11 +135,13 @@ export default function KnowledgeExplorer() {
   const { t } = useTranslation();
   const { project } = useOutletContext();
   const navigate = useNavigate();
+  const location = useLocation();
   const projectId = project?.id;
   const facetsQuery = useKnowledgeFacets(projectId);
   const healthQuery = useKnowledgeHealth(projectId);
   const [expanded, setExpanded] = useState({});
   const [previewTarget, setPreviewTarget] = useState(null);
+  const returnConversationId = typeof location.state?.returnConversationId === 'string' ? location.state.returnConversationId : null;
 
   const state = facetsQuery.data?.state;
   const facets = Array.isArray(facetsQuery.data?.facets) ? facetsQuery.data.facets : [];
@@ -172,6 +174,16 @@ export default function KnowledgeExplorer() {
       <div className="mx-auto max-w-3xl px-6 py-8">
         <h1 className="font-display text-xl font-medium">{t('knowledge.title')}</h1>
         <p className="text-sm text-muted-foreground">{t('knowledge.subtitle')}</p>
+
+        {returnConversationId && projectId ? (
+          <Link
+            to={`/projects/${projectId}/chat?conv=${encodeURIComponent(returnConversationId)}`}
+            className="mt-3 inline-flex items-center gap-1.5 text-sm text-brand hover:underline"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+            {t('knowledge.backToChat')}
+          </Link>
+        ) : null}
 
         {healthQuery.data?.dimensions ? (
           <div className="mt-4 rounded-lg border border-border bg-card px-4 py-3 text-sm">

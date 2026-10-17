@@ -6,7 +6,7 @@ import { cn } from '@/shared/lib/utils';
 import { Input } from '@/shared/ui/input';
 import { useTranslation } from 'react-i18next';
 import { EmptyState } from '@/shared/components';
-import SourcePreviewDrawer from './SourcePreviewDrawer.jsx';
+import { SourcePreviewDrawer } from '@/shared/source-preview';
 import { useProjectSearch } from './hooks/useProjectSearch.js';
 import { Link, useNavigate, useOutletContext } from 'react-router-dom';
 import { ArrowRight, BookOpen, Boxes, FileCode, FileQuestion, Plug, Search, Workflow } from 'lucide-react';

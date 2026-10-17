@@ -1,8 +1,8 @@
 /**
- * Bounded source preview drawer.
+ * Bounded source preview drawer shared by knowledge browse and chat evidence.
  */
 import { useTranslation } from 'react-i18next';
-import { useSourcePreview } from './hooks/useSourcePreview.js';
+import { useSourcePreview } from './useSourcePreview.js';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/shared/ui/sheet';
 
 /**

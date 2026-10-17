@@ -6,7 +6,7 @@ import { cn } from '@/shared/lib/utils';
 import { useTranslation } from 'react-i18next';
 import { EmptyState } from '@/shared/components';
 import { useOutletContext } from 'react-router-dom';
-import SourcePreviewDrawer from '@/features/knowledge/SourcePreviewDrawer.jsx';
+import { SourcePreviewDrawer } from '@/shared/source-preview';
 import { useChangeSummary } from '@/features/knowledge/hooks/useChangeSummary.js';
 import { AlertTriangle, ChevronDown, ChevronRight, FileEdit, FileMinus, FilePlus, GitCompare } from 'lucide-react';
 

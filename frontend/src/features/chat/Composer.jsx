@@ -1,15 +1,38 @@
+/**
+ * Chat composer with auto-growing textarea, optional ask-about chip, and send/stop controls.
+ */
 import { cn } from '@/shared/lib/utils';
 import { useTranslation } from 'react-i18next';
 import { useEffect, useRef, useState } from 'react';
-import { ArrowUp, Square, AlertTriangle } from 'lucide-react';
+import { ArrowUp, Square, AlertTriangle, X } from 'lucide-react';
 
 /**
  * Chat composer with auto-growing textarea and send/stop controls.
  *
- * @param props - Composer callbacks and UI state
+ * @param {{
+ *   onSend: (content: string) => void,
+ *   onStop?: () => void,
+ *   isGenerating?: boolean,
+ *   disabled?: boolean,
+ *   placeholder?: string,
+ *   queued?: boolean,
+ *   contextWarning?: boolean,
+ *   attachment?: { id?: string, title?: string } | null,
+ *   onClearAttachment?: () => void,
+ * }} props Composer callbacks and UI state.
  * @returns Composer footer
  */
-export function Composer({ onSend, onStop, isGenerating = false, disabled = false, placeholder, queued = false, contextWarning = false }) {
+export function Composer({
+  onSend,
+  onStop,
+  isGenerating = false,
+  disabled = false,
+  placeholder,
+  queued = false,
+  contextWarning = false,
+  attachment = null,
+  onClearAttachment,
+}) {
   const { t } = useTranslation();
   const [value, setValue] = useState('');
   const textareaRef = useRef(null);
@@ -20,13 +43,29 @@ export function Composer({ onSend, onStop, isGenerating = false, disabled = fals
       textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
     }
   }, [value]);
+
+  useEffect(() => {
+    if (attachment?.title) {
+      textareaRef.current?.focus();
+    }
+  }, [attachment?.title, attachment?.id]);
+
   /**
    * Submit the current draft when non-empty and not blocked.
+   * Prepends ask-about context into content when a chip is active.
    */
   const submit = () => {
     if (!value.trim() || isGenerating || disabled) return;
-    onSend(value.trim());
+    const question = value.trim();
+    const content =
+      attachment?.title != null && String(attachment.title).trim()
+        ? t('chat.askAboutPrefixed', { title: String(attachment.title).trim(), question })
+        : question;
+    onSend(content);
     setValue('');
+    if (typeof onClearAttachment === 'function') {
+      onClearAttachment();
+    }
   };
   return (
     <div className="border-t border-border bg-background px-4 py-3 sm:px-6">
@@ -40,6 +79,24 @@ export function Composer({ onSend, onStop, isGenerating = false, disabled = fals
         {queued && (
           <div className="mb-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs text-blue-700">{t('chat.queuedNotice')}</div>
         )}
+        {attachment?.title ? (
+          <div
+            className="mb-2 inline-flex max-w-full items-center gap-2 rounded-full border border-border bg-muted/60 px-3 py-1 text-xs text-foreground"
+            data-testid="ask-about-chip"
+          >
+            <span className="truncate">{t('chat.attachmentChip', { title: attachment.title })}</span>
+            {typeof onClearAttachment === 'function' ? (
+              <button
+                type="button"
+                onClick={onClearAttachment}
+                className="shrink-0 text-muted-foreground hover:text-foreground"
+                aria-label={t('chat.clearAttachment')}
+              >
+                <X className="h-3.5 w-3.5" aria-hidden="true" />
+              </button>
+            ) : null}
+          </div>
+        ) : null}
         <div
           className={cn(
             'flex items-end gap-2 rounded-xl border border-border bg-card p-2 shadow-sm focus-within:ring-2 focus-within:ring-ring/30',
