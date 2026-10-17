@@ -181,6 +181,21 @@ describe('buildApp', () => {
     expect(res.statusCode).toBe(200);
   });
 
+  it('does not emit FSTDEP023 when disabling Fastify request logging via logController', async () => {
+    const warnings = [];
+    const onWarning = (warning) => {
+      warnings.push(warning);
+    };
+    process.on('warning', onWarning);
+    try {
+      app = buildApp(TEST_APP_CONFIG);
+      await app.ready();
+    } finally {
+      process.off('warning', onWarning);
+    }
+    expect(warnings.filter((warning) => warning.code === 'FSTDEP023')).toEqual([]);
+  });
+
   it('accepts a pre-built loggerInstance and binds method/url on request.log', async () => {
     const lines = [];
     const { buildLoggerOptions } = await import('../../src/platform/logger.js');

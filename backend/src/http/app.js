@@ -4,7 +4,6 @@
  * domain routes. Does not start listening — call `.listen()` on the returned
  * instance (see `index.js`).
  */
-import Fastify from 'fastify';
 import fjwt from '@fastify/jwt';
 import cors from '@fastify/cors';
 import cookie from '@fastify/cookie';
@@ -12,6 +11,7 @@ import { randomUUID } from 'node:crypto';
 import multipart from '@fastify/multipart';
 import { registerRoutes } from './route.js';
 import csrf from '@fastify/csrf-protection';
+import Fastify, { LogController } from 'fastify';
 import { loadConfig } from '../platform/config.js';
 import { registerErrorHandler } from '../platform/errors.js';
 import { getHealthHttp, getReadinessHttp } from './health.routes.js';
@@ -67,10 +67,11 @@ export function buildApp(config = loadConfig(), options = {}) {
 
   const { loggerOption, loggingEnabled } = resolveFastifyLoggerConfig(config, options);
 
+  // Suppress Fastify's default info-level request logs; registerRequestLogging emits debug instead.
   const app = Fastify({
     ...loggerOption,
-    disableRequestLogging: true,
     genReqId: () => generateCorrelationId(),
+    logController: new LogController({ disableRequestLogging: true }),
     ...(loggingEnabled ? { childLoggerFactory: createRequestChildLogger } : {}),
   });
 
