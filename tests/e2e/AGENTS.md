@@ -38,10 +38,10 @@ Catalog + matrix: [`workflows.md`](./workflows.md). Runbook: [`README.md`](./REA
 
 ## Env model
 
-| Repo    | Source                                                                                                | Token                         |
-| ------- | ----------------------------------------------------------------------------------------------------- | ----------------------------- |
-| Public  | `DEFAULT_PUBLIC_REPO_URL` in `helpers/env.js` (`octocat/Hello-World`); optional `E2E_PUBLIC_REPO_URL` | None                          |
-| Private | `E2E_PRIVATE_REPO_URL` (optional)                                                                     | `E2E_GITHUB_TOKEN` (optional) |
+| Repo    | Source                                                                                                   | Token                         |
+| ------- | -------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| Public  | `DEFAULT_PUBLIC_REPO_URL` in `helpers/env.js` (`sindresorhus/is-docker`); optional `E2E_PUBLIC_REPO_URL` | None                          |
+| Private | `E2E_PRIVATE_REPO_URL` (optional)                                                                        | `E2E_GITHUB_TOKEN` (optional) |
 
 `E2E_SKIP=1` — log skip line in global-setup; journey specs use `test.skip(skipLiveStack, …)`.
 

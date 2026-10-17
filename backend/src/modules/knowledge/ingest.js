@@ -490,7 +490,7 @@ export async function enterIngestLifecycleAtJobStart(input) {
  * @param {{
  *   orgId: string,
  *   projectId: string,
- *   sourceVersionId: string,
+ *   sourceVersionId?: string | null,
  *   failureCode: string,
  *   correlationId?: string | null,
  *   log?: { error?: Function },
@@ -503,7 +503,8 @@ export async function markProjectKnowledgeFailed(input) {
     return;
   }
   const from = project.lifecycleStatus;
-  if (from !== 'processing' && from !== 'updating') {
+  // source_received: repo_sync can fail before ingest starts (e.g. empty after exclusions).
+  if (from !== 'processing' && from !== 'updating' && from !== 'source_received') {
     return;
   }
 
@@ -529,7 +530,7 @@ export async function markProjectKnowledgeFailed(input) {
       correlationId: input.correlationId ?? null,
       context: {
         projectId: String(input.projectId),
-        sourceVersionId: String(input.sourceVersionId),
+        sourceVersionId: input.sourceVersionId != null ? String(input.sourceVersionId) : null,
         code: input.failureCode,
       },
     },

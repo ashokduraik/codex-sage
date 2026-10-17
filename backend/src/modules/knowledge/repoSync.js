@@ -9,6 +9,7 @@ import { ApiError, caughtErrorFields, logCaughtError } from '../../platform/erro
 import { inspectZip, storeAcceptedZipEntries, summarizeInspection, UPLOAD_MAX_ARCHIVE_BYTES } from './uploads.js';
 import { listDueConnections, updateConnection, findActiveConnection, decryptConnectionToken } from './repositories.js';
 import { insertPendingJob, findActiveJobForProjectByTypes, createPendingJob, deferRunningJob } from '../masters/index.js';
+import { markProjectKnowledgeFailed } from './ingest.js';
 import { insertSourceFiles, insertSourceVersion, markGridFsFilesOrphaned, setSourceVersionJobId, SOURCE_ORIGIN_REPOSITORY } from './sources.js';
 import {
   outboundGet,
@@ -888,6 +889,17 @@ export async function runRepoSyncJob(workerContext) {
       errorCode: code,
       jobId,
     });
+    // Empty archive after exclusions never reaches ingest — surface Failed on the project.
+    if (code === 'SOURCE_VERSION_EMPTY_AFTER_EXCLUSIONS') {
+      await markProjectKnowledgeFailed({
+        orgId,
+        projectId,
+        sourceVersionId: null,
+        failureCode: code,
+        correlationId: job.correlationId ?? null,
+        log: workerContext.log,
+      });
+    }
     throw err;
   }
 }

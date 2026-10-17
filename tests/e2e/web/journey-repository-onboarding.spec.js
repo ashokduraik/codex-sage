@@ -80,7 +80,7 @@ test.describe('Journey: repository onboarding via UI', () => {
     await openConnectFromSources(page, publicProjectName);
     await attachPublicRepoViaUi(page);
     await openProjectTab(page, 'Sources');
-    await expect(page.getByText(/octocat\/Hello-World|github.com/i).first()).toBeVisible();
+    await expect(page.getByText(/sindresorhus\/is-docker|github.com/i).first()).toBeVisible();
   });
 
   test('processing and health reach a terminal state', async ({ page }) => {

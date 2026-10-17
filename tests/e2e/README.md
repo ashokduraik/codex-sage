@@ -51,7 +51,7 @@ npm run test:e2e:env
 | `E2E_BASE_URL`                           | No       | Web app (default `http://localhost:5173`)                     |
 | `E2E_API_URL`                            | No       | API origin (default `http://localhost:3000`)                  |
 | `E2E_ADMIN_EMAIL` / `E2E_ADMIN_PASSWORD` | No       | Bootstrap admin (defaults match ADR 0011)                     |
-| `E2E_PUBLIC_REPO_URL`                    | No       | Override default public repo (`octocat/Hello-World`)          |
+| `E2E_PUBLIC_REPO_URL`                    | No       | Override default public repo (`sindresorhus/is-docker`)       |
 | `E2E_REPO_BRANCH`                        | No       | Unused default `main` (dialog uses the probed default branch) |
 | `E2E_PRIVATE_REPO_URL`                   | No       | Private Git URL; skip private attach when blank               |
 | `E2E_GITHUB_TOKEN`                       | No       | Token for the private repo; skip when blank                   |

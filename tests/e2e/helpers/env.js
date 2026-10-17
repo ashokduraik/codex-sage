@@ -1,5 +1,9 @@
-/** Stable public GitHub repo for attach-without-token. Override via E2E_PUBLIC_REPO_URL. */
-export const DEFAULT_PUBLIC_REPO_URL = 'https://github.com/octocat/Hello-World.git';
+/**
+ * Stable public GitHub repo for attach-without-token.
+ * Prefer a tiny repo with real source files — Hello-World is README-only and fails
+ * SOURCE_VERSION_EMPTY_AFTER_EXCLUSIONS. Override via E2E_PUBLIC_REPO_URL.
+ */
+export const DEFAULT_PUBLIC_REPO_URL = 'https://github.com/sindresorhus/is-docker.git';
 
 /**
  * Probe target for invalid-URL attach tests.

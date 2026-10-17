@@ -88,4 +88,26 @@ describe('markProjectKnowledgeFailed', () => {
     );
     expect(recordAuditEvent).toHaveBeenCalledWith(expect.objectContaining({ action: 'knowledge.failed' }), expect.anything());
   });
+
+  it('transitions source_received to failed when repo sync never reaches ingest', async () => {
+    findProjectById.mockResolvedValue({ lifecycleStatus: 'source_received' });
+    transitionLifecycle.mockResolvedValue({});
+    recordAuditEvent.mockResolvedValue(undefined);
+
+    await markProjectKnowledgeFailed({
+      orgId: 'o1',
+      projectId: 'p1',
+      sourceVersionId: null,
+      failureCode: 'SOURCE_VERSION_EMPTY_AFTER_EXCLUSIONS',
+    });
+
+    expect(transitionLifecycle).toHaveBeenCalledWith(
+      expect.objectContaining({
+        from: 'source_received',
+        to: 'failed',
+        knowledgeHealth: 'failed',
+        source: 'worker',
+      }),
+    );
+  });
 });
