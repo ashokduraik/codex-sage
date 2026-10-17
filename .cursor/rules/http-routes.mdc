@@ -1,0 +1,102 @@
+---
+description: Central HTTP route catalog in backend/src/http/route.js
+alwaysApply: true
+---
+
+# HTTP routes — central catalog
+
+All API URL registration lives in **[`backend/src/http/route.js`](backend/src/http/route.js)**.
+Do **not** add per-resource `*Routes` plugins. Resource files export named `*Http`
+adapters; `route.js` wires method, path, access, and handler.
+
+Mounted under `API_BASE_PATH` from `http/app.js`. Root `/health` and `/readiness`
+reuse the same health handlers outside the catalog plugin.
+
+## Path shape
+
+Product paths:
+
+```text
+/{module}/{file}/{action}/:ids…
+```
+
+Examples: `/masters/users/create`, `/conversation/conversation/restore/:projectId/:conversationId`.
+
+- **module** — one of `access`, `masters`, `knowledge`, `conversation` (or `http` for probes).
+- **file** — resource file stem (`users`, `auth`, `repositories`, …).
+- **action** — product verb matching the handler (`create`, `list`, `restore`, …).
+- **Health** stays flat: `/health`, `/readiness` (also registered at process root).
+
+Do not invent alternate path layouts without an explicit product decision.
+
+## Handlers (`*Http`)
+
+- Live in the owning resource file; re-export from the module `index.js`.
+- Names are **product verbs**, not HTTP methods: `createConversationHttp`,
+  `restoreConversationHttp`, `listUsersHttp`, `loginHttp` — **not**
+  `postConversationRestoreHttp` / `getUsersHttp`.
+- Keep service/repository function names unchanged (`createConversation`, …).
+- The `*Http` adapter owns request validation and `reply`; it calls the service and
+  does not pass `reply` into helpers (`function-design.mdc`).
+
+## Access helpers (call sites stay positional)
+
+Use the helpers in `route.js` — **no options objects** at registration call sites:
+
+| Helper | Purpose |
+| ------ | ------- |
+| `withPublicAccess(requireCsrf?)` | Public; `true` attaches CSRF from the app |
+| `withAuthenticatedAccess(allowWhenMustChangePassword?, requireIdempotencyKey?)` | Authenticated, no project ACL |
+| `withRequiredPermissions(permission(s), requireIdempotencyKey?)` | Org `requiredPermissions` |
+| `withProjectAccess(permission(s), requireIdempotencyKey?, consumeSourceArchive?)` | Authenticated + project ACL preHandler |
+
+`withProjectAccess`: a **string** permission uses mode `all`; an **array** always means
+**any** (do not pass a `mode` argument).
+
+```js
+// ❌ BAD
+app.post('/…', { config: { requiredPermissions: ['users.manage'] } }, createUserHttp);
+app.get('/…', withProjectAccess(preHandler), getProjectHttp);
+app.post('/…', withPublicAccess(app.csrfProtection), refreshSessionHttp);
+
+// ✅ GOOD
+app.post('/masters/users/create', withRequiredPermissions('users.manage', true), createUserHttp);
+app.get('/masters/projects/get/:projectId', withProjectAccess('projects.view'), getProjectHttp);
+app.post('/access/auth/refresh', withPublicAccess(true), refreshSessionHttp);
+app.get('/…', withProjectAccess(['knowledge.browse', 'knowledge.view']), getKnowledgeSummaryHttp);
+```
+
+## Catalog comments
+
+In `registerRoutes`:
+
+- **Module** start/end only — banner comments:
+
+```js
+// ---------------------------------------------------------------------------
+// masters
+// ---------------------------------------------------------------------------
+// …routes…
+// ---------------------------------------------------------------------------
+// end masters
+// ---------------------------------------------------------------------------
+```
+
+- **Resource file** — one line: `// users.js`
+
+Do not put a full banner on every file.
+
+## Adding a route
+
+1. Add or reuse an `*Http` export on the resource file (product-language name + JSDoc).
+2. Export it from the module `index.js` if callers use the barrel.
+3. Register it in `route.js` under the correct module/file section with the path shape above
+   and the matching access helper.
+4. Cover unhappy paths in tests (`backend/tests/…`); keep the route-declaration audit green.
+
+## Forbidden
+
+- New `*Routes` / `identityRoutes` Fastify plugins that call `app.get` / `app.post`
+- Registering domain URLs outside `http/route.js` (except root health aliases in `app.js`)
+- HTTP-method prefixes in handler names (`post…Http`, `get…Http`, `patch…Http`)
+- Options-object bags on access helpers at catalog call sites

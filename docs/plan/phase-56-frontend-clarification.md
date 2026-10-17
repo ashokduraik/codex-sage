@@ -43,22 +43,24 @@ evidence or metrics (57).
 - `ClarificationPanel` (or inline block in `ChatWorkspace`) positioned per §49: inside active
   chat, after latest assistant content, above `Composer`.
 - Local wizard state: `currentIndex`, `answersByQuestionId`, validation per type.
-- Question types from Phase 52 PROPOSED schema:
-  - `single_select` — radio group
-  - `multi_select` — checkbox group, at least one when required
-  - `free_text` — textarea with min length when backend marks required
+- Question types from Phase 52:
+  - `single_select` — radio group (options are plain strings; answer is one string)
+  - `multi_select` — checkbox group, at least one when required (answer is string[])
+  - `free_text` — textarea; max length from backend constant (2000)
 - Navigation: Next / Back optional (§12); **only one active question visible** (§50).
-- Submit: when all answered, `POST …/clarifications/:clarificationId/answers` with aggregated
-  `{ answers: { [questionId]: value | value[] } }` — **one request**.
-- While POST pending: disable composer, `aria-busy`, inline errors from envelope.
-- On success: clear local wizard; Phase 55 hook resumes polling/SSE or refetches conversation until
-  `done` — **follow Phase 52 resume contract** (may be new SSE or async job — §12).
-- Persist wizard state in session storage keyed by `conversationId + clarificationId` so navigate-
+- Submit: when all answered, one request to
+  `POST /api/v1/conversation/clarification/answer/:projectId`
+  with `Accept: text/event-stream`, required `Idempotency-Key`, and body
+  `{ conversationId, messageId, clarificationSetId, answers: { [questionId]: string | string[] } }` —
+  **SSE resume on the same POST**.
+- While POST pending: disable composer, `aria-busy`, inline errors from envelope / SSE `error`.
+- On stream `done` (or second `clarification`): clear local wizard; consume SSE like Phase 55.
+- Persist wizard state in session storage keyed by `conversationId + clarificationSetId` so navigate-
   away-and-return restores in-progress answers (§52).
 - Handle second clarification round: if another `clarification` event arrives (max one extra per
   architecture), replace wizard state; show notice that more detail is needed.
-- `awaiting_clarification` message status on reload: rehydrate panel from GET message/clarification
-  payload if Phase 52 exposes it.
+- `awaiting_clarification` on reload: rehydrate from listMessages embed
+  `message.clarification: { clarificationSetId, roundIndex, questions }`.
 - i18n for prompts, validation, submit labels; keyboard operable options; focus moves to first
   option when question changes.
 - Mobile: full-width controls, no horizontal scroll (375px).
@@ -77,12 +79,12 @@ evidence or metrics (57).
 
 ```text
 SSE clarification event
-  → stash set { clarificationId, questions[] }
+  → stash set { clarificationSetId, roundIndex, questions[] }
   → UI index = 0
   → user answers Q0 → index++
   → …
-  → user answers Qn → POST all answers once
-  → on 200: clear stash; 55 resumes stream/watch
+  → user answers Qn → POST answer (SSE) with all answers once
+  → on done / second clarification: clear or replace stash
 ```
 
 No POST per intermediate question.
@@ -124,52 +126,53 @@ not invent timeout duration.
 
 **None.**
 
-## 6. API contract — PROPOSED (needs approval before implementation)
+## 6. API contract (Phase 52 — locked)
 
 Owned by **Phase 52**. Consumed only; no new routes in this phase.
 
 ### Clarification set (via SSE — Phase 50/52)
 
-Already delivered on stream as `clarification` event; illustrative shape:
-
 ```json
 {
-  "clarificationId": "6650…",
-  "messageId": "6650…",
+  "clarificationSetId": "clr_r0_…",
+  "roundIndex": 0,
   "questions": [
     {
       "id": "q1",
       "type": "single_select",
       "prompt": "Which environment?",
-      "options": [{ "id": "prod", "label": "Production" }]
+      "options": ["Production", "Staging"],
+      "required": true
     }
   ]
 }
 ```
 
-Exact field names **must match Phase 52 section 6** after approval.
+Reload embed on listMessages assistant DTO: `clarification: { clarificationSetId, roundIndex, questions }`.
 
-### Submit all answers (PROPOSED — Phase 52)
+### Submit all answers
 
 ```http
-POST /api/v1/conversations/:conversationId/messages/:messageId/clarifications/:clarificationId/answers
+POST /api/v1/conversation/clarification/answer/:projectId
+Accept: text/event-stream
+Idempotency-Key: <required>
 Content-Type: application/json
 
 {
+  "conversationId": "…",
+  "messageId": "…assistant message id…",
+  "clarificationSetId": "clr_r0_…",
   "answers": {
-    "q1": "prod",
+    "q1": "Production",
     "q2": ["orders", "payments"],
     "q3": "Enterprise tier"
   }
 }
 ```
 
-Permission: `chat.ask` + conversation owner.
-
-Responses: `200` + resume handle or `202` if async; errors `409` if already answered, `422`
-validation.
-
-Optional GET for abandoned state — **only if Phase 52 defines it** (open question).
+Permission: `chat.ask` + project ACL + conversation access. Response is an SSE stream
+(`status` / `delta` / `clarification` / `evidence` / `done` / `error`). Errors before
+headers: `409 CLARIFICATION_NOT_OPEN`, `400 VALIDATION_ERROR`, `406 NOT_ACCEPTABLE`.
 
 ## 7. Configuration & environment variables
 

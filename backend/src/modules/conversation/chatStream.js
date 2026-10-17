@@ -7,6 +7,7 @@ import { findProjectById } from '../masters/index.js';
 import { assertKnowledgeReadable } from '../knowledge/index.js';
 import { buildStreamErrorEvent } from '../../platform/streamErrors.js';
 import { enqueueChatMessageWhileKnowledgeUpdating } from './chatQueue.js';
+import { persistOpenClarificationSetFromInterrupt } from './clarification.js';
 import { completeIdempotencyRecord } from '../../platform/idempotency/index.js';
 import { buildAuditContextFromRequest, recordAuditEvent } from '../access/index.js';
 import { assertConversationWritable, loadConversationForUser } from './conversation.js';
@@ -328,6 +329,16 @@ export async function runChatMessageStream(input) {
     if (result?.__interrupt__) {
       const clarificationSet = result.__interrupt__[0]?.value;
       terminalStatus = 'awaiting_clarification';
+      if (clarificationSet) {
+        await persistOpenClarificationSetFromInterrupt({
+          orgId: input.orgId,
+          projectId: input.projectId,
+          conversationId: input.conversationId,
+          messageId: assistantMessageId,
+          actorUserId: input.actorUserId,
+          clarificationSet,
+        });
+      }
       await finalizeAssistantMessageInRepo({
         orgId: input.orgId,
         projectId: input.projectId,
@@ -340,6 +351,7 @@ export async function runChatMessageStream(input) {
       if (input.isClientConnected() && clarificationSet) {
         input.writeSse('clarification', {
           clarificationSetId: clarificationSet.clarificationSetId,
+          roundIndex: clarificationSet.roundIndex ?? 0,
           questions: clarificationSet.questions ?? [],
         });
       }

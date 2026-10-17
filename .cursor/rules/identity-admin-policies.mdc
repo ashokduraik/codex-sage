@@ -9,15 +9,16 @@ Decided with Phase 11. Do not re-open these without an explicit product change.
 
 ## Route permission = access
 
-- Every identity/admin route declares `requiredPermissions` on the route config.
+- Every identity/admin route declares `requiredPermissions` via the catalog helpers
+  in `http/route.js` (`http-routes.mdc`).
 - A caller may use the route **iff** they hold those permission(s).
-- Do **not** invent weaker alternate read permissions (e.g. `org.view` for `GET /users`
-  or `GET /roles`). Project-member pickers that need a broader list get their own
-  permissioned endpoint in a later phase.
+- Do **not** invent weaker alternate read permissions (e.g. `org.view` for
+  `GET /masters/users/list` or `GET /masters/roles/list`). Project-member pickers
+  that need a broader list get their own permissioned endpoint in a later phase.
 
 ## Email is mutable after create
 
-- Admins may change a user's `email` via `PATCH /users/:userId`.
+- Admins may change a user's `email` via `PATCH /masters/users/update/:userId`.
 - Enforce org-scoped uniqueness (`409 IDENTITY_DUPLICATE_EMAIL` on duplicate key).
 - On change: write audit `user.email_changed` (old/new email in context; never secrets)
   and revoke all sessions for that user with reason `email_changed`.
@@ -25,10 +26,10 @@ Decided with Phase 11. Do not re-open these without an explicit product change.
 ## Roles are dynamic; `code` is immutable
 
 - Seed creates one role with `code: "ADMIN"` and every catalog permission.
-  Admins may create any number of additional roles via `POST /roles` with any
-  subset of catalog keys.
-- `PATCH /roles/:roleId` may change `name`, `description`, and `permissions` on
-  every role, including `ADMIN`. The body must not accept `code`.
+  Admins may create any number of additional roles via `POST /masters/roles/create`
+  with any subset of catalog keys.
+- `PATCH /masters/roles/update/:roleId` may change `name`, `description`, and
+  `permissions` on every role, including `ADMIN`. The body must not accept `code`.
 - Soft-delete is allowed on every role and fails with `409 ROLE_IN_USE` while any
   row-status-A user still holds it. Startup does not recreate a deleted `ADMIN`.
 - Organizations, users, and roles each have an immutable unique `code`

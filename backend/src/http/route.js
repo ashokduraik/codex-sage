@@ -23,6 +23,7 @@ import {
   createConversationHttp,
   deleteConversationHttp,
   renameConversationHttp,
+  answerClarificationHttp,
   archiveConversationHttp,
   restoreConversationHttp,
   searchConversationsHttp,
@@ -32,6 +33,7 @@ import {
 } from '../modules/conversation/index.js';
 import {
   searchProjectHttp,
+  reingestSourceHttp,
   syncRepositoryHttp,
   probeRepositoryHttp,
   attachRepositoryHttp,
@@ -51,7 +53,6 @@ import {
   retestRepositoryConnectionHttp,
   revokeRepositoryCredentialHttp,
   replaceRepositoryCredentialHttp,
-  reingestSourceHttp,
 } from '../modules/knowledge/index.js';
 import {
   getJobHttp,
@@ -275,6 +276,10 @@ export async function registerRoutes(app) {
   // chatStream.js
 
   app.post('/conversation/chatStream/streamMessage/:projectId/:conversationId', withProjectAccess('chat.ask', true), streamConversationMessageHttp);
+
+  // clarification.js
+
+  app.post('/conversation/clarification/answer/:projectId', withProjectAccess('chat.ask', true), answerClarificationHttp);
 
   // conversationContext.js
 

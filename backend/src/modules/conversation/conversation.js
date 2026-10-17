@@ -8,6 +8,8 @@ import { Message } from '../../models/messages.model.js';
 import { getCatalogEntry } from '../../platform/errorCatalog.js';
 import { Conversation } from '../../models/conversations.model.js';
 import { adjustProjectConversationCount } from '../masters/index.js';
+import { loadOpenClarificationsForMessages } from './clarification.js';
+import { ClarificationSet } from '../../models/clarificationSet.model.js';
 import { buildAuditContextFromRequest, recordAuditEvent } from '../access/index.js';
 import {
   insertConversation,
@@ -344,7 +346,7 @@ export function mapConversationToListDto(conversation) {
  * @param {object} message Message document or lean object.
  * @returns {object}
  */
-export function mapMessageToDto(message) {
+export function mapMessageToDto(message, extras = {}) {
   /** @type {Record<string, unknown>} */
   const dto = {
     id: String(message._id ?? message.id),
@@ -353,6 +355,9 @@ export function mapMessageToDto(message) {
     messageStatus: message.messageStatus,
     createdAt: toIsoOrEmpty(message.createdAt),
   };
+  if (extras.clarification != null) {
+    dto.clarification = extras.clarification;
+  }
   if (message.queuedAt != null) {
     dto.queuedAt = toIsoOrEmpty(message.queuedAt);
   }
@@ -607,8 +612,16 @@ export async function getConversation(orgId, projectId, conversationId, userId) 
 export async function listConversationMessages(orgId, projectId, conversationId, userId, filters = {}) {
   await loadConversationForUser(orgId, projectId, conversationId, userId);
   const page = await listMessagesForConversation(orgId, projectId, conversationId, filters);
+  const awaitingIds = page.items
+    .filter((message) => message.role === 'assistant' && message.messageStatus === 'awaiting_clarification')
+    .map((message) => String(message._id));
+  const openByMessageId = await loadOpenClarificationsForMessages(orgId, awaitingIds);
   return {
-    items: page.items.map(mapMessageToDto),
+    items: page.items.map((message) =>
+      mapMessageToDto(message, {
+        clarification: openByMessageId.get(String(message._id)) ?? undefined,
+      }),
+    ),
     nextCursor: page.nextCursor,
   };
 }
@@ -947,4 +960,4 @@ export {
 } from './conversation.helper.js';
 
 export { Conversation, Message };
-export const CONVERSATION_MODELS = Object.freeze([Conversation, Message]);
+export const CONVERSATION_MODELS = Object.freeze([Conversation, Message, ClarificationSet]);

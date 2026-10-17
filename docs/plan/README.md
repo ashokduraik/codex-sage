@@ -128,8 +128,9 @@ Taken from `AGENTS.md` and `.cursor/rules/`. Repeated here so a phase document d
 - 2-space indent, single quotes, semicolons, max line length 100.
 - Module-per-domain in the backend: service + repository + named `*Http` adapters,
   exposed through a public surface. Register every URL in `backend/src/http/route.js`
-  (path + permissions + handler). Tests live under `backend/tests/` mirroring `src/`.
-  No deep imports into another module's internals.
+  (`/{module}/{file}/{action}/:ids…`, access helpers, product-verb `*Http` names —
+  see `.cursor/rules/http-routes.mdc`). Tests live under `backend/tests/` mirroring
+  `src/`. No deep imports into another module's internals.
 - Feature-per-folder in the frontend: UI + hooks + API calls; tests live under
   `frontend/tests/` mirroring `src/`; cross-feature reuse goes through `shared/`.
 - HTTP handlers own `res`/`reply`. Helpers return data or throw — they never write the response.

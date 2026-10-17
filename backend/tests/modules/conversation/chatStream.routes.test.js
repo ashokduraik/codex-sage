@@ -358,7 +358,9 @@ describe('chatStream routes', () => {
         {
           value: {
             clarificationSetId: 'clr_test',
+            roundIndex: 0,
             questions: [{ id: 'q1', type: 'free_text', prompt: 'Which service?' }],
+            issuedAt: new Date().toISOString(),
           },
         },
       ],
@@ -370,6 +372,7 @@ describe('chatStream routes', () => {
     expect(res.statusCode).toBe(200);
     expect(res.body).toContain('event: clarification');
     expect(res.body).toContain('clr_test');
+    expect(res.body).toContain('"roundIndex":0');
     const assistant = await Message.findOne({ conversationId: created.json().id, role: 'assistant' });
     expect(assistant?.messageStatus).toBe('awaiting_clarification');
   });

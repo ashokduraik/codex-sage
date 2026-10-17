@@ -182,6 +182,18 @@ export const ERROR_CATALOG = Object.freeze({
     retryability: 'user_action_required',
     message: 'The request conflicts with the current state.',
   }),
+  CLARIFICATION_NOT_OPEN: Object.freeze({
+    class: 'user',
+    httpStatus: 409,
+    retryability: 'user_action_required',
+    message: 'This clarification set is not open for answers.',
+  }),
+  CLARIFICATION_ROUND_EXCEEDED: Object.freeze({
+    class: 'user',
+    httpStatus: 409,
+    retryability: 'user_action_required',
+    message: 'No further clarification rounds are allowed for this message.',
+  }),
   RATE_LIMITED: Object.freeze({
     class: 'user',
     httpStatus: 429,

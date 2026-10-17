@@ -66,6 +66,7 @@ export const AUDIT_ACTION_RESOURCE_TYPES = Object.freeze({
   'conversation.deleted': 'conversation',
   'conversation.title_changed': 'conversation',
   'chat.message_queued': 'conversation',
+  'chat.clarification_answered': 'conversation',
 });
 
 /** Frozen list of known action strings. */

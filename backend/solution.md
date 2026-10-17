@@ -599,12 +599,15 @@ artifact through `ai.generateText` with thinking disabled → validates the stru
 **Who:** LangGraph + Node + UI (not the LLM again unless understand already produced the set)
 
 1. **LLM (during UNDERSTAND)** already produced **all** clarification questions in one JSON array (single_select / multi_select / free_text).
-2. **Node** saves clarification set on the message / `Clarification` collection; SSE `clarification` event with the **full list**.
+2. **Node** saves the set in `clarificationSets`; SSE `clarification` event with
+   `{ clarificationSetId, roundIndex, questions[] }`.
 3. Graph **interrupts / waits** (checkpoint in Mongo).
 4. **UI** shows Q1, then Q2, … locally.
-5. **UI** one POST: `{ clarificationId, answers: { q1: "...", q2: "..." } }`.
-6. **Node** loads checkpoint, merges answers into state, resumes LangGraph at **UNDERSTAND**
-   with answers bound (re-route / optional one follow-up clarify set).
+5. **UI** one POST to `/conversation/clarification/answer/:projectId` with
+   `{ conversationId, messageId, clarificationSetId, answers: { q1: "…", q2: ["…"] } }`
+   and `Accept: text/event-stream`.
+6. **Node** validates answers, loads checkpoint, resumes LangGraph at **UNDERSTAND**
+   with answers bound over SSE (re-route / optional one follow-up clarify set).
 
 No per-question server round-trip after the set is issued. Max **1** extra clarification set if answers still insufficient.
 

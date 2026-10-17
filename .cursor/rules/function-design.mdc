@@ -43,13 +43,13 @@ async function sendProject(res, projectId) {
   res.json(project);
 }
 
-app.get('/projects/:id', async (req, res) => {
-  await sendProject(res, req.params.id);
+app.get('/masters/projects/get/:projectId', async (req, res) => {
+  await sendProject(res, req.params.projectId);
 });
 
 // ✅ GOOD — handler owns `res`; helper returns data
-app.get('/projects/:id', async (req, res) => {
-  const project = await loadProjectById(req.params.id);
+app.get('/masters/projects/get/:projectId', async (req, res) => {
+  const project = await loadProjectById(req.params.projectId);
   res.json(project);
 });
 ```

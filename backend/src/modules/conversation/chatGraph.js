@@ -962,11 +962,12 @@ function buildToolBudgetState(scope) {
  */
 function buildClarificationSet(questions, roundIndex) {
   const normalised = (Array.isArray(questions) ? questions : []).map((question, index) => {
-    /** @type {{ id: string, type: string, prompt: string, options?: string[] }} */
+    /** @type {{ id: string, type: string, prompt: string, required: boolean, options?: string[] }} */
     const entry = {
       id: typeof question?.id === 'string' && question.id !== '' ? question.id : `q${index + 1}`,
       type: question.type,
       prompt: question.prompt,
+      required: question.required !== false,
     };
     if (Array.isArray(question.options)) {
       entry.options = question.options;

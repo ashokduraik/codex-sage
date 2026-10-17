@@ -8,6 +8,7 @@ import { caughtErrorFields } from '../../platform/errors.js';
 import { assertKnowledgeReadable } from '../knowledge/index.js';
 import { ROW_STATUS_ACTIVE } from '../../platform/data/index.js';
 import { findActiveJobForProjectByTypes } from '../masters/index.js';
+import { persistOpenClarificationSetFromInterrupt } from './clarification.js';
 import { findActiveProjectWriterLockJobId } from '../../worker/projectLock.js';
 import { invokeChatGraph, buildChatGraphThreadId, createMongoChatCheckpointer } from './chatGraph.js';
 import {
@@ -308,6 +309,17 @@ async function resumeClaimedQueuedMessage(input) {
     });
 
     if (result?.__interrupt__) {
+      const clarificationSet = result.__interrupt__[0]?.value;
+      if (clarificationSet) {
+        await persistOpenClarificationSetFromInterrupt({
+          orgId,
+          projectId,
+          conversationId,
+          messageId: assistantMessageId,
+          actorUserId,
+          clarificationSet,
+        });
+      }
       await finalizeAssistantMessageInRepo({
         orgId,
         projectId,

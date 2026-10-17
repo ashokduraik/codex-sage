@@ -10,7 +10,7 @@ alwaysApply: true
   suite when present.
 - Test the **public surface** of a module, not its internals.
 - **Descriptive file names.** One production file per resource (plus
-  `http/route.js` for the URL catalog); helper/util only
+  `http/route.js` for the URL catalog — `http-routes.mdc`); helper/util only
   after 1000 code lines — see `file-colocation.mdc`. The 1000-line cap does not
   apply to files under `tests/`.
 - **No deep cross-module imports** — modules expose a public surface (`index.js`).

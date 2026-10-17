@@ -350,6 +350,27 @@ Indexes (partial `status: 'A'`): `{ orgId, conversationId, createdAt: 1, _id: 1 
 `{ orgId, projectId, blockingJobId, messageStatus }` (fail by writer job).
 Thread pages are oldest-first on `(createdAt, _id)`.
 
+### `clarificationSets`
+
+User-visible clarification questions and submitted answers for one assistant turn
+(Phase 52). Used so refresh can rehydrate the wizard and so answer POST can
+validate and resume the paused chat run. Not LangGraph checkpoints, not message
+content, and not private model reasoning.
+
+Fields: `projectId`, `conversationId`, `messageId` (assistant row),
+`clarificationSetId` (public id matching SSE/graph), `roundIndex` (`0` \| `1`),
+`setStatus` (`open` \| `answered` \| `superseded`), `questions[]`
+(`id`, `type`, `prompt`, optional `options` string[], `required`), `answers`
+(Mixed map questionId → string \| string[]; null until POST), `issuedAt`, plus
+base fields.
+
+Indexes (partial `status: 'A'`): unique `{ orgId, clarificationSetId }`;
+`{ orgId, messageId, setStatus }` for open-set lookup.
+
+ListMessages embeds the open set on awaiting assistant DTOs as
+`clarification: { clarificationSetId, roundIndex, questions }` (not a message
+schema field).
+
 ### `chatCheckpoints`
 
 Durable LangGraph snapshots for one chat answer run (Phase 47; ADR 0035). Used so

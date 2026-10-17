@@ -27,6 +27,7 @@ const mocks = vi.hoisted(() => ({
   invokeChatGraph: vi.fn(),
   buildChatGraphThreadId: vi.fn(),
   createMongoChatCheckpointer: vi.fn(),
+  persistOpenClarificationSetFromInterrupt: vi.fn(),
   loadConfig: vi.fn(),
   MessageFindOneAndUpdate: vi.fn(),
 }));
@@ -67,6 +68,10 @@ vi.mock('../../../src/modules/conversation/chatGraph.js', () => ({
   invokeChatGraph: mocks.invokeChatGraph,
   buildChatGraphThreadId: mocks.buildChatGraphThreadId,
   createMongoChatCheckpointer: mocks.createMongoChatCheckpointer,
+}));
+
+vi.mock('../../../src/modules/conversation/clarification.js', () => ({
+  persistOpenClarificationSetFromInterrupt: mocks.persistOpenClarificationSetFromInterrupt,
 }));
 
 describe('chatQueue helpers', () => {
@@ -210,6 +215,14 @@ describe('chatQueue helpers', () => {
 
     const result = await notifyKnowledgePublished({ orgId, projectId, knowledgeVersionId });
     expect(result.resumed).toBe(1);
+    expect(mocks.persistOpenClarificationSetFromInterrupt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orgId,
+        projectId,
+        conversationId,
+        clarificationSet: expect.objectContaining({ clarificationSetId: 'cs1' }),
+      }),
+    );
     expect(mocks.finalizeAssistantMessage).toHaveBeenCalledWith(expect.objectContaining({ messageStatus: 'awaiting_clarification' }));
   });
 

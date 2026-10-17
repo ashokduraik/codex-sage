@@ -4,6 +4,7 @@
 import { Message } from '../../models/messages.model.js';
 import { Conversation } from '../../models/conversations.model.js';
 import { ChatCheckpoint } from '../../models/chatCheckpoint.model.js';
+import { ClarificationSet } from '../../models/clarificationSet.model.js';
 
 export {
   refreshConversationSearchText,
@@ -43,6 +44,14 @@ export {
   streamConversationMessageHttp,
   runChatMessageStream,
 } from './chatStream.js';
+export {
+  CLARIFICATION_FREE_TEXT_MAX_LENGTH,
+  answerClarificationHttp,
+  persistOpenClarificationSetFromInterrupt,
+  loadOpenClarificationsForMessages,
+  validateClarificationAnswers,
+} from './clarification.js';
+export { ClarificationSet } from '../../models/clarificationSet.model.js';
 export {
   QUEUED_MESSAGE_TTL_MS,
   QUEUED_MESSAGE_BATCH_SIZE,
@@ -96,4 +105,4 @@ export {
 } from './chatGraph.js';
 
 /** Models whose indexes are synced on development API startup. */
-export const CONVERSATION_MODELS = Object.freeze([Conversation, Message, ChatCheckpoint]);
+export const CONVERSATION_MODELS = Object.freeze([Conversation, Message, ChatCheckpoint, ClarificationSet]);
