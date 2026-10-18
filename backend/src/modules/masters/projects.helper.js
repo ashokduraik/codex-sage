@@ -542,6 +542,48 @@ export async function adjustProjectConversationCount(orgId, projectId, delta, op
 }
 
 /**
+ * Replaces cached source snapshot totals on the project (Health / overview).
+ * Called after knowledge publish so list/detail show accepted and excluded file counts.
+ * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
+ * @param {string} projectId Project id.
+ * @param {{
+ *   files: number,
+ *   excludedFiles: number,
+ *   sourceVersions: number,
+ * }} counts Absolute totals to store (floored at 0).
+ * @param {{ session?: import('mongoose').ClientSession }} [options] Optional Mongo session.
+ * @returns {Promise<import('mongoose').Document | null>} Updated project, or null when missing.
+ */
+export async function setProjectSourceSnapshotCounts(orgId, projectId, counts, options = {}) {
+  assertOrgId(orgId);
+  if (!mongoose.isValidObjectId(projectId) || !counts || typeof counts !== 'object') {
+    return null;
+  }
+  const files = Math.max(0, Math.floor(Number(counts.files) || 0));
+  const excludedFiles = Math.max(0, Math.floor(Number(counts.excludedFiles) || 0));
+  const sourceVersions = Math.max(0, Math.floor(Number(counts.sourceVersions) || 0));
+  const query = Project.findOneAndUpdate(
+    {
+      _id: projectId,
+      orgId,
+      status: ROW_STATUS_ACTIVE,
+    },
+    {
+      $set: {
+        'counts.files': files,
+        'counts.excludedFiles': excludedFiles,
+        'counts.sourceVersions': sourceVersions,
+      },
+    },
+    { returnDocument: 'after' },
+  );
+  if (options.session) {
+    query.session(options.session);
+  }
+  return query.exec();
+}
+
+/**
  * Soft-deletes an active project.
  * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
  * @param {string} projectId Project id.

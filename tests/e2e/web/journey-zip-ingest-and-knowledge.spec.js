@@ -3,7 +3,13 @@ import { expect, test } from '@playwright/test';
 import { loginViaUi } from '../helpers/auth.js';
 import { skipLiveStack } from '../helpers/env.js';
 import { expectChangePaths, expectKnowledgeFacets, searchAndOpenPreview } from '../helpers/knowledge.js';
-import { isKnowledgeBrowsable, openProcessingCenter, waitForTerminalHealth, waitForTerminalJobStatus } from '../helpers/processing.js';
+import {
+  expectHealthFileCountMatchesActivityLog,
+  isKnowledgeBrowsable,
+  openProcessingCenter,
+  waitForTerminalHealth,
+  waitForTerminalJobStatus,
+} from '../helpers/processing.js';
 import {
   cleanupCreatedProjects,
   createProjectViaUi,
@@ -62,6 +68,14 @@ test.describe('Journey: ZIP ingest and knowledge via UI', () => {
       await openProcessingCenter(page, projectId);
       await expect(page.getByRole('button', { name: 'Retry' }).first()).toBeVisible();
     }
+  });
+
+  test('Health file count matches activity log Source validated count', async ({ page }) => {
+    test.skip(!isKnowledgeBrowsable(healthLabel), `ZIP ingest health is ${healthLabel ?? 'unknown'}`);
+    test.setTimeout(180_000);
+    const projectId = await projectIdFromCard(page, projectName);
+    const fileCount = await expectHealthFileCountMatchesActivityLog(page, projectId);
+    expect(fileCount).toBe(2);
   });
 
   test('knowledge and search work when health is ready or partial', async ({ page }) => {

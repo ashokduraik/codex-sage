@@ -1,4 +1,4 @@
-import { Route, Routes } from 'react-router-dom';
+import { Outlet, Route, Routes } from 'react-router-dom';
 import { cleanup, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -39,6 +39,22 @@ beforeEach(() => {
     pageInfo: { nextCursor: null, hasMore: false },
   });
 });
+
+/**
+ * Renders Overview with an explicit outlet context (no mock AppData tree).
+ * @param {{ project: object, mockProject?: object }} context Outlet context.
+ */
+function renderOverviewWithContext(context) {
+  return renderWithProviders(
+    <Routes>
+      <Route element={<Outlet context={context} />}>
+        <Route index element={<ProjectOverview />} />
+      </Route>
+    </Routes>,
+    { route: '/' },
+  );
+}
+
 describe('ProjectOverview', () => {
   it('renders summary and capabilities for Atlas', async () => {
     renderWithProviders(
@@ -78,5 +94,39 @@ describe('ProjectOverview', () => {
       { route: '/projects/prj_atlas' },
     );
     expect(await screen.findByText(/Processing in progress: Project structure analyzed/)).toBeTruthy();
+  });
+
+  it('does not show Knowledge map not ready when health is ready and mock tree is empty', () => {
+    renderOverviewWithContext({
+      project: {
+        id: 'prj_api_only',
+        name: 'prepayment advisor',
+        description: '',
+        knowledgeHealth: 'ready',
+        lifecycleStatus: 'knowledge_ready',
+        counts: { files: 149, excludedFiles: 0 },
+      },
+      mockProject: { knowledgeTree: [], fileCount: 149, excludedCount: 0 },
+    });
+    expect(screen.getByText('149 files mapped')).toBeTruthy();
+    expect(screen.getByText('The knowledge map covers the connected source.')).toBeTruthy();
+    expect(screen.queryByText('Knowledge map not ready')).toBeNull();
+    expect(screen.getByRole('link', { name: /Open chat/i })).toBeTruthy();
+  });
+
+  it('shows Knowledge map not ready when health is not askable and mock tree is empty', () => {
+    renderOverviewWithContext({
+      project: {
+        id: 'prj_waiting',
+        name: 'Waiting',
+        description: '',
+        knowledgeHealth: 'updating',
+        lifecycleStatus: 'updating',
+        counts: { files: 0, excludedFiles: 0 },
+      },
+      mockProject: { knowledgeTree: [], fileCount: 0, excludedCount: 0 },
+    });
+    expect(screen.getByText('Knowledge map not ready')).toBeTruthy();
+    expect(screen.getByRole('link', { name: /^Processing$/i })).toBeTruthy();
   });
 });

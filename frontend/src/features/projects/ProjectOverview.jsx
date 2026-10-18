@@ -1,3 +1,7 @@
+/**
+ * Project overview: summary, optional mock capability tree, and chat/knowledge CTAs.
+ * Empty "not ready" is based on knowledgeHealth (askable), not the mock knowledgeTree.
+ */
 import { Button } from '@/shared/ui/button';
 import { useTranslation } from 'react-i18next';
 import { useOutletContext, Link } from 'react-router-dom';
@@ -17,9 +21,9 @@ const SECTION_DEFS = [
 ];
 
 /**
- * Project overview: API identity block + mocked knowledge-tree sections.
+ * Project overview: API identity block + mocked knowledge-tree sections when present.
  *
- * @returns Project overview panel
+ * @returns {import('react').ReactElement} Project overview panel
  */
 export default function ProjectOverview() {
   const { t } = useTranslation();
@@ -53,25 +57,60 @@ export default function ProjectOverview() {
     </Link>
   ) : null;
 
-  if (tree.length === 0) {
+  const summaryBlock = (
+    <section className="mb-8 animate-fade-in">
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('projects.summary')}</h2>
+      <p className="mt-2 text-[15px] leading-relaxed text-foreground/90">{project.description || t('projects.noDescription')}</p>
+      <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+        <KnowledgeHealthBadge code={project.knowledgeHealth} />
+        <span>·</span>
+        <span>{t('projects.filesMapped', { count: fileCount.toLocaleString() })}</span>
+        {excludedCount > 0 ? (
+          <>
+            <span>·</span>
+            <span className="text-amber-700">{t('projects.excluded', { count: excludedCount })}</span>
+          </>
+        ) : null}
+      </div>
+      {askable ? (
+        <p className="mt-2 text-sm text-muted-foreground">
+          {excludedCount > 0 ? t('projects.knowledgePartialNote', { count: excludedCount }) : t('projects.knowledgeCompleteNote')}
+        </p>
+      ) : null}
+    </section>
+  );
+
+  const actionButtons = (
+    <div className="mt-10 flex flex-wrap gap-2">
+      {askable ? (
+        <Link to={`/projects/${project.id}/chat`}>
+          <Button className="bg-brand text-brand-foreground hover:bg-brand/90">
+            <MessageSquare className="mr-2 h-4 w-4" aria-hidden="true" />
+            {t('projects.openChat')}
+            <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
+          </Button>
+        </Link>
+      ) : (
+        <Button disabled className="bg-brand text-brand-foreground opacity-50">
+          <MessageSquare className="mr-2 h-4 w-4" aria-hidden="true" />
+          {t('projects.openChat')}
+        </Button>
+      )}
+      <Link to={`/projects/${project.id}/knowledge`}>
+        <Button variant="outline">
+          <BookOpen className="mr-2 h-4 w-4" aria-hidden="true" />
+          {t('nav.knowledge')}
+        </Button>
+      </Link>
+    </div>
+  );
+
+  // Real API projects have an empty mock knowledgeTree — gate on health, not the mock tree.
+  if (tree.length === 0 && !askable) {
     return (
       <div className="h-full overflow-y-auto scrollbar-thin">
         <div className="mx-auto max-w-4xl px-6 py-8">
-          <section className="mb-8 animate-fade-in">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('projects.summary')}</h2>
-            <p className="mt-2 text-[15px] leading-relaxed text-foreground/90">{project.description || t('projects.noDescription')}</p>
-            <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-              <KnowledgeHealthBadge code={project.knowledgeHealth} />
-              <span>·</span>
-              <span>{t('projects.filesMapped', { count: fileCount.toLocaleString() })}</span>
-              {excludedCount > 0 ? (
-                <>
-                  <span>·</span>
-                  <span className="text-amber-700">{t('projects.excluded', { count: excludedCount })}</span>
-                </>
-              ) : null}
-            </div>
-          </section>
+          {summaryBlock}
           {processingBanner}
           <EmptyState
             icon={BookOpen}
@@ -88,25 +127,23 @@ export default function ProjectOverview() {
     );
   }
 
+  if (tree.length === 0) {
+    return (
+      <div className="h-full overflow-y-auto scrollbar-thin">
+        <div className="mx-auto max-w-4xl px-6 py-8">
+          {summaryBlock}
+          {processingBanner}
+          {actionButtons}
+        </div>
+      </div>
+    );
+  }
+
   const sections = SECTION_DEFS.filter((section) => (byType[section.key]?.length ?? 0) > 0);
   return (
     <div className="h-full overflow-y-auto scrollbar-thin">
       <div className="mx-auto max-w-4xl px-6 py-8">
-        <section className="animate-fade-in">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('projects.summary')}</h2>
-          <p className="mt-2 text-[15px] leading-relaxed text-foreground/90">{project.description}</p>
-          <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-            <KnowledgeHealthBadge code={project.knowledgeHealth} />
-            <span>·</span>
-            <span>{t('projects.filesMapped', { count: fileCount.toLocaleString() })}</span>
-            {excludedCount > 0 ? (
-              <>
-                <span>·</span>
-                <span className="text-amber-700">{t('projects.excluded', { count: excludedCount })}</span>
-              </>
-            ) : null}
-          </div>
-        </section>
+        {summaryBlock}
 
         {processingBanner}
 
@@ -162,28 +199,7 @@ export default function ProjectOverview() {
           );
         })}
 
-        <div className="mt-10 flex flex-wrap gap-2">
-          {askable ? (
-            <Link to={`/projects/${project.id}/chat`}>
-              <Button className="bg-brand text-brand-foreground hover:bg-brand/90">
-                <MessageSquare className="mr-2 h-4 w-4" aria-hidden="true" />
-                {t('projects.openChat')}
-                <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
-              </Button>
-            </Link>
-          ) : (
-            <Button disabled className="bg-brand text-brand-foreground opacity-50">
-              <MessageSquare className="mr-2 h-4 w-4" aria-hidden="true" />
-              {t('projects.openChat')}
-            </Button>
-          )}
-          <Link to={`/projects/${project.id}/knowledge`}>
-            <Button variant="outline">
-              <BookOpen className="mr-2 h-4 w-4" aria-hidden="true" />
-              {t('nav.knowledge')}
-            </Button>
-          </Link>
-        </div>
+        {actionButtons}
       </div>
     </div>
   );

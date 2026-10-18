@@ -3,7 +3,13 @@ import { expect, test } from '@playwright/test';
 import { loginViaUi } from '../helpers/auth.js';
 import { e2eEnv, skipLiveStack } from '../helpers/env.js';
 import { expectKnowledgeFacets } from '../helpers/knowledge.js';
-import { isKnowledgeBrowsable, openProcessingCenter, waitForTerminalHealth, waitForTerminalJobStatus } from '../helpers/processing.js';
+import {
+  expectHealthFileCountMatchesActivityLog,
+  isKnowledgeBrowsable,
+  openProcessingCenter,
+  waitForTerminalHealth,
+  waitForTerminalJobStatus,
+} from '../helpers/processing.js';
 import {
   cancelFollowUpAndCreateDialogs,
   cleanupCreatedProjects,
@@ -95,6 +101,14 @@ test.describe('Journey: repository onboarding via UI', () => {
       await openProcessingCenter(page, projectId);
       await expect(page.getByRole('button', { name: 'Retry' }).first()).toBeVisible();
     }
+  });
+
+  test('Health file count matches activity log Source validated count', async ({ page }) => {
+    test.skip(!isKnowledgeBrowsable(publicHealth), `Public-repo health is ${publicHealth ?? 'unknown'}`);
+    test.setTimeout(180_000);
+    const projectId = await projectIdFromCard(page, publicProjectName);
+    const fileCount = await expectHealthFileCountMatchesActivityLog(page, projectId);
+    expect(fileCount).toBeGreaterThan(0);
   });
 
   test('knowledge browse runs when health is ready or partial', async ({ page }) => {

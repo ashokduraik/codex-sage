@@ -677,7 +677,7 @@ export async function insertSourceFiles(input, options = {}) {
  */
 export async function countSourceVersions(orgId, projectId) {
   assertOrgId(orgId);
-  return SourceVersion.countDocuments({ orgId, projectId });
+  return SourceVersion.countDocuments({ orgId, projectId, status: ROW_STATUS_ACTIVE });
 }
 
 /**

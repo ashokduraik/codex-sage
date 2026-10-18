@@ -921,6 +921,7 @@ export {
   createProject as createProjectInRepo,
   listProjects as listProjectsInRepo,
   adjustProjectConversationCount,
+  setProjectSourceSnapshotCounts,
   touchProjectLastAccessedAt,
   updateProjectMetadata,
   updateProjectSettings,

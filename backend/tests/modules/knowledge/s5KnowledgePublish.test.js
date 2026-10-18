@@ -9,6 +9,9 @@ import { lifecycleStatusForPublishedHealth, runFinalizeStage } from '../../../sr
 const publishKnowledgeVersion = vi.fn();
 const findProjectById = vi.fn();
 const transitionLifecycle = vi.fn();
+const setProjectSourceSnapshotCounts = vi.fn();
+const countSourceVersions = vi.fn();
+const notifyKnowledgePublished = vi.fn();
 
 vi.mock('../../../src/modules/knowledge/knowledge.js', async (importOriginal) => {
   const actual = await importOriginal();
@@ -24,8 +27,21 @@ vi.mock('../../../src/modules/masters/index.js', async (importOriginal) => {
     ...actual,
     findProjectById: (...args) => findProjectById(...args),
     transitionLifecycle: (...args) => transitionLifecycle(...args),
+    setProjectSourceSnapshotCounts: (...args) => setProjectSourceSnapshotCounts(...args),
   };
 });
+
+vi.mock('../../../src/modules/knowledge/sources.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    countSourceVersions: (...args) => countSourceVersions(...args),
+  };
+});
+
+vi.mock('../../../src/modules/conversation/index.js', () => ({
+  notifyKnowledgePublished: (...args) => notifyKnowledgePublished(...args),
+}));
 
 describe('s5KnowledgePublish', () => {
   beforeEach(() => {
@@ -80,6 +96,12 @@ describe('s6Finalize', () => {
   beforeEach(() => {
     findProjectById.mockReset();
     transitionLifecycle.mockReset();
+    setProjectSourceSnapshotCounts.mockReset();
+    countSourceVersions.mockReset();
+    notifyKnowledgePublished.mockReset();
+    setProjectSourceSnapshotCounts.mockResolvedValue({});
+    countSourceVersions.mockResolvedValue(1);
+    notifyKnowledgePublished.mockResolvedValue(undefined);
   });
 
   it('maps published health to lifecycle status', () => {
@@ -91,11 +113,14 @@ describe('s6Finalize', () => {
     findProjectById.mockResolvedValue({ lifecycleStatus: 'processing' });
     transitionLifecycle.mockResolvedValue({});
     const ctx = {
-      scope: { orgId: 'o1', projectId: 'p1' },
+      scope: { orgId: 'o1', projectId: 'p1', sourceVersionId: 'v1' },
       carry: {
         knowledgeVersionId: 'kv1',
         publishedHealth: 'ready',
         excludedFileCount: 0,
+        sourceVersion: {
+          fileCounts: { accepted: 149, skipped: 0, excludedFromGraph: 0 },
+        },
       },
       counters: createIngestCounters(),
       emitEvent: vi.fn().mockResolvedValue(undefined),
@@ -113,5 +138,38 @@ describe('s6Finalize', () => {
         knowledgeHealth: 'ready',
       }),
     );
+    expect(setProjectSourceSnapshotCounts).toHaveBeenCalledWith('o1', 'p1', {
+      files: 149,
+      excludedFiles: 0,
+      sourceVersions: 1,
+    });
+  });
+
+  it('writes excluded file counts from the source version snapshot', async () => {
+    findProjectById.mockResolvedValue({ lifecycleStatus: 'processing' });
+    transitionLifecycle.mockResolvedValue({});
+    countSourceVersions.mockResolvedValue(2);
+    const ctx = {
+      scope: { orgId: 'o1', projectId: 'p1', sourceVersionId: 'v1' },
+      carry: {
+        knowledgeVersionId: 'kv1',
+        publishedHealth: 'partially_available',
+        excludedFileCount: 3,
+        sourceVersion: {
+          fileCounts: { accepted: 10, skipped: 1, excludedFromGraph: 3 },
+        },
+      },
+      counters: createIngestCounters(),
+      emitEvent: vi.fn().mockResolvedValue(undefined),
+      saveProgress: vi.fn().mockResolvedValue(undefined),
+    };
+
+    const result = await runFinalizeStage(ctx);
+    expect(result.outcome).toBe('completed_with_warnings');
+    expect(setProjectSourceSnapshotCounts).toHaveBeenCalledWith('o1', 'p1', {
+      files: 10,
+      excludedFiles: 3,
+      sourceVersions: 2,
+    });
   });
 });

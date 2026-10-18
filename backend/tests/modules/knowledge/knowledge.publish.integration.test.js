@@ -6,6 +6,7 @@ import { TEST_APP_CONFIG } from '../../appConfig.js';
 import { createMongoHarness } from '../../mongoHarness.js';
 import { Project } from '../../../src/models/projects.model.js';
 import { SourceFile } from '../../../src/models/sourceFile.model.js';
+import { SourceVersion } from '../../../src/models/sourceVersion.model.js';
 import { KnowledgeVersion } from '../../../src/models/knowledgeVersion.model.js';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { runFinalizeStage } from '../../../src/modules/knowledge/ingest.helper.js';
@@ -15,8 +16,12 @@ import { publishKnowledgeVersion } from '../../../src/modules/knowledge/knowledg
 import { createIngestCounters } from '../../../src/modules/knowledge/ingest.helper.js';
 import { AUDIT_MODELS, listAuditEventsForOrg } from '../../../src/modules/access/audit.js';
 
+vi.mock('../../../src/modules/conversation/index.js', () => ({
+  notifyKnowledgePublished: vi.fn().mockResolvedValue(undefined),
+}));
+
 const harness = createMongoHarness({
-  models: [...AUDIT_MODELS, Project, KnowledgeVersion, SourceFile],
+  models: [...AUDIT_MODELS, Project, KnowledgeVersion, SourceFile, SourceVersion],
   uri: TEST_APP_CONFIG.mongo.uri,
 });
 
@@ -47,8 +52,20 @@ describe('knowledge publish integration', () => {
       lifecycleStatus: 'processing',
       knowledgeHealth: 'none',
       sourceConfig: { sourceType: 'upload' },
-      counts: { sourceVersions: 1, files: 2, excludedFiles: 1, conversations: 0 },
+      counts: { sourceVersions: 0, files: 0, excludedFiles: 0, conversations: 0 },
       settings: {},
+      createdBy: actor,
+      updatedBy: actor,
+    });
+
+    await SourceVersion.create({
+      _id: sourceVersionId,
+      orgId,
+      projectId,
+      origin: 'upload',
+      exclusionRulesetId: 'default',
+      versionLifecycle: 'accepted',
+      fileCounts: { accepted: 2, skipped: 0, excludedFromGraph: 1 },
       createdBy: actor,
       updatedBy: actor,
     });
@@ -110,11 +127,18 @@ describe('knowledge publish integration', () => {
     expect(kv.status).toBe('A');
 
     const ctx = {
-      scope: { orgId: String(orgId), projectId: String(projectId) },
+      scope: {
+        orgId: String(orgId),
+        projectId: String(projectId),
+        sourceVersionId: String(sourceVersionId),
+      },
       carry: {
         knowledgeVersionId: published.knowledgeVersionId,
         publishedHealth: published.publishedHealth,
         excludedFileCount: published.excludedFileCount,
+        sourceVersion: {
+          fileCounts: { accepted: 2, skipped: 0, excludedFromGraph: 1 },
+        },
       },
       counters: createIngestCounters(),
       emitEvent: vi.fn().mockResolvedValue(undefined),
@@ -126,6 +150,9 @@ describe('knowledge publish integration', () => {
     expect(project.lifecycleStatus).toBe('partially_available');
     expect(project.knowledgeHealth).toBe('partially_available');
     expect(String(project.currentKnowledgeVersionId)).toBe(published.knowledgeVersionId);
+    expect(project.counts.files).toBe(2);
+    expect(project.counts.excludedFiles).toBe(1);
+    expect(project.counts.sourceVersions).toBe(1);
 
     const gate = await assertKnowledgeReadable({
       orgId: String(orgId),

@@ -199,6 +199,32 @@ describe('sources gridfs + repository', () => {
     expect(diff.removed).toEqual([]);
   });
 
+  it('counts only active source versions', async () => {
+    const orgId = new mongoose.Types.ObjectId().toString();
+    const projectId = new mongoose.Types.ObjectId().toString();
+    const actorId = new mongoose.Types.ObjectId().toString();
+    const activeId = new mongoose.Types.ObjectId().toString();
+    const deletedId = new mongoose.Types.ObjectId().toString();
+    await insertSourceVersion({
+      orgId,
+      projectId,
+      sourceVersionId: activeId,
+      exclusionRulesetId: EXCLUSION_RULESET_ID,
+      createdBy: actorId,
+      fileCounts: { accepted: 1, skipped: 0, excludedFromGraph: 0 },
+    });
+    await insertSourceVersion({
+      orgId,
+      projectId,
+      sourceVersionId: deletedId,
+      exclusionRulesetId: EXCLUSION_RULESET_ID,
+      createdBy: actorId,
+      fileCounts: { accepted: 2, skipped: 0, excludedFromGraph: 0 },
+    });
+    await SourceVersion.updateOne({ _id: deletedId }, { $set: { status: 'D' } });
+    expect(await countSourceVersions(orgId, projectId)).toBe(1);
+  });
+
   it('pages source versions by createdAt and ignores invalid project ids', async () => {
     const orgId = new mongoose.Types.ObjectId().toString();
     const projectId = new mongoose.Types.ObjectId().toString();

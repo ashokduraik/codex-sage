@@ -68,6 +68,7 @@ describe('HealthPanel', () => {
     expect(await screen.findByText('acme/atlas-commerce')).toBeTruthy();
     expect(screen.getAllByText('Atlas Commerce').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Ready').length).toBeGreaterThan(0);
+    expect(screen.getByText('4,812 files mapped')).toBeTruthy();
   });
 
   it('renders partial health details for Orion', async () => {

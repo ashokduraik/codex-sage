@@ -1,10 +1,11 @@
 /**
  * knowledge/ingest.helper.js — merged resource file.
  */
+import { countSourceVersions } from './sources.js';
 import { publishKnowledgeVersion } from './knowledge.js';
 import { createJobFailureError, createJobFailureFromCaught } from '../../worker/jobFailure.js';
-import { renderJobEventMessage, findProjectById, transitionLifecycle } from '../masters/index.js';
 import { assertKnownExclusionRulesetId, isUnsafeArchivePath, normalizeArchivePath, evaluateUploadEntry } from './uploads.js';
+import { findProjectById, transitionLifecycle, renderJobEventMessage, setProjectSourceSnapshotCounts } from '../masters/index.js';
 import {
   updateSourceFileState,
   listSourceFilesOrdered,
@@ -16,6 +17,7 @@ import {
   SOURCE_FILE_STATE_MISSING,
   updateSourceFileExclusion,
   countSourceFilesForVersion,
+  loadSourceVersionForIngest,
 } from './ingest.js';
 
 // --- from ingest/ingest.counters.js ---
@@ -814,6 +816,37 @@ export async function runFinalizeStage(ctx) {
     knowledgeHealth: publishedHealth,
     actorUserId: null,
     reasonCode: 'knowledge_published',
+  });
+
+  let sourceVersion = ctx.carry?.sourceVersion ?? null;
+  if (!sourceVersion?.fileCounts) {
+    const sourceVersionId = ctx.scope?.sourceVersionId ?? null;
+    if (!sourceVersionId) {
+      throw createJobFailureError({
+        failureClass: 'permanent',
+        code: 'INGEST_MISSING_SOURCE_VERSION',
+        message: 'Finalize requires the source version used for this knowledge build.',
+      });
+    }
+    sourceVersion = await loadSourceVersionForIngest({
+      orgId: ctx.scope.orgId,
+      projectId: ctx.scope.projectId,
+      sourceVersionId,
+    });
+  }
+  if (!sourceVersion?.fileCounts) {
+    throw createJobFailureError({
+      failureClass: 'permanent',
+      code: 'INGEST_SOURCE_VERSION_NOT_FOUND',
+      message: 'The source version for this knowledge build was not found.',
+    });
+  }
+
+  const sourceVersionTotal = await countSourceVersions(ctx.scope.orgId, ctx.scope.projectId);
+  await setProjectSourceSnapshotCounts(ctx.scope.orgId, ctx.scope.projectId, {
+    files: sourceVersion.fileCounts.accepted ?? 0,
+    excludedFiles: sourceVersion.fileCounts.excludedFromGraph ?? 0,
+    sourceVersions: sourceVersionTotal,
   });
 
   // Dynamic import avoids a circular load (conversation → knowledge → conversation).

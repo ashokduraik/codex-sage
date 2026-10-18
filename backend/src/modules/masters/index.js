@@ -51,6 +51,7 @@ export {
 } from './roles.js';
 export {
   adjustProjectConversationCount,
+  setProjectSourceSnapshotCounts,
   findProjectById,
   updateProjectSourceConfig,
   transitionLifecycle,

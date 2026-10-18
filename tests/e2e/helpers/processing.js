@@ -105,3 +105,42 @@ export async function waitForTerminalHealth(page) {
 export function isKnowledgeBrowsable(healthLabel) {
   return READY_HEALTH_LABELS.includes(healthLabel);
 }
+
+/**
+ * Opens the first job activity log and reads the Source validated file count.
+ *
+ * @param {import('@playwright/test').Page} page Processing Center page.
+ * @returns {Promise<number>} Accepted file count from the activity log.
+ */
+export async function readValidatedFileCountFromActivityLog(page) {
+  await expect(page.getByRole('heading', { name: 'Processing Center' })).toBeVisible();
+  const showLog = page.getByRole('button', { name: 'Show activity log' }).first();
+  if (await showLog.isVisible().catch(() => false)) {
+    await showLog.click();
+  }
+  const validated = page.getByText(/Source validated \([\d,]+ files\)/).first();
+  await expect(validated).toBeVisible({ timeout: 30_000 });
+  const text = (await validated.textContent()) ?? '';
+  const match = text.match(/Source validated \(([\d,]+) files\)/);
+  if (!match) {
+    throw new Error(`Could not parse Source validated count from: ${text}`);
+  }
+  return Number(match[1].replace(/,/g, ''));
+}
+
+/**
+ * Asserts Health shows the same accepted file count as the activity log.
+ *
+ * @param {import('@playwright/test').Page} page Authenticated page.
+ * @param {string} projectId Project id.
+ * @returns {Promise<number>} Shared file count from log and Health.
+ */
+export async function expectHealthFileCountMatchesActivityLog(page, projectId) {
+  await openProcessingCenter(page, projectId);
+  const fileCount = await readValidatedFileCountFromActivityLog(page);
+  await page.goto(`/projects/${encodeURIComponent(projectId)}`);
+  await openProjectTab(page, 'Health');
+  const formatted = fileCount.toLocaleString('en-US');
+  await expect(page.getByText(`${formatted} files mapped`)).toBeVisible();
+  return fileCount;
+}

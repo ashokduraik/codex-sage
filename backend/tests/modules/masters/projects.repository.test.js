@@ -22,6 +22,7 @@ import {
   touchProjectLastAccessedAt,
   PROJECTS_LIST_DEFAULT_LIMIT,
   adjustProjectConversationCount,
+  setProjectSourceSnapshotCounts,
 } from '../../../src/modules/masters/projects.helper.js';
 
 const harness = createMongoHarness({
@@ -279,5 +280,34 @@ describe('projects.repository', () => {
     expect(down.counts.conversations).toBe(0);
     expect(await adjustProjectConversationCount(orgId, String(created._id), 0)).toBeNull();
     expect(await adjustProjectConversationCount(orgId, 'not-an-id', 1)).toBeNull();
+  });
+
+  it('sets source snapshot counts and floors negatives at zero', async () => {
+    const orgId = new mongoose.Types.ObjectId();
+    const actor = new mongoose.Types.ObjectId();
+    const created = await createProject(orgId, {
+      name: 'Snapshot counts',
+      sourceType: 'upload',
+      createdBy: actor,
+    });
+    expect(created.counts.files).toBe(0);
+    const updated = await setProjectSourceSnapshotCounts(orgId, String(created._id), {
+      files: 149,
+      excludedFiles: 3,
+      sourceVersions: 2,
+    });
+    expect(updated.counts.files).toBe(149);
+    expect(updated.counts.excludedFiles).toBe(3);
+    expect(updated.counts.sourceVersions).toBe(2);
+    const floored = await setProjectSourceSnapshotCounts(orgId, String(created._id), {
+      files: -5,
+      excludedFiles: Number.NaN,
+      sourceVersions: -1,
+    });
+    expect(floored.counts.files).toBe(0);
+    expect(floored.counts.excludedFiles).toBe(0);
+    expect(floored.counts.sourceVersions).toBe(0);
+    expect(await setProjectSourceSnapshotCounts(orgId, 'not-an-id', { files: 1, excludedFiles: 0, sourceVersions: 1 })).toBeNull();
+    expect(await setProjectSourceSnapshotCounts(orgId, String(created._id), null)).toBeNull();
   });
 });

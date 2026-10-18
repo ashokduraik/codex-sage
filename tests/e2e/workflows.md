@@ -39,7 +39,7 @@ empty URL → Connect disabled
 invalid host → probe error
 attach public repo → Sources
 wait job History + health terminal
-if ready/partial → Knowledge facets
+if ready/partial → activity log Source validated (N) matches Health “N files mapped” → Knowledge facets
 if failed → Retry on processing
 private attach on a second project (skip without env)
 ```
@@ -55,6 +55,7 @@ create as Upload
 reject non-zip
 upload sample ZIP → Processing History
 wait health terminal
+if ready/partial → activity log Source validated (2) matches Health “2 files mapped”
 if ready/partial → Knowledge + Search + preview
 second ZIP → Changes path diffs
 ```
