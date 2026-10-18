@@ -76,7 +76,6 @@ import {
   createProjectHttp,
   deleteProjectHttp,
   updateProjectHttp,
-  fillProjectDescriptionFromReadmeHttp,
   archiveProjectHttp,
   deactivateUserHttp,
   restoreProjectHttp,
@@ -95,6 +94,7 @@ import {
   updateProjectSettingsHttp,
   markAllNotificationsReadHttp,
   getProjectDeletionPreviewHttp,
+  fillProjectDescriptionFromReadmeHttp,
 } from '../modules/masters/index.js';
 
 /**

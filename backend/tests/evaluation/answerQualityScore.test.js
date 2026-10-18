@@ -3,13 +3,14 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
-  aggregateAnswerQualityScores,
   evidenceHitsGold,
   isAbstainOutcome,
   lineRangesOverlap,
+  scoreCitationCase,
+  isDirectReplyOutcome,
   normalizeCitationPath,
   scoreAnswerQualityCase,
-  scoreCitationCase,
+  aggregateAnswerQualityScores,
 } from '../../../docs/evaluation/answerQualityScore.js';
 
 describe('normalizeCitationPath', () => {
@@ -75,6 +76,21 @@ describe('isAbstainOutcome', () => {
   });
 });
 
+describe('isDirectReplyOutcome', () => {
+  it('recognizes completed replies with null supportLevel and no evidence', () => {
+    expect(isDirectReplyOutcome({ messageStatus: 'completed', supportLevel: null, evidence: [] })).toBe(true);
+    expect(isDirectReplyOutcome({ messageStatus: 'completed', supportLevel: 'evidence_backed', evidence: [] })).toBe(false);
+    expect(isDirectReplyOutcome({ messageStatus: 'abstained', supportLevel: null, evidence: [] })).toBe(false);
+    expect(
+      isDirectReplyOutcome({
+        messageStatus: 'completed',
+        supportLevel: null,
+        evidence: [{ path: 'a.js' }],
+      }),
+    ).toBe(false);
+  });
+});
+
 describe('scoreAnswerQualityCase', () => {
   it('passes abstain when status is abstained and no evidence', () => {
     const scored = scoreAnswerQualityCase({ expect: 'abstain', citations: [] }, { messageStatus: 'abstained', evidence: [] });
@@ -99,6 +115,32 @@ describe('scoreAnswerQualityCase', () => {
     expect(scored.pass).toBe(false);
     expect(scored.falseAbstain).toBe(true);
   });
+
+  it('passes direct_reply when completed with no evidence', () => {
+    const scored = scoreAnswerQualityCase(
+      { expect: 'direct_reply', citations: [] },
+      { messageStatus: 'completed', supportLevel: null, evidence: [] },
+    );
+    expect(scored.pass).toBe(true);
+  });
+
+  it('fails direct_reply when the model abstains', () => {
+    const scored = scoreAnswerQualityCase(
+      { expect: 'direct_reply', citations: [] },
+      { messageStatus: 'abstained', supportLevel: 'insufficient', evidence: [] },
+    );
+    expect(scored.pass).toBe(false);
+    expect(scored.falseAbstain).toBe(true);
+  });
+
+  it('fails answer guard cases that return a direct reply instead of citations', () => {
+    const scored = scoreAnswerQualityCase(
+      { expect: 'answer', citations: [{ path: 'a.js', startLine: 1, endLine: 2 }] },
+      { messageStatus: 'completed', supportLevel: null, evidence: [] },
+    );
+    expect(scored.pass).toBe(false);
+    expect(scored.citationPass).toBe(false);
+  });
 });
 
 describe('aggregateAnswerQualityScores', () => {
@@ -109,11 +151,13 @@ describe('aggregateAnswerQualityScores', () => {
         { expect: 'answer', pass: false, citationPass: false, precision: 0, recall: 0, falseAbstain: true, falseAnswer: false },
         { expect: 'abstain', pass: true, citationPass: true, precision: 1, recall: 1, falseAbstain: false, falseAnswer: false },
         { expect: 'abstain', pass: true, citationPass: true, precision: 1, recall: 1, falseAbstain: false, falseAnswer: false },
+        { expect: 'direct_reply', pass: true, citationPass: true, precision: 1, recall: 1, falseAbstain: false, falseAnswer: false },
       ],
       0.8,
     );
     expect(suite.citationPassRate).toBe(0.5);
     expect(suite.abstainPassRate).toBe(1);
+    expect(suite.directReplyPassRate).toBe(1);
     expect(suite.falseAbstainRate).toBe(0.5);
     expect(suite.suitePass).toBe(false);
   });

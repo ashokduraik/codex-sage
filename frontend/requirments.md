@@ -1591,6 +1591,12 @@ ready, or asking a narrower question.
 
 Do not visually present abstain responses as successful grounded answers.
 
+Completed replies with null supportLevel and no evidence are **direct replies**
+(greetings, identity, general knowledge — ADR 0039), not abstains. Render them as
+plain assistant messages without the abstain / insufficient-evidence banner or
+Sources panel. General-knowledge content may include an in-message note that the
+answer is not from project sources.
+
 ---
 
 # 65. CONVERSATIONAL CONTEXT

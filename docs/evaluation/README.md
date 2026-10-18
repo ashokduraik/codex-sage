@@ -81,7 +81,7 @@ D4: measures this product’s fixtures and `backend/src` only. See
 
 ---
 
-## Answer quality (citation accuracy + abstain)
+## Answer quality (citation accuracy + abstain + direct reply)
 
 Operator script (Phase 55). Not a Vitest CI gate — needs a running API, LLM host, and a
 knowledge-ready project. Pure scorer unit tests live in
@@ -130,6 +130,11 @@ Optional: `--cases`, `--out-dir`, `--help`.
 - **Citation hit:** same normalized path and overlapping `startLine`/`endLine`.
 - **Answer case pass:** citation recall ≥ 1.0 (every gold citation hit).
 - **Abstain case pass:** terminal abstain with no invented evidence.
-- Suite exits non-zero if citation-pass rate or abstain-pass rate is below **0.8**.
+- **Direct-reply case pass:** `messageStatus: completed`, null `supportLevel`, empty
+  evidence (greetings / identity / general knowledge — ADR 0039).
+- Guard cases (`expect: answer` with a mixed or overlapping question) must **not**
+  score as direct replies.
+- Suite exits non-zero if citation-pass, abstain-pass, or direct-reply-pass rate is
+  below **0.8**.
 
 Re-pin gold line numbers in the cases file when the cited symbols move; keep case `id`s stable.

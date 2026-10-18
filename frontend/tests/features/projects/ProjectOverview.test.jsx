@@ -1,6 +1,6 @@
 import { Outlet, Route, Routes } from 'react-router-dom';
-import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 
 vi.mock('@/features/projects/api/projectsApi.js', async () => {
   const fixtures = await import('./test/projectApiFixtures.js');
@@ -25,9 +25,9 @@ vi.mock('@/features/projects/processing/api/jobsApi.js', async (importOriginal) 
 });
 
 import ProjectOverview from '@/features/projects/ProjectOverview';
-import { fillProjectDescriptionFromReadme } from '@/features/projects/api/projectsApi.js';
 import ProjectDetailPage from '@/features/projects/ProjectDetailPage';
 import { listProjectJobs } from '@/features/projects/processing/api/jobsApi.js';
+import { fillProjectDescriptionFromReadme } from '@/features/projects/api/projectsApi.js';
 import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
 
 afterEach(() => {

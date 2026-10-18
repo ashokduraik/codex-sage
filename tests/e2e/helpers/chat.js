@@ -8,6 +8,15 @@ import { E2E_FIXTURE_SEARCH_TOKEN } from './constants.js';
 /** Default grounded question about the sample ZIP fixture. */
 export const E2E_CHAT_FIXTURE_QUESTION = `Where is the exported constant ${E2E_FIXTURE_SEARCH_TOKEN} defined, and what string value does it hold?`;
 
+/** Greeting used to assert conversational direct replies. */
+export const E2E_CHAT_GREETING = 'hi';
+
+/** Off-topic question used to assert general-knowledge direct replies. */
+export const E2E_CHAT_GENERAL_QUESTION = 'What is the capital of France?';
+
+/** Deterministic note the backend prepends to general-knowledge replies. */
+export const E2E_CHAT_GENERAL_NOTE = "General answer, not based on this project's sources.";
+
 /** Max wait for one chat ask to leave the generating state. */
 export const E2E_CHAT_ANSWER_TIMEOUT_MS = 240_000;
 
@@ -86,4 +95,34 @@ export async function expectChatTerminalOutcome(page) {
   }
 
   throw new Error('Chat did not show Sources citing hello.js or an abstain notice — confirm worker + LLM are running.');
+}
+
+/**
+ * Asserts the last assistant turn is a direct reply: has text, no abstain notice, no Sources.
+ *
+ * @param {import('@playwright/test').Page} page Chat workspace page after idle.
+ * @param {{ requireGeneralNote?: boolean }} [options] When true, require the general-knowledge note.
+ */
+export async function expectChatDirectReply(page, options = {}) {
+  const failed = page.getByText('Generation failed');
+  if (await failed.isVisible().catch(() => false)) {
+    throw new Error('Chat generation failed — confirm the API started with a reachable LLM (`npm run dev`) and retry.');
+  }
+
+  const abstainTitle = page.getByText('The project does not currently contain enough information to answer this question confidently.');
+  const abstainStatus = page.getByText('Could not answer from project knowledge.');
+  const insufficient = page.getByText('Not enough project evidence to answer confidently.');
+  expect(await abstainTitle.isVisible().catch(() => false)).toBe(false);
+  expect(await abstainStatus.isVisible().catch(() => false)).toBe(false);
+  expect(await insufficient.isVisible().catch(() => false)).toBe(false);
+
+  const sourcesButton = page.getByRole('button', { name: /\d+ sources?/i });
+  expect(await sourcesButton.count()).toBe(0);
+
+  if (options.requireGeneralNote) {
+    await expect(page.getByText(E2E_CHAT_GENERAL_NOTE).last()).toBeVisible({ timeout: 10_000 });
+  } else {
+    // Last assistant bubble should have some reply text (not empty pending).
+    await expect(page.getByText(/./).last()).toBeVisible({ timeout: 10_000 });
+  }
 }

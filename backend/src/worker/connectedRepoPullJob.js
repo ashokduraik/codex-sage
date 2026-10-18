@@ -2,6 +2,7 @@
  * Pulls the latest commit from a connected GitHub/GitLab repo into a source version.
  */
 import { findActiveConnection, decryptConnectionToken } from '../modules/knowledge/repositories.js';
+import { enqueueSourceReingest, findLatestActiveSourceVersionForProject } from '../modules/knowledge/sources.js';
 import {
   deferRepoSyncJob,
   resolveRemoteHead,
@@ -12,7 +13,6 @@ import {
   REPO_SYNC_OVERLAP_RETRY_MS,
   persistRepositorySourceVersion,
 } from '../modules/knowledge/repoSync.js';
-import { enqueueSourceReingest, findLatestActiveSourceVersionForProject } from '../modules/knowledge/sources.js';
 
 /**
  * Runs a claimed connected_repo_pull job.

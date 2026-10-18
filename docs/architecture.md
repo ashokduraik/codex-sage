@@ -327,25 +327,30 @@ artifact mismatch → `CONTEXT_ACCOUNTING_UNAVAILABLE`. Still over after compact
 ```text
                  UNDERSTAND          “What is the user asking? Do we need
                       │               clarification? Do not answer yet.”
-         ┌────────────┼────────────┐
-         ▼            ▼            ▼
-   CLARIFY_SET   AGENT_TOOLS    ABSTAIN_EARLY
-   pause for UI  tool loop      not enough to proceed
-                      │
-                      ▼
-                DRAFT_ANSWER         stream tokens to the UI
-                      │
-                      ▼
-                VERIFY_ANSWER        citations must resolve to real evidence
-                      │
-                      ▼
-                PERSIST + DONE       Message, evidence[], usage, summary
+    ┌─────────┬───────┼──────────┬──────────────┐
+    ▼         ▼       ▼          ▼              ▼
+CLARIFY_SET  AGENT_   REPLY_   ABSTAIN_EARLY
+pause for UI TOOLS    DIRECT   not enough to proceed
+             │        (converse /
+             │         general_knowledge /
+             │         overview fallback)
+             │              │
+             ▼              ▼
+      DRAFT_ANSWER    PERSIST_DIRECT
+             │        completed, supportLevel null
+             ▼
+      VERIFY_ANSWER
+             │
+             ▼
+      PERSIST + DONE
 ```
 
 **UNDERSTAND** (implemented in `backend/src/modules/conversation/chatGraph.js`) returns
 JSON (`rewrittenQuestion`, `needsClarification`, `clarificationQuestions[]`,
-`route`: `retrieve` | `abstain_early`). It does not answer the project question.
+`route`: `retrieve` | `project_overview` | `converse` | `general_knowledge` |
+`abstain_early`). It does not answer the project question.
 Private model reasoning is off for this node (`enableThinking: false`).
+See ADR 0039 for conversational / general / overview-fallback replies.
 
 **CLARIFY_SET:** one SSE `clarification` payload with the full question list
 (`messageId` = assistant id, `clarificationSetId`, `roundIndex`, `questions[]`).
@@ -380,11 +385,18 @@ results (with ids), and grounding rules. `streamText` with bounded thinking; ans
 tokens only via `onDelta` (phase 50 → SSE `delta`).
 
 **VERIFY** (phase 49): deterministic citation / path / `knowledgeVersionId` checks first;
-LLM verify only for remaining ambiguous claims. Empty evidence → abstain. Fail with revise
+LLM verify only for remaining ambiguous claims. Empty evidence after tools → abstain
+(or **REPLY_DIRECT** when `route` is `project_overview`). Fail with revise
 budget (`MAX_VERIFY_REVISE = 1`) → AGENT_TOOLS once. Fail exhausted → abstain or grounded
 partial. **PERSIST** updates the pending assistant `Message` (evidence snapshots,
 `supportLevel`, usage, `durationMs`, `modelId`, `trace` for §146) — no separate
 `responseTraces` collection.
+
+**REPLY_DIRECT** (ADR 0039): for `converse` / `general_knowledge` (skip tools), or
+`project_overview` when the tool loop finishes with no evidence. Streams with
+`purpose: 'direct_reply'` (thinking off), stage `composing_reply`. Persists
+`completed` with `supportLevel` null and no evidence. General answers and
+description fallbacks prepend fixed Markdown notes in content.
 
 **Context budget** (every node that calls the model):
 

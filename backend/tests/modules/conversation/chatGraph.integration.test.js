@@ -16,13 +16,16 @@ import {
   resumeChatGraphFromClarification,
 } from '../../../src/modules/conversation/chatGraph.js';
 
-const { mockGenerateText, mockStreamText, mockBuildConversationContext, mockExecuteTool, mockGetRunBudgetConfig } = vi.hoisted(() => ({
-  mockGenerateText: vi.fn(),
-  mockStreamText: vi.fn(),
-  mockBuildConversationContext: vi.fn(),
-  mockExecuteTool: vi.fn(),
-  mockGetRunBudgetConfig: vi.fn(),
-}));
+const { mockGenerateText, mockStreamText, mockBuildConversationContext, mockExecuteTool, mockGetRunBudgetConfig, mockFindProjectById } = vi.hoisted(
+  () => ({
+    mockGenerateText: vi.fn(),
+    mockStreamText: vi.fn(),
+    mockBuildConversationContext: vi.fn(),
+    mockExecuteTool: vi.fn(),
+    mockGetRunBudgetConfig: vi.fn(),
+    mockFindProjectById: vi.fn(),
+  }),
+);
 
 vi.mock('../../../src/modules/conversation/llm.js', () => ({
   generateText: (...args) => mockGenerateText(...args),
@@ -54,6 +57,14 @@ vi.mock('../../../src/modules/conversation/runBudget.js', async (importOriginal)
   return {
     ...actual,
     getRunBudgetConfig: (...args) => mockGetRunBudgetConfig(...args),
+  };
+});
+
+vi.mock('../../../src/modules/masters/index.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    findProjectById: (...args) => mockFindProjectById(...args),
   };
 });
 
@@ -116,6 +127,10 @@ describe('chatGraph Mongo checkpointer', () => {
       evidenceRecords: [],
       rejected: [],
       usage: { resultBytes: 0, promptTokensAfterBudget: 0 },
+    });
+    mockFindProjectById.mockResolvedValue({
+      name: 'Payments API',
+      description: 'Handles card refunds.',
     });
     mockStreamText.mockResolvedValue({
       textStream: (async function* streamChunks() {
@@ -443,6 +458,85 @@ describe('chatGraph Mongo checkpointer', () => {
     expect(stored.evidence[0].evidenceId).toBe('ev_01');
     expect(stored.trace?.evidenceIds).toEqual(['ev_01']);
     expect(stored.modelId).toBe('test-model');
+  });
+
+  it('persists a completed converse reply with null supportLevel and no evidence', async () => {
+    const projectId = new mongoose.Types.ObjectId();
+    const userId = new mongoose.Types.ObjectId();
+    const pendingAssistantId = new mongoose.Types.ObjectId();
+    const threadId = buildChatGraphThreadId(orgId, conversationId, pendingAssistantId);
+
+    await Conversation.create({
+      orgId,
+      projectId,
+      ownerUserId: userId,
+      title: 'Converse test',
+      titleSource: 'default',
+      searchText: '',
+      lifecycleStatus: 'active',
+      messageCount: 1,
+      createdBy: userId,
+      updatedBy: userId,
+    });
+    await Message.create({
+      _id: pendingAssistantId,
+      orgId,
+      projectId,
+      conversationId,
+      role: 'assistant',
+      content: '(pending)',
+      messageStatus: 'generating',
+      createdBy: userId,
+      updatedBy: userId,
+    });
+
+    mockGenerateText.mockResolvedValue({
+      text: JSON.stringify({
+        rewrittenQuestion: 'hi',
+        needsClarification: false,
+        clarificationQuestions: [],
+        route: 'converse',
+      }),
+      usage: { inputTokens: 1, outputTokens: 1, totalTokens: null },
+      durationMs: 1,
+      modelId: 'test-model',
+      contextMetrics: {},
+      enableThinking: false,
+    });
+    mockStreamText.mockResolvedValue({
+      textStream: (async function* streamChunks() {
+        yield 'Hello — ask about Payments API.';
+      })(),
+      usage: Promise.resolve({ inputTokens: 2, outputTokens: 4, totalTokens: null }),
+      durationMs: Promise.resolve(5),
+      modelId: 'test-model',
+      contextMetrics: { measuredInputTokens: 2 },
+      enableThinking: false,
+    });
+
+    const checkpointer = createMongoChatCheckpointer();
+    const compiled = compileChatGraph({ checkpointer });
+    await invokeChatGraph({
+      threadId,
+      compiled,
+      checkpointer,
+      input: {
+        scope: {
+          ...scope(),
+          projectId: String(projectId),
+          userId: String(userId),
+          assistantMessageId: String(pendingAssistantId),
+        },
+        question: 'hi',
+      },
+    });
+
+    const stored = await Message.findById(pendingAssistantId).lean();
+    expect(stored.messageStatus).toBe('completed');
+    expect(stored.supportLevel).toBeNull();
+    expect(stored.evidence).toBeNull();
+    expect(stored.content).toContain('Hello');
+    expect(mockExecuteTool).not.toHaveBeenCalled();
   });
 
   it('persists abstained status when retrieval finishes with empty evidence', async () => {

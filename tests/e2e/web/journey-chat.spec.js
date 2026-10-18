@@ -1,5 +1,5 @@
 /**
- * Journey: ZIP ingest → knowledge ready → ask a grounded question in project Chat.
+ * Journey: ZIP ingest → knowledge ready → grounded ask, then greeting and general reply.
  */
 import { expect, test } from '@playwright/test';
 
@@ -7,6 +7,9 @@ import { loginViaUi } from '../helpers/auth.js';
 import {
   E2E_CHAT_FIXTURE_QUESTION,
   E2E_CHAT_ANSWER_TIMEOUT_MS,
+  E2E_CHAT_GENERAL_QUESTION,
+  E2E_CHAT_GREETING,
+  expectChatDirectReply,
   expectChatTerminalOutcome,
   openProjectChat,
   sendChatQuestion,
@@ -83,5 +86,35 @@ test.describe('Journey: Chat ask via UI', () => {
     await sendChatQuestion(page, E2E_CHAT_FIXTURE_QUESTION);
     await waitForChatIdle(page);
     await expectChatTerminalOutcome(page);
+  });
+
+  test('replies to a greeting without abstaining', async ({ page }) => {
+    test.skip(!isKnowledgeBrowsable(healthLabel), `Chat needs ready/partial knowledge; health is ${healthLabel ?? 'unknown'}`);
+    test.setTimeout(E2E_CHAT_ANSWER_TIMEOUT_MS + 60_000);
+
+    await openProjectFromList(page, projectName);
+    await openProjectChat(page, projectId);
+
+    const composer = page.getByPlaceholder('Ask anything about this project…');
+    test.skip(!(await composer.isEnabled().catch(() => false)), 'Chat composer disabled');
+
+    await sendChatQuestion(page, E2E_CHAT_GREETING);
+    await waitForChatIdle(page);
+    await expectChatDirectReply(page);
+  });
+
+  test('answers a general question with the general-knowledge note', async ({ page }) => {
+    test.skip(!isKnowledgeBrowsable(healthLabel), `Chat needs ready/partial knowledge; health is ${healthLabel ?? 'unknown'}`);
+    test.setTimeout(E2E_CHAT_ANSWER_TIMEOUT_MS + 60_000);
+
+    await openProjectFromList(page, projectName);
+    await openProjectChat(page, projectId);
+
+    const composer = page.getByPlaceholder('Ask anything about this project…');
+    test.skip(!(await composer.isEnabled().catch(() => false)), 'Chat composer disabled');
+
+    await sendChatQuestion(page, E2E_CHAT_GENERAL_QUESTION);
+    await waitForChatIdle(page);
+    await expectChatDirectReply(page, { requireGeneralNote: true });
   });
 });

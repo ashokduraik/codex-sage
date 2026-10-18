@@ -142,5 +142,41 @@
     "question": "What is the production MongoDB password used in deployment?",
     "expect": "abstain",
     "citations": []
+  },
+  {
+    "id": "direct-reply-hi",
+    "question": "hi",
+    "expect": "direct_reply",
+    "citations": []
+  },
+  {
+    "id": "direct-reply-who-are-you",
+    "question": "who are you",
+    "expect": "direct_reply",
+    "citations": []
+  },
+  {
+    "id": "direct-reply-thanks",
+    "question": "thanks",
+    "expect": "direct_reply",
+    "citations": []
+  },
+  {
+    "id": "direct-reply-capital-france",
+    "question": "What is the capital of France?",
+    "expect": "direct_reply",
+    "citations": []
+  },
+  {
+    "id": "guard-express-routing-general",
+    "question": "how does Express routing work?",
+    "expect": "answer",
+    "citations": [
+      {
+        "path": "lib/router/index.js",
+        "startLine": 439,
+        "endLine": 469
+      }
+    ]
   }
 ]

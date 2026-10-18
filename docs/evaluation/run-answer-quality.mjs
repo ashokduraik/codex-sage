@@ -299,6 +299,7 @@ Project: \`${projectId}\` · Conversation: \`${conversationId}\`
 | mean recall | ${suite.meanRecall.toFixed(3)} |
 | citation-pass rate | ${suite.citationPassRate.toFixed(3)} |
 | abstain-pass rate | ${suite.abstainPassRate.toFixed(3)} |
+| direct-reply-pass rate | ${suite.directReplyPassRate.toFixed(3)} |
 | false-abstain rate | ${suite.falseAbstainRate.toFixed(3)} |
 | false-answer rate | ${suite.falseAnswerRate.toFixed(3)} |
 | suite pass (≥ 0.8) | ${suite.suitePass ? 'yes' : 'no'} |

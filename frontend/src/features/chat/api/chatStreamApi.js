@@ -21,6 +21,7 @@ export const CHAT_STAGE_I18N_KEYS = Object.freeze({
   verifying_answer: 'chat.stages.verifyingAnswer',
   awaiting_clarification: 'chat.stages.awaitingClarification',
   abstain_early: 'chat.stages.abstainEarly',
+  composing_reply: 'chat.stages.composingReply',
   generating: 'chat.stages.generatingAnswer',
 });
 

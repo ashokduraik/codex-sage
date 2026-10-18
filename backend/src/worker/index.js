@@ -11,14 +11,14 @@ import { PROJECT_MODELS } from '../modules/masters/index.js';
 import { syncSchemaIndexes } from '../platform/data/index.js';
 import { ProjectJobLock } from '../models/projectJobLock.model.js';
 import { connectMongo, disconnectMongo } from '../platform/mongo.js';
+import { CONVERSATION_MODELS } from '../modules/conversation/index.js';
 import { workerSmokeCheckHandlerRegistration } from './workerSmokeCheckJob.js';
 import { connectedRepoPullHandlerRegistration } from './connectedRepoPullJob.js';
 import { agedOrgDataCleanupHandlerRegistration } from './agedOrgDataCleanupJob.js';
-import { CONVERSATION_MODELS } from '../modules/conversation/index.js';
 import { WORKER_HEARTBEAT_INTERVAL_MS, assertWorkerLeaseTimingSafe } from './workerConfig.js';
 import { JOB_MODELS, NOTIFICATION_MODELS, PROJECT_ACTIVITY_MODELS } from '../modules/masters/index.js';
-import { attachShutdownSignals, registerProcessHandlers, registerShutdownHook } from '../platform/shutdown.js';
 import { buildWorkerId, startSchedule, registerJobHandler, clearJobHandlersForTests } from './schedule.js';
+import { attachShutdownSignals, registerProcessHandlers, registerShutdownHook } from '../platform/shutdown.js';
 import { SOURCE_MODELS, DOCUMENT_MODELS, KNOWLEDGE_MODELS, REPOSITORY_MODELS } from '../modules/knowledge/index.js';
 import { projectKnowledgeBuildHandlerRegistration, projectKnowledgeRebuildHandlerRegistration } from './projectKnowledgeBuildJob.js';
 

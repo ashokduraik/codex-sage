@@ -118,5 +118,41 @@
     "question": "What is the production MongoDB password used in deployment?",
     "expect": "abstain",
     "citations": []
+  },
+  {
+    "id": "direct-reply-hi",
+    "question": "hi",
+    "expect": "direct_reply",
+    "citations": []
+  },
+  {
+    "id": "direct-reply-who-are-you",
+    "question": "who are you",
+    "expect": "direct_reply",
+    "citations": []
+  },
+  {
+    "id": "direct-reply-thanks",
+    "question": "thanks",
+    "expect": "direct_reply",
+    "citations": []
+  },
+  {
+    "id": "direct-reply-capital-france",
+    "question": "What is the capital of France?",
+    "expect": "direct_reply",
+    "citations": []
+  },
+  {
+    "id": "guard-hi-plus-sse-accept",
+    "question": "hi, where is the chat SSE accept check?",
+    "expect": "answer",
+    "citations": [
+      {
+        "path": "backend/src/modules/conversation/chatStream.js",
+        "startLine": 1098,
+        "endLine": 1104
+      }
+    ]
   }
 ]

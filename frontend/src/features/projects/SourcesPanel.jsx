@@ -11,15 +11,15 @@ import { formatDateTime } from '@/shared/lib/format';
 import { useAuth } from '@/features/auth/AuthContext';
 import { SourceUploadDialog } from './SourceUploadDialog';
 import { useNavigate, useOutletContext } from 'react-router-dom';
-import { useSyncRepository } from './hooks/useSyncRepository.js';
 import { useReingestSource } from './hooks/useReingestSource.js';
+import { useSyncRepository } from './hooks/useSyncRepository.js';
 import { ConnectRepositoryDialog } from './ConnectRepositoryDialog';
 import { useRepositoryConnection } from './hooks/useRepositoryConnection.js';
 import { ApiError, correlationFromUnknown, messageFromUnknown } from '@/shared/api';
 import { useRepositoryCredentialActions } from './hooks/useRepositoryCredentialActions.js';
 import { flattenSourceVersionPages, useSourceVersions } from './hooks/useSourceVersions.js';
-import { AlertCircle, Check, GitBranch, KeyRound, Loader2, Plus, RefreshCw, RotateCcw, Trash2, UploadCloud } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/ui/dialog';
+import { AlertCircle, Check, GitBranch, KeyRound, Loader2, Plus, RefreshCw, RotateCcw, Trash2, UploadCloud } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogTitle,

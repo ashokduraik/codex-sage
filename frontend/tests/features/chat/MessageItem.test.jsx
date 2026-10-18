@@ -292,6 +292,27 @@ describe('MessageItem', () => {
     expect(screen.getByTestId('metrics-line')).toBeTruthy();
   });
 
+  it('renders a completed general reply with note and no trust banner or sources', () => {
+    renderWithProviders(
+      <MessageItem
+        message={buildMessage({
+          content: "_General answer, not based on this project's sources._\n\nParis.",
+          messageStatus: 'completed',
+          supportLevel: null,
+          evidence: [],
+        })}
+        isUser={false}
+        onPreview={() => undefined}
+        projectId="p1"
+      />,
+    );
+    expect(screen.getByText(/General answer, not based on this project's sources/i)).toBeTruthy();
+    expect(screen.getByText(/Paris/i)).toBeTruthy();
+    expect(screen.queryByText(/Not enough project evidence/i)).toBeNull();
+    expect(screen.queryByText(/Could not answer from project knowledge/i)).toBeNull();
+    expect(screen.queryByRole('button', { name: /source/i })).toBeNull();
+  });
+
   it('shows insufficient support banner for abstained turns', () => {
     renderWithProviders(
       <MessageItem

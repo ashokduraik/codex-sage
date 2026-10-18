@@ -41,6 +41,7 @@
 | [0036](./0036-module-file-action-api-paths.md) | Module / file / action API paths | Accepted |
 | [0037](./0037-chat-sse-abort-on-disconnect.md) | Chat SSE abort on client disconnect | Accepted |
 | [0038](./0038-qwen3-tokenizer-parity.md) | Qwen3 Node tokenizer for context budget | Accepted |
+| [0039](./0039-conversational-and-general-replies.md) | Conversational and general replies in grounded chat | Accepted |
 
 One decision = one ADR. Accepted ADRs are immutable; supersede with a new number rather
 than rewriting history.

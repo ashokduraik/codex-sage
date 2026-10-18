@@ -11,9 +11,9 @@ import {
   assertLlmAvailable,
   getLlmConfigStatus,
   generateTextWithoutBudget,
-  resetProbedLlmArtifactIdForTests,
   INFERENCE_QUEUE_MAX_DEPTH,
   INFERENCE_QUEUE_MAX_CONCURRENCY,
+  resetProbedLlmArtifactIdForTests,
 } from '../../../src/modules/conversation/index.js';
 
 const { mockGenerateText, mockStreamText, mockPrepareModelInput, mockLoadConfig, configState, LLM, READY_LLM } = vi.hoisted(() => {

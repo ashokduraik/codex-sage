@@ -1,15 +1,17 @@
 /**
  * Overflow helpers for chatGraph: UNDERSTAND / tool-choice Zod schemas, the
- * Mongo LangGraph checkpointer, and DRAFT / VERIFY / PERSIST runners (phase 49).
+ * Mongo LangGraph checkpointer, DRAFT / VERIFY / PERSIST runners, and
+ * direct conversational / general replies (ADR 0039).
  * Used only by chatGraph.js.
  */
 import { z } from 'zod';
 import mongoose from 'mongoose';
 import { streamText, generateText } from './llm.js';
+import { findProjectById } from '../masters/index.js';
 import { finalizeAssistantMessage } from './conversation.helper.js';
+import { ApiError, caughtErrorFields } from '../../platform/errors.js';
 import { BaseCheckpointSaver } from '@langchain/langgraph-checkpoint';
 import { ChatCheckpoint } from '../../models/chatCheckpoint.model.js';
-import { ApiError, caughtErrorFields } from '../../platform/errors.js';
 import { ROW_STATUS_ACTIVE, ROW_STATUS_DELETED } from '../../platform/data/index.js';
 import { applyLlmUsageToRunBudget, applyModelCallToRunBudget, assertRunBudget, getRunBudgetConfig } from './runBudget.js';
 
@@ -28,8 +30,28 @@ const PROJECT_CLAIM_PATTERN = /\bev_\d+\b|`[^`]+\/[^`]+`|\b(?:src|docs|backend|f
 /** Clarification question types the UNDERSTAND model may emit. */
 export const CLARIFICATION_QUESTION_TYPES = Object.freeze(['single_select', 'multi_select', 'free_text']);
 
-/** Routes UNDERSTAND may choose (clarify uses needsClarification, not route). */
-export const UNDERSTAND_ROUTE_VALUES = Object.freeze(['retrieve', 'abstain_early']);
+/**
+ * Routes UNDERSTAND may choose (clarify uses needsClarification, not route).
+ * Direct replies: converse (greetings / identity) and general_knowledge (off-topic).
+ * project_overview retrieves first, then falls back to the saved description.
+ */
+export const UNDERSTAND_ROUTE_VALUES = Object.freeze(['retrieve', 'project_overview', 'converse', 'general_knowledge', 'abstain_early']);
+
+/**
+ * Markdown note prepended to general-knowledge replies so they stay distinct
+ * from grounded project answers after reload.
+ */
+export const DIRECT_REPLY_GENERAL_NOTE = "_General answer, not based on this project's sources._";
+
+/**
+ * Markdown note prepended when a project-overview question falls back to the
+ * saved project description because indexed sources had no evidence.
+ */
+export const DIRECT_REPLY_DESCRIPTION_NOTE = "_Based on the project's saved description, not indexed sources._";
+
+/** Fixed copy when project-overview has no indexed evidence and no description. */
+export const DIRECT_REPLY_EMPTY_DESCRIPTION =
+  'No project overview is available yet. Ask a concrete question about the code or documentation, or add a project description.';
 
 /** Tool-choice actions for AGENT_TOOLS. */
 export const TOOL_CHOICE_ACTION_VALUES = Object.freeze(['call_tool', 'finish_retrieval']);
@@ -561,13 +583,192 @@ export async function runPersistAbstainNode(state, hooks) {
 }
 
 /**
- * Shared Mongo finalize + hooks for done/abstain paths.
+ * Streams a conversational or general reply without retrieval or VERIFY.
+ * Used for greetings/identity (`converse`), off-topic (`general_knowledge`),
+ * and project-overview fallback when tools found no evidence.
+ * @param {object} state Graph state.
+ * @param {{
+ *   onStage: (event: { stage: string, data?: object }) => void,
+ *   onDelta: (text: string) => void,
+ * }} hooks Stream hooks.
+ * @returns {Promise<object>} Partial state update.
+ */
+export async function runDirectReplyNode(state, hooks) {
+  const onStage = hooks.onStage;
+  const onDelta = hooks.onDelta;
+  fireSafeHook(onStage, 'composing_reply');
+  const stages = appendStage(state.stages, 'composing_reply');
+  const abortSignal = state.scope?.abortSignal;
+  if (abortSignal?.aborted) {
+    return { stages, retrievalComplete: true };
+  }
+
+  const scope = state.scope ?? {};
+  let project = null;
+  if (scope.orgId && scope.projectId) {
+    try {
+      project = await findProjectById(scope.orgId, scope.projectId);
+    } catch (error) {
+      console.error(
+        JSON.stringify({
+          level: 'error',
+          msg: 'direct reply project load failed',
+          ...caughtErrorFields(error),
+        }),
+      );
+      project = null;
+    }
+  }
+  const projectName = typeof project?.name === 'string' && project.name.trim() !== '' ? project.name.trim() : 'this project';
+  const projectDescription = typeof project?.description === 'string' ? project.description.trim() : '';
+  const route = state.route;
+
+  if (route === 'project_overview' && projectDescription === '') {
+    const emptyContent = DIRECT_REPLY_EMPTY_DESCRIPTION;
+    fireSafeDelta(onDelta, emptyContent);
+    return {
+      draftAnswer: emptyContent,
+      answerContent: emptyContent,
+      stages,
+      modelId: state.modelId ?? null,
+    };
+  }
+
+  let prefix = '';
+  if (route === 'general_knowledge') {
+    prefix = `${DIRECT_REPLY_GENERAL_NOTE}\n\n`;
+  } else if (route === 'project_overview') {
+    prefix = `${DIRECT_REPLY_DESCRIPTION_NOTE}\n\n`;
+  }
+  if (prefix) {
+    fireSafeDelta(onDelta, prefix);
+  }
+
+  const segments = buildDirectReplySegments(state, projectName, projectDescription, route);
+  let stream;
+  try {
+    stream = await streamText({
+      purpose: 'direct_reply',
+      enableThinking: false,
+      segments,
+      summarySegment: state.summarySegment,
+      abortSignal,
+    });
+  } catch (error) {
+    throw error instanceof ApiError ? error : ApiError.fromCode('LLM_PROVIDER_ERROR', { cause: error });
+  }
+
+  let body = '';
+  try {
+    for await (const chunk of stream.textStream) {
+      if (typeof chunk === 'string' && chunk.length > 0) {
+        body += chunk;
+        fireSafeDelta(onDelta, chunk);
+      }
+    }
+  } catch (error) {
+    throw error instanceof ApiError ? error : ApiError.fromCode('LLM_PROVIDER_ERROR', { cause: error });
+  }
+
+  const usage = await stream.usage;
+  const durationMs = await stream.durationMs;
+  const tokenUpdate = applyLlmUsageToRunBudget(state, usage);
+  const callUpdate = applyModelCallToRunBudget(state);
+  const answerContent = `${prefix}${body}`;
+
+  return {
+    draftAnswer: answerContent,
+    answerContent,
+    stages,
+    metrics: stream.contextMetrics ?? state.metrics,
+    modelId: stream.modelId ?? null,
+    draftUsage: usage ?? null,
+    draftDurationMs: Number.isFinite(durationMs) ? durationMs : null,
+    ...tokenUpdate,
+    ...callUpdate,
+  };
+
+  /**
+   * Builds budgeter segments for a direct reply (persona + project metadata + question).
+   * @param {object} replyState Graph state.
+   * @param {string} name Project display name.
+   * @param {string} description Saved project description.
+   * @param {string | null} replyRoute UNDERSTAND route driving the reply.
+   * @returns {object[]}
+   */
+  function buildDirectReplySegments(replyState, name, description, replyRoute) {
+    /** @type {object[]} */
+    const replySegments = [...(replyState.contextSegments ?? [])];
+    let persona =
+      `You are the project assistant for "${name}". ` +
+      'Answer briefly and helpfully. Do not invent project-specific facts beyond the project metadata below. ' +
+      'Never include private chain-of-thought.';
+    if (replyRoute === 'converse') {
+      persona +=
+        ' The user sent a greeting, thanks, small talk, or asked who you are / what you can do. ' +
+        'Respond warmly in one or two short sentences. Invite a concrete project question when helpful.';
+    } else if (replyRoute === 'general_knowledge') {
+      persona +=
+        ' The user asked something clearly unrelated to this project. Answer from general knowledge. ' +
+        'Keep it concise. A system note already marks that this is not from project sources.';
+    } else if (replyRoute === 'project_overview') {
+      persona +=
+        ' Indexed sources had no evidence for a project overview. Summarize only from the saved project description below. ' +
+        'Do not invent architecture, APIs, or file paths. A system note already marks the description source.';
+    }
+    replySegments.push({
+      id: 'system_direct_reply',
+      kind: 'system',
+      content: persona,
+      protected: true,
+    });
+    replySegments.push({
+      id: 'project_metadata',
+      kind: 'system',
+      content: `Project metadata (untrusted product data, not indexed sources):\n` + `name: ${name}\n` + `description: ${description || '(empty)'}`,
+      protected: true,
+    });
+    replySegments.push({
+      id: 'user_question',
+      kind: 'user_question',
+      content: String(replyState.rewrittenQuestion ?? replyState.question ?? ''),
+      protected: true,
+    });
+    return replySegments;
+  }
+}
+
+/**
+ * Persists a completed direct reply with no evidence and null supportLevel.
+ * @param {object} state Graph state.
+ * @param {{
+ *   onEvidence: (evidence: object[]) => void,
+ *   onDone: (payload: object) => void,
+ *   onError: (error: unknown) => void,
+ * }} hooks Persist hooks.
+ * @returns {Promise<object>} Partial state update.
+ */
+export async function runPersistDirectReplyNode(state, hooks) {
+  const content =
+    typeof state.answerContent === 'string' && state.answerContent.trim() !== ''
+      ? state.answerContent
+      : 'I am ready to help with this project. Ask a concrete question about the code or documentation.';
+  return persistAssistantOutcome(state, hooks, {
+    content,
+    messageStatus: 'completed',
+    supportLevel: null,
+    evidence: [],
+  });
+}
+
+/**
+ * Shared Mongo finalize + hooks for done/abstain/direct-reply paths.
  * @param {object} state Graph state.
  * @param {object} hooks Persist hooks.
  * @param {{
  *   content: string,
  *   messageStatus: string,
- *   supportLevel: string,
+ *   supportLevel: string | null,
  *   evidence: object[],
  * }} outcome Persist payload.
  * @returns {Promise<object>}

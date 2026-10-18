@@ -999,6 +999,8 @@ For every user question, the backend should first determine:
 - What project information is relevant
 - Whether data extraction is required
 - Whether additional authorization is required
+- Whether the turn is conversational (greeting / identity), clearly unrelated
+  general knowledge, a project overview request, or grounded project retrieval
 
 ---
 
@@ -1068,18 +1070,30 @@ Conceptually:
 ```text
 Question
    │
-   ├── Project knowledge answer
+   ├── Project knowledge / code / docs retrieval (grounded)
    │
-   ├── Source/code investigation
+   ├── Project overview (retrieve first; description fallback if empty)
    │
-   ├── Documentation investigation
+   ├── Conversational reply (greetings, thanks, who are you / what can you do)
+   │
+   ├── General-knowledge reply (clearly unrelated topics; marked in content)
    │
    ├── Cross-source analysis
    │
    ├── Database extraction (later slice; not current)
    │
-   └── Clarification required
+   ├── Clarification required
+   │
+   └── Early abstain (cannot proceed)
 ```
+
+If a question could be about this project's code, docs, libraries, or domain, route
+to grounded retrieval — even for generic technology questions that overlap the project.
+Mixed messages that include a project question also use grounded retrieval.
+
+Conversational and general-knowledge replies persist as completed messages with no
+evidence and null supportLevel (ADR 0039). They must not invent project-specific facts
+beyond the saved project name and description.
 
 ---
 
@@ -2002,11 +2016,16 @@ Partial knowledge must be distinguishable from complete knowledge.
 
 # 113. ANSWER RELIABILITY
 
-The backend should prefer:
+For **project-specific** questions, the backend should prefer:
 
 > I don't have enough information to answer this confidently.
 
 over inventing project-specific information.
+
+Conversational and clearly unrelated general questions may receive a short direct
+reply without project evidence (ADR 0039). General answers must include a fixed note
+that they are not based on this project's sources. Project overview may fall back to
+the saved project description only after retrieval finds no evidence.
 
 If evidence conflicts, the response should communicate the conflict.
 

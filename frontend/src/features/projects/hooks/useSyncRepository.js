@@ -3,9 +3,9 @@
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { projectDetailQueryKey } from '@/features/projects/api/projectsApi.js';
+import { sourceVersionsQueryKey } from '@/features/projects/api/sourcesApi.js';
 import { projectJobsQueryRoot } from '@/features/projects/processing/api/jobsApi.js';
 import { repositoryConnectionQueryKey, syncProjectRepository } from '@/features/projects/api/repositoriesApi.js';
-import { sourceVersionsQueryKey } from '@/features/projects/api/sourcesApi.js';
 
 /**
  * Enqueues `connected_repo_pull` for the project's attached repository.

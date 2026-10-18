@@ -1,7 +1,8 @@
 /**
  * LangGraph chat workflow: load context, UNDERSTAND, clarify interrupt,
- * AGENT_TOOLS, DRAFT, VERIFY, and PERSIST. No HTTP or SSE — phase 50 maps
- * stream hooks (onStage / onDelta / onEvidence / onDone / onError).
+ * AGENT_TOOLS, DRAFT, VERIFY, PERSIST, and direct conversational replies
+ * (ADR 0039). No HTTP or SSE — phase 50 maps stream hooks
+ * (onStage / onDelta / onEvidence / onDone / onError).
  */
 import { generateText } from './llm.js';
 import { randomUUID } from 'node:crypto';
@@ -19,6 +20,7 @@ import {
 } from './runBudget.js';
 import {
   MAX_VERIFY_REVISE,
+  runDirectReplyNode,
   runDraftAnswerNode,
   runPersistDoneNode,
   runVerifyAnswerNode,
@@ -29,11 +31,16 @@ import {
   toolChoiceDecisionSchema,
   understandDecisionSchema,
   createMongoChatCheckpointer,
+  runPersistDirectReplyNode,
 } from './chatGraph.helper.js';
 
 export {
   MAX_VERIFY_REVISE,
   CLARIFICATION_MAX_ROUNDS,
+  DIRECT_REPLY_GENERAL_NOTE,
+  DIRECT_REPLY_DESCRIPTION_NOTE,
+  DIRECT_REPLY_EMPTY_DESCRIPTION,
+  UNDERSTAND_ROUTE_VALUES,
   buildChatGraphThreadId,
   createMongoChatCheckpointer,
   parseChatGraphThreadId,
@@ -51,6 +58,7 @@ export const CHAT_GRAPH_STAGE_VALUES = Object.freeze([
   'reviewing_sources',
   'generating_answer',
   'verifying_answer',
+  'composing_reply',
 ]);
 
 const DOCUMENT_TOOL_NAMES = new Set(['search_documents', 'list_documents', 'read_document_slice', 'read_file_slice']);
@@ -226,14 +234,17 @@ export function compileChatGraph(deps = {}) {
     .addNode('agent_tools', (state) => runAgentToolsNode(state, onStage))
     .addNode('draft_answer', (state) => runDraftAnswerNode(state, streamHooks))
     .addNode('verify_answer', (state) => runVerifyAnswerNode(state, { onStage }))
+    .addNode('reply_direct', (state) => runDirectReplyNode(state, streamHooks))
     .addNode('persist_done', (state) => runPersistDoneNode(state, persistHooks))
     .addNode('persist_abstain', (state) => runPersistAbstainNode(state, persistHooks))
+    .addNode('persist_direct_reply', (state) => runPersistDirectReplyNode(state, persistHooks))
     .addEdge(START, 'load_context')
     .addEdge('load_context', 'understand')
     .addConditionalEdges('understand', routeAfterUnderstand, {
       clarify_set: 'clarify_set',
       abstain_early: 'abstain_early',
       retrieve: 'agent_tools',
+      reply_direct: 'reply_direct',
     })
     .addEdge('clarify_set', 'clarify_wait')
     .addConditionalEdges('clarify_wait', routeAfterClarifyWait, {
@@ -245,6 +256,7 @@ export function compileChatGraph(deps = {}) {
       agent_tools: 'agent_tools',
       draft_answer: 'draft_answer',
       persist_abstain: 'persist_abstain',
+      reply_direct: 'reply_direct',
     })
     .addEdge('draft_answer', 'verify_answer')
     .addConditionalEdges('verify_answer', routeAfterVerify, {
@@ -252,8 +264,10 @@ export function compileChatGraph(deps = {}) {
       agent_tools: 'agent_tools',
       persist_abstain: 'persist_abstain',
     })
+    .addEdge('reply_direct', 'persist_direct_reply')
     .addEdge('persist_done', END)
-    .addEdge('persist_abstain', END);
+    .addEdge('persist_abstain', END)
+    .addEdge('persist_direct_reply', END);
 
   return graph.compile({ checkpointer });
 }
@@ -615,7 +629,7 @@ async function runAgentToolsNode(state, onStage) {
 /**
  * Conditional edge after UNDERSTAND.
  * @param {object} state Graph state.
- * @returns {'clarify_set' | 'abstain_early' | 'retrieve'}
+ * @returns {'clarify_set' | 'abstain_early' | 'retrieve' | 'reply_direct'}
  */
 function routeAfterUnderstand(state) {
   if (state.needsClarification) {
@@ -627,6 +641,10 @@ function routeAfterUnderstand(state) {
   if (state.route === 'abstain_early') {
     return 'abstain_early';
   }
+  if (state.route === 'converse' || state.route === 'general_knowledge') {
+    return 'reply_direct';
+  }
+  // retrieve and project_overview both enter the tool loop.
   return 'retrieve';
 }
 
@@ -643,9 +661,9 @@ function routeAfterClarifyWait(state) {
 }
 
 /**
- * After AGENT_TOOLS: loop, draft when evidence exists, or abstain when empty.
+ * After AGENT_TOOLS: loop, draft when evidence exists, overview fallback, or abstain.
  * @param {object} state Graph state.
- * @returns {'agent_tools' | 'draft_answer' | 'persist_abstain'}
+ * @returns {'agent_tools' | 'draft_answer' | 'persist_abstain' | 'reply_direct'}
  */
 function routeAfterAgentTools(state) {
   if (!(state.budgetExhausted || state.toolStop || state.retrievalComplete)) {
@@ -654,6 +672,9 @@ function routeAfterAgentTools(state) {
   const hasEvidence = Array.isArray(state.toolResults) && state.toolResults.length > 0;
   if (hasEvidence) {
     return 'draft_answer';
+  }
+  if (state.route === 'project_overview') {
+    return 'reply_direct';
   }
   return 'persist_abstain';
 }
@@ -690,7 +711,7 @@ async function requestUnderstandDecision(segments, summarySegment, repair, abort
           id: 'understand_repair',
           kind: 'system',
           content:
-            'Previous structured output was invalid. Reply with JSON only matching rewrittenQuestion, needsClarification, clarificationQuestions, route (retrieve|abstain_early).',
+            'Previous structured output was invalid. Reply with JSON only matching rewrittenQuestion, needsClarification, clarificationQuestions, route (retrieve|project_overview|converse|general_knowledge|abstain_early).',
           protected: true,
         },
       ]
@@ -767,7 +788,10 @@ function understandDecisionJsonSchema() {
           },
         },
       },
-      route: { type: 'string', enum: ['retrieve', 'abstain_early'] },
+      route: {
+        type: 'string',
+        enum: ['retrieve', 'project_overview', 'converse', 'general_knowledge', 'abstain_early'],
+      },
     },
   };
 }
@@ -837,7 +861,11 @@ function buildUnderstandSegments(state) {
     id: 'system_understand',
     kind: 'system',
     content:
-      'Rewrite the user question using conversation context; decide if clarification is needed; do not answer the project question yet. Return JSON only.',
+      'Rewrite the user question using conversation context; decide if clarification is needed; do not answer the project question yet. Return JSON only. ' +
+      'route values: retrieve (project code/docs/behavior), project_overview (tell me about this project / what is this repo), ' +
+      'converse (greetings, thanks, small talk, who are you, what can you do), general_knowledge (clearly unrelated topics), abstain_early (cannot proceed). ' +
+      "If the question could be about this project's code, docs, libraries, or domain, use retrieve — even for generic technology questions that overlap the project. " +
+      'Mixed messages that include a project question use retrieve. For converse and general_knowledge set needsClarification to false.',
     protected: true,
   });
   segments.push({

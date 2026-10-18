@@ -215,6 +215,7 @@
       "verifyingAnswer": "Verifying answer…",
       "awaitingClarification": "Waiting for clarification…",
       "abstainEarly": "Checking whether this can be answered…",
+      "composingReply": "Writing a reply…",
       "working": "Working…"
     },
     "evidence": {

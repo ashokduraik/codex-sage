@@ -1,6 +1,6 @@
 /**
  * Unit tests for chat graph: UNDERSTAND routing, AGENT_TOOLS loop, clarify
- * interrupt, DRAFT/VERIFY/PERSIST hooks, and fail-closed repair / budget paths.
+ * interrupt, DRAFT/VERIFY/PERSIST hooks, direct replies, and fail-closed paths.
  */
 import mongoose from 'mongoose';
 import { MemorySaver } from '@langchain/langgraph';
@@ -13,9 +13,13 @@ import {
   buildChatGraphThreadId,
   parseChatGraphThreadId,
   runDeterministicVerify,
+  UNDERSTAND_ROUTE_VALUES,
   CLARIFICATION_MAX_ROUNDS,
   toolChoiceDecisionSchema,
   understandDecisionSchema,
+  DIRECT_REPLY_GENERAL_NOTE,
+  DIRECT_REPLY_DESCRIPTION_NOTE,
+  DIRECT_REPLY_EMPTY_DESCRIPTION,
   resumeChatGraphFromClarification,
 } from '../../../src/modules/conversation/chatGraph.js';
 
@@ -27,6 +31,7 @@ const {
   mockGetRunBudgetConfig,
   mockFinalizeAssistantMessage,
   mockScheduleConversationAutoTitle,
+  mockFindProjectById,
 } = vi.hoisted(() => ({
   mockGenerateText: vi.fn(),
   mockStreamText: vi.fn(),
@@ -35,6 +40,7 @@ const {
   mockGetRunBudgetConfig: vi.fn(),
   mockFinalizeAssistantMessage: vi.fn(),
   mockScheduleConversationAutoTitle: vi.fn(),
+  mockFindProjectById: vi.fn(),
 }));
 
 vi.mock('../../../src/modules/conversation/llm.js', () => ({
@@ -83,6 +89,14 @@ vi.mock('../../../src/modules/conversation/runBudget.js', async (importOriginal)
   return {
     ...actual,
     getRunBudgetConfig: (...args) => mockGetRunBudgetConfig(...args),
+  };
+});
+
+vi.mock('../../../src/modules/masters/index.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    findProjectById: (...args) => mockFindProjectById(...args),
   };
 });
 
@@ -184,6 +198,7 @@ beforeEach(() => {
   mockGetRunBudgetConfig.mockReset();
   mockFinalizeAssistantMessage.mockReset();
   mockScheduleConversationAutoTitle.mockReset();
+  mockFindProjectById.mockReset();
   mockGetRunBudgetConfig.mockReturnValue({
     maxCumulativeInputTokens: null,
     maxCumulativeOutputTokens: null,
@@ -196,6 +211,10 @@ beforeEach(() => {
     summarySegment: undefined,
     pinnedSegments: [],
     recentMessageIds: [],
+  });
+  mockFindProjectById.mockResolvedValue({
+    name: 'Payments API',
+    description: 'Handles card refunds and ledger posts.',
   });
   mockGenerateText.mockImplementation(async (request) => {
     if (request.purpose === 'tool_choice') {
@@ -254,6 +273,13 @@ describe('understandDecisionSchema', () => {
       ).success,
     ).toBe(true);
     expect(understandDecisionSchema.safeParse(decision({ route: 'abstain_early' })).success).toBe(true);
+  });
+
+  it('accepts converse, general_knowledge, and project_overview routes', () => {
+    for (const route of UNDERSTAND_ROUTE_VALUES) {
+      expect(understandDecisionSchema.safeParse(decision({ route })).success).toBe(true);
+    }
+    expect(understandDecisionSchema.safeParse(decision({ route: 'smalltalk' })).success).toBe(false);
   });
 });
 
@@ -1374,5 +1400,268 @@ describe('DRAFT VERIFY PERSIST', () => {
     if (finalizeArg.usage && finalizeArg.draftUsage === undefined) {
       expect(finalizeArg.usage).not.toEqual({ inputTokens: 0, outputTokens: 0, totalTokens: 0 });
     }
+  });
+});
+
+describe('direct replies', () => {
+  it('streams a converse reply without tools and persists completed with null supportLevel', async () => {
+    const stages = [];
+    const deltas = [];
+    mockGenerateText.mockResolvedValueOnce(llmResult(decision({ route: 'converse', rewrittenQuestion: 'hi' })));
+    mockStreamText.mockResolvedValueOnce(draftStreamResult('Hello — ask me about Payments API.'));
+
+    const result = await invokeChatGraph({
+      threadId: `${threadId}-converse`,
+      checkpointer: new MemorySaver(),
+      onStage: (event) => stages.push(event.stage),
+      onDelta: (text) => deltas.push(text),
+      input: { scope: scope(), question: 'hi' },
+    });
+
+    expect(result.route).toBe('converse');
+    expect(stages).toContain('composing_reply');
+    expect(stages).not.toContain('searching_code');
+    expect(mockExecuteTool).not.toHaveBeenCalled();
+    expect(mockStreamText).toHaveBeenCalledWith(expect.objectContaining({ purpose: 'direct_reply', enableThinking: false }));
+    expect(deltas.join('')).toContain('Hello');
+    expect(mockFinalizeAssistantMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messageStatus: 'completed',
+        supportLevel: null,
+        evidence: null,
+        content: expect.stringContaining('Hello'),
+      }),
+    );
+  });
+
+  it('prefixes general_knowledge replies with the deterministic general note', async () => {
+    const deltas = [];
+    mockGenerateText.mockResolvedValueOnce(llmResult(decision({ route: 'general_knowledge', rewrittenQuestion: 'capital of France' })));
+    mockStreamText.mockResolvedValueOnce(draftStreamResult('Paris.'));
+
+    await invokeChatGraph({
+      threadId: `${threadId}-general`,
+      checkpointer: new MemorySaver(),
+      onDelta: (text) => deltas.push(text),
+      input: { scope: scope(), question: 'What is the capital of France?' },
+    });
+
+    expect(deltas[0]).toContain(DIRECT_REPLY_GENERAL_NOTE);
+    expect(mockFinalizeAssistantMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messageStatus: 'completed',
+        supportLevel: null,
+        content: expect.stringContaining(DIRECT_REPLY_GENERAL_NOTE),
+      }),
+    );
+    expect(mockFinalizeAssistantMessage.mock.calls.at(-1)[0].content).toContain('Paris');
+  });
+
+  it('falls back to the saved description when project_overview has no evidence', async () => {
+    const deltas = [];
+    mockGenerateText
+      .mockResolvedValueOnce(llmResult(decision({ route: 'project_overview', rewrittenQuestion: 'overview' })))
+      .mockResolvedValueOnce(llmResult(toolChoice()));
+    mockStreamText.mockResolvedValueOnce(draftStreamResult('Payments API handles refunds.'));
+
+    await invokeChatGraph({
+      threadId: `${threadId}-overview-fallback`,
+      checkpointer: new MemorySaver(),
+      onDelta: (text) => deltas.push(text),
+      input: { scope: scope(), question: 'Tell me about this project' },
+    });
+
+    expect(mockStreamText).toHaveBeenCalledWith(expect.objectContaining({ purpose: 'direct_reply' }));
+    expect(deltas[0]).toContain(DIRECT_REPLY_DESCRIPTION_NOTE);
+    expect(mockFinalizeAssistantMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messageStatus: 'completed',
+        supportLevel: null,
+        content: expect.stringContaining(DIRECT_REPLY_DESCRIPTION_NOTE),
+      }),
+    );
+  });
+
+  it('returns empty-description copy when project_overview has no evidence and no description', async () => {
+    mockFindProjectById.mockResolvedValueOnce({ name: 'Empty Desc', description: '' });
+    mockGenerateText
+      .mockResolvedValueOnce(llmResult(decision({ route: 'project_overview', rewrittenQuestion: 'overview' })))
+      .mockResolvedValueOnce(llmResult(toolChoice()));
+
+    await invokeChatGraph({
+      threadId: `${threadId}-overview-empty`,
+      checkpointer: new MemorySaver(),
+      input: { scope: scope(), question: 'What is this project?' },
+    });
+
+    expect(mockStreamText).not.toHaveBeenCalled();
+    expect(mockFinalizeAssistantMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messageStatus: 'completed',
+        supportLevel: null,
+        content: DIRECT_REPLY_EMPTY_DESCRIPTION,
+      }),
+    );
+  });
+
+  it('still drafts and verifies when project_overview finds evidence', async () => {
+    const runScope = scope();
+    mockGenerateText
+      .mockResolvedValueOnce(llmResult(decision({ route: 'project_overview', rewrittenQuestion: 'overview' })))
+      .mockResolvedValueOnce(
+        llmResult(
+          toolChoice({
+            action: 'call_tool',
+            toolName: 'search_documents',
+            toolArgs: { query: 'readme' },
+          }),
+        ),
+      )
+      .mockResolvedValueOnce(llmResult(toolChoice()));
+    mockExecuteTool.mockResolvedValueOnce({
+      evidenceRecords: [
+        {
+          evidenceId: 'ev_01',
+          path: 'README.md',
+          knowledgeVersionId: runScope.knowledgeVersionId,
+          excerpt: 'Payments API',
+          kind: 'document',
+        },
+      ],
+      rejected: [],
+      usage: { resultBytes: 10, promptTokensAfterBudget: 1 },
+    });
+    mockStreamText.mockResolvedValueOnce(draftStreamResult('Overview from README per ev_01.'));
+
+    await invokeChatGraph({
+      threadId: `${threadId}-overview-evidence`,
+      checkpointer: new MemorySaver(),
+      input: { scope: runScope, question: 'Tell me about this project' },
+    });
+
+    expect(mockStreamText).toHaveBeenCalledWith(expect.objectContaining({ purpose: 'draft' }));
+    expect(mockFinalizeAssistantMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messageStatus: 'completed',
+        supportLevel: 'evidence_backed',
+      }),
+    );
+  });
+
+  it('uses this project when findProjectById returns null', async () => {
+    mockFindProjectById.mockResolvedValueOnce(null);
+    mockGenerateText.mockResolvedValueOnce(llmResult(decision({ route: 'converse', rewrittenQuestion: 'who are you' })));
+    mockStreamText.mockResolvedValueOnce(draftStreamResult('I am the project assistant for this project.'));
+
+    await invokeChatGraph({
+      threadId: `${threadId}-missing-project`,
+      checkpointer: new MemorySaver(),
+      input: { scope: scope(), question: 'who are you' },
+    });
+
+    const streamArg = mockStreamText.mock.calls.at(-1)[0];
+    const persona = streamArg.segments.find((segment) => segment.id === 'system_direct_reply');
+    expect(persona.content).toContain('this project');
+  });
+
+  it('wraps streamText throw as LLM_PROVIDER_ERROR with cause', async () => {
+    mockGenerateText.mockResolvedValueOnce(llmResult(decision({ route: 'converse', rewrittenQuestion: 'hi' })));
+    const cause = new Error('provider down');
+    mockStreamText.mockRejectedValueOnce(cause);
+
+    await expect(
+      invokeChatGraph({
+        threadId: `${threadId}-direct-throw`,
+        checkpointer: new MemorySaver(),
+        input: { scope: scope(), question: 'hi' },
+      }),
+    ).rejects.toMatchObject({ code: 'LLM_PROVIDER_ERROR', cause });
+  });
+
+  it('wraps mid-stream throw as LLM_PROVIDER_ERROR with cause', async () => {
+    mockGenerateText.mockResolvedValueOnce(llmResult(decision({ route: 'converse', rewrittenQuestion: 'hi' })));
+    const cause = new Error('stream broken');
+    mockStreamText.mockResolvedValueOnce({
+      textStream: (async function* streamChunks() {
+        yield 'Hi';
+        throw cause;
+      })(),
+      usage: Promise.resolve({ inputTokens: 1, outputTokens: 1, totalTokens: null }),
+      durationMs: Promise.resolve(1),
+      modelId: 'test-model',
+      contextMetrics: {},
+      enableThinking: false,
+    });
+
+    await expect(
+      invokeChatGraph({
+        threadId: `${threadId}-direct-midstream`,
+        checkpointer: new MemorySaver(),
+        input: { scope: scope(), question: 'hi' },
+      }),
+    ).rejects.toMatchObject({ code: 'LLM_PROVIDER_ERROR', cause });
+  });
+
+  it('skips streaming when the abort signal is already aborted', async () => {
+    const abortController = new AbortController();
+    abortController.abort();
+    mockGenerateText.mockResolvedValueOnce(llmResult(decision({ route: 'converse', rewrittenQuestion: 'hi' })));
+
+    const result = await invokeChatGraph({
+      threadId: `${threadId}-direct-abort`,
+      checkpointer: new MemorySaver(),
+      input: { scope: scope({ abortSignal: abortController.signal }), question: 'hi' },
+    });
+
+    expect(mockStreamText).not.toHaveBeenCalled();
+    expect(result.stages).toContain('composing_reply');
+  });
+
+  it('still clarifies when needsClarification is true even if route is converse', async () => {
+    mockGenerateText.mockResolvedValueOnce(
+      llmResult(
+        decision({
+          route: 'converse',
+          needsClarification: true,
+          clarificationQuestions: [{ type: 'free_text', prompt: 'Which topic?' }],
+          rewrittenQuestion: 'hi?',
+        }),
+      ),
+    );
+
+    const result = await invokeChatGraph({
+      threadId: `${threadId}-converse-clarify`,
+      checkpointer: new MemorySaver(),
+      input: { scope: scope(), question: 'hi?' },
+    });
+
+    expect(result.__interrupt__).toBeDefined();
+    expect(mockStreamText).not.toHaveBeenCalled();
+  });
+
+  it('includes new routes in the UNDERSTAND repair prompt', async () => {
+    mockGenerateText
+      .mockResolvedValueOnce({
+        text: '{bad',
+        usage: null,
+        durationMs: 1,
+        modelId: 'test-model',
+        contextMetrics: {},
+        enableThinking: false,
+      })
+      .mockResolvedValueOnce(llmResult(decision({ route: 'converse', rewrittenQuestion: 'hi' })));
+    mockStreamText.mockResolvedValueOnce(draftStreamResult('Hello.'));
+
+    await invokeChatGraph({
+      threadId: `${threadId}-repair-routes`,
+      checkpointer: new MemorySaver(),
+      input: { scope: scope(), question: 'hi' },
+    });
+
+    const repairCall = mockGenerateText.mock.calls[1][0];
+    const repairSegment = repairCall.segments.find((segment) => segment.id === 'understand_repair');
+    expect(repairSegment.content).toContain('converse');
+    expect(repairSegment.content).toContain('general_knowledge');
+    expect(repairSegment.content).toContain('project_overview');
   });
 });

@@ -43,6 +43,7 @@ describe('createSseParser', () => {
 describe('stageToI18nKey', () => {
   it('maps known stages and falls back for unknown', () => {
     expect(stageToI18nKey('searching_code')).toBe('chat.stages.searchingCode');
+    expect(stageToI18nKey('composing_reply')).toBe('chat.stages.composingReply');
     expect(stageToI18nKey('invented_stage')).toBe('chat.stages.working');
   });
 });

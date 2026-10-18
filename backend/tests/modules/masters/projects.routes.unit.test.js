@@ -17,13 +17,13 @@ import {
   createProjectHttp,
   deleteProjectHttp,
   updateProjectHttp,
-  fillProjectDescriptionFromReadmeHttp,
   archiveProjectHttp,
   restoreProjectHttp,
   getProjectSettingsHttp,
   recordProjectAccessHttp,
   updateProjectSettingsHttp,
   getProjectDeletionPreviewHttp,
+  fillProjectDescriptionFromReadmeHttp,
 } from '../../../src/modules/masters/projects.js';
 
 /**

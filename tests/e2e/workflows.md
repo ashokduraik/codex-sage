@@ -87,6 +87,8 @@ create Upload project → sample ZIP
 wait job History + health terminal
 if ready/partial → Chat → ask about codexSageE2eHello
 terminal: Sources citing hello.js OR abstain notice
+then: ask "hi" → direct reply (no abstain, no Sources)
+then: ask "What is the capital of France?" → general note visible
 ```
 
 - **Spec:** [`web/journey-chat.spec.js`](./web/journey-chat.spec.js)

@@ -3,6 +3,7 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  syncProjectRepository,
   probeProjectRepository,
   attachProjectRepository,
   repositoryConnectionQueryKey,
@@ -10,7 +11,6 @@ import {
   retestProjectRepositoryConnection,
   revokeProjectRepositoryCredential,
   replaceProjectRepositoryCredential,
-  syncProjectRepository,
 } from '@/features/projects/api/repositoriesApi.js';
 
 const apiRequest = vi.fn();

@@ -28,17 +28,17 @@ vi.mock('@/features/projects/api/repositoriesApi.js', () => ({
 }));
 
 import SourcesPanel from '@/features/projects/SourcesPanel';
-import ProjectDetailPage from '@/features/projects/ProjectDetailPage';
-import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
 import { resolveTestProject } from './test/projectApiFixtures.js';
-import { listProjectSourceVersions, reingestProjectSource } from '@/features/projects/api/sourcesApi.js';
+import ProjectDetailPage from '@/features/projects/ProjectDetailPage';
 import { getProject, recordProjectAccess } from '@/features/projects/api/projectsApi.js';
+import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
+import { listProjectSourceVersions, reingestProjectSource } from '@/features/projects/api/sourcesApi.js';
 import {
+  syncProjectRepository,
   getProjectRepositoryConnection,
   retestProjectRepositoryConnection,
   revokeProjectRepositoryCredential,
   replaceProjectRepositoryCredential,
-  syncProjectRepository,
 } from '@/features/projects/api/repositoriesApi.js';
 
 const ATLAS_CONNECTION = {

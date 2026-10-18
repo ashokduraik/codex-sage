@@ -2,6 +2,7 @@
  * fillProjectDescriptionFromReadme — README load, LLM blurb, overwrite description.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { fillProjectDescriptionFromReadme } from '../../../src/modules/masters/projects.js';
 
 const findProjectById = vi.fn();
 const updateProjectMetadata = vi.fn();
@@ -38,8 +39,6 @@ vi.mock('../../../src/modules/knowledge/index.js', () => ({
 vi.mock('../../../src/modules/conversation/index.js', () => ({
   generateTextWithoutBudget: (...args) => generateTextWithoutBudget(...args),
 }));
-
-import { fillProjectDescriptionFromReadme } from '../../../src/modules/masters/projects.js';
 
 describe('fillProjectDescriptionFromReadme', () => {
   beforeEach(() => {

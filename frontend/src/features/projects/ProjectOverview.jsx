@@ -9,8 +9,8 @@ import { useAuth } from '@/features/auth/AuthContext';
 import { useOutletContext, Link } from 'react-router-dom';
 import { EmptyState, KnowledgeHealthBadge } from '@/shared/components';
 import { isProjectAskable } from '@/shared/components/StatusBadge.jsx';
-import { useActiveProjectJob } from '@/features/projects/processing/hooks/useActiveProjectJob.js';
 import { jobTypeLabelKey, stageLabelKey } from '@/features/projects/processing/jobProgressMap.js';
+import { useActiveProjectJob } from '@/features/projects/processing/hooks/useActiveProjectJob.js';
 import { useFillProjectDescriptionFromReadme } from './hooks/useFillProjectDescriptionFromReadme.js';
 import { Boxes, Workflow, Component, Plug, Database, ArrowRight, MessageSquare, BookOpen, Loader2, Sparkles } from 'lucide-react';
 
