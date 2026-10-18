@@ -56,6 +56,21 @@ describe('evaluateUploadEntry', () => {
     });
   });
 
+  it('accepts CodeGraph-supported languages beyond JS/TS (solution §4.1)', () => {
+    expect(evaluateUploadEntry({ path: 'app/main.py', uncompressedSize: 40 })).toEqual({
+      decision: 'accept',
+    });
+    expect(evaluateUploadEntry({ path: 'cmd/server.go', uncompressedSize: 40 })).toEqual({
+      decision: 'accept',
+    });
+    expect(evaluateUploadEntry({ path: 'src/Main.java', uncompressedSize: 40 })).toEqual({
+      decision: 'accept',
+    });
+    expect(evaluateUploadEntry({ path: 'lib/mod.rs', uncompressedSize: 40 })).toEqual({
+      decision: 'accept',
+    });
+  });
+
   it('marks files over 1 MiB as accept_excluded_from_graph', () => {
     expect(
       evaluateUploadEntry({

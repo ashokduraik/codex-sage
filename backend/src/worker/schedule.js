@@ -10,8 +10,14 @@ import { computeRetryBackoffMs, classifyThrownFailure, decideFailureOutcome } fr
 import { acquireProjectJobLock, releaseProjectJobLock, refreshProjectJobLock } from './projectLock.js';
 import { enqueueDueRepositorySyncs, REPO_SYNC_SCHEDULER_TICK_MS } from '../modules/knowledge/index.js';
 import { sweepExpiredQueuedMessages, QUEUED_MESSAGE_SWEEP_INTERVAL_MS } from '../modules/conversation/index.js';
-import { appendJobEvent, emitNotificationsForJobTerminal, recordProjectActivitiesForJobTerminal } from '../modules/masters/index.js';
 import { enqueueDueAgedOrgDataCleanupJobs, AGED_ORG_DATA_CLEANUP_SCHEDULER_TICK_MS } from './agedOrgDataCleanupJob.js';
+import {
+  appendJobEvent,
+  findProjectById,
+  findOrganizationById,
+  emitNotificationsForJobTerminal,
+  recordProjectActivitiesForJobTerminal,
+} from '../modules/masters/index.js';
 import {
   createJobLogger,
   WORKER_LEASE_TTL_MS,
@@ -321,16 +327,18 @@ export function startSchedule(options) {
         return;
       }
       await recordJobClaimedEvent(job);
+      const scopeNames = await resolveJobScopeDisplayNames(job.orgId, job.projectId);
       log.info?.(
         {
-          workerId,
           jobId: String(job._id),
           jobType: job.jobType,
+          orgName: scopeNames.orgName,
+          projectName: scopeNames.projectName,
           attempt: job.attempt,
         },
         'job claimed',
       );
-      void executeClaimedJob(job);
+      void executeClaimedJob(job, scopeNames);
     } catch (error) {
       log.error?.(
         {
@@ -347,9 +355,10 @@ export function startSchedule(options) {
   /**
    * Runs the handler for a claimed job and tracks it while in flight.
    * @param {import('mongoose').Document} job Claimed job.
+   * @param {{ orgName: string, projectName: string }} scopeNames Display names for logs.
    * @returns {Promise<void>}
    */
-  async function executeClaimedJob(job) {
+  async function executeClaimedJob(job, scopeNames) {
     const jobId = String(job._id);
     const abortController = new AbortController();
     const handler = getJobHandler(job.jobType);
@@ -365,11 +374,10 @@ export function startSchedule(options) {
     }
 
     const jobLog = createJobLogger(log, {
-      workerId,
       jobId,
       jobType: job.jobType,
-      orgId: String(job.orgId),
-      projectId: String(job.projectId),
+      orgName: scopeNames.orgName,
+      projectName: scopeNames.projectName,
       attempt: job.attempt,
       stage: job.currentStage,
       correlationId: job.correlationId,
@@ -765,3 +773,35 @@ export function startSchedule(options) {
 
 /** Alias so existing tests can import startWorkerRuntime from schedule. */
 export const startWorkerRuntime = startSchedule;
+
+/**
+ * Resolves human-readable org and project names for worker job logs.
+ * Falls back to the raw id string when the row is missing or lookup fails so logging
+ * never blocks claim/run (unit tests without Mongo still claim successfully).
+ * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
+ * @param {import('mongoose').Types.ObjectId | string | null | undefined} projectId Project id.
+ * @returns {Promise<{ orgName: string, projectName: string }>}
+ */
+async function resolveJobScopeDisplayNames(orgId, projectId) {
+  const orgIdText = String(orgId);
+  const projectIdText = projectId == null ? '' : String(projectId);
+  const fallback = {
+    orgName: orgIdText,
+    projectName: projectIdText || '(no project)',
+  };
+  // Avoid hanging when Mongo is not connected (unit tests / early boot).
+  if (mongoose.connection.readyState !== 1) {
+    return fallback;
+  }
+  try {
+    const [organization, project] = await Promise.all([
+      findOrganizationById(orgIdText),
+      projectIdText ? findProjectById(orgIdText, projectIdText) : Promise.resolve(null),
+    ]);
+    const orgName = organization && typeof organization.name === 'string' && organization.name.trim() ? organization.name.trim() : orgIdText;
+    const projectName = project && typeof project.name === 'string' && project.name.trim() ? project.name.trim() : projectIdText || '(no project)';
+    return { orgName, projectName };
+  } catch {
+    return fallback;
+  }
+}

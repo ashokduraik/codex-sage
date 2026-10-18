@@ -178,14 +178,18 @@ describe('jobClaim helpers', () => {
 describe('workerLogger and smoke handler', () => {
   it('builds bindings and child loggers for pino-like and plain parents', () => {
     const bindings = buildJobLogBindings({
-      workerId: 'w',
       jobId: 'j',
       jobType: 'worker_smoke_check',
-      orgId: 'o',
-      projectId: 'p',
+      orgName: 'Acme',
+      projectName: 'Payments',
       attempt: 1,
     });
     expect(bindings.stage).toBeNull();
+    expect(bindings.orgName).toBe('Acme');
+    expect(bindings.projectName).toBe('Payments');
+    expect(bindings).not.toHaveProperty('workerId');
+    expect(bindings).not.toHaveProperty('orgId');
+    expect(bindings).not.toHaveProperty('projectId');
 
     const child = { info: () => undefined };
     const parentWithChild = {

@@ -10,6 +10,8 @@ vi.mock('../../src/modules/knowledge/index.js', () => ({
 
 vi.mock('../../src/modules/masters/index.js', () => ({
   appendJobEvent: vi.fn(),
+  findProjectById: vi.fn().mockResolvedValue(null),
+  findOrganizationById: vi.fn().mockResolvedValue(null),
   emitNotificationsForJobTerminal: vi.fn(),
   recordProjectActivitiesForJobTerminal: vi.fn(),
 }));

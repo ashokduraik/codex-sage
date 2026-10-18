@@ -82,12 +82,12 @@ export function assertWorkerLeaseTimingSafe() {
 
 /**
  * Builds bindings for a job-scoped child logger.
+ * Uses org/project display names (not ids or workerId) so operator logs stay readable.
  * @param {{
- *   workerId: string,
  *   jobId: string,
  *   jobType: string,
- *   orgId: string,
- *   projectId: string,
+ *   orgName: string,
+ *   projectName: string,
  *   attempt: number,
  *   stage?: string | null,
  *   correlationId?: string | null,
@@ -96,11 +96,10 @@ export function assertWorkerLeaseTimingSafe() {
  */
 export function buildJobLogBindings(fields) {
   return {
-    workerId: fields.workerId,
     jobId: fields.jobId,
     jobType: fields.jobType,
-    orgId: fields.orgId,
-    projectId: fields.projectId,
+    orgName: fields.orgName,
+    projectName: fields.projectName,
     attempt: fields.attempt,
     stage: fields.stage ?? null,
     correlationId: fields.correlationId ?? null,

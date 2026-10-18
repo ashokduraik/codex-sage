@@ -54,6 +54,15 @@ vi.mock('../../src/worker/projectLock.js', () => ({
   refreshProjectJobLock: vi.fn(),
 }));
 
+vi.mock('../../src/modules/masters/index.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    findOrganizationById: vi.fn().mockResolvedValue({ name: 'Test Org' }),
+    findProjectById: vi.fn().mockResolvedValue({ name: 'Test Project' }),
+  };
+});
+
 function makeJobDoc(overrides = {}) {
   return {
     _id: new mongoose.Types.ObjectId('665f1c9d4b2a8e0012a4f001'),

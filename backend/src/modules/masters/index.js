@@ -12,6 +12,7 @@ export {
   DEFAULT_ADMIN_EMAIL,
   DEFAULT_ADMIN_PASSWORD,
   runBootstrapSeed,
+  findOrganizationById,
   findOrganizationBySlug,
   createOrganization,
   bumpOrganizationAclVersion,

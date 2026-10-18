@@ -52,8 +52,73 @@ export const IGNORED_IMAGE_EXTENSIONS = Object.freeze(['.png', '.jpg', '.jpeg', 
 export const IGNORED_BASENAMES = Object.freeze(['.DS_Store']);
 /** Suffixes for minified assets skipped as junk. */
 export const IGNORED_FILE_SUFFIXES = Object.freeze(['.min.js', '.min.css']);
-/** Code extensions accepted for storage and (when under size) graph indexing. */
-export const ACCEPTED_CODE_EXTENSIONS = Object.freeze(['.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs']);
+/**
+ * Code extensions accepted for storage and (when under size) graph indexing.
+ * Matches solution §4.1: JS/TS plus `@colbymchenry/codegraph` languages (`detectLanguage`).
+ * YAML stays under {@link ACCEPTED_CONFIG_EXTENSIONS}; docs stay under {@link ACCEPTED_DOC_EXTENSIONS}.
+ */
+export const ACCEPTED_CODE_EXTENSIONS = Object.freeze([
+  // JavaScript / TypeScript / ArkTS
+  '.js',
+  '.jsx',
+  '.mjs',
+  '.cjs',
+  '.ts',
+  '.tsx',
+  '.mts',
+  '.cts',
+  '.ets',
+  // CodeGraph-supported languages (solution §4.1)
+  '.py',
+  '.go',
+  '.rs',
+  '.java',
+  '.c',
+  '.h',
+  '.cc',
+  '.cpp',
+  '.cxx',
+  '.hpp',
+  '.hxx',
+  '.cs',
+  '.cshtml',
+  '.razor',
+  '.php',
+  '.rb',
+  '.swift',
+  '.kt',
+  '.kts',
+  '.dart',
+  '.scala',
+  '.lua',
+  '.luau',
+  '.m',
+  '.mm',
+  '.r',
+  '.sol',
+  '.nix',
+  '.pas',
+  '.dpr',
+  '.dfm',
+  '.vb',
+  '.erl',
+  '.hrl',
+  '.tf',
+  '.tofu',
+  '.cob',
+  '.cbl',
+  // UI / template languages indexed by CodeGraph
+  '.vue',
+  '.svelte',
+  '.astro',
+  '.liquid',
+  '.twig',
+  '.cfm',
+  '.cfc',
+  '.cfs',
+  '.xml',
+  '.properties',
+]);
 /** Documentation extensions accepted for storage / FTS. */
 export const ACCEPTED_DOC_EXTENSIONS = Object.freeze(['.md', '.mdx', '.txt']);
 /** Config extensions accepted for bounded reads (not assumed graph nodes). */
