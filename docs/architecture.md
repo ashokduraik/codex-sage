@@ -511,7 +511,7 @@ SSE events the UI handles: `status`, `delta` (token text), `clarification`, `evi
 | Idempotency | `Idempotency-Key` + Mongo `idempotencyRecords` (shared across PM2 workers/hosts) |
 | Audit | append-only `AuditEvent`; curated `<domain>.<verb>` action catalog; best-effort writer (ADR 0016); no secrets, no raw source, no full chat |
 | Notifications | in-app only in this slice (knowledge/sync/attention) |
-| Usage | recorded `projectActivities` only (aggregate on read) |
+| Usage | recorded `projectActivities` only (aggregate on read; question/token kinds from chat finalize) |
 | Retention | scheduled worker; default keep last 3 ready source versions (see solution §12.3) |
 
 ### Errors and correlation

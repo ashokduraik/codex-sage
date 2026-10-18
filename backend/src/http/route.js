@@ -202,7 +202,7 @@ export async function registerRoutes(app) {
   // projectActivities.js (usage)
 
   app.get('/masters/projectActivities/getOrganizationUsage', withRequiredPermissions('usage.view'), getOrganizationUsageHttp);
-  app.get('/masters/projectActivities/getProjectUsage/:projectId', withRequiredPermissions('usage.view'), getProjectUsageHttp);
+  app.get('/masters/projectActivities/getProjectUsage/:projectId', withProjectAccess('usage.view'), getProjectUsageHttp);
   app.get('/masters/projectActivities/getMyUsage', withAuthenticatedAccess(), getMyUsageHttp);
 
   // ---------------------------------------------------------------------------

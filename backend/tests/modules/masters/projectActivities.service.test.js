@@ -17,6 +17,18 @@ import {
   recordProjectActivitiesForJobTerminal,
 } from '../../../src/modules/masters/projectActivities.js';
 
+const { resolveAccessibleProjectFilterMock } = vi.hoisted(() => ({
+  resolveAccessibleProjectFilterMock: vi.fn(),
+}));
+
+vi.mock('../../../src/modules/masters/projectMembers.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    resolveAccessibleProjectFilter: resolveAccessibleProjectFilterMock,
+  };
+});
+
 const harness = createMongoHarness({
   models: [ProjectActivity, SourceFile],
   uri: TEST_APP_CONFIG.mongo.uri,
@@ -29,6 +41,7 @@ describe('projectActivities.service', () => {
 
   afterEach(async () => {
     await harness.afterEach();
+    resolveAccessibleProjectFilterMock.mockReset();
   });
 
   afterAll(async () => {
@@ -69,9 +82,43 @@ describe('projectActivities.service', () => {
       from: new Date('2026-09-26T00:00:00.000Z'),
       to: new Date('2026-09-26T23:59:59.000Z'),
     });
-    expect(summary.totals.searchesExecuted).toBe(1);
+    expect(summary.totals).toEqual({ searchesExecuted: 1 });
     expect(summary.byProject[0].projectId).toBe(projectId);
     expect(summary.byUser[0].userId).toBe(userId);
+  });
+
+  it('records question and token kinds and omits zero totals', async () => {
+    const orgId = new mongoose.Types.ObjectId().toHexString();
+    const projectId = new mongoose.Types.ObjectId().toHexString();
+    const messageId = new mongoose.Types.ObjectId().toHexString();
+    await recordProjectActivity({
+      orgId,
+      projectId,
+      kind: 'question.answered',
+      quantity: 1,
+      unit: 'count',
+      sourceRef: messageId,
+      dedupeKey: `question.answered:${messageId}`,
+      occurredAt: new Date('2026-09-26T10:00:00.000Z'),
+    });
+    await recordProjectActivity({
+      orgId,
+      projectId,
+      kind: 'tokens.input',
+      quantity: 12,
+      unit: 'tokens',
+      sourceRef: messageId,
+      dedupeKey: `tokens.input:${messageId}`,
+      occurredAt: new Date('2026-09-26T10:00:00.000Z'),
+    });
+    const summary = await loadUsageSummary({
+      orgId,
+      from: new Date('2026-09-26T00:00:00.000Z'),
+      to: new Date('2026-09-26T23:59:59.000Z'),
+    });
+    expect(summary.totals).toEqual({ questionsAnswered: 1, tokensInput: 12 });
+    expect(summary.totals.tokensOutput).toBeUndefined();
+    expect(summary.totals.searchesExecuted).toBeUndefined();
   });
 
   it('skips a write when projectId is missing', async () => {
@@ -167,7 +214,6 @@ describe('projectActivities.service', () => {
       },
     });
     expect(await ProjectActivity.countDocuments({ orgId })).toBe(2);
-    // Terminal recording stamps occurredAt as now — window must include wall-clock time.
     const summary = await loadUsageSummary({
       orgId,
       from: new Date(Date.now() - 24 * 60 * 60 * 1000),
@@ -178,7 +224,7 @@ describe('projectActivities.service', () => {
     expect(summary.byProject[0].projectId).toBe(projectId);
   });
 
-  it('returns zero totals and scopes summary by project or user', async () => {
+  it('returns empty omitted totals and scopes summary by project or user', async () => {
     const orgId = new mongoose.Types.ObjectId().toHexString();
     const projectA = new mongoose.Types.ObjectId().toHexString();
     const projectB = new mongoose.Types.ObjectId().toHexString();
@@ -188,11 +234,7 @@ describe('projectActivities.service', () => {
       from: new Date('2026-09-01T00:00:00.000Z'),
       to: new Date('2026-09-30T23:59:59.000Z'),
     });
-    expect(empty.totals).toEqual({
-      ingestJobsCompleted: 0,
-      sourceBytesAccepted: 0,
-      searchesExecuted: 0,
-    });
+    expect(empty.totals).toEqual({});
     await recordProjectActivity({
       orgId,
       projectId: projectA,
@@ -231,6 +273,49 @@ describe('projectActivities.service', () => {
     });
     expect(forUser.totals.searchesExecuted).toBe(1);
     expect(forUser.byUser).toHaveLength(1);
+  });
+
+  it('filters org usage to selected accessible projects', async () => {
+    const orgId = new mongoose.Types.ObjectId().toHexString();
+    const projectA = new mongoose.Types.ObjectId().toHexString();
+    const projectB = new mongoose.Types.ObjectId().toHexString();
+    const userId = new mongoose.Types.ObjectId().toHexString();
+    await recordProjectActivity({
+      orgId,
+      projectId: projectA,
+      kind: 'search.executed',
+      quantity: 1,
+      unit: 'calls',
+      sourceRef: 'a',
+      dedupeKey: 'search.executed:a',
+      occurredAt: new Date('2026-09-10T00:00:00.000Z'),
+    });
+    await recordProjectActivity({
+      orgId,
+      projectId: projectB,
+      kind: 'search.executed',
+      quantity: 1,
+      unit: 'calls',
+      sourceRef: 'b',
+      dedupeKey: 'search.executed:b',
+      occurredAt: new Date('2026-09-10T00:00:00.000Z'),
+    });
+    resolveAccessibleProjectFilterMock.mockResolvedValue({ mode: 'selected', projectIds: [projectA] });
+    const org = await getOrganizationUsageHttp({
+      query: { from: '2026-09-01T00:00:00.000Z', to: '2026-09-30T23:59:59.000Z' },
+      principal: { orgId, userId },
+    });
+    expect(org.totals.searchesExecuted).toBe(1);
+    expect(org.byProject).toHaveLength(1);
+    expect(org.byProject[0].projectId).toBe(projectA);
+
+    resolveAccessibleProjectFilterMock.mockResolvedValue({ mode: 'none' });
+    const none = await getOrganizationUsageHttp({
+      query: { from: '2026-09-01T00:00:00.000Z', to: '2026-09-30T23:59:59.000Z' },
+      principal: { orgId, userId },
+    });
+    expect(none.totals).toEqual({});
+    expect(none.byProject).toEqual([]);
   });
 
   it('skips activity for non-ingest job types and jobs without a project', async () => {
@@ -281,24 +366,61 @@ describe('projectActivities.service', () => {
     const projectId = new mongoose.Types.ObjectId().toHexString();
     const userId = new mongoose.Types.ObjectId().toHexString();
     const principal = { orgId, userId };
+    resolveAccessibleProjectFilterMock.mockResolvedValue({ mode: 'all' });
     const org = await getOrganizationUsageHttp({
       query: { from: '2026-09-01T00:00:00.000Z', to: '2026-09-30T23:59:59.000Z' },
       principal,
     });
-    expect(org.totals.searchesExecuted).toBe(0);
+    expect(org.totals).toEqual({});
     const me = await getMyUsageHttp({ query: {}, principal });
-    expect(me.totals.ingestJobsCompleted).toBe(0);
+    expect(me.totals).toEqual({});
     const project = await getProjectUsageHttp({
-      query: {},
+      query: { from: '2026-09-01T00:00:00.000Z', to: '2026-09-30T23:59:59.000Z' },
       params: { projectId },
       principal,
     });
-    expect(project.totals.sourceBytesAccepted).toBe(0);
+    expect(project.totals).toEqual({});
     await expect(
       getOrganizationUsageHttp({
         query: { from: 'not-a-date' },
         principal,
       }),
     ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+  });
+
+  it('scopes /me to the caller userId only', async () => {
+    const orgId = new mongoose.Types.ObjectId().toHexString();
+    const projectId = new mongoose.Types.ObjectId().toHexString();
+    const userA = new mongoose.Types.ObjectId().toHexString();
+    const userB = new mongoose.Types.ObjectId().toHexString();
+    await recordProjectActivity({
+      orgId,
+      projectId,
+      userId: userA,
+      kind: 'question.answered',
+      quantity: 1,
+      unit: 'count',
+      sourceRef: 'm1',
+      dedupeKey: 'question.answered:m1',
+      occurredAt: new Date('2026-09-10T00:00:00.000Z'),
+    });
+    await recordProjectActivity({
+      orgId,
+      projectId,
+      userId: userB,
+      kind: 'question.answered',
+      quantity: 1,
+      unit: 'count',
+      sourceRef: 'm2',
+      dedupeKey: 'question.answered:m2',
+      occurredAt: new Date('2026-09-10T00:00:00.000Z'),
+    });
+    const me = await getMyUsageHttp({
+      query: { from: '2026-09-01T00:00:00.000Z', to: '2026-09-30T23:59:59.000Z' },
+      principal: { orgId, userId: userA },
+    });
+    expect(me.totals.questionsAnswered).toBe(1);
+    expect(me.byUser).toHaveLength(1);
+    expect(me.byUser[0].userId).toBe(userA);
   });
 });

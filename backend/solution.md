@@ -1126,15 +1126,17 @@ Record **actual** backend activity only (no estimates):
 | Project      | same, scoped                                                                                 |
 | User         | questions, jobs triggered, tokens, searches                                                  |
 
-Model: `ProjectActivity` (append). `GET /usage/*` aggregates rows by `occurredAt`. Expose:
+Model: `ProjectActivity` (append). GETs aggregate rows by `occurredAt` and omit zero total keys.
+Org usage is scoped to projects the caller can access. Expose:
 
 ```text
-GET /api/v1/usage/organization
-GET /api/v1/usage/projects/:projectId
-GET /api/v1/usage/me
+GET /api/v1/masters/projectActivities/getOrganizationUsage
+GET /api/v1/masters/projectActivities/getProjectUsage/:projectId
+GET /api/v1/masters/projectActivities/getMyUsage
 ```
 
-Requires `usage.view` (self always sees `/me`).
+Requires `usage.view` for org/project (project route also requires project ACL). Self always
+sees `/me` without `usage.view`.
 
 ### 12.3 Retention
 

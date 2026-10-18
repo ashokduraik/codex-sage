@@ -1,12 +1,14 @@
 /**
- * masters/projectActivities.js — observed ingest/search facts and usage reads.
+ * masters/projectActivities.js — observed project facts and usage reads.
  *
- * `recordProjectActivity` is best-effort: a write failure must not fail ingest or search.
- * Usage HTTP under `/masters/projectActivities/*` aggregates `projectActivities` by occurredAt; it never invents question or token numbers.
+ * `recordProjectActivity` is best-effort: a write failure must not fail ingest, search, or chat.
+ * Usage HTTP under `/masters/projectActivities/*` aggregates `projectActivities` by occurredAt;
+ * it never invents question or token numbers and omits total keys whose sum is zero.
  */
 import { z } from 'zod';
 import mongoose from 'mongoose';
 import { SourceFile } from '../../models/sourceFile.model.js';
+import { resolveAccessibleProjectFilter } from './projectMembers.js';
 import { ApiError, caughtErrorFields } from '../../platform/errors.js';
 import { assertOrgId, ROW_STATUS_ACTIVE } from '../../platform/data/index.js';
 import { ProjectActivity, PROJECT_ACTIVITY_KIND_VALUES } from '../../models/projectActivity.model.js';
@@ -14,8 +16,17 @@ import { ProjectActivity, PROJECT_ACTIVITY_KIND_VALUES } from '../../models/proj
 /** Default lookback in days for usage GET. */
 export const USAGE_DEFAULT_LOOKBACK_DAYS = 30;
 
-/** Accumulators that turn activity kinds into the GET /usage totals shape. */
+/** Accumulators that turn activity kinds into the usage totals shape. */
 const USAGE_SUMMARY_TOTALS = Object.freeze({
+  questionsAnswered: {
+    $sum: { $cond: [{ $eq: ['$kind', 'question.answered'] }, '$quantity', 0] },
+  },
+  tokensInput: {
+    $sum: { $cond: [{ $eq: ['$kind', 'tokens.input'] }, '$quantity', 0] },
+  },
+  tokensOutput: {
+    $sum: { $cond: [{ $eq: ['$kind', 'tokens.output'] }, '$quantity', 0] },
+  },
   ingestJobsCompleted: {
     $sum: { $cond: [{ $eq: ['$kind', 'ingest.job.completed'] }, '$quantity', 0] },
   },
@@ -26,6 +37,16 @@ const USAGE_SUMMARY_TOTALS = Object.freeze({
     $sum: { $cond: [{ $eq: ['$kind', 'search.executed'] }, '$quantity', 0] },
   },
 });
+
+/** Numeric total keys returned on usage summaries (zeros are stripped before respond). */
+const USAGE_TOTAL_KEYS = Object.freeze([
+  'questionsAnswered',
+  'tokensInput',
+  'tokensOutput',
+  'ingestJobsCompleted',
+  'sourceBytesAccepted',
+  'searchesExecuted',
+]);
 
 const orgQuerySchema = z.object({
   from: z.string().min(1).optional(),
@@ -163,6 +184,7 @@ export async function recordProjectActivitiesForJobTerminal(input) {
  * @param {{
  *   orgId: string,
  *   projectId?: string | null,
+ *   projectIds?: string[] | null,
  *   userId?: string | null,
  *   from: Date,
  *   to: Date,
@@ -182,6 +204,8 @@ export async function loadUsageSummary(input) {
   };
   if (input.projectId) {
     match.projectId = new mongoose.Types.ObjectId(String(input.projectId));
+  } else if (Array.isArray(input.projectIds)) {
+    match.projectId = { $in: input.projectIds.map((id) => new mongoose.Types.ObjectId(String(id))) };
   }
   if (input.userId) {
     match.userId = new mongoose.Types.ObjectId(String(input.userId));
@@ -195,11 +219,7 @@ export async function loadUsageSummary(input) {
       },
     },
   ]).exec();
-  const totals = grouped[0] ?? {
-    ingestJobsCompleted: 0,
-    sourceBytesAccepted: 0,
-    searchesExecuted: 0,
-  };
+  const rawTotals = grouped[0] ?? emptyUsageTotals();
   const byProject = await ProjectActivity.aggregate([
     { $match: match },
     {
@@ -224,30 +244,24 @@ export async function loadUsageSummary(input) {
       from: input.from.toISOString(),
       to: input.to.toISOString(),
     },
-    totals: {
-      ingestJobsCompleted: totals.ingestJobsCompleted,
-      sourceBytesAccepted: totals.sourceBytesAccepted,
-      searchesExecuted: totals.searchesExecuted,
-    },
+    totals: omitZeroUsageTotals(rawTotals),
     byProject: byProject
       .filter((row) => row._id)
       .map((row) => ({
         projectId: String(row._id),
-        ingestJobsCompleted: row.ingestJobsCompleted,
-        sourceBytesAccepted: row.sourceBytesAccepted,
-        searchesExecuted: row.searchesExecuted,
+        ...omitZeroUsageTotals(row),
       })),
-    byUser: byUser.map((row) => ({
-      userId: String(row._id),
-      ingestJobsCompleted: row.ingestJobsCompleted,
-      sourceBytesAccepted: row.sourceBytesAccepted,
-      searchesExecuted: row.searchesExecuted,
-    })),
+    byUser: byUser
+      .filter((row) => row._id)
+      .map((row) => ({
+        userId: String(row._id),
+        ...omitZeroUsageTotals(row),
+      })),
   };
 }
 
 /**
- * GET /masters/projectActivities/getOrganizationUsage — org-wide usage summary (usage.view).
+ * GET /masters/projectActivities/getOrganizationUsage — accessible-project usage (usage.view).
  * @param {import('fastify').FastifyRequest} request Request.
  */
 export async function getOrganizationUsageHttp(request) {
@@ -260,14 +274,21 @@ export async function getOrganizationUsageHttp(request) {
       })),
     });
   }
-  const window = defaultUsageWindow();
-  const from = parseOptionalInstant(parsed.data.from, 'from') ?? window.from;
-  const to = parseOptionalInstant(parsed.data.to, 'to') ?? window.to;
-  return loadUsageSummary({ orgId: request.principal.orgId, from, to });
+  const window = resolveUsageWindow(parsed.data.from, parsed.data.to);
+  const access = await resolveAccessibleProjectFilter(request.principal.orgId, request.principal.userId);
+  if (access.mode === 'none') {
+    return emptyUsageSummary(window.from, window.to);
+  }
+  return loadUsageSummary({
+    orgId: request.principal.orgId,
+    projectIds: access.mode === 'selected' ? access.projectIds : null,
+    from: window.from,
+    to: window.to,
+  });
 }
 
 /**
- * GET /masters/projectActivities/getProjectUsage/:projectId — project-scoped usage summary (usage.view).
+ * GET /masters/projectActivities/getProjectUsage/:projectId — project-scoped usage (usage.view + ACL).
  * @param {import('fastify').FastifyRequest} request Request.
  */
 export async function getProjectUsageHttp(request) {
@@ -277,7 +298,16 @@ export async function getProjectUsageHttp(request) {
       details: [{ path: 'projectId', message: 'projectId is required' }],
     });
   }
-  const window = defaultUsageWindow();
+  const parsed = orgQuerySchema.safeParse(request.query ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', {
+      details: parsed.error.issues.map((issue) => ({
+        path: issue.path.join('.') || 'query',
+        message: issue.message,
+      })),
+    });
+  }
+  const window = resolveUsageWindow(parsed.data.from, parsed.data.to);
   return loadUsageSummary({
     orgId: request.principal.orgId,
     projectId: params.data.projectId,
@@ -291,13 +321,36 @@ export async function getProjectUsageHttp(request) {
  * @param {import('fastify').FastifyRequest} request Request.
  */
 export async function getMyUsageHttp(request) {
-  const window = defaultUsageWindow();
+  const parsed = orgQuerySchema.safeParse(request.query ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', {
+      details: parsed.error.issues.map((issue) => ({
+        path: issue.path.join('.') || 'query',
+        message: issue.message,
+      })),
+    });
+  }
+  const window = resolveUsageWindow(parsed.data.from, parsed.data.to);
   return loadUsageSummary({
     orgId: request.principal.orgId,
     userId: request.principal.userId,
     from: window.from,
     to: window.to,
   });
+}
+
+/**
+ * Resolves from/to for a usage GET (defaults to the lookback window).
+ * @param {string | undefined} fromRaw Optional ISO from.
+ * @param {string | undefined} toRaw Optional ISO to.
+ * @returns {{ from: Date, to: Date }}
+ */
+function resolveUsageWindow(fromRaw, toRaw) {
+  const defaults = defaultUsageWindow();
+  return {
+    from: parseOptionalInstant(fromRaw, 'from') ?? defaults.from,
+    to: parseOptionalInstant(toRaw, 'to') ?? defaults.to,
+  };
 }
 
 /**
@@ -327,6 +380,51 @@ function parseOptionalInstant(value, path) {
     });
   }
   return date;
+}
+
+/**
+ * Empty totals object before omit-zero (all measured kinds at zero).
+ * @returns {Record<string, number>}
+ */
+function emptyUsageTotals() {
+  /** @type {Record<string, number>} */
+  const totals = {};
+  for (const key of USAGE_TOTAL_KEYS) {
+    totals[key] = 0;
+  }
+  return totals;
+}
+
+/**
+ * Drops total keys whose value is zero so the client can hide unavailable metrics.
+ * @param {Record<string, unknown>} row Aggregated row.
+ * @returns {Record<string, number>}
+ */
+function omitZeroUsageTotals(row) {
+  /** @type {Record<string, number>} */
+  const totals = {};
+  for (const key of USAGE_TOTAL_KEYS) {
+    const value = Number(row[key] ?? 0);
+    if (value !== 0) {
+      totals[key] = value;
+    }
+  }
+  return totals;
+}
+
+/**
+ * Empty usage payload when the caller cannot see any project.
+ * @param {Date} from Window start.
+ * @param {Date} to Window end.
+ * @returns {object}
+ */
+function emptyUsageSummary(from, to) {
+  return {
+    period: { from: from.toISOString(), to: to.toISOString() },
+    totals: {},
+    byProject: [],
+    byUser: [],
+  };
 }
 
 export const PROJECT_ACTIVITY_MODELS = Object.freeze([ProjectActivity]);

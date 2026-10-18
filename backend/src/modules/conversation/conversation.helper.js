@@ -3,6 +3,7 @@
  */
 import mongoose from 'mongoose';
 import { ApiError } from '../../platform/errors.js';
+import { recordProjectActivity } from '../masters/index.js';
 import { Message, MESSAGE_ROLE_VALUES, MESSAGE_STATUS_VALUES, MESSAGE_SUPPORT_LEVEL_VALUES } from '../../models/messages.model.js';
 import { assertOrgId, decodeCursor, encodeCursor, softDelete, ROW_STATUS_ACTIVE, ROW_STATUS_DELETED } from '../../platform/data/index.js';
 import {
@@ -763,7 +764,74 @@ export async function finalizeAssistantMessage(input) {
     { $set: { lastMessageAt: updated.updatedAt ?? new Date() } },
   ).exec();
 
+  if (input.messageStatus === 'completed') {
+    await recordCompletedAssistantUsageActivities({
+      orgId: String(input.orgId),
+      projectId: String(input.projectId),
+      conversationId: String(input.conversationId),
+      messageId: String(input.assistantMessageId),
+      userId: input.updatedBy && mongoose.isValidObjectId(input.updatedBy) ? String(input.updatedBy) : null,
+      usage: input.usage,
+    });
+  }
+
   return updated;
+
+  /**
+   * Appends question/token projectActivities after a completed assistant answer.
+   * Best-effort via recordProjectActivity — never throws to finalize.
+   * @param {{
+   *   orgId: string,
+   *   projectId: string,
+   *   conversationId: string,
+   *   messageId: string,
+   *   userId: string | null,
+   *   usage?: { inputTokens?: number | null, outputTokens?: number | null } | null,
+   * }} activityInput Scope and optional SDK usage.
+   * @returns {Promise<void>}
+   */
+  async function recordCompletedAssistantUsageActivities(activityInput) {
+    const messageId = activityInput.messageId;
+    await recordProjectActivity({
+      orgId: activityInput.orgId,
+      projectId: activityInput.projectId,
+      userId: activityInput.userId,
+      kind: 'question.answered',
+      quantity: 1,
+      unit: 'count',
+      sourceRef: JSON.stringify({
+        messageId,
+        conversationId: activityInput.conversationId,
+      }),
+      dedupeKey: `question.answered:${messageId}`,
+    });
+    const inputTokens = activityInput.usage?.inputTokens;
+    if (Number.isFinite(inputTokens)) {
+      await recordProjectActivity({
+        orgId: activityInput.orgId,
+        projectId: activityInput.projectId,
+        userId: activityInput.userId,
+        kind: 'tokens.input',
+        quantity: inputTokens,
+        unit: 'tokens',
+        sourceRef: messageId,
+        dedupeKey: `tokens.input:${messageId}`,
+      });
+    }
+    const outputTokens = activityInput.usage?.outputTokens;
+    if (Number.isFinite(outputTokens)) {
+      await recordProjectActivity({
+        orgId: activityInput.orgId,
+        projectId: activityInput.projectId,
+        userId: activityInput.userId,
+        kind: 'tokens.output',
+        quantity: outputTokens,
+        unit: 'tokens',
+        sourceRef: messageId,
+        dedupeKey: `tokens.output:${messageId}`,
+      });
+    }
+  }
 }
 
 /**

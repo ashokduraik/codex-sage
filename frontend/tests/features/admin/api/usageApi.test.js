@@ -42,7 +42,7 @@ describe('usageApi', () => {
     resetRefreshClientForTests();
   });
 
-  it('loads organization usage', async () => {
+  it('loads organization usage with optional from/to', async () => {
     const fetchMock = /** @type {ReturnType<typeof vi.fn>} */ (fetch);
     const body = {
       period: { from: '2026-08-27T00:00:00.000Z', to: '2026-09-26T00:00:00.000Z' },
@@ -51,8 +51,10 @@ describe('usageApi', () => {
       byUser: [],
     };
     fetchMock.mockResolvedValueOnce(jsonResponse({ status: 200, body }));
-    await expect(fetchOrganizationUsage()).resolves.toEqual(body);
-    expect(String(fetchMock.mock.calls[0][0])).toBe(`${API_BASE_URL}/masters/projectActivities/getOrganizationUsage`);
-    expect(organizationUsageQueryKey()).toEqual(['usage', 'organization']);
+    await expect(fetchOrganizationUsage({ from: '2026-08-27T00:00:00.000Z', to: '2026-09-26T00:00:00.000Z' })).resolves.toEqual(body);
+    expect(String(fetchMock.mock.calls[0][0])).toBe(
+      `${API_BASE_URL}/masters/projectActivities/getOrganizationUsage?from=2026-08-27T00%3A00%3A00.000Z&to=2026-09-26T00%3A00%3A00.000Z`,
+    );
+    expect(organizationUsageQueryKey({ from: 'a', to: 'b' })).toEqual(['usage', 'organization', 'a', 'b']);
   });
 });

@@ -402,15 +402,17 @@ Retention (Phase 60) soft-deletes unread rows after 90 days, or 30 days after
 
 ### `projectActivities`
 
-One observed ingest or search fact on a project (Phase 59). Fields: `projectId`
-(required), `userId` (null when the actor is unknown), `kind`
-(`ingest.job.completed` \| `source.bytes.accepted` \| `search.executed`),
-`quantity`, `unit`, `sourceRef`, `dedupeKey`, `occurredAt`, plus base fields.
-Unique partial index `{ orgId, dedupeKey }` where `status: 'A'`. List indexes
-`{ orgId, projectId, occurredAt: -1 }` and `{ orgId, userId, occurredAt: -1 }`
-where `status: 'A'`. `GET /usage/*` aggregates these rows by `occurredAt`.
-Question/token kinds are not written until an LLM persist path exists.
-Rows older than 730 days are soft-deleted (Phase 60).
+One observed project fact (Phase 59): ingest, search, answered question, or LLM
+tokens when the SDK reports them. Fields: `projectId` (required), `userId`
+(null when the actor is unknown), `kind` (`ingest.job.completed` \|
+`source.bytes.accepted` \| `search.executed` \| `question.answered` \|
+`tokens.input` \| `tokens.output`), `quantity`, `unit`, `sourceRef`, `dedupeKey`,
+`occurredAt`, plus base fields. Unique partial index `{ orgId, dedupeKey }`
+where `status: 'A'`. List indexes `{ orgId, projectId, occurredAt: -1 }` and
+`{ orgId, userId, occurredAt: -1 }` where `status: 'A'`.
+`GET /masters/projectActivities/*` aggregates these rows by `occurredAt` and
+omits total keys whose sum is zero. Org usage is scoped to projects the caller
+can access. Rows older than 730 days are soft-deleted (Phase 60).
 
 ## Bootstrap seed
 

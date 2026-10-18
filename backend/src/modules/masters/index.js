@@ -70,6 +70,7 @@ export {
 export {
   configureProjectAclCache,
   resolveProjectPermissions,
+  resolveAccessibleProjectFilter,
   listProjectMembersHttp,
   addProjectMemberHttp,
   removeProjectMemberHttp,
