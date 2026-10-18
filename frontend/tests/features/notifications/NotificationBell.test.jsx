@@ -15,7 +15,7 @@ import { useNotificationActions, useNotifications } from '@/features/notificatio
 
 describe('pathForNotification', () => {
   it('routes to processing when a job id is present', () => {
-    expect(pathForNotification({ projectId: 'p1', jobId: 'j1' })).toBe('/processing?projectId=p1');
+    expect(pathForNotification({ projectId: 'p1', jobId: 'j1' })).toBe('/projects/p1/processing');
   });
 
   it('routes to sources when only a project id is present', () => {

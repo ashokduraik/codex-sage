@@ -23,7 +23,7 @@ export function pathForNotification(resourceRef) {
     return '/processing';
   }
   if (resourceRef.jobId) {
-    return `/processing?projectId=${encodeURIComponent(projectId)}`;
+    return `/projects/${encodeURIComponent(projectId)}/processing`;
   }
   return `/projects/${encodeURIComponent(projectId)}/sources`;
 }

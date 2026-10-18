@@ -47,6 +47,7 @@ export function AppRoutes() {
             <Route path="search" element={<SearchPanel />} />
             <Route path="changes" element={<ChangesPanel />} />
             <Route path="sources" element={<SourcesPanel />} />
+            <Route path="processing" element={<ProcessingCenterPage />} />
             <Route path="health" element={<HealthPanel />} />
           </Route>
           <Route path="/chat" element={<ProjectPickerPage tab="chat" />} />

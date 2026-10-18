@@ -1,10 +1,9 @@
-import { Button } from '@/shared/ui/button';
 import { useTranslation } from 'react-i18next';
-import { Link, useOutletContext } from 'react-router-dom';
+import { useOutletContext } from 'react-router-dom';
 import { KnowledgeHealthBadge } from '@/shared/components';
+import { mapKnowledgeHealth } from '@/shared/components/StatusBadge.jsx';
 import { useRepositoryConnection } from './hooks/useRepositoryConnection.js';
-import { isProjectAskable, mapKnowledgeHealth } from '@/shared/components/StatusBadge.jsx';
-import { AlertTriangle, BookOpen, CheckCircle2, FileWarning, HeartPulse, MessageSquare } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, FileWarning, HeartPulse } from 'lucide-react';
 
 /**
  * Knowledge health checks and status for the current project.
@@ -21,7 +20,6 @@ export default function HealthPanel() {
   const fileCount = project?.counts?.files ?? 0;
   const hasSource = sourceVersions > 0 || Boolean(connection);
   const health = project?.knowledgeHealth;
-  const askable = isProjectAskable(project);
   const sourceDetail = connection?.repository?.fullName ? connection.repository.fullName : hasSource ? t('sources.upload') : t('health.noSource');
 
   const checks = [
@@ -106,31 +104,6 @@ export default function HealthPanel() {
             </div>
           </div>
         ) : null}
-
-        <div className="mt-5 flex flex-wrap gap-2">
-          {askable ? (
-            <Link to={`/projects/${project.id}/chat`}>
-              <Button className="bg-brand text-brand-foreground hover:bg-brand/90">
-                <MessageSquare className="mr-2 h-4 w-4" aria-hidden="true" />
-                {t('projects.openChat')}
-              </Button>
-            </Link>
-          ) : (
-            <Button disabled className="bg-brand text-brand-foreground opacity-50">
-              <MessageSquare className="mr-2 h-4 w-4" aria-hidden="true" />
-              {t('projects.openChat')}
-            </Button>
-          )}
-          <Link to={`/processing?projectId=${encodeURIComponent(project.id)}`}>
-            <Button variant="outline">{t('nav.processing')}</Button>
-          </Link>
-          <Link to={`/projects/${project.id}/knowledge`}>
-            <Button variant="outline">
-              <BookOpen className="mr-2 h-4 w-4" aria-hidden="true" />
-              {t('knowledge.title')}
-            </Button>
-          </Link>
-        </div>
       </div>
     </div>
   );

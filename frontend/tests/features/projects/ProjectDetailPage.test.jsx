@@ -100,6 +100,8 @@ describe('ProjectDetailPage', () => {
     expect(await screen.findByText('Knowledge ready')).toBeTruthy();
     await waitFor(() => expect(recordProjectAccess).toHaveBeenCalledWith('p1'));
     expect(screen.getAllByRole('link', { name: 'Overview' }).length).toBeGreaterThan(0);
+    const processingLinks = screen.getAllByRole('link', { name: 'Processing' });
+    expect(processingLinks.some((link) => link.getAttribute('href') === '/projects/p1/processing')).toBe(true);
   });
 
   it('shows not found on 404', async () => {

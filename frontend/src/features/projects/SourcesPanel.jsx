@@ -127,7 +127,7 @@ export default function SourcesPanel() {
         sourceVersionId,
         idempotencyKey: crypto.randomUUID(),
       });
-      navigate(`/processing?projectId=${encodeURIComponent(projectId)}&jobId=${encodeURIComponent(result.jobId)}`);
+      navigate(`/projects/${encodeURIComponent(projectId)}/processing?jobId=${encodeURIComponent(result.jobId)}`);
     } catch {
       // Surfaced via reingest.error.
     }
@@ -287,7 +287,7 @@ export default function SourcesPanel() {
                       </Button>
                     ) : null}
                     {version.jobId ? (
-                      <Link to={`/processing?projectId=${encodeURIComponent(projectId)}`} className="text-xs font-medium text-brand hover:underline">
+                      <Link to={`/projects/${encodeURIComponent(projectId)}/processing`} className="text-xs font-medium text-brand hover:underline">
                         {t('sources.viewJob')}
                       </Link>
                     ) : (

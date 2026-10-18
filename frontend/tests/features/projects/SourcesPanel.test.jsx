@@ -110,7 +110,7 @@ describe('SourcesPanel', () => {
     expect(await screen.findByText('acme/atlas-commerce')).toBeTruthy();
     expect(screen.getByRole('button', { name: /Re-test connection/i })).toBeTruthy();
     expect(screen.getByRole('button', { name: /Add source/i })).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'View processing job' }).getAttribute('href')).toBe('/processing?projectId=prj_atlas');
+    expect(screen.getByRole('link', { name: 'View processing job' }).getAttribute('href')).toBe('/projects/prj_atlas/processing');
   });
 
   it('shows verified status after re-test completes', async () => {

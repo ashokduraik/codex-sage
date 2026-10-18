@@ -1,17 +1,15 @@
 /**
- * One processing job: stages, events, retry/cancel, and completion CTAs.
+ * One processing job: stages, events, retry/cancel, and terminal status detail.
  */
 import { useState } from 'react';
 import { cn } from '@/shared/lib/utils';
-import { Link } from 'react-router-dom';
 import { useJob } from './hooks/useJob.js';
 import { Button } from '@/shared/ui/button';
 import { useTranslation } from 'react-i18next';
 import { formatDateTime } from '@/shared/lib/format';
 import { useJobControl } from './hooks/useJobControl.js';
-import { isProjectAskable } from '@/shared/components/StatusBadge.jsx';
+import { Loader2, RefreshCw, XCircle } from 'lucide-react';
 import { correlationFromUnknown, messageFromUnknown } from '@/shared/api';
-import { BookOpen, LayoutDashboard, Loader2, MessageSquare, RefreshCw, XCircle } from 'lucide-react';
 import { hasRenderablePercent, isActiveJobStatus, jobStatusLabelKey, jobTypeLabelKey, mapJobStatus, mapStageState } from './jobProgressMap.js';
 import {
   AlertDialog,
@@ -86,7 +84,6 @@ export default function ProcessingJobCard({ job, project, variant }) {
   const retry = detail?.retry;
   const cancellation = detail?.cancellation;
   const controlError = control.retryError || control.cancelError;
-  const askable = isProjectAskable(project);
   const succeeded = display.jobStatus === 'completed' || display.jobStatus === 'completed_with_warnings';
   const tone =
     variant === 'active'
@@ -265,32 +262,6 @@ export default function ProcessingJobCard({ job, project, variant }) {
             })}
           </span>{' '}
           {t('processing.partialAvailable')}
-        </div>
-      ) : null}
-
-      {succeeded && askable && project?.id ? (
-        <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
-          <p className="text-sm font-medium text-emerald-800">{t('processing.ready')}</p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <Link to={`/projects/${project.id}/chat`}>
-              <Button size="sm" className="bg-brand text-brand-foreground hover:bg-brand/90">
-                <MessageSquare className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                {t('projects.openChat')}
-              </Button>
-            </Link>
-            <Link to={`/projects/${project.id}/knowledge`}>
-              <Button size="sm" variant="outline">
-                <BookOpen className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                {t('knowledge.title')}
-              </Button>
-            </Link>
-            <Link to={`/projects/${project.id}`}>
-              <Button size="sm" variant="outline">
-                <LayoutDashboard className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                {t('projects.overview')}
-              </Button>
-            </Link>
-          </div>
         </div>
       ) : null}
 

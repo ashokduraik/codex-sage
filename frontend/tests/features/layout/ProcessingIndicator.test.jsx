@@ -31,7 +31,7 @@ describe('ProcessingIndicator', () => {
     const { container } = renderWithProviders(<ProcessingIndicator job={job} project={project} />);
     expect(screen.getByText(/Project structure analyzed · Atlas/)).toBeTruthy();
     expect(container.textContent).not.toMatch(/%/);
-    expect(screen.getByRole('link').getAttribute('href')).toBe('/processing?projectId=p1');
+    expect(screen.getByRole('link').getAttribute('href')).toBe('/projects/p1/processing');
   });
 
   it('falls back to the job type and /processing when project context is missing', () => {

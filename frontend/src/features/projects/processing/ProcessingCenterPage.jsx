@@ -3,27 +3,41 @@ import { useTranslation } from 'react-i18next';
 import { Activity, Loader2 } from 'lucide-react';
 import { EmptyState } from '@/shared/components';
 import ProcessingJobCard from './ProcessingJobCard.jsx';
-import { Link, useSearchParams } from 'react-router-dom';
 import { useProject } from '@/features/projects/hooks/useProject.js';
 import { correlationFromUnknown, messageFromUnknown } from '@/shared/api';
 import { flattenJobPages, useProjectJobs } from './hooks/useProjectJobs.js';
 import { isActiveJobStatus, isHistoryJobStatus } from './jobProgressMap.js';
+import { Link, Navigate, useLocation, useParams, useSearchParams } from 'react-router-dom';
 
 /**
  * Processing center showing in-progress and historical knowledge jobs.
+ * Nested under `/projects/:id/processing`; standalone `/processing` redirects when a project query is present.
  *
  * @returns {import('react').ReactElement}
  */
 export default function ProcessingCenterPage() {
   const { t } = useTranslation();
+  const location = useLocation();
+  const { id: routeProjectId } = useParams();
   const [searchParams] = useSearchParams();
-  const projectId = (searchParams.get('projectId') || '').trim();
+  const jobId = (searchParams.get('jobId') || '').trim();
+  const queryProjectId = (searchParams.get('projectId') || '').trim();
+  const nestedProjectId = (routeProjectId || '').trim();
+  const onStandaloneProcessing = location.pathname === '/processing';
+  const shouldRedirectToNested = onStandaloneProcessing && Boolean(queryProjectId);
+  // Prefer the project shell param; ignore the query id while redirecting so hooks stay idle.
+  const projectId = nestedProjectId || (shouldRedirectToNested ? '' : queryProjectId);
   const projectQuery = useProject(projectId, { enabled: Boolean(projectId) });
   const jobsQuery = useProjectJobs(projectId, { enabled: Boolean(projectId) });
   const jobs = flattenJobPages(jobsQuery.data);
   const active = jobs.filter((job) => isActiveJobStatus(job.jobStatus));
   const history = jobs.filter((job) => isHistoryJobStatus(job.jobStatus));
   const project = projectQuery.data;
+
+  if (shouldRedirectToNested) {
+    const search = jobId ? `?jobId=${encodeURIComponent(jobId)}` : '';
+    return <Navigate to={`/projects/${encodeURIComponent(queryProjectId)}/processing${search}`} replace />;
+  }
 
   if (!projectId) {
     return (

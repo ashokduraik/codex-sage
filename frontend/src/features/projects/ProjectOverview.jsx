@@ -36,7 +36,7 @@ export default function ProjectOverview() {
   const excludedCount = project.counts?.excludedFiles ?? mockProject?.excludedCount ?? 0;
   const askable = isProjectAskable(project);
   const { activeJob } = useActiveProjectJob(project?.id);
-  const processingHref = `/processing?projectId=${encodeURIComponent(project.id)}`;
+  const processingHref = `/projects/${encodeURIComponent(project.id)}/processing`;
   const processingBanner = activeJob ? (
     <Link
       to={processingHref}
@@ -78,7 +78,7 @@ export default function ProjectOverview() {
             title={t('projects.knowledgeNotReadyTitle')}
             description={t('projects.knowledgeNotReadyDescription')}
             action={
-              <Link to={`/processing?projectId=${encodeURIComponent(project.id)}`}>
+              <Link to={processingHref}>
                 <Button variant="outline">{t('nav.processing')}</Button>
               </Link>
             }

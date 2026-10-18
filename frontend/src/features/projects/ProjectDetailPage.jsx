@@ -16,6 +16,7 @@ import {
   Trash2,
   Archive,
   Loader2,
+  Activity,
   BookOpen,
   Database,
   RotateCcw,
@@ -43,6 +44,7 @@ const PROJECT_TABS = [
   { to: '/search', labelKey: 'nav.search', icon: Search },
   { to: '/changes', labelKey: 'changes.title', icon: GitCompare },
   { to: '/sources', labelKey: 'sources.title', icon: Database },
+  { to: '/processing', labelKey: 'nav.processing', icon: Activity },
   { to: '/health', labelKey: 'health.title', icon: HeartPulse },
 ];
 

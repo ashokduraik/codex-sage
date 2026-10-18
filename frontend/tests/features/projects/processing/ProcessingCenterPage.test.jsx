@@ -1,4 +1,5 @@
 import { ApiError } from '@/shared/api/index';
+import { Route, Routes } from 'react-router-dom';
 import { buildJobDetail, buildListJob } from './test/jobFixtures.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
@@ -41,10 +42,35 @@ beforeEach(() => {
 });
 
 describe('ProcessingCenterPage', () => {
+  /**
+   * Renders ProcessingCenter under standalone and nested routes.
+   * @param {string} route Location.
+   */
+  function renderProcessing(route) {
+    return renderWithProviders(
+      <Routes>
+        <Route path="/processing" element={<ProcessingCenterPage />} />
+        <Route path="/projects/:id/processing" element={<ProcessingCenterPage />} />
+      </Routes>,
+      { route },
+    );
+  }
+
   it('asks the user to select a project when none is in context', () => {
-    renderWithProviders(<ProcessingCenterPage />, { route: '/processing' });
+    renderProcessing('/processing');
     expect(screen.getByText('Select a project')).toBeTruthy();
     expect(listProjectJobs).not.toHaveBeenCalled();
+  });
+
+  it('redirects legacy projectId query URLs to the nested processing tab', async () => {
+    listProjectJobs.mockResolvedValue({
+      items: [buildListJob()],
+      pageInfo: { nextCursor: null, hasMore: false },
+    });
+    getJob.mockResolvedValue(buildJobDetail());
+    renderProcessing('/processing?projectId=prj_atlas&jobId=job_active');
+    expect(await screen.findByText('In progress')).toBeTruthy();
+    expect(listProjectJobs).toHaveBeenCalled();
   });
 
   it('shows a running job stage list and no percent bar when percent is null', async () => {
@@ -53,9 +79,7 @@ describe('ProcessingCenterPage', () => {
       pageInfo: { nextCursor: null, hasMore: false },
     });
     getJob.mockResolvedValue(buildJobDetail());
-    renderWithProviders(<ProcessingCenterPage />, {
-      route: '/processing?projectId=prj_atlas',
-    });
+    renderProcessing('/projects/prj_atlas/processing');
     expect(await screen.findByText('In progress')).toBeTruthy();
     expect(await screen.findByText('Project structure analyzed')).toBeTruthy();
     expect(screen.getByText('Source received')).toBeTruthy();
@@ -81,9 +105,7 @@ describe('ProcessingCenterPage', () => {
         errors: [{ code: 'E1', message: 'Index failed', affectedCount: 3 }],
       }),
     );
-    renderWithProviders(<ProcessingCenterPage />, {
-      route: '/processing?projectId=prj_atlas',
-    });
+    renderProcessing('/projects/prj_atlas/processing');
     const retry = await screen.findByRole('button', { name: 'Retry' });
     expect(retry.disabled).toBe(false);
     fireEvent.click(screen.getByText('Show errors'));
@@ -97,9 +119,7 @@ describe('ProcessingCenterPage', () => {
       pageInfo: { nextCursor: null, hasMore: false },
     });
     getJob.mockResolvedValue(buildJobDetail());
-    renderWithProviders(<ProcessingCenterPage />, {
-      route: '/processing?projectId=prj_atlas',
-    });
+    renderProcessing('/projects/prj_atlas/processing');
     fireEvent.click(await screen.findByText('Show activity log'));
     expect(screen.getByText('Processing is queued.')).toBeTruthy();
   });
@@ -123,9 +143,7 @@ describe('ProcessingCenterPage', () => {
       }),
     );
     retryJob.mockResolvedValue({ jobId: 'job_failed', jobStatus: 'retrying' });
-    renderWithProviders(<ProcessingCenterPage />, {
-      route: '/processing?projectId=prj_atlas',
-    });
+    renderProcessing('/projects/prj_atlas/processing');
     fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
     await waitFor(() => {
       expect(retryJob).toHaveBeenCalledWith(
@@ -162,9 +180,7 @@ describe('ProcessingCenterPage', () => {
         message: 'Job cannot be retried.',
       }),
     );
-    renderWithProviders(<ProcessingCenterPage />, {
-      route: '/processing?projectId=prj_atlas',
-    });
+    renderProcessing('/projects/prj_atlas/processing');
     fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
     expect(await screen.findByRole('alert')).toBeTruthy();
     expect(screen.getByText('Job cannot be retried.')).toBeTruthy();
@@ -172,9 +188,7 @@ describe('ProcessingCenterPage', () => {
 
   it('refetches the list after a failure', async () => {
     listProjectJobs.mockRejectedValueOnce(new ApiError({ status: 500, code: 'INTERNAL_ERROR', message: 'boom' }));
-    renderWithProviders(<ProcessingCenterPage />, {
-      route: '/processing?projectId=prj_atlas',
-    });
+    renderProcessing('/projects/prj_atlas/processing');
     expect(await screen.findByText('boom')).toBeTruthy();
     listProjectJobs.mockResolvedValue({
       items: [],
@@ -204,9 +218,7 @@ describe('ProcessingCenterPage', () => {
         stages: [],
       }),
     );
-    renderWithProviders(<ProcessingCenterPage />, {
-      route: '/processing?projectId=prj_atlas',
-    });
+    renderProcessing('/projects/prj_atlas/processing');
     expect(await screen.findByText(/4,812 files processed successfully/)).toBeTruthy();
     expect(screen.getByText(/9 files failed/)).toBeTruthy();
   });
@@ -217,9 +229,7 @@ describe('ProcessingCenterPage', () => {
       pageInfo: { nextCursor: null, hasMore: false },
     });
     getJob.mockResolvedValue(buildJobDetail({ percent: 40 }));
-    renderWithProviders(<ProcessingCenterPage />, {
-      route: '/processing?projectId=prj_atlas',
-    });
+    renderProcessing('/projects/prj_atlas/processing');
     expect(await screen.findByText('40%')).toBeTruthy();
   });
 
@@ -241,9 +251,7 @@ describe('ProcessingCenterPage', () => {
         stages: [],
       }),
     );
-    renderWithProviders(<ProcessingCenterPage />, {
-      route: '/processing?projectId=prj_atlas',
-    });
+    renderProcessing('/projects/prj_atlas/processing');
     const retry = await screen.findByRole('button', { name: 'Retry' });
     expect(retry.disabled).toBe(true);
     expect(retry.getAttribute('title')).toBe('not_retryable');
@@ -260,9 +268,7 @@ describe('ProcessingCenterPage', () => {
       jobStatus: 'running',
       cancellation: { requested: true, requestedAt: '2026-01-02T00:02:00.000Z' },
     });
-    renderWithProviders(<ProcessingCenterPage />, {
-      route: '/processing?projectId=prj_atlas',
-    });
+    renderProcessing('/projects/prj_atlas/processing');
     fireEvent.click(await screen.findByRole('button', { name: 'Cancel' }));
     expect(screen.getByText('Cancel this job?')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Stop processing' }));
@@ -281,14 +287,12 @@ describe('ProcessingCenterPage', () => {
         cancellation: { requested: true, requestedAt: '2026-01-02T00:02:00.000Z' },
       }),
     );
-    renderWithProviders(<ProcessingCenterPage />, {
-      route: '/processing?projectId=prj_atlas',
-    });
+    renderProcessing('/projects/prj_atlas/processing');
     expect(await screen.findByText(/Cancellation requested/)).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull();
   });
 
-  it('shows warnings and completion CTAs when the project is askable', async () => {
+  it('shows warnings on completed history jobs without navigation CTAs', async () => {
     const done = buildListJob({
       id: 'job_done',
       jobStatus: 'completed',
@@ -306,12 +310,12 @@ describe('ProcessingCenterPage', () => {
         stages: [],
       }),
     );
-    renderWithProviders(<ProcessingCenterPage />, {
-      route: '/processing?projectId=prj_atlas',
-    });
+    renderProcessing('/projects/prj_atlas/processing');
     expect(await screen.findByText('Skipped vendor files')).toBeTruthy();
-    expect(screen.getByText('Your project is ready to explore.')).toBeTruthy();
-    expect(screen.getByRole('link', { name: /Open chat/i })).toBeTruthy();
+    expect(screen.queryByText('Your project is ready to explore.')).toBeNull();
+    expect(screen.queryByRole('link', { name: /Open chat/i })).toBeNull();
+    expect(screen.queryByRole('link', { name: /^Knowledge$/i })).toBeNull();
+    expect(screen.queryByRole('link', { name: /^Overview$/i })).toBeNull();
   });
 
   it('shows a detail error with correlation id', async () => {
@@ -327,9 +331,7 @@ describe('ProcessingCenterPage', () => {
         correlationId: 'corr-job',
       }),
     );
-    renderWithProviders(<ProcessingCenterPage />, {
-      route: '/processing?projectId=prj_atlas',
-    });
+    renderProcessing('/projects/prj_atlas/processing');
     expect(await screen.findByText('Job missing')).toBeTruthy();
     expect(screen.getByText(/corr-job/)).toBeTruthy();
   });
@@ -363,9 +365,7 @@ describe('ProcessingCenterPage', () => {
         stages: [],
       }),
     );
-    renderWithProviders(<ProcessingCenterPage />, {
-      route: '/processing?projectId=prj_atlas',
-    });
+    renderProcessing('/projects/prj_atlas/processing');
     fireEvent.click(await screen.findByRole('button', { name: 'Load more' }));
     await waitFor(() => {
       expect(listProjectJobs).toHaveBeenCalledTimes(2);
@@ -374,9 +374,7 @@ describe('ProcessingCenterPage', () => {
 
   it('falls back when the list error is not an ApiError', async () => {
     listProjectJobs.mockRejectedValue(new Error('network down'));
-    renderWithProviders(<ProcessingCenterPage />, {
-      route: '/processing?projectId=prj_atlas',
-    });
+    renderProcessing('/projects/prj_atlas/processing');
     expect(await screen.findByText('network down')).toBeTruthy();
   });
 });

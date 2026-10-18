@@ -88,4 +88,14 @@ describe('HealthPanel', () => {
     expect(await screen.findByRole('heading', { name: 'Health' })).toBeTruthy();
     expect(screen.getByText('Knowledge is ready for grounded answers.')).toBeTruthy();
   });
+
+  it('does not show Open chat, Knowledge, or Processing action buttons', async () => {
+    renderHealth('/projects/prj_atlas/health');
+    expect(await screen.findByRole('heading', { name: 'Health' })).toBeTruthy();
+    // Former bottom CTAs used buttons; project tabs remain as links only.
+    expect(screen.queryByRole('link', { name: /Open chat/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Open chat/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Knowledge$/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Processing$/i })).toBeNull();
+  });
 });

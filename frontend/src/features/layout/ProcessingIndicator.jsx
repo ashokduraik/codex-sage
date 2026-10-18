@@ -24,7 +24,7 @@ export default function ProcessingIndicator({ job, project }) {
     return null;
   }
   const projectId = project?.id || job.projectId;
-  const href = projectId ? `/processing?projectId=${encodeURIComponent(projectId)}` : '/processing';
+  const href = projectId ? `/projects/${encodeURIComponent(projectId)}/processing` : '/processing';
   const stageLabel = job.currentStage
     ? t(stageLabelKey(job.currentStage), { defaultValue: job.currentStage })
     : t(jobTypeLabelKey(job.jobType), { defaultValue: job.jobType || t('nav.processing') });
