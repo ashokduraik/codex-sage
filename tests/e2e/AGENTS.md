@@ -8,6 +8,7 @@ Local rules for Playwright cross-service journeys. Root [`/AGENTS.md`](../../AGE
 - **Project lifecycle:** create validation, create without source, search, archive, restore, soft-delete.
 - **Repository onboarding:** empty/invalid URL, public attach, optional private attach, ingest wait, knowledge when ready/partial.
 - **ZIP ingest + knowledge:** reject non-zip, upload fixture (includes root README), processing/health wait, Overview Fill from README (API + LLM), search/preview, second ZIP → changes.
+- **Chat ask:** sample ZIP → knowledge ready/partial → project Chat → grounded question → Sources citing `hello.js` or abstain notice (needs worker + LLM).
 - **Admin:** users (code column), create/edit roles in the UI, invite + password + roles + status, audit `user.create`, forced password change, remove user. Do not click seeded Member/Viewer — create roles in the journey.
 
 Catalog + matrix: [`workflows.md`](./workflows.md). Runbook: [`README.md`](./README.md).
@@ -30,8 +31,7 @@ Catalog + matrix: [`workflows.md`](./workflows.md). Runbook: [`README.md`](./REA
 - Don't start the stack from Playwright (`webServer`, Docker, `start-stack.js`).
 - Don't add GitHub Actions in this suite — that remains Phase 63.
 - Don't seed projects or users via API in journey specs.
-- Don't cover chat, conversations, notifications, usage, or retention (not real-API UI).
-- Don't click **Ask about this** (navigates to mock chat).
+- Don't cover notifications, usage, or retention (not real-API UI yet).
 - Don't change the bootstrap admin password.
 - Don't invent knowledge when ingest health is `Failed`.
 - Don't commit secrets or print `.env` contents.

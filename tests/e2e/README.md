@@ -37,6 +37,7 @@ Private-repo tests **skip** when `E2E_PRIVATE_REPO_URL` or `E2E_GITHUB_TOKEN` is
 
 ```bash
 npm run test:e2e -- journey-auth
+npm run test:e2e -- journey-chat   # chat alone (worker + LLM)
 npx playwright test tests/e2e/web -c tests/e2e/playwright.config.js
 npx playwright test -g "valid login" -c tests/e2e/playwright.config.js
 npm run test:e2e:env
@@ -68,6 +69,7 @@ npm run test:e2e:env
 | Project lifecycle           | `web/journey-project-lifecycle.spec.js`                                            |
 | Repository onboarding       | `web/journey-repository-onboarding.spec.js`                                        |
 | ZIP ingest + knowledge      | `web/journey-zip-ingest-and-knowledge.spec.js`                                     |
+| Chat ask                    | `web/journey-chat.spec.js` (worker + LLM; run alone with `-- journey-chat`)        |
 | Admin users / roles / audit | `web/journey-admin.spec.js` (creates roles in the UI; invite requires user `code`) |
 
-Helpers live in [`helpers/`](./helpers/). Chat, conversations, notifications, usage, and retention are **not** covered — those UIs are not on the real API yet.
+Helpers live in [`helpers/`](./helpers/). Notifications, usage, and retention are **not** covered yet.

@@ -1,0 +1,89 @@
+/**
+ * Project chat UI helpers for the live-stack Playwright chat journey.
+ */
+import { expect } from '@playwright/test';
+
+import { E2E_FIXTURE_SEARCH_TOKEN } from './constants.js';
+
+/** Default grounded question about the sample ZIP fixture. */
+export const E2E_CHAT_FIXTURE_QUESTION = `Where is the exported constant ${E2E_FIXTURE_SEARCH_TOKEN} defined, and what string value does it hold?`;
+
+/** Max wait for one chat ask to leave the generating state. */
+export const E2E_CHAT_ANSWER_TIMEOUT_MS = 240_000;
+
+/**
+ * Opens the project Chat tab (SPA link — not a full page reload).
+ *
+ * @param {import('@playwright/test').Page} page Project detail page.
+ * @param {string} projectId Project id.
+ */
+export async function openProjectChat(page, projectId) {
+  const chatTab = page.getByRole('main').getByRole('link', { name: 'Chat', exact: true });
+  if (await chatTab.isVisible().catch(() => false)) {
+    await chatTab.click();
+  } else {
+    await page.goto(`/projects/${encodeURIComponent(projectId)}/chat`);
+  }
+  await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/chat`));
+  await expect(page.getByPlaceholder('Ask anything about this project…')).toBeVisible({ timeout: 30_000 });
+}
+
+/**
+ * Types a question and clicks Send.
+ *
+ * @param {import('@playwright/test').Page} page Chat workspace page.
+ * @param {string} question Question text.
+ */
+export async function sendChatQuestion(page, question) {
+  const composer = page.getByPlaceholder('Ask anything about this project…');
+  await expect(composer).toBeEnabled();
+  await composer.fill(question);
+  await page.getByRole('button', { name: 'Send' }).click();
+}
+
+/**
+ * Waits until the composer is idle again (Send visible, not Stop).
+ *
+ * @param {import('@playwright/test').Page} page Chat workspace page.
+ * @param {number} [timeoutMs] Max wait.
+ */
+export async function waitForChatIdle(page, timeoutMs = E2E_CHAT_ANSWER_TIMEOUT_MS) {
+  await expect(page.getByRole('button', { name: 'Send' })).toBeVisible({ timeout: timeoutMs });
+  await expect(page.getByRole('button', { name: 'Stop' })).toHaveCount(0);
+}
+
+/**
+ * Asserts a terminal chat outcome: evidence citing the fixture file, or an abstain notice.
+ * Fails with an LLM/stack hint when generation failed without a terminal grounded outcome.
+ *
+ * @param {import('@playwright/test').Page} page Chat workspace page after idle.
+ */
+export async function expectChatTerminalOutcome(page) {
+  const failed = page.getByText('Generation failed');
+  if (await failed.isVisible().catch(() => false)) {
+    throw new Error('Chat generation failed — confirm the API started with a reachable LLM (`npm run dev`) and retry.');
+  }
+
+  const sourcesButton = page.getByRole('button', { name: /\d+ sources?/i });
+  const abstainTitle = page.getByText('The project does not currently contain enough information to answer this question confidently.');
+  const abstainStatus = page.getByText('Could not answer from project knowledge.');
+
+  const hasSources = await sourcesButton
+    .first()
+    .waitFor({ state: 'visible', timeout: 15_000 })
+    .then(() => true)
+    .catch(() => false);
+
+  if (hasSources) {
+    await sourcesButton.first().click();
+    await expect(page.getByText(/hello\.js/i).first()).toBeVisible({ timeout: 10_000 });
+    return;
+  }
+
+  const abstained = (await abstainTitle.isVisible().catch(() => false)) || (await abstainStatus.isVisible().catch(() => false));
+  if (abstained) {
+    return;
+  }
+
+  throw new Error('Chat did not show Sources citing hello.js or an abstain notice — confirm worker + LLM are running.');
+}

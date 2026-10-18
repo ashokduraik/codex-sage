@@ -11,10 +11,13 @@ export default defineConfig({
     },
   },
   server: {
+    // Bind IPv4 so Node fetch / Playwright (localhost → 127.0.0.1) can reach Vite.
+    // Default macOS resolve often tries 127.0.0.1 before ::1; IPv6-only listen breaks e2e.
+    host: '127.0.0.1',
     proxy: {
       // Dev: forward /api/* to the Node API (paths include the /api prefix).
       '/api': {
-        target: 'http://localhost:3000',
+        target: 'http://127.0.0.1:3000',
         changeOrigin: true,
       },
     },

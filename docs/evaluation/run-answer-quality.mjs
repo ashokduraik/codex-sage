@@ -56,15 +56,20 @@ function parseArgs(argv) {
 function printHelp() {
   console.log(`Answer-quality evaluation (Phase 55)
 
-Requires a running API, LLM host, and a knowledge-ready project whose indexed tree
-includes backend/src (dogfood).
+Requires a running API, LLM host, and a knowledge-ready project.
 
-  node docs/evaluation/run-answer-quality.mjs \\
-    --base-url http://127.0.0.1:3000/api/v1 \\
+  npm run eval:answer-quality -- \\
     --project-id <mongoProjectId> \\
     --token <accessJwt>
 
+  # Express OSS gold (see docs/evaluation/answer-quality/express.pin.json)
+  npm run eval:answer-quality -- \\
+    --cases docs/evaluation/answer-quality/cases-express.json \\
+    --project-id <expressProjectId> \\
+    --token <accessJwt>
+
 Options:
+  --base-url URL   API base (default: http://127.0.0.1:3000/api/v1)
   --cases PATH     Gold cases JSON (default: docs/evaluation/answer-quality/cases.json)
   --out-dir PATH   Report directory (default: docs/evaluation)
   --help           Show this help

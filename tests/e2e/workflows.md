@@ -80,18 +80,32 @@ admin removes the user
 - **Spec:** [`web/journey-admin.spec.js`](./web/journey-admin.spec.js)
 - New users use `@example.com` (`.localhost` fails create-user validation)
 
+### 6. Chat ask via UI — **done**
+
+```
+create Upload project → sample ZIP
+wait job History + health terminal
+if ready/partial → Chat → ask about codexSageE2eHello
+terminal: Sources citing hello.js OR abstain notice
+```
+
+- **Spec:** [`web/journey-chat.spec.js`](./web/journey-chat.spec.js)
+- Worker + LLM required. Composer disabled / generation failure → fail with stack hint (or skip when health is not askable).
+- `afterAll` soft-deletes the created project
+
 ### Not in this suite
 
-Chat / SSE, conversations, notifications, admin usage / retention / org-projects (mock or later phases). CI remains Phase 63.
+Notifications, admin usage / retention / org-projects (mock or later phases). CI remains Phase 63.
 
 ---
 
 ## Test matrix
 
-| Journey                | Needs worker      | Needs private repo env       |
-| ---------------------- | ----------------- | ---------------------------- |
-| Auth                   | No                | No                           |
-| Project lifecycle      | No                | No                           |
-| Repository onboarding  | Yes (ingest wait) | Only the private-attach test |
-| ZIP ingest + knowledge | Yes               | No                           |
-| Admin                  | No                | No                           |
+| Journey                | Needs worker      | Needs private repo env       | Needs LLM             |
+| ---------------------- | ----------------- | ---------------------------- | --------------------- |
+| Auth                   | No                | No                           | No                    |
+| Project lifecycle      | No                | No                           | No                    |
+| Repository onboarding  | Yes (ingest wait) | Only the private-attach test | No                    |
+| ZIP ingest + knowledge | Yes               | No                           | Fill-from-README only |
+| Chat ask               | Yes               | No                           | Yes                   |
+| Admin                  | No                | No                           | No                    |

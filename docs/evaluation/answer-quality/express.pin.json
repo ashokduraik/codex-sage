@@ -1,0 +1,7 @@
+{
+  "repoUrl": "https://github.com/expressjs/express.git",
+  "tag": "4.21.2",
+  "commit": "1faf228935aa0a13111f92c28ee795be64ce3f0f",
+  "cases": "cases-express.json",
+  "notes": "Re-verify every citation span in cases-express.json before changing commit or tag."
+}

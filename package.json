@@ -17,6 +17,7 @@
     "lint": "bash scripts/lint.sh",
     "clean": "bash scripts/clean.sh",
     "measure-llm-host": "node scripts/measure-llm-host.mjs",
+    "eval:answer-quality": "node docs/evaluation/run-answer-quality.mjs",
     "prepare": "husky",
     "format": "prettier --write ."
   },

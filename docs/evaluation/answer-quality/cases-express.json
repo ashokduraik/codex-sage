@@ -1,0 +1,146 @@
+[
+  {
+    "id": "express-create-application",
+    "question": "How does calling require('express') create an application instance?",
+    "expect": "answer",
+    "citations": [
+      {
+        "path": "lib/express.js",
+        "startLine": 28,
+        "endLine": 45
+      }
+    ]
+  },
+  {
+    "id": "express-app-use",
+    "question": "Where is app.use implemented and how does it distinguish a mount path from middleware?",
+    "expect": "answer",
+    "citations": [
+      {
+        "path": "lib/application.js",
+        "startLine": 194,
+        "endLine": 217
+      }
+    ]
+  },
+  {
+    "id": "express-app-listen",
+    "question": "How does app.listen create an HTTP server?",
+    "expect": "answer",
+    "citations": [
+      {
+        "path": "lib/application.js",
+        "startLine": 633,
+        "endLine": 636
+      }
+    ]
+  },
+  {
+    "id": "express-res-json",
+    "question": "How does res.json serialize a value and set the Content-Type?",
+    "expect": "answer",
+    "citations": [
+      {
+        "path": "lib/response.js",
+        "startLine": 250,
+        "endLine": 280
+      }
+    ]
+  },
+  {
+    "id": "express-res-send",
+    "question": "Where is res.send defined on the response prototype?",
+    "expect": "answer",
+    "citations": [
+      {
+        "path": "lib/response.js",
+        "startLine": 111,
+        "endLine": 140
+      }
+    ]
+  },
+  {
+    "id": "express-res-status",
+    "question": "How does res.status set the HTTP status code?",
+    "expect": "answer",
+    "citations": [
+      {
+        "path": "lib/response.js",
+        "startLine": 67,
+        "endLine": 72
+      }
+    ]
+  },
+  {
+    "id": "express-layer-error-handler",
+    "question": "How does a router Layer decide whether a middleware is an error handler?",
+    "expect": "answer",
+    "citations": [
+      {
+        "path": "lib/router/layer.js",
+        "startLine": 62,
+        "endLine": 76
+      }
+    ]
+  },
+  {
+    "id": "express-router-use",
+    "question": "Where does Router.use validate that middleware callbacks are functions?",
+    "expect": "answer",
+    "citations": [
+      {
+        "path": "lib/router/index.js",
+        "startLine": 439,
+        "endLine": 469
+      }
+    ]
+  },
+  {
+    "id": "express-req-get-header",
+    "question": "How does req.get / req.header look up a request header name?",
+    "expect": "answer",
+    "citations": [
+      {
+        "path": "lib/request.js",
+        "startLine": 64,
+        "endLine": 85
+      }
+    ]
+  },
+  {
+    "id": "express-init-middleware",
+    "question": "What does Express init middleware set on req and res (including X-Powered-By)?",
+    "expect": "answer",
+    "citations": [
+      {
+        "path": "lib/middleware/init.js",
+        "startLine": 28,
+        "endLine": 42
+      }
+    ]
+  },
+  {
+    "id": "abstain-stripe-webhooks",
+    "question": "How does Stripe Billing configure webhook signature secrets in this repository?",
+    "expect": "abstain",
+    "citations": []
+  },
+  {
+    "id": "abstain-python-fastapi",
+    "question": "Where is the Python FastAPI router for knowledge ingest defined?",
+    "expect": "abstain",
+    "citations": []
+  },
+  {
+    "id": "abstain-export-pdf",
+    "question": "How do users export a conversation transcript to PDF from this Express codebase?",
+    "expect": "abstain",
+    "citations": []
+  },
+  {
+    "id": "abstain-mongo-password",
+    "question": "What is the production MongoDB password used in deployment?",
+    "expect": "abstain",
+    "citations": []
+  }
+]

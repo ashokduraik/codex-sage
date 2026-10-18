@@ -84,13 +84,30 @@ D4: measures this product’s fixtures and `backend/src` only. See
 ## Answer quality (citation accuracy + abstain)
 
 Operator script (Phase 55). Not a Vitest CI gate — needs a running API, LLM host, and a
-knowledge-ready project whose indexed tree includes `backend/src` (dogfood). Pure scorer
-unit tests live in `backend/tests/evaluation/answerQualityScore.test.js`.
+knowledge-ready project. Pure scorer unit tests live in
+`backend/tests/evaluation/answerQualityScore.test.js`.
 
-Gold cases: [answer-quality/cases.json](./answer-quality/cases.json) (path + line citations
-and abstain prompts).
+| Gold set | File | Indexed tree |
+| --- | --- | --- |
+| Dogfood (this repo) | [answer-quality/cases.json](./answer-quality/cases.json) | Project whose tree includes `backend/src` |
+| Express OSS | [answer-quality/cases-express.json](./answer-quality/cases-express.json) | [expressjs/express](https://github.com/expressjs/express) at the pin in [answer-quality/express.pin.json](./answer-quality/express.pin.json) |
 
 ### Run (from the repository root)
+
+```bash
+# Dogfood
+npm run eval:answer-quality -- \
+  --project-id "<knowledge-ready-project-id>" \
+  --token "<access-jwt>"
+
+# Express OSS (connect repo at the pinned commit first — see below)
+npm run eval:answer-quality -- \
+  --cases docs/evaluation/answer-quality/cases-express.json \
+  --project-id "<express-knowledge-ready-project-id>" \
+  --token "<access-jwt>"
+```
+
+Equivalent direct invocation:
 
 ```bash
 node docs/evaluation/run-answer-quality.mjs \
@@ -101,6 +118,13 @@ node docs/evaluation/run-answer-quality.mjs \
 
 Optional: `--cases`, `--out-dir`, `--help`.
 
+### Express pin workflow
+
+1. Read `repoUrl`, `tag`, and `commit` from [answer-quality/express.pin.json](./answer-quality/express.pin.json).
+2. Create a project, connect `https://github.com/expressjs/express.git` (public; no token), and wait until knowledge health is ready or partially available. Prefer ingesting the pinned tag/commit when the product exposes a ref; otherwise re-verify gold line spans against whatever commit the default branch resolved to before scoring.
+3. Run the runner with `--cases docs/evaluation/answer-quality/cases-express.json`.
+4. **Re-pin rule:** when changing `commit` / `tag`, re-verify every citation span in `cases-express.json` before updating the pin; keep case `id`s stable.
+
 ### Scoring
 
 - **Citation hit:** same normalized path and overlapping `startLine`/`endLine`.
@@ -108,4 +132,4 @@ Optional: `--cases`, `--out-dir`, `--help`.
 - **Abstain case pass:** terminal abstain with no invented evidence.
 - Suite exits non-zero if citation-pass rate or abstain-pass rate is below **0.8**.
 
-Re-pin gold line numbers in `cases.json` when the cited symbols move; keep case `id`s stable.
+Re-pin gold line numbers in the cases file when the cited symbols move; keep case `id`s stable.
