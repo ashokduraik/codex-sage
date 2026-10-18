@@ -277,6 +277,60 @@ describe('generateText', () => {
     expect(mockGenerateText.mock.calls[0][0].instructions).toBeUndefined();
   });
 
+  it('soft-returns raw text when Output.json throws AI_NoObjectGeneratedError', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const parseError = new Error('No object generated: could not parse the response.');
+    parseError.name = 'AI_NoObjectGeneratedError';
+    parseError.text = '{"action":"finish_retrieval"}';
+    parseError.usage = { inputTokens: 4, outputTokens: 2, totalTokens: 6 };
+    mockGenerateText.mockRejectedValue(parseError);
+    try {
+      const result = await generateText({
+        ...underBudgetRequest,
+        purpose: 'tool_choice',
+        outputSchema: { type: 'object' },
+      });
+      expect(result.text).toBe('{"action":"finish_retrieval"}');
+      expect(result.usage).toEqual({ inputTokens: 4, outputTokens: 2, totalTokens: 6 });
+      expect(warnSpy.mock.calls.some((call) => String(call[0]).includes('structured output parse failed'))).toBe(true);
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
+  it('soft-returns empty text when NoObjectGeneratedError has no raw text', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const parseError = new Error('No object generated');
+    parseError.name = 'NoObjectGeneratedError';
+    mockGenerateText.mockRejectedValue(parseError);
+    try {
+      const result = await generateText({
+        ...underBudgetRequest,
+        purpose: 'understand',
+        outputSchema: { type: 'object' },
+      });
+      expect(result.text).toBe('');
+      expect(result.usage).toBeNull();
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
+  it('still maps non-parse provider throws to LLM_PROVIDER_ERROR when outputSchema is set', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockGenerateText.mockRejectedValue(new Error('socket hang up'));
+    try {
+      await generateText({ ...underBudgetRequest, purpose: 'tool_choice', outputSchema: { type: 'object' } });
+      expect.fail('expected throw');
+    } catch (error) {
+      expect(error).toBeInstanceOf(ApiError);
+      expect(error.code).toBe('LLM_PROVIDER_ERROR');
+      expect(error.cause).toMatchObject({ message: 'socket hang up' });
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
   it('moves system messages into instructions for the AI SDK', async () => {
     mockPrepareModelInput.mockImplementation(() => ({
       ...preparedFixture,
@@ -635,6 +689,26 @@ describe('streamText', () => {
         output: { type: 'json', schema: { type: 'object' } },
       }),
     );
+  });
+
+  it('soft-yields raw text when Output.json throws on stream start', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const parseError = new Error('No object generated: could not parse the response.');
+    parseError.name = 'AI_NoObjectGeneratedError';
+    parseError.text = '{"route":"abstain_early"}';
+    mockStreamText.mockRejectedValue(parseError);
+    try {
+      const result = await streamText({ ...underBudgetRequest, outputSchema: { type: 'object' } });
+      const parts = [];
+      for await (const chunk of result.textStream) {
+        parts.push(chunk);
+      }
+      expect(parts.join('')).toBe('{"route":"abstain_early"}');
+      await expect(result.usage).resolves.toBeNull();
+      expect(warnSpy.mock.calls.some((call) => String(call[0]).includes('structured output parse failed on stream'))).toBe(true);
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 
   it('resolves null usage when the SDK omits a usage field', async () => {

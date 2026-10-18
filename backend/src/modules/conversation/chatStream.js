@@ -74,11 +74,22 @@ export async function streamConversationMessageHttp(request, reply) {
   const scope = request.projectScope;
   const audit = buildAuditContextFromRequest(request);
   const correlationId = audit.correlationId ?? request.id;
+  const conversationId = params.data.conversationId;
 
-  const conversation = await loadConversationForUser(scope.orgId, scope.projectId, params.data.conversationId, scope.userId);
+  const conversation = await loadConversationForUser(scope.orgId, scope.projectId, conversationId, scope.userId);
   assertConversationWritable(conversation, scope.userId);
 
   const gate = await assertKnowledgeReadable({ orgId: scope.orgId, projectId: scope.projectId });
+  request.log?.debug?.(
+    {
+      orgId: String(scope.orgId),
+      projectId: String(scope.projectId),
+      conversationId: String(conversationId),
+      correlationId,
+      gateAction: gate.action,
+    },
+    'chat stream gate resolved',
+  );
   if (gate.action === 'deny') {
     throw ApiError.fromCode(gate.code ?? 'KNOWLEDGE_UNAVAILABLE');
   }
@@ -87,7 +98,7 @@ export async function streamConversationMessageHttp(request, reply) {
     const queued = await enqueueChatMessageWhileKnowledgeUpdating({
       orgId: scope.orgId,
       projectId: scope.projectId,
-      conversationId: params.data.conversationId,
+      conversationId,
       actorUserId: scope.userId,
       content: parsed.data.content,
     });
@@ -97,7 +108,7 @@ export async function streamConversationMessageHttp(request, reply) {
         actorUserId: scope.userId,
         action: 'chat.message_queued',
         resourceType: 'conversation',
-        resourceId: params.data.conversationId,
+        resourceId: conversationId,
         result: 'success',
         correlationId,
         ip: audit.ip,
@@ -109,6 +120,18 @@ export async function streamConversationMessageHttp(request, reply) {
         },
       },
       { log: request.log },
+    );
+    request.log?.debug?.(
+      {
+        orgId: String(scope.orgId),
+        projectId: String(scope.projectId),
+        conversationId: String(conversationId),
+        correlationId,
+        messageId: queued.messageId,
+        jobId: queued.jobId,
+        gateAction: 'queue',
+      },
+      'chat stream queued while knowledge updating',
     );
     await completeChatIdempotency(request, queued, 202);
     return reply.code(202).send(queued);
@@ -177,6 +200,16 @@ export async function streamConversationMessageHttp(request, reply) {
           [CORRELATION_ID_HEADER]: correlationId,
         });
         headersOpened = true;
+        request.log?.debug?.(
+          {
+            orgId: String(scope.orgId),
+            projectId: String(scope.projectId),
+            conversationId: String(conversationId),
+            correlationId,
+            headersOpened: true,
+          },
+          'chat stream sse headers opened',
+        );
         keepaliveTimer = setInterval(() => {
           if (!clientConnected || !headersOpened) {
             return;
@@ -194,11 +227,35 @@ export async function streamConversationMessageHttp(request, reply) {
       writeSse,
     });
 
+    request.log?.debug?.(
+      {
+        orgId: String(scope.orgId),
+        projectId: String(scope.projectId),
+        conversationId: String(conversationId),
+        correlationId,
+        userMessageId: outcome.userMessageId,
+        assistantMessageId: outcome.assistantMessageId,
+        messageStatus: outcome.messageStatus,
+        headersOpened,
+      },
+      'chat stream outcome ready',
+    );
     await completeChatIdempotency(request, {
       userMessageId: outcome.userMessageId,
       assistantMessageId: outcome.assistantMessageId,
       messageStatus: outcome.messageStatus,
     });
+    request.log?.debug?.(
+      {
+        orgId: String(scope.orgId),
+        projectId: String(scope.projectId),
+        conversationId: String(conversationId),
+        correlationId,
+        assistantMessageId: outcome.assistantMessageId,
+        messageStatus: outcome.messageStatus,
+      },
+      'chat stream idempotency complete',
+    );
 
     if (headersOpened) {
       reply.raw.end();
@@ -214,6 +271,16 @@ export async function streamConversationMessageHttp(request, reply) {
           assistantMessageId: null,
           messageStatus: 'failed',
         });
+        request.log?.debug?.(
+          {
+            orgId: String(scope.orgId),
+            projectId: String(scope.projectId),
+            conversationId: String(conversationId),
+            correlationId,
+            messageStatus: 'failed',
+          },
+          'chat stream idempotency complete after SSE error',
+        );
       } catch (idempotencyError) {
         request.log?.error?.({ ...caughtErrorFields(idempotencyError) }, 'chat stream idempotency complete failed after SSE error');
       }
@@ -276,12 +343,26 @@ export async function runChatMessageStream(input) {
     content: input.content,
     knowledgeVersionId: gate.knowledgeVersionId ?? null,
   });
+  const userMessageId = String(pair.userMessage._id);
+  const assistantMessageId = String(pair.assistantMessage._id);
+  input.log?.debug?.(
+    {
+      orgId: String(input.orgId),
+      projectId: String(input.projectId),
+      conversationId: String(input.conversationId),
+      correlationId: input.correlationId,
+      userMessageId,
+      assistantMessageId,
+      gateAction: gate.action,
+    },
+    'chat stream turn pair inserted',
+  );
 
   return runChatStreamForExistingUser({
     ...input,
     gate,
-    userMessageId: String(pair.userMessage._id),
-    assistantMessageId: String(pair.assistantMessage._id),
+    userMessageId,
+    assistantMessageId,
     content: input.content,
     removedMessageIds: [],
   });
@@ -341,6 +422,17 @@ export async function runChatStreamForExistingUser(input) {
 
   const threadId = buildChatGraphThreadId(input.orgId, input.conversationId, assistantMessageId);
   const checkpointer = createMongoChatCheckpointer();
+  input.log?.debug?.(
+    {
+      orgId: String(input.orgId),
+      projectId: String(input.projectId),
+      conversationId: String(input.conversationId),
+      correlationId: input.correlationId,
+      userMessageId,
+      assistantMessageId,
+    },
+    'chat stream graph invoke starting',
+  );
 
   /** @type {string} */
   let terminalStatus = 'completed';
@@ -353,6 +445,7 @@ export async function runChatStreamForExistingUser(input) {
     const result = await invokeChatGraph({
       threadId,
       checkpointer,
+      log: input.log,
       input: {
         scope: {
           orgId: input.orgId,
@@ -427,6 +520,19 @@ export async function runChatStreamForExistingUser(input) {
         messageStatus: 'interrupted',
         updatedBy: input.actorUserId,
       });
+      input.log?.debug?.(
+        {
+          orgId: String(input.orgId),
+          projectId: String(input.projectId),
+          conversationId: String(input.conversationId),
+          correlationId: input.correlationId,
+          userMessageId,
+          assistantMessageId,
+          terminalStatus: 'interrupted',
+          aborted: true,
+        },
+        'chat stream assistant marked interrupted',
+      );
       return buildExistingUserStreamOutcome(input, userMessageId, assistantMessageId, 'interrupted', removedMessageIds);
     }
 
@@ -460,6 +566,18 @@ export async function runChatStreamForExistingUser(input) {
           questions: clarificationSet.questions ?? [],
         });
       }
+      input.log?.debug?.(
+        {
+          orgId: String(input.orgId),
+          projectId: String(input.projectId),
+          conversationId: String(input.conversationId),
+          correlationId: input.correlationId,
+          userMessageId,
+          assistantMessageId,
+          terminalStatus,
+        },
+        'chat stream awaiting clarification',
+      );
       return buildExistingUserStreamOutcome(input, userMessageId, assistantMessageId, terminalStatus, removedMessageIds);
     }
 
@@ -481,6 +599,19 @@ export async function runChatStreamForExistingUser(input) {
       }
     }
 
+    input.log?.debug?.(
+      {
+        orgId: String(input.orgId),
+        projectId: String(input.projectId),
+        conversationId: String(input.conversationId),
+        correlationId: input.correlationId,
+        userMessageId,
+        assistantMessageId,
+        terminalStatus,
+        sawDone,
+      },
+      'chat stream graph invoke finished',
+    );
     return buildExistingUserStreamOutcome(input, userMessageId, assistantMessageId, terminalStatus, removedMessageIds);
   } catch (error) {
     const aborted = input.abortSignal?.aborted || isChatRunAbortError(error);
@@ -495,6 +626,19 @@ export async function runChatStreamForExistingUser(input) {
         messageStatus: terminalStatus,
         updatedBy: input.actorUserId,
       });
+      input.log?.debug?.(
+        {
+          orgId: String(input.orgId),
+          projectId: String(input.projectId),
+          conversationId: String(input.conversationId),
+          correlationId: input.correlationId,
+          userMessageId,
+          assistantMessageId,
+          terminalStatus,
+          aborted,
+        },
+        'chat stream assistant marked after graph error',
+      );
     } catch (persistError) {
       input.log?.error?.(
         { ...caughtErrorFields(persistError) },
@@ -948,6 +1092,18 @@ async function streamExistingUserTurnReply(request, reply, streamInput) {
           [CORRELATION_ID_HEADER]: streamInput.correlationId,
         });
         headersOpened = true;
+        request.log?.debug?.(
+          {
+            orgId: String(streamInput.orgId),
+            projectId: String(streamInput.projectId),
+            conversationId: String(streamInput.conversationId),
+            correlationId: streamInput.correlationId,
+            userMessageId: streamInput.userMessageId,
+            assistantMessageId: streamInput.assistantMessageId,
+            headersOpened: true,
+          },
+          'chat edit/retry sse headers opened',
+        );
         keepaliveTimer = setInterval(() => {
           if (!clientConnected || !headersOpened) {
             return;
@@ -965,6 +1121,19 @@ async function streamExistingUserTurnReply(request, reply, streamInput) {
       writeSse,
     });
 
+    request.log?.debug?.(
+      {
+        orgId: String(streamInput.orgId),
+        projectId: String(streamInput.projectId),
+        conversationId: String(streamInput.conversationId),
+        correlationId: streamInput.correlationId,
+        userMessageId: outcome.userMessageId,
+        assistantMessageId: outcome.assistantMessageId,
+        messageStatus: outcome.messageStatus,
+        headersOpened,
+      },
+      'chat edit/retry stream outcome ready',
+    );
     await completeChatIdempotency(request, {
       userMessageId: outcome.userMessageId,
       assistantMessageId: outcome.assistantMessageId,
@@ -972,6 +1141,17 @@ async function streamExistingUserTurnReply(request, reply, streamInput) {
       removedMessageIds: outcome.removedMessageIds,
       ...(typeof outcome.editGeneration === 'number' ? { editGeneration: outcome.editGeneration } : {}),
     });
+    request.log?.debug?.(
+      {
+        orgId: String(streamInput.orgId),
+        projectId: String(streamInput.projectId),
+        conversationId: String(streamInput.conversationId),
+        correlationId: streamInput.correlationId,
+        assistantMessageId: outcome.assistantMessageId,
+        messageStatus: outcome.messageStatus,
+      },
+      'chat edit/retry idempotency complete',
+    );
 
     if (headersOpened) {
       reply.raw.end();

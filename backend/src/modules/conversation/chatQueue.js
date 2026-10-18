@@ -282,6 +282,7 @@ async function resumeClaimedQueuedMessage(input) {
     const result = await invokeChatGraph({
       threadId,
       checkpointer,
+      log: input.log,
       input: {
         scope: {
           orgId,

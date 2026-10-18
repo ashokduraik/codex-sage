@@ -25,6 +25,7 @@ export const INFERENCE_QUEUE_MAX_CONCURRENCY = 1;
 
 const defaultLog = {
   info: (obj, msg) => console.info(JSON.stringify({ level: 'info', msg, ...obj })),
+  warn: (obj, msg) => console.warn(JSON.stringify({ level: 'warn', msg, ...obj })),
   error: (obj, msg) => console.error(JSON.stringify({ level: 'error', msg, ...obj })),
 };
 
@@ -161,12 +162,28 @@ export async function generateText(request) {
       if (request.outputSchema) {
         call.output = Output.json({ schema: request.outputSchema });
       }
-      const result = await sdkGenerateText(call);
-      return {
-        text: typeof result?.text === 'string' ? result.text : '',
-        usage: mapUsage(result?.usage),
-        durationMs: Date.now() - startedAt,
-      };
+      try {
+        const result = await sdkGenerateText(call);
+        return {
+          text: typeof result?.text === 'string' ? result.text : '',
+          usage: mapUsage(result?.usage),
+          durationMs: Date.now() - startedAt,
+        };
+      } catch (providerError) {
+        // Output.json throws before returning text; soft-return so callers can repair.
+        if (request.outputSchema && isNoObjectGeneratedError(providerError)) {
+          defaultLog.warn?.(
+            { purpose: request.purpose, ...caughtErrorFields(providerError) },
+            'llm structured output parse failed; returning raw text for soft parse',
+          );
+          return {
+            text: rawTextFromNoObjectGeneratedError(providerError),
+            usage: mapUsage(usageFromNoObjectGeneratedError(providerError)),
+            durationMs: Date.now() - startedAt,
+          };
+        }
+        throw providerError;
+      }
     });
     return {
       text,
@@ -330,7 +347,28 @@ export async function streamText(request) {
       if (request.outputSchema) {
         call.output = Output.json({ schema: request.outputSchema });
       }
-      return sdkStreamText(call);
+      try {
+        return await sdkStreamText(call);
+      } catch (providerError) {
+        // Same soft path as generateText when Output.json fails at stream start.
+        if (request.outputSchema && isNoObjectGeneratedError(providerError)) {
+          defaultLog.warn?.(
+            { purpose: request.purpose, ...caughtErrorFields(providerError) },
+            'llm structured output parse failed on stream start; yielding raw text for soft parse',
+          );
+          const softText = rawTextFromNoObjectGeneratedError(providerError);
+          const softUsage = mapUsage(usageFromNoObjectGeneratedError(providerError));
+          return {
+            textStream: (async function* softStructuredStream() {
+              if (softText) {
+                yield softText;
+              }
+            })(),
+            usage: Promise.resolve(softUsage),
+          };
+        }
+        throw providerError;
+      }
     });
   } catch (error) {
     if (error instanceof ApiError) {
@@ -384,6 +422,53 @@ export async function streamText(request) {
     contextMetrics: contextMetricsFromPrepared(prepared),
     enableThinking,
   };
+}
+
+/**
+ * True when the AI SDK failed to parse Output.json (schema or non-JSON text).
+ * @param {unknown} error Caught provider error.
+ * @returns {boolean}
+ */
+function isNoObjectGeneratedError(error) {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+  const name = 'name' in error && typeof error.name === 'string' ? error.name : '';
+  return name === 'AI_NoObjectGeneratedError' || name === 'NoObjectGeneratedError';
+}
+
+/**
+ * Best-effort raw model text from a structured-output parse failure.
+ * @param {unknown} error No-object-generated error from the AI SDK.
+ * @returns {string}
+ */
+function rawTextFromNoObjectGeneratedError(error) {
+  if (!error || typeof error !== 'object') {
+    return '';
+  }
+  if ('text' in error && typeof error.text === 'string') {
+    return error.text;
+  }
+  const response = 'response' in error ? error.response : null;
+  if (response && typeof response === 'object' && 'text' in response && typeof response.text === 'string') {
+    return response.text;
+  }
+  return '';
+}
+
+/**
+ * Best-effort usage object on a structured-output parse failure.
+ * @param {unknown} error No-object-generated error from the AI SDK.
+ * @returns {object | null | undefined}
+ */
+function usageFromNoObjectGeneratedError(error) {
+  if (!error || typeof error !== 'object') {
+    return null;
+  }
+  if ('usage' in error) {
+    return error.usage;
+  }
+  return null;
 }
 
 /**

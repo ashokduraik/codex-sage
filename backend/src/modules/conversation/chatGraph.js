@@ -212,7 +212,8 @@ const ChatGraphState = Annotation.Root({
  *   onEvidence?: (evidence: object[]) => void,
  *   onDone?: (payload: object) => void,
  *   onError?: (error: unknown) => void,
- * }} [deps] Optional saver and stream/persist hooks (phase 50).
+ *   log?: { debug?: Function, info?: Function, warn?: Function, error?: Function },
+ * }} [deps] Optional saver, stream/persist hooks, and request log (phase 50).
  * @returns {object} Compiled LangGraph app.
  */
 export function compileChatGraph(deps = {}) {
@@ -221,17 +222,18 @@ export function compileChatGraph(deps = {}) {
   const onEvidence = typeof deps.onEvidence === 'function' ? deps.onEvidence : () => {};
   const onDone = typeof deps.onDone === 'function' ? deps.onDone : () => {};
   const onError = typeof deps.onError === 'function' ? deps.onError : () => {};
+  const log = deps.log ?? null;
   const checkpointer = deps.checkpointer ?? createMongoChatCheckpointer();
   const streamHooks = { onStage, onDelta };
   const persistHooks = { onEvidence, onDone, onError };
 
   const graph = new StateGraph(ChatGraphState)
     .addNode('load_context', (state) => runLoadContextNode(state))
-    .addNode('understand', (state) => runUnderstandNode(state, onStage))
+    .addNode('understand', (state) => runUnderstandNode(state, onStage, log))
     .addNode('clarify_set', (state) => runClarifySetNode(state, onStage))
     .addNode('clarify_wait', (state) => runClarifyWaitNode(state))
     .addNode('abstain_early', (state) => runAbstainEarlyNode(state, onStage))
-    .addNode('agent_tools', (state) => runAgentToolsNode(state, onStage))
+    .addNode('agent_tools', (state) => runAgentToolsNode(state, onStage, log))
     .addNode('draft_answer', (state) => runDraftAnswerNode(state, streamHooks))
     .addNode('verify_answer', (state) => runVerifyAnswerNode(state, { onStage }))
     .addNode('reply_direct', (state) => runDirectReplyNode(state, streamHooks))
@@ -287,6 +289,7 @@ export function compileChatGraph(deps = {}) {
  *   onError?: (error: unknown) => void,
  *   checkpointer?: object,
  *   compiled?: object,
+ *   log?: { debug?: Function, info?: Function, warn?: Function, error?: Function },
  * }} args Invoke args.
  * @returns {Promise<object>} Final state or interrupt payload on clarify.
  */
@@ -296,6 +299,7 @@ export async function invokeChatGraph(args) {
     args.compiled ??
     compileChatGraph({
       checkpointer: args.checkpointer,
+      log: args.log,
       ...hooks,
     });
   const parsed = parseChatGraphThreadId(args.threadId);
@@ -396,11 +400,13 @@ async function runLoadContextNode(state) {
  * Runs UNDERSTAND with thinking disabled and validated structured JSON.
  * @param {object} state Graph state.
  * @param {(event: { stage: string, data?: object }) => void} onStage Stage hook.
+ * @param {{ debug?: Function } | null} [log] Optional request logger (not checkpointed).
  * @returns {Promise<object>} Partial state update.
  */
-async function runUnderstandNode(state, onStage) {
+async function runUnderstandNode(state, onStage, log = null) {
   const segments = buildUnderstandSegments(state);
   const abortSignal = state.scope?.abortSignal;
+  const debugScope = chatGraphDebugScope(state);
   let decision;
   try {
     decision = await requestUnderstandDecision(segments, state.summarySegment, false, abortSignal);
@@ -409,6 +415,7 @@ async function runUnderstandNode(state, onStage) {
   }
 
   if (!decision) {
+    log?.debug?.({ ...debugScope }, 'understand decision invalid; retrying with repair');
     try {
       decision = await requestUnderstandDecision(segments, state.summarySegment, true, abortSignal);
     } catch (error) {
@@ -420,6 +427,7 @@ async function runUnderstandNode(state, onStage) {
   }
 
   if (!decision) {
+    log?.debug?.({ ...debugScope }, 'understand repair failed; abstain_early fallback');
     fireStage(onStage, 'understanding_question', { route: 'abstain_early', repairFailed: true });
     return {
       rewrittenQuestion: state.question,
@@ -499,12 +507,14 @@ function runAbstainEarlyNode(state, onStage) {
  * One AGENT_TOOLS iteration: budget check → tool-choice LLM → optional executeTool.
  * @param {object} state Graph state.
  * @param {(event: { stage: string, data?: object }) => void} onStage Stage hook.
+ * @param {{ debug?: Function } | null} [log] Optional request logger (not checkpointed).
  * @returns {Promise<object>} Partial state update.
  */
-async function runAgentToolsNode(state, onStage) {
+async function runAgentToolsNode(state, onStage, log = null) {
   const runMonotonicStartedAt = ensureRunMonotonicStartedAt(state.runMonotonicStartedAt);
   let working = { ...state, runMonotonicStartedAt };
   const runBudgetConfig = getRunBudgetConfig();
+  const debugScope = chatGraphDebugScope(working);
 
   if (isRunAborted(working.scope?.abortSignal)) {
     return { runMonotonicStartedAt, retrievalComplete: true };
@@ -527,6 +537,7 @@ async function runAgentToolsNode(state, onStage) {
   }
 
   if (!decision) {
+    log?.debug?.({ ...debugScope }, 'tool_choice decision invalid; retrying with repair');
     try {
       decision = await requestToolChoiceDecision(working, true);
     } catch (error) {
@@ -538,6 +549,7 @@ async function runAgentToolsNode(state, onStage) {
   }
 
   if (!decision) {
+    log?.debug?.({ ...debugScope }, 'tool_choice repair failed; finish_retrieval fallback');
     return {
       runMonotonicStartedAt,
       retrievalComplete: true,
@@ -1016,6 +1028,23 @@ function buildClarificationSet(questions, roundIndex) {
  */
 function isRunAborted(abortSignal) {
   return Boolean(abortSignal?.aborted);
+}
+
+/**
+ * Safe correlation fields for graph debug logs (ids only — never question text).
+ * @param {object} state Graph state.
+ * @returns {object}
+ */
+function chatGraphDebugScope(state) {
+  const scope = state?.scope && typeof state.scope === 'object' ? state.scope : {};
+  return {
+    orgId: scope.orgId ? String(scope.orgId) : undefined,
+    projectId: scope.projectId ? String(scope.projectId) : undefined,
+    conversationId: scope.conversationId ? String(scope.conversationId) : undefined,
+    userMessageId: scope.userMessageId ? String(scope.userMessageId) : undefined,
+    assistantMessageId: scope.assistantMessageId ? String(scope.assistantMessageId) : undefined,
+    correlationId: scope.correlationId ? String(scope.correlationId) : undefined,
+  };
 }
 
 /**
