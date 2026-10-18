@@ -189,7 +189,7 @@ export async function generateText(request) {
 
 /**
  * Queued Chat Completions generate that skips context budgeting and the tokenizer.
- * For short non-chat jobs while `countTokensForBudget` remains fail-closed (ADR 0034).
+ * For short non-chat jobs that do not need prepareModelInput (ADR 0038 still budgets chat).
  * Do not use for grounded chat answers. AI SDK v7: pass system text via `instructions`.
  * @param {{
  *   purpose: string,

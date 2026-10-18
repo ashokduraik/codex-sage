@@ -319,7 +319,8 @@ Every model call: assemble the exact messages → count tokens for the **active 
 (`backend/src/modules/conversation/contextBudgeter.js`) → compact, or fail closed →
 `conversation/llm.js` enqueue (per-worker, concurrency 1) → `provider.chat`.
 Capacity comes from required `LLM_CONTEXT_CAPACITY`. The artifact id is the
-configured model id after the startup `GET /models` probe (not a code constant). Missing tokenizer /
+configured model id after the startup `GET /models` probe (not a code constant). Token counts use
+`@lenml/tokenizer-qwen3` via `tokenCount.js` (ADR 0038). Tokenizer init/encode failure or
 artifact mismatch → `CONTEXT_ACCOUNTING_UNAVAILABLE`. Still over after compaction →
 `CONTEXT_BUDGET_EXCEEDED` (clarify or abstain). Never send an unmeasured prompt.
 

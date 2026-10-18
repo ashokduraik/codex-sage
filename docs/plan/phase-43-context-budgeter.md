@@ -47,9 +47,8 @@ messages; the budgeter invents its own segment kinds. Loaders that persist summa
   the barrel — no fifth domain module, no `platform/context/`.
 - **Segment model:** typed blocks (system rules, user question, summary, turn, tool result, pinned
   fact, tool schema overhead) with stable ids for compaction audit trails. Caller sets `protected`.
-- Token counting via `createTokenizerAdapter(config)` — injectable `countTokens` /
-  `assertArtifactMatch` for tests. Production adapter is chosen after the tokenizer checklist in
-  the evaluation runbook; do not put a fake adapter under `src/`.
+- Token counting via `countTokensForBudget` in `tokenCount.js` (`@lenml/tokenizer-qwen3`,
+  ADR 0038). Tests mock `tokenCount.js`; production uses the real package.
 - Budget math (numbers from the **reviewed** evaluation run on the target host — not invented, not
   copied from another machine):
 
@@ -144,15 +143,10 @@ re-run the script; do not copy these three eval numbers without a new note.
 
 ### 4.3 Tokenizer adapter
 
-Factory `createTokenizerAdapter(config)` with JSDoc (plain JavaScript, ADR 0000). Tests inject
-`countTokens` / `assertArtifactMatch`. If `assertArtifactMatch` fails →
-`CONTEXT_ACCOUNTING_UNAVAILABLE` with `details.reason: 'tokenizer_artifact_mismatch'`. Missing
-adapter → `details.reason: 'tokenizer_unavailable'`.
-
-Package selection follows the runbook checklist (`dependency-versions.mdc`). GGUF on the current
-artifact reports `tokenizer.ggml.model = gpt2` and `pre = qwen35`. Prove parity against fixture
-`prompt_eval_count` in `phase-43-context.raw.json`. Do not name a package until that checklist
-passes.
+Production: `countTokensForBudget` in `tokenCount.js` with `@lenml/tokenizer-qwen3` (ADR 0038).
+Artifact mismatch stays in `contextBudgeter.js` (`tokenizer_artifact_mismatch`). Init/encode
+failure → `tokenizer_unavailable`. Parity uses host chat wrap vs `llm-host.raw.json`
+`promptTokens` within `TOKENIZER_PARITY_TOLERANCE_TOKENS` (8).
 
 ### 4.4 Compaction engine
 
@@ -297,7 +291,7 @@ Artifact id is **not** a separate env. API startup sets it to `LLM_MODEL_ID` aft
 - [x] `CONTEXT_ACCOUNTING_UNAVAILABLE` on missing tokenizer/config/parity failure.
 - [x] `CONTEXT_BUDGET_EXCEEDED` catalogued (backend + frontend).
 - [x] Tests for `contextBudgeter.js` (coverage gate in this change).
-- [x] ADR 0034: required `LLM_*` env, artifact id = model id after connect; tokenizer package remains fail-closed until parity.
+- [x] ADR 0034: required `LLM_*` env, artifact id = model id after connect; tokenizer package chosen in ADR 0038 (`@lenml/tokenizer-qwen3`).
 
 ## 11. Documentation & ADR updates
 
@@ -309,7 +303,7 @@ Artifact id is **not** a separate env. API startup sets it to `LLM_MODEL_ID` aft
 
 ## 12. Risks & open questions
 
-1. **Tokenizer npm package** — none chosen until the runbook checklist and parity fixtures pass.
+1. **Tokenizer npm package** — `@lenml/tokenizer-qwen3` (ADR 0038); re-run parity when the model family changes.
 2. **64K / 128K OOM** — stop at the last passing window; do not invent a larger cap.
 3. **Reserved output** — one constant vs per-`purpose`; use the evaluation recommendation unless a
    later run justifies a split.

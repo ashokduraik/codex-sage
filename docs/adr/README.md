@@ -36,10 +36,11 @@
 | [0031](./0031-http-multi-collection-transactions.md) | HTTP APIs that write two domain collections use a transaction | Accepted |
 | [0032](./0032-dynamic-roles-and-identity-code.md) | Dynamic org roles and identity `code` | Accepted |
 | [0033](./0033-qwen-artifact-and-context-budget.md) | Ollama env, live digest, and context-budget numbers | Superseded by 0034 |
-| [0034](./0034-openai-compatible-llm.md) | OpenAI-compatible LLM env, probe, and artifact id | Accepted |
+| [0034](./0034-openai-compatible-llm.md) | OpenAI-compatible LLM env, probe, and artifact id | Accepted (tokenizer clause → 0038) |
 | [0035](./0035-langgraph-mongo-checkpointer.md) | LangGraph in-process with Mongo chat checkpoints | Accepted |
 | [0036](./0036-module-file-action-api-paths.md) | Module / file / action API paths | Accepted |
 | [0037](./0037-chat-sse-abort-on-disconnect.md) | Chat SSE abort on client disconnect | Accepted |
+| [0038](./0038-qwen3-tokenizer-parity.md) | Qwen3 Node tokenizer for context budget | Accepted |
 
 One decision = one ADR. Accepted ADRs are immutable; supersede with a new number rather
 than rewriting history.

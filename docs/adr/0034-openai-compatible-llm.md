@@ -34,9 +34,8 @@ Compaction numbers from the reviewed Phase 43 run stay named constants.
 - `npm run measure-llm-context` uses `GET /models` and `POST /chat/completions`
   (`usage.prompt_tokens` / `usage.completion_tokens`). `--windows` are prompt-size
   targets, not provider-specific context knobs.
-- No Node tokenizer package is pinned yet. Until a maintained package matches the
-  fixture prompt-token values, `createTokenizerAdapter()` fails closed with
-  `CONTEXT_ACCOUNTING_UNAVAILABLE`. Tests inject `countTokens`.
+- Tokenizer fail-closed clause **superseded by [0038](./0038-qwen3-tokenizer-parity.md)**
+  (`@lenml/tokenizer-qwen3` + `countTokensForBudget`).
 
 ## Consequences
 
@@ -55,5 +54,6 @@ Compaction numbers from the reviewed Phase 43 run stay named constants.
 
 ## Escape hatch
 
-Supersede when a tokenizer package passes the evaluation checklist, or when a new
-measurement run changes the operational window operators put in env.
+Tokenizer package selection: see [0038](./0038-qwen3-tokenizer-parity.md).
+Supersede this ADR when a new measurement run changes the operational window
+operators put in env, or when OpenAI-compatible probe/env rules change.
