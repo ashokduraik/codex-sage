@@ -1,3 +1,7 @@
+/**
+ * Sources panel — repository/upload origin, credential actions, and version history.
+ * Credential replace/revoke stay hidden for healthy public repos; Add token appears on auth failures.
+ */
 import { useState } from 'react';
 import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
@@ -6,9 +10,9 @@ import { useTranslation } from 'react-i18next';
 import { formatDateTime } from '@/shared/lib/format';
 import { useAuth } from '@/features/auth/AuthContext';
 import { SourceUploadDialog } from './SourceUploadDialog';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import { useReingestSource } from './hooks/useReingestSource.js';
 import { ConnectRepositoryDialog } from './ConnectRepositoryDialog';
-import { Link, useNavigate, useOutletContext } from 'react-router-dom';
 import { useRepositoryConnection } from './hooks/useRepositoryConnection.js';
 import { ApiError, correlationFromUnknown, messageFromUnknown } from '@/shared/api';
 import { useRepositoryCredentialActions } from './hooks/useRepositoryCredentialActions.js';
@@ -135,6 +139,18 @@ export default function SourcesPanel() {
 
   const actionError = actions.retestError || actions.replaceError || actions.revokeError;
   const listError = versionsQuery.error || connectionQuery.error;
+  // Private (and GitLab internal) repos always need token replace/revoke controls.
+  const repositoryVisibility = connection?.repository?.visibility ?? null;
+  const needsCredentialManagement = repositoryVisibility === 'private' || repositoryVisibility === 'internal';
+  // Public→private (or token expiry) surfaces as auth/access failure after probe/retest.
+  const connectionStatus = connection?.connectionStatus ?? null;
+  const needsTokenAfterAccessError = connectionStatus === 'authentication_required' || connectionStatus === 'access_denied';
+  const showReplaceOrAddToken = needsCredentialManagement || needsTokenAfterAccessError;
+  const showRevoke = needsCredentialManagement;
+  // Add-token copy when access failed on a non-private repo; otherwise replace credentials.
+  const useAddTokenCopy = needsTokenAfterAccessError && !needsCredentialManagement;
+  const tokenDialogTitleKey = useAddTokenCopy ? 'sources.addToken' : 'sources.replaceCredentials';
+  const tokenDialogDescKey = useAddTokenCopy ? 'sources.addTokenDesc' : 'sources.replaceCredentialsDesc';
 
   return (
     <div className="h-full overflow-y-auto scrollbar-thin">
@@ -215,14 +231,18 @@ export default function SourcesPanel() {
                 <RefreshCw className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
                 {t('sources.retest')}
               </Button>
-              <Button size="sm" variant="outline" onClick={() => setReplaceOpen(true)}>
-                <KeyRound className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                {t('sources.replaceCredentials')}
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => setRevokeOpen(true)} className="text-destructive hover:text-destructive">
-                <Trash2 className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                {t('sources.revoke')}
-              </Button>
+              {showReplaceOrAddToken ? (
+                <Button size="sm" variant="outline" onClick={() => setReplaceOpen(true)}>
+                  <KeyRound className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                  {t(tokenDialogTitleKey)}
+                </Button>
+              ) : null}
+              {showRevoke ? (
+                <Button size="sm" variant="outline" onClick={() => setRevokeOpen(true)} className="text-destructive hover:text-destructive">
+                  <Trash2 className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                  {t('sources.revoke')}
+                </Button>
+              ) : null}
             </div>
           ) : null}
           {actions.isRetesting ? <p className="mt-2 text-xs text-muted-foreground">{t('sources.testing')}</p> : null}
@@ -286,13 +306,6 @@ export default function SourcesPanel() {
                         {t('sources.reprocessVersion')}
                       </Button>
                     ) : null}
-                    {version.jobId ? (
-                      <Link to={`/projects/${encodeURIComponent(projectId)}/processing`} className="text-xs font-medium text-brand hover:underline">
-                        {t('sources.viewJob')}
-                      </Link>
-                    ) : (
-                      <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{version.versionLifecycle}</span>
-                    )}
                   </div>
                 </div>
               ))
@@ -324,9 +337,9 @@ export default function SourcesPanel() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <KeyRound className="h-4 w-4 text-brand" aria-hidden="true" />
-              {t('sources.replaceCredentials')}
+              {t(tokenDialogTitleKey)}
             </DialogTitle>
-            <DialogDescription>{t('sources.replaceCredentialsDesc')}</DialogDescription>
+            <DialogDescription>{t(tokenDialogDescKey)}</DialogDescription>
           </DialogHeader>
           <div className="space-y-1.5">
             <Label htmlFor="new-token">{t('sources.newToken')}</Label>
