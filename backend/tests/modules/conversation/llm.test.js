@@ -10,6 +10,8 @@ import {
   generateText,
   assertLlmAvailable,
   getLlmConfigStatus,
+  generateTextWithoutBudget,
+  resetProbedLlmArtifactIdForTests,
   INFERENCE_QUEUE_MAX_DEPTH,
   INFERENCE_QUEUE_MAX_CONCURRENCY,
 } from '../../../src/modules/conversation/index.js';
@@ -100,6 +102,7 @@ function mockModelsOk(overrides = {}) {
 }
 
 beforeEach(() => {
+  resetProbedLlmArtifactIdForTests();
   configState.llm = { ...READY_LLM };
   mockLoadConfig.mockImplementation(() => ({ llm: configState.llm }));
   mockPrepareModelInput.mockReset();
@@ -109,6 +112,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  resetProbedLlmArtifactIdForTests();
   vi.unstubAllGlobals();
 });
 
@@ -270,6 +274,45 @@ describe('generateText', () => {
         maxRetries: 0,
       }),
     );
+    expect(mockGenerateText.mock.calls[0][0].instructions).toBeUndefined();
+  });
+
+  it('moves system messages into instructions for the AI SDK', async () => {
+    mockPrepareModelInput.mockImplementation(() => ({
+      ...preparedFixture,
+      messages: [
+        { role: 'system', content: 'Answer only from evidence.' },
+        { role: 'user', content: 'How does login work?' },
+      ],
+    }));
+    mockGenerateText.mockResolvedValue({ text: 'ok' });
+    await generateText(underBudgetRequest);
+    expect(mockGenerateText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        instructions: 'Answer only from evidence.',
+        messages: [{ role: 'user', content: 'How does login work?' }],
+      }),
+    );
+    expect(mockGenerateText.mock.calls[0][0].messages.some((message) => message.role === 'system')).toBe(false);
+  });
+
+  it('uses probed artifactId when loadConfig omits it', async () => {
+    vi.stubGlobal('fetch', mockModelsOk());
+    await assertLlmAvailable(LLM, silentLog);
+    configState.llm = {
+      baseUrl: LLM.baseUrl,
+      modelId: LLM.modelId,
+      apiKey: null,
+      contextCapacity: 131072,
+      queueMaxConcurrency: 1,
+    };
+    mockGenerateText.mockResolvedValue({ text: 'ok' });
+    await generateText(underBudgetRequest);
+    expect(mockPrepareModelInput).toHaveBeenCalledWith(
+      expect.objectContaining({
+        modelArtifactRef: LLM.modelId,
+      }),
+    );
   });
 
   it('defaults enableThinking to false and asks the provider to disable thinking', async () => {
@@ -411,6 +454,61 @@ describe('generateText', () => {
   });
 });
 
+describe('generateTextWithoutBudget', () => {
+  it('calls the SDK with instructions and non-system messages', async () => {
+    mockGenerateText.mockResolvedValue({ text: 'A payments API.', usage: { inputTokens: 8, outputTokens: 3 } });
+    const result = await generateTextWithoutBudget({
+      purpose: 'project_description',
+      enableThinking: false,
+      instructions: 'Write a short project description.',
+      messages: [{ role: 'user', content: '# README\n\nPayments API.' }],
+    });
+    expect(result.text).toBe('A payments API.');
+    expect(result.modelId).toBe(LLM.modelId);
+    expect(mockPrepareModelInput).not.toHaveBeenCalled();
+    expect(mockGenerateText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        instructions: 'Write a short project description.',
+        messages: [{ role: 'user', content: '# README\n\nPayments API.' }],
+        maxRetries: 0,
+      }),
+    );
+  });
+
+  it('rejects an empty messages array', async () => {
+    await expect(
+      generateTextWithoutBudget({
+        purpose: 'project_description',
+        instructions: 'Write a short project description.',
+        messages: [],
+      }),
+    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    expect(mockGenerateText).not.toHaveBeenCalled();
+  });
+
+  it('rejects system roles in messages', async () => {
+    await expect(
+      generateTextWithoutBudget({
+        purpose: 'project_description',
+        instructions: 'Write a short project description.',
+        messages: [{ role: 'system', content: 'nope' }],
+      }),
+    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    expect(mockGenerateText).not.toHaveBeenCalled();
+  });
+
+  it('rejects empty instructions', async () => {
+    await expect(
+      generateTextWithoutBudget({
+        purpose: 'project_description',
+        instructions: '   ',
+        messages: [{ role: 'user', content: 'x' }],
+      }),
+    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    expect(mockGenerateText).not.toHaveBeenCalled();
+  });
+});
+
 describe('streamText', () => {
   it('yields chunks and resolves usage plus duration after the stream ends', async () => {
     mockStreamText.mockResolvedValue({
@@ -429,6 +527,32 @@ describe('streamText', () => {
     await expect(result.usage).resolves.toEqual({ inputTokens: 3, outputTokens: 2, totalTokens: 5 });
     await expect(result.durationMs).resolves.toBeGreaterThanOrEqual(0);
     expect(result.modelId).toBe(LLM.modelId);
+  });
+
+  it('moves system messages into instructions for the AI SDK', async () => {
+    mockPrepareModelInput.mockImplementation(() => ({
+      ...preparedFixture,
+      messages: [
+        { role: 'system', content: 'Stay grounded.' },
+        { role: 'user', content: 'How does login work?' },
+      ],
+    }));
+    mockStreamText.mockResolvedValue({
+      textStream: (async function* chunks() {
+        yield 'ok';
+      })(),
+      usage: Promise.resolve(null),
+    });
+    const result = await streamText(underBudgetRequest);
+    for await (const _chunk of result.textStream) {
+      // drain
+    }
+    expect(mockStreamText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        instructions: 'Stay grounded.',
+        messages: [{ role: 'user', content: 'How does login work?' }],
+      }),
+    );
   });
 
   it('resolves null usage when the stream usage promise rejects', async () => {

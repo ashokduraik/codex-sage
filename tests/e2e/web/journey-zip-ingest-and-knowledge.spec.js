@@ -75,7 +75,20 @@ test.describe('Journey: ZIP ingest and knowledge via UI', () => {
     test.setTimeout(180_000);
     const projectId = await projectIdFromCard(page, projectName);
     const fileCount = await expectHealthFileCountMatchesActivityLog(page, projectId);
-    expect(fileCount).toBe(2);
+    expect(fileCount).toBe(3);
+  });
+
+  test('fills project description from README when the user clicks Fill from README', async ({ page }) => {
+    test.skip(!isKnowledgeBrowsable(healthLabel), `ZIP ingest health is ${healthLabel ?? 'unknown'}`);
+    test.setTimeout(180_000);
+    const projectId = await projectIdFromCard(page, projectName);
+    await page.goto(`/projects/${projectId}`);
+    await expect(page.getByRole('heading', { name: 'Summary' })).toBeVisible();
+    await page.getByRole('button', { name: /Fill from README/i }).click();
+    const summary = page.getByRole('heading', { name: 'Summary' }).locator('xpath=..');
+    await expect(summary.getByText('No description')).toHaveCount(0, { timeout: 120_000 });
+    await expect(summary.locator('p').first()).not.toHaveText('No description');
+    await expect(summary.locator('p').first()).not.toBeEmpty();
   });
 
   test('knowledge and search work when health is ready or partial', async ({ page }) => {

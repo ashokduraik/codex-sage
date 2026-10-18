@@ -12,6 +12,7 @@ import {
   restoreProject,
   recordProjectAccess,
   getProjectDeletionPreview,
+  fillProjectDescriptionFromReadme,
 } from '@/features/projects/api/projectsApi.js';
 
 const apiRequest = vi.fn();
@@ -63,6 +64,11 @@ describe('projectsApi', () => {
     expect(apiRequest).toHaveBeenCalledWith('/masters/projects/update/p1', {
       method: 'PATCH',
       body: { name: 'N' },
+    });
+
+    await fillProjectDescriptionFromReadme('p1');
+    expect(apiRequest).toHaveBeenCalledWith('/masters/projects/fillDescriptionFromReadme/p1', {
+      method: 'POST',
     });
 
     await archiveProject('p1');

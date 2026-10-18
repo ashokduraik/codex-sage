@@ -1,10 +1,13 @@
 import { Outlet, Route, Routes } from 'react-router-dom';
-import { cleanup, screen } from '@testing-library/react';
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/features/projects/api/projectsApi.js', async () => {
   const fixtures = await import('./test/projectApiFixtures.js');
-  return fixtures.defaultProjectsApiMock;
+  return {
+    ...fixtures.defaultProjectsApiMock,
+    fillProjectDescriptionFromReadme: vi.fn(),
+  };
 });
 
 vi.mock('@/features/projects/processing/api/jobsApi.js', async (importOriginal) => {
@@ -22,6 +25,7 @@ vi.mock('@/features/projects/processing/api/jobsApi.js', async (importOriginal) 
 });
 
 import ProjectOverview from '@/features/projects/ProjectOverview';
+import { fillProjectDescriptionFromReadme } from '@/features/projects/api/projectsApi.js';
 import ProjectDetailPage from '@/features/projects/ProjectDetailPage';
 import { listProjectJobs } from '@/features/projects/processing/api/jobsApi.js';
 import { clearAuthSession, renderWithProviders, seedAuthSession } from '@tests/renderWithProviders';
@@ -112,6 +116,57 @@ describe('ProjectOverview', () => {
     expect(screen.getByText('The knowledge map covers the connected source.')).toBeTruthy();
     expect(screen.queryByText('Knowledge map not ready')).toBeNull();
     expect(screen.getByRole('link', { name: /Open chat/i })).toBeTruthy();
+  });
+
+  it('shows Fill from README when the user can update and a source version exists', async () => {
+    clearAuthSession();
+    seedAuthSession('you@acme.io', { permissions: ['projects.update'] });
+    fillProjectDescriptionFromReadme.mockReset();
+    fillProjectDescriptionFromReadme.mockResolvedValue({
+      id: 'prj_api_only',
+      name: 'prepayment advisor',
+      description: 'A short blurb from README.',
+      knowledgeHealth: 'ready',
+      lifecycleStatus: 'knowledge_ready',
+      sourceConfig: { sourceType: 'upload', currentSourceVersionId: 'sv1' },
+      counts: { files: 149, excludedFiles: 0 },
+    });
+    renderOverviewWithContext({
+      project: {
+        id: 'prj_api_only',
+        name: 'prepayment advisor',
+        description: '',
+        knowledgeHealth: 'ready',
+        lifecycleStatus: 'knowledge_ready',
+        sourceConfig: { sourceType: 'upload', currentSourceVersionId: 'sv1' },
+        counts: { files: 149, excludedFiles: 0 },
+      },
+      mockProject: { knowledgeTree: [], fileCount: 149, excludedCount: 0 },
+    });
+    const button = screen.getByRole('button', { name: /Fill from README/i });
+    expect(button).toBeTruthy();
+    fireEvent.click(button);
+    await waitFor(() => {
+      expect(fillProjectDescriptionFromReadme).toHaveBeenCalledWith('prj_api_only');
+    });
+  });
+
+  it('hides Fill from README without projects.update or currentSourceVersionId', () => {
+    clearAuthSession();
+    seedAuthSession('you@acme.io', { permissions: ['projects.view'] });
+    renderOverviewWithContext({
+      project: {
+        id: 'prj_api_only',
+        name: 'prepayment advisor',
+        description: '',
+        knowledgeHealth: 'ready',
+        lifecycleStatus: 'knowledge_ready',
+        sourceConfig: { sourceType: 'upload', currentSourceVersionId: 'sv1' },
+        counts: { files: 149, excludedFiles: 0 },
+      },
+      mockProject: { knowledgeTree: [], fileCount: 149, excludedCount: 0 },
+    });
+    expect(screen.queryByRole('button', { name: /Fill from README/i })).toBeNull();
   });
 
   it('shows Knowledge map not ready when health is not askable and mock tree is empty', () => {

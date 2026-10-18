@@ -6,10 +6,15 @@ import { TEST_APP_CONFIG } from '../../appConfig.js';
 import { createMongoHarness } from '../../mongoHarness.js';
 import { JOB_MODELS, Job } from '../../../src/modules/masters/jobs.js';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { insertSourceVersion } from '../../../src/modules/knowledge/sources.js';
 import { EXCLUSION_RULESET_ID } from '../../../src/modules/knowledge/uploads.js';
-import { SourceFile, SourceVersion } from '../../../src/modules/knowledge/sources.js';
-import { enqueueSourceReingest, mapSourceVersionToListDto } from '../../../src/modules/knowledge/sources.js';
+import {
+  SourceFile,
+  SourceVersion,
+  insertSourceVersion,
+  enqueueSourceReingest,
+  mapSourceVersionToListDto,
+  listSourceVersionsByProject,
+} from '../../../src/modules/knowledge/sources.js';
 
 const harness = createMongoHarness({
   models: [...JOB_MODELS, SourceVersion, SourceFile],
@@ -96,6 +101,35 @@ describe('enqueueSourceReingest', () => {
         actorUserId: String(new mongoose.Types.ObjectId()),
       }),
     ).rejects.toMatchObject({ code: 'SOURCE_VERSION_NOT_FOUND' });
+  });
+
+  it('keeps the source version listed after a failed reingest enqueue attempt', async () => {
+    const orgId = new mongoose.Types.ObjectId();
+    const projectId = new mongoose.Types.ObjectId();
+    const sourceVersionId = new mongoose.Types.ObjectId();
+    const actor = new mongoose.Types.ObjectId();
+    await insertSourceVersion({
+      orgId: String(orgId),
+      projectId: String(projectId),
+      sourceVersionId: String(sourceVersionId),
+      exclusionRulesetId: EXCLUSION_RULESET_ID,
+      createdBy: String(actor),
+      fileCounts: { accepted: 1, skipped: 0, excludedFromGraph: 0 },
+    });
+
+    await expect(
+      enqueueSourceReingest({
+        orgId: String(orgId),
+        projectId: String(new mongoose.Types.ObjectId()),
+        sourceVersionId: String(sourceVersionId),
+        actorUserId: String(actor),
+      }),
+    ).rejects.toMatchObject({ code: 'SOURCE_VERSION_NOT_FOUND' });
+
+    const listed = await listSourceVersionsByProject(String(orgId), String(projectId), { limit: 10 });
+    expect(listed.items.map((row) => String(row._id))).toEqual([String(sourceVersionId)]);
+    const row = await SourceVersion.findById(sourceVersionId).lean().exec();
+    expect(row?.status).toBe('A');
   });
 });
 

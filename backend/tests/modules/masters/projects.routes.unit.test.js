@@ -17,6 +17,7 @@ import {
   createProjectHttp,
   deleteProjectHttp,
   updateProjectHttp,
+  fillProjectDescriptionFromReadmeHttp,
   archiveProjectHttp,
   restoreProjectHttp,
   getProjectSettingsHttp,
@@ -100,6 +101,7 @@ describe('projects.routes unit edges', () => {
       getProjectDeletionPreviewHttp,
       deleteProjectHttp,
       updateProjectHttp,
+      fillProjectDescriptionFromReadmeHttp,
     ]) {
       await expect(
         handler(

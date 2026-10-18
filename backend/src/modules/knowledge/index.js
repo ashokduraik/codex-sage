@@ -9,7 +9,7 @@ import { SourceChangeSummary } from '../../models/sourceChangeSummary.model.js';
 import { RepositoryConnection } from '../../models/repositoryConnection.model.js';
 
 export { UPLOAD_MAX_ARCHIVE_BYTES, consumeSourceArchivePreHandler, uploadProjectSourceHttp } from './uploads.js';
-export { MULTIPART_MAX_FILES, listProjectSourceVersionsHttp, reingestSourceHttp } from './sources.js';
+export { MULTIPART_MAX_FILES, listProjectSourceVersionsHttp, reingestSourceHttp, findSourceFileByPath, readSourceGridFsBytes } from './sources.js';
 export { getLatestKnowledgeUpdateHttp } from './changeSummary.js';
 export {
   loadSourceFileSlice,
@@ -52,6 +52,7 @@ export {
   derivePartialSuccess,
   hydrateSourceDiffCarry,
   applySourceDiffAfterValidate,
+  listSourceFilesOrdered,
 } from './ingest.js';
 export {
   countExcludedFromGraphFiles,

@@ -4,12 +4,15 @@
  */
 import { Button } from '@/shared/ui/button';
 import { useTranslation } from 'react-i18next';
+import { messageFromUnknown } from '@/shared/api';
+import { useAuth } from '@/features/auth/AuthContext';
 import { useOutletContext, Link } from 'react-router-dom';
 import { EmptyState, KnowledgeHealthBadge } from '@/shared/components';
 import { isProjectAskable } from '@/shared/components/StatusBadge.jsx';
-import { jobTypeLabelKey, stageLabelKey } from '@/features/projects/processing/jobProgressMap.js';
 import { useActiveProjectJob } from '@/features/projects/processing/hooks/useActiveProjectJob.js';
-import { Boxes, Workflow, Component, Plug, Database, ArrowRight, MessageSquare, BookOpen } from 'lucide-react';
+import { jobTypeLabelKey, stageLabelKey } from '@/features/projects/processing/jobProgressMap.js';
+import { useFillProjectDescriptionFromReadme } from './hooks/useFillProjectDescriptionFromReadme.js';
+import { Boxes, Workflow, Component, Plug, Database, ArrowRight, MessageSquare, BookOpen, Loader2, Sparkles } from 'lucide-react';
 
 const SECTION_DEFS = [
   { key: 'Workflow', labelKey: 'projects.workflows', icon: Workflow },
@@ -27,7 +30,13 @@ const SECTION_DEFS = [
  */
 export default function ProjectOverview() {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const { project, mockProject } = useOutletContext();
+  const fillDescription = useFillProjectDescriptionFromReadme();
+  const canUpdateProject = Boolean(user?.permissions?.includes('projects.update'));
+  const hasCurrentSourceVersion = Boolean(project?.sourceConfig?.currentSourceVersionId);
+  const showFillDescription = canUpdateProject && hasCurrentSourceVersion;
+  const descriptionIsEmpty = !String(project?.description ?? '').trim();
   const tree = mockProject?.knowledgeTree || [];
   const flat = tree.flatMap((node) => node.children || []);
   const byType = flat.reduce((acc, node) => {
@@ -57,10 +66,49 @@ export default function ProjectOverview() {
     </Link>
   ) : null;
 
+  /**
+   * User-initiated README → description fill (API LLM).
+   */
+  async function onFillDescriptionFromReadme() {
+    if (!project?.id) {
+      return;
+    }
+    try {
+      await fillDescription.mutateAsync({ projectId: project.id });
+    } catch {
+      // Surfaced via fillDescription.error.
+    }
+  }
+
   const summaryBlock = (
     <section className="mb-8 animate-fade-in">
-      <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('projects.summary')}</h2>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('projects.summary')}</h2>
+        {showFillDescription ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={fillDescription.isPending}
+            onClick={() => {
+              void onFillDescriptionFromReadme();
+            }}
+          >
+            {fillDescription.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <Sparkles className="mr-2 h-4 w-4" aria-hidden="true" />
+            )}
+            {descriptionIsEmpty ? t('projects.fillDescriptionFromReadme') : t('projects.replaceDescriptionFromReadme')}
+          </Button>
+        ) : null}
+      </div>
       <p className="mt-2 text-[15px] leading-relaxed text-foreground/90">{project.description || t('projects.noDescription')}</p>
+      {fillDescription.error ? (
+        <p className="mt-2 text-sm text-destructive" role="alert">
+          {messageFromUnknown(fillDescription.error) || t('projects.fillDescriptionFromReadmeFailed')}
+        </p>
+      ) : null}
       <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
         <KnowledgeHealthBadge code={project.knowledgeHealth} />
         <span>·</span>

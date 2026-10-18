@@ -11,13 +11,14 @@ import { formatDateTime } from '@/shared/lib/format';
 import { useAuth } from '@/features/auth/AuthContext';
 import { SourceUploadDialog } from './SourceUploadDialog';
 import { useNavigate, useOutletContext } from 'react-router-dom';
+import { useSyncRepository } from './hooks/useSyncRepository.js';
 import { useReingestSource } from './hooks/useReingestSource.js';
 import { ConnectRepositoryDialog } from './ConnectRepositoryDialog';
 import { useRepositoryConnection } from './hooks/useRepositoryConnection.js';
 import { ApiError, correlationFromUnknown, messageFromUnknown } from '@/shared/api';
 import { useRepositoryCredentialActions } from './hooks/useRepositoryCredentialActions.js';
 import { flattenSourceVersionPages, useSourceVersions } from './hooks/useSourceVersions.js';
-import { AlertCircle, Check, GitBranch, KeyRound, Loader2, Plus, RefreshCw, Trash2, UploadCloud } from 'lucide-react';
+import { AlertCircle, Check, GitBranch, KeyRound, Loader2, Plus, RefreshCw, RotateCcw, Trash2, UploadCloud } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/ui/dialog';
 import {
   AlertDialog,
@@ -69,10 +70,18 @@ export default function SourcesPanel() {
   const connectionQuery = useRepositoryConnection(projectId);
   const actions = useRepositoryCredentialActions(projectId);
   const reingest = useReingestSource();
+  const syncRepository = useSyncRepository();
   const canReingest = Boolean(user?.permissions?.includes('knowledge.trigger'));
+  const canSyncRepository = Boolean(user?.permissions?.includes('repos.connect'));
   const versions = flattenSourceVersionPages(versionsQuery.data);
   const connection = connectionQuery.data?.connection ?? null;
   const isRepository = Boolean(connection) || project?.sourceConfig?.sourceType === 'repository';
+  // Prefer the latest history row; fall back to the pointer set at knowledge publish.
+  const reprocessSourceVersionId = versions[0]?.id ?? project?.sourceConfig?.currentSourceVersionId ?? null;
+  // Attach rejects a second repository connection; hide Add source once one exists.
+  // Wait for the connection query so we do not flash the button while loading.
+  // Upload projects keep the button so a new ZIP can replace source.
+  const showAddSource = !connectionQuery.isLoading && !connection;
   const [uploadOpen, setUploadOpen] = useState(false);
   const [connectOpen, setConnectOpen] = useState(false);
   const [replaceOpen, setReplaceOpen] = useState(false);
@@ -122,7 +131,7 @@ export default function SourcesPanel() {
    * @param {string} sourceVersionId Version to rebuild.
    */
   async function onReingest(sourceVersionId) {
-    if (!projectId) {
+    if (!projectId || !sourceVersionId) {
       return;
     }
     try {
@@ -133,11 +142,33 @@ export default function SourcesPanel() {
       });
       navigate(`/projects/${encodeURIComponent(projectId)}/processing?jobId=${encodeURIComponent(result.jobId)}`);
     } catch {
-      // Surfaced via reingest.error.
+      // Surfaced via reingest.error; versions list stays until a successful reprocess.
+    }
+  }
+
+  /**
+   * Enqueues a fresh repository pull when there is no source version to re-process yet.
+   */
+  async function onSyncRepository() {
+    if (!projectId) {
+      return;
+    }
+    try {
+      const result = await syncRepository.mutateAsync({
+        projectId,
+        idempotencyKey: crypto.randomUUID(),
+      });
+      const jobId = result?.job?.id;
+      if (jobId) {
+        navigate(`/projects/${encodeURIComponent(projectId)}/processing?jobId=${encodeURIComponent(jobId)}`);
+      }
+    } catch {
+      // Surfaced via syncRepository.error.
     }
   }
 
   const actionError = actions.retestError || actions.replaceError || actions.revokeError;
+  const originActionError = actionError || reingest.error || syncRepository.error;
   const listError = versionsQuery.error || connectionQuery.error;
   // Private (and GitLab internal) repos always need token replace/revoke controls.
   const repositoryVisibility = connection?.repository?.visibility ?? null;
@@ -160,10 +191,12 @@ export default function SourcesPanel() {
             <h1 className="font-display text-xl font-medium">{t('sources.title')}</h1>
             <p className="text-sm text-muted-foreground">{t('sources.panelSubtitle')}</p>
           </div>
-          <Button variant="outline" onClick={() => (isRepository ? setConnectOpen(true) : setUploadOpen(true))}>
-            <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
-            {t('sources.addSource')}
-          </Button>
+          {showAddSource ? (
+            <Button variant="outline" onClick={() => (isRepository ? setConnectOpen(true) : setUploadOpen(true))}>
+              <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
+              {t('sources.addSource')}
+            </Button>
+          ) : null}
         </div>
 
         {versionsQuery.isLoading || connectionQuery.isLoading ? (
@@ -226,21 +259,49 @@ export default function SourcesPanel() {
           )}
 
           {isRepository && connection ? (
-            <div className="mt-4 flex flex-wrap gap-2 border-t border-border pt-3">
-              <Button size="sm" variant="outline" onClick={() => void onRetest()} disabled={actions.isRetesting} aria-busy={actions.isRetesting}>
-                <RefreshCw className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                {t('sources.retest')}
-              </Button>
-              {showReplaceOrAddToken ? (
-                <Button size="sm" variant="outline" onClick={() => setReplaceOpen(true)}>
-                  <KeyRound className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                  {t(tokenDialogTitleKey)}
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" variant="outline" onClick={() => void onRetest()} disabled={actions.isRetesting} aria-busy={actions.isRetesting}>
+                  <RefreshCw className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                  {t('sources.retest')}
+                </Button>
+                {showReplaceOrAddToken ? (
+                  <Button size="sm" variant="outline" onClick={() => setReplaceOpen(true)}>
+                    <KeyRound className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                    {t(tokenDialogTitleKey)}
+                  </Button>
+                ) : null}
+                {showRevoke ? (
+                  <Button size="sm" variant="outline" onClick={() => setRevokeOpen(true)} className="text-destructive hover:text-destructive">
+                    <Trash2 className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                    {t('sources.revoke')}
+                  </Button>
+                ) : null}
+              </div>
+              {canReingest && reprocessSourceVersionId ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  title={t('sources.reprocessHint')}
+                  disabled={reingest.isPending}
+                  aria-busy={reingest.isPending}
+                  onClick={() => void onReingest(reprocessSourceVersionId)}
+                >
+                  <RotateCcw className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                  {t('sources.reprocessVersion')}
                 </Button>
               ) : null}
-              {showRevoke ? (
-                <Button size="sm" variant="outline" onClick={() => setRevokeOpen(true)} className="text-destructive hover:text-destructive">
-                  <Trash2 className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                  {t('sources.revoke')}
+              {canSyncRepository && !reprocessSourceVersionId ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  title={t('sources.syncRepositoryHint')}
+                  disabled={syncRepository.isPending}
+                  aria-busy={syncRepository.isPending}
+                  onClick={() => void onSyncRepository()}
+                >
+                  <RefreshCw className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                  {t('sources.syncRepository')}
                 </Button>
               ) : null}
             </div>
@@ -255,11 +316,11 @@ export default function SourcesPanel() {
               {t('sources.verified')}
             </p>
           ) : null}
-          {actionError ? (
+          {originActionError ? (
             <div role="alert" className="mt-2 text-xs text-red-700">
-              {actionError instanceof ApiError && actionError.status === 403
+              {originActionError instanceof ApiError && originActionError.status === 403
                 ? t('errors.forbidden')
-                : messageFromUnknown(actionError, t('sources.actionFailed'))}
+                : messageFromUnknown(originActionError, t('sources.actionFailed'))}
             </div>
           ) : null}
         </div>

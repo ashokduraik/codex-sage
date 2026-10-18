@@ -16,6 +16,7 @@ describe('registerRoutes', () => {
     expect(app.hasRoute({ method: 'GET', url: `${API_BASE_PATH}/access/audit/list` })).toBe(true);
     expect(app.hasRoute({ method: 'GET', url: `${API_BASE_PATH}/access/audit/get/:auditEventId` })).toBe(true);
     expect(app.hasRoute({ method: 'POST', url: `${API_BASE_PATH}/masters/projects/create` })).toBe(true);
+    expect(app.hasRoute({ method: 'POST', url: `${API_BASE_PATH}/masters/projects/fillDescriptionFromReadme/:projectId` })).toBe(true);
     expect(app.hasRoute({ method: 'GET', url: `${API_BASE_PATH}/masters/projects/list` })).toBe(true);
     expect(app.hasRoute({ method: 'GET', url: `${API_BASE_PATH}/masters/projects/get/:projectId` })).toBe(true);
     expect(app.hasRoute({ method: 'DELETE', url: `${API_BASE_PATH}/masters/projects/delete/:projectId` })).toBe(true);

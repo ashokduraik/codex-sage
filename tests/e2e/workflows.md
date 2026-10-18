@@ -50,6 +50,8 @@ private attach on a second project (skip without env)
 
 ### 4. ZIP ingest + knowledge via UI — **done**
 
+Click **Fill from README** on Overview after ingest (API + LLM; worker does not call the LLM). Sample ZIP includes root `README.md` (3 files).
+
 ```
 create as Upload
 reject non-zip

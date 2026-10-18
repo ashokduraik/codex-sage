@@ -21,6 +21,8 @@ const insertSourceVersion = vi.fn();
 const insertSourceFiles = vi.fn();
 const setSourceVersionJobId = vi.fn();
 const markGridFsFilesOrphaned = vi.fn();
+const findLatestActiveSourceVersionForProject = vi.fn();
+const enqueueSourceReingest = vi.fn();
 
 function fakeArchiveFetch() {
   const buffer = Buffer.from('PK');
@@ -96,6 +98,8 @@ vi.mock('../../../src/modules/knowledge/sources.js', async (importOriginal) => {
     insertSourceFiles: (...args) => insertSourceFiles(...args),
     setSourceVersionJobId: (...args) => setSourceVersionJobId(...args),
     markGridFsFilesOrphaned: (...args) => markGridFsFilesOrphaned(...args),
+    findLatestActiveSourceVersionForProject: (...args) => findLatestActiveSourceVersionForProject(...args),
+    enqueueSourceReingest: (...args) => enqueueSourceReingest(...args),
   };
 });
 
@@ -208,16 +212,18 @@ describe('runConnectedRepoPullJob', () => {
     expect(outboundGet).not.toHaveBeenCalled();
   });
 
-  it('completes with no_changes when the SHA matches', async () => {
+  it('completes with no_changes when the SHA matches for a scheduler job', async () => {
     const connection = connectionDoc();
     findActiveConnection.mockResolvedValue(connection);
     decryptConnectionToken.mockResolvedValue(TOKEN);
     vi.spyOn(repoSync, 'resolveRemoteHead').mockResolvedValue({ commitSha: 'oldsha', commitMessage: null });
     vi.spyOn(repoSync, 'markConnectionSynced').mockResolvedValue(undefined);
     const context = workerContext();
+    context.job.createdBy = null;
     const result = await runConnectedRepoPullJob(context);
     expect(result.summary.outcome).toBe('no_changes');
     expect(inspectZip).not.toHaveBeenCalled();
+    expect(enqueueSourceReingest).not.toHaveBeenCalled();
     expect(JSON.stringify(context.log)).not.toContain(TOKEN);
     expect(context.recordEvent).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -225,6 +231,54 @@ describe('runConnectedRepoPullJob', () => {
         message: 'No changes on main',
       }),
     );
+  });
+
+  it('enqueues a knowledge rebuild when manual sync finds the same SHA and a stored version', async () => {
+    const connection = connectionDoc();
+    findActiveConnection.mockResolvedValue(connection);
+    decryptConnectionToken.mockResolvedValue(TOKEN);
+    findLatestActiveSourceVersionForProject.mockResolvedValue({ _id: new mongoose.Types.ObjectId('665a00000000000000000011') });
+    enqueueSourceReingest.mockResolvedValue({
+      jobId: 'rebuild-job',
+      sourceVersionId: '665a00000000000000000011',
+      jobType: 'project_knowledge_rebuild',
+    });
+    vi.spyOn(repoSync, 'resolveRemoteHead').mockResolvedValue({ commitSha: 'oldsha', commitMessage: null });
+    vi.spyOn(repoSync, 'markConnectionSynced').mockResolvedValue(undefined);
+    const result = await runConnectedRepoPullJob(workerContext());
+    expect(result.summary).toMatchObject({
+      outcome: 'rebuild_enqueued',
+      commitSha: 'oldsha',
+      ingestJobId: 'rebuild-job',
+    });
+    expect(enqueueSourceReingest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourceVersionId: '665a00000000000000000011',
+      }),
+    );
+    expect(inspectZip).not.toHaveBeenCalled();
+  });
+
+  it('re-pulls when manual sync finds the same SHA but no stored version', async () => {
+    const connection = connectionDoc();
+    findActiveConnection.mockResolvedValue(connection);
+    decryptConnectionToken.mockResolvedValue(TOKEN);
+    findLatestActiveSourceVersionForProject.mockResolvedValue(null);
+    vi.spyOn(repoSync, 'resolveRemoteHead').mockResolvedValue({ commitSha: 'oldsha', commitMessage: null });
+    vi.spyOn(repoSync, 'downloadRepositoryArchive').mockResolvedValue({ archiveBuffer: Buffer.from('PK') });
+    vi.spyOn(repoSync, 'persistRepositorySourceVersion').mockResolvedValue({
+      sourceVersionId: 'sv-heal',
+      ingestJobId: 'ij-heal',
+    });
+    vi.spyOn(repoSync, 'markConnectionSynced').mockResolvedValue(undefined);
+    const result = await runConnectedRepoPullJob(workerContext());
+    expect(result.summary).toMatchObject({
+      outcome: 'source_enqueued',
+      commitSha: 'oldsha',
+      ingestJobId: 'ij-heal',
+    });
+    expect(enqueueSourceReingest).not.toHaveBeenCalled();
+    expect(repoSync.persistRepositorySourceVersion).toHaveBeenCalled();
   });
 
   it('persists a new version and enqueues knowledge build on a new SHA', async () => {

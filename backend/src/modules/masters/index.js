@@ -61,6 +61,7 @@ export {
   getProjectHttp,
   recordProjectAccessHttp,
   updateProjectHttp,
+  fillProjectDescriptionFromReadmeHttp,
   getProjectSettingsHttp,
   updateProjectSettingsHttp,
   archiveProjectHttp,

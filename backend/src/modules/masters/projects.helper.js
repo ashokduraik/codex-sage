@@ -452,6 +452,7 @@ export async function updateProjectSettings(orgId, projectId, input) {
  *   clearPreArchive?: boolean,
  *   archivedAt?: Date | null,
  *   currentKnowledgeVersionId?: string | null,
+ *   currentSourceVersionId?: string | null,
  *   knowledgeHealth?: string | null,
  * }} transition Transition fields.
  * @param {{ session?: import('mongoose').ClientSession }} [options] Optional Mongo session.
@@ -483,6 +484,11 @@ export async function conditionalLifecycleUpdate(orgId, projectId, transition, o
   if (transition.currentKnowledgeVersionId !== undefined) {
     $set.currentKnowledgeVersionId = transition.currentKnowledgeVersionId
       ? new mongoose.Types.ObjectId(String(transition.currentKnowledgeVersionId))
+      : null;
+  }
+  if (transition.currentSourceVersionId !== undefined) {
+    $set['sourceConfig.currentSourceVersionId'] = transition.currentSourceVersionId
+      ? new mongoose.Types.ObjectId(String(transition.currentSourceVersionId))
       : null;
   }
   if (transition.knowledgeHealth !== undefined && transition.knowledgeHealth !== null) {

@@ -8,8 +8,8 @@ import { reingestProjectSource, sourceVersionsQueryKey } from '@/features/projec
 
 /**
  * Enqueues reingest for a stored source version (same bytes, full S0–S6).
- * Invalidates the project, source-versions list, and jobs so the processing
- * center picks up the new job. Not the same as Retry (checkpoint resume).
+ * Invalidates the project, source-versions list, and jobs only on success so a
+ * failed reprocess leaves sync history visible. Not the same as Retry (checkpoint resume).
  * @returns {import('@tanstack/react-query').UseMutationResult}
  */
 export function useReingestSource() {

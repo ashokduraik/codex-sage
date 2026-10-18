@@ -147,6 +147,22 @@ export async function updateProjectHttp(request) {
 }
 
 /**
+ * POST /masters/projects/fillDescriptionFromReadme/:projectId — LLM description from root README.
+ * @param {import('fastify').FastifyRequest} request Request.
+ */
+export async function fillProjectDescriptionFromReadmeHttp(request) {
+  const params = projectIdParamsSchema.safeParse(request.params ?? {});
+  if (!params.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+  }
+  const ctx = serviceContext(request);
+  return fillProjectDescriptionFromReadme({
+    ...ctx,
+    projectId: request.projectScope.projectId,
+  });
+}
+
+/**
  * GET /masters/projects/getSettings/:projectId — read project settings (project ACL).
  * @param {import('fastify').FastifyRequest} request Request.
  */
@@ -391,6 +407,7 @@ export const DELETION_PREVIEW_CONSEQUENCES = Object.freeze([
  *   reasonCode?: string | null,
  *   actorUserId?: string | null,
  *   knowledgeVersionId?: string | null,
+ *   sourceVersionId?: string | null,
  *   knowledgeHealth?: string | null,
  *   session?: import('mongoose').ClientSession,
  *   preArchiveLifecycleStatus?: string | null,
@@ -428,6 +445,7 @@ export async function transitionLifecycle(input) {
       clearPreArchive: input.clearPreArchive,
       archivedAt: input.archivedAt,
       currentKnowledgeVersionId: input.knowledgeVersionId,
+      currentSourceVersionId: input.sourceVersionId,
       knowledgeHealth: input.knowledgeHealth,
     },
     sessionOpts,
@@ -468,6 +486,7 @@ export async function transitionLifecycle(input) {
       clearPreArchive: input.clearPreArchive,
       archivedAt: input.archivedAt,
       currentKnowledgeVersionId: input.knowledgeVersionId,
+      currentSourceVersionId: input.sourceVersionId,
       knowledgeHealth: input.knowledgeHealth,
     },
     sessionOpts,
@@ -602,6 +621,150 @@ export async function recordProjectAccess(orgId, projectId) {
     throw ApiError.fromCode('NOT_FOUND', { message: 'Project not found.' });
   }
   return mapProjectToDto(updated, { detail: true });
+}
+
+/** Max UTF-8 bytes of root README sent to the LLM for a project description. */
+export const PROJECT_DESCRIPTION_README_MAX_BYTES = 65_536;
+
+/** Target max characters for the LLM-written project description. */
+export const PROJECT_DESCRIPTION_TARGET_MAX_CHARS = 400;
+
+/** Hard clamp matching `projects.description` maxlength. */
+export const PROJECT_DESCRIPTION_HARD_MAX_CHARS = 2000;
+
+/**
+ * Loads the root README, asks the LLM for a short blurb, and overwrites project.description.
+ * @param {{
+ *   orgId: string,
+ *   actorUserId: string,
+ *   projectId: string,
+ *   correlationId: string,
+ *   ip?: string,
+ *   userAgent?: string,
+ *   log?: { error?: Function },
+ * }} input Fill inputs.
+ * @returns {Promise<object>} Updated project detail DTO.
+ */
+export async function fillProjectDescriptionFromReadme(input) {
+  const existing = await findProjectById(input.orgId, input.projectId);
+  if (!existing) {
+    throw ApiError.fromCode('NOT_FOUND', { message: 'Project not found.' });
+  }
+
+  const sourceVersionId = existing.sourceConfig?.currentSourceVersionId ? String(existing.sourceConfig.currentSourceVersionId) : null;
+  if (!sourceVersionId) {
+    throw ApiError.fromCode('SOURCE_VERSION_NOT_FOUND', {
+      message: 'No current source version is available for this project.',
+    });
+  }
+
+  const { listSourceFilesOrdered, findSourceFileByPath, readSourceGridFsBytes } = await import('../knowledge/index.js');
+  const files = await listSourceFilesOrdered({
+    orgId: input.orgId,
+    projectId: input.projectId,
+    sourceVersionId,
+  });
+  const readmePath = resolveRootReadmePath(files);
+  if (!readmePath) {
+    throw ApiError.fromCode('SOURCE_NOT_FOUND', {
+      message: 'No root README.md was found in the current source version.',
+    });
+  }
+
+  const file = await findSourceFileByPath({
+    orgId: input.orgId,
+    projectId: input.projectId,
+    sourceVersionId,
+    path: readmePath,
+  });
+  if (!file?.gridFsId) {
+    throw ApiError.fromCode('SOURCE_NOT_FOUND', {
+      message: 'No root README.md was found in the current source version.',
+    });
+  }
+
+  const bytes = await readSourceGridFsBytes(file.gridFsId);
+  const readmeText = bytes.toString('utf8').slice(0, PROJECT_DESCRIPTION_README_MAX_BYTES).trim();
+  if (!readmeText) {
+    throw ApiError.fromCode('VALIDATION_ERROR', {
+      details: [{ path: 'readme', message: 'README.md is empty' }],
+    });
+  }
+
+  const { generateTextWithoutBudget } = await import('../conversation/index.js');
+  const result = await generateTextWithoutBudget({
+    purpose: 'project_description',
+    enableThinking: false,
+    instructions:
+      'Write a short project description from the README. Reply with 1–2 plain sentences, ' +
+      `at most ${PROJECT_DESCRIPTION_TARGET_MAX_CHARS} characters. No markdown, headings, or quotes.`,
+    messages: [{ role: 'user', content: readmeText }],
+  });
+
+  const blurb = String(result?.text ?? '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .slice(0, PROJECT_DESCRIPTION_HARD_MAX_CHARS);
+  if (!blurb) {
+    throw ApiError.fromCode('LLM_PROVIDER_ERROR', {
+      message: 'The language model returned an empty project description.',
+    });
+  }
+
+  const updated = await updateProjectMetadata(input.orgId, input.projectId, {
+    description: blurb,
+    updatedBy: input.actorUserId,
+  });
+  if (!updated) {
+    throw ApiError.fromCode('NOT_FOUND', { message: 'Project not found.' });
+  }
+
+  await recordAuditEvent(
+    {
+      orgId: input.orgId,
+      actorUserId: input.actorUserId,
+      action: 'project.description_filled_from_readme',
+      resourceType: 'project',
+      resourceId: String(updated._id),
+      result: 'success',
+      correlationId: input.correlationId,
+      ip: input.ip,
+      userAgent: input.userAgent,
+      context: {
+        readmePath,
+        descriptionLength: blurb.length,
+      },
+    },
+    { log: input.log },
+  );
+
+  return mapProjectToDto(updated, { detail: true });
+
+  /**
+   * Picks a root-level README.md path (case-insensitive); prefers exact `README.md`.
+   * @param {Array<{ path?: string }>} sourceFiles Source file rows.
+   * @returns {string | null}
+   */
+  function resolveRootReadmePath(sourceFiles) {
+    if (!Array.isArray(sourceFiles)) {
+      return null;
+    }
+    /** @type {string[]} */
+    const roots = [];
+    for (const sourceFile of sourceFiles) {
+      const pathValue = typeof sourceFile?.path === 'string' ? sourceFile.path : '';
+      if (!pathValue || pathValue.includes('/')) {
+        continue;
+      }
+      if (pathValue.toLowerCase() === 'readme.md') {
+        roots.push(pathValue);
+      }
+    }
+    if (roots.length === 0) {
+      return null;
+    }
+    return roots.find((pathValue) => pathValue === 'README.md') ?? roots[0];
+  }
 }
 
 /**

@@ -12,6 +12,7 @@ import {
   REPO_SYNC_OVERLAP_RETRY_MS,
   persistRepositorySourceVersion,
 } from '../modules/knowledge/repoSync.js';
+import { enqueueSourceReingest, findLatestActiveSourceVersionForProject } from '../modules/knowledge/sources.js';
 
 /**
  * Runs a claimed connected_repo_pull job.
@@ -70,21 +71,60 @@ export async function runConnectedRepoPullJob(workerContext) {
     });
 
     if (head.commitSha === connection.lastSyncedCommitSha) {
-      await markConnectionSynced({
-        orgId,
-        connectionId,
-        commitSha: head.commitSha,
-        jobId,
-      });
-      await workerContext.recordEvent({
-        eventCode: 'repo.sync.no_changes',
-        severity: 'info',
-        message: `No changes on ${connection.selectedBranch}`,
-      });
-      return {
-        result: 'completed',
-        summary: { outcome: 'no_changes', commitSha: head.commitSha },
-      };
+      const manualSync = Boolean(job.createdBy);
+      if (manualSync) {
+        const existingVersion = await findLatestActiveSourceVersionForProject({
+          orgId,
+          projectId,
+          commitSha: head.commitSha,
+        });
+        if (existingVersion) {
+          const rebuild = await enqueueSourceReingest({
+            orgId,
+            projectId,
+            sourceVersionId: String(existingVersion._id),
+            actorUserId: String(job.createdBy),
+            correlationId: job.correlationId ?? null,
+          });
+          await markConnectionSynced({
+            orgId,
+            connectionId,
+            commitSha: head.commitSha,
+            jobId,
+          });
+          await workerContext.recordEvent({
+            eventCode: 'repo.sync.rebuild_enqueued',
+            severity: 'info',
+            message: `No remote changes on ${connection.selectedBranch}; knowledge rebuild queued.`,
+          });
+          return {
+            result: 'completed',
+            summary: {
+              outcome: 'rebuild_enqueued',
+              commitSha: head.commitSha,
+              sourceVersionId: rebuild.sourceVersionId,
+              ingestJobId: rebuild.jobId,
+            },
+          };
+        }
+        // Manual sync with no stored version: fall through to download + persist (heal empty history).
+      } else {
+        await markConnectionSynced({
+          orgId,
+          connectionId,
+          commitSha: head.commitSha,
+          jobId,
+        });
+        await workerContext.recordEvent({
+          eventCode: 'repo.sync.no_changes',
+          severity: 'info',
+          message: `No changes on ${connection.selectedBranch}`,
+        });
+        return {
+          result: 'completed',
+          summary: { outcome: 'no_changes', commitSha: head.commitSha },
+        };
+      }
     }
 
     await workerContext.saveCheckpoint({

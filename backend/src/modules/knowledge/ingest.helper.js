@@ -813,6 +813,7 @@ export async function runFinalizeStage(ctx) {
     to,
     source: 'worker',
     knowledgeVersionId,
+    sourceVersionId: ctx.scope.sourceVersionId ? String(ctx.scope.sourceVersionId) : null,
     knowledgeHealth: publishedHealth,
     actorUserId: null,
     reasonCode: 'knowledge_published',

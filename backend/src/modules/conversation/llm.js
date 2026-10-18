@@ -32,6 +32,13 @@ const defaultLog = {
 let defaultInferenceQueue;
 
 /**
+ * Artifact id from the last successful assertLlmAvailable in this process.
+ * loadConfig() rebuilds from env and never includes artifactId — generate/stream
+ * must keep the probed value after API boot.
+ */
+let probedLlmArtifactId = null;
+
+/**
  * Env LLM slice status. baseUrl/modelId are required by loadConfig; the process
  * fails closed at startup via assertLlmAvailable — not re-checked per request.
  * @param {{ baseUrl?: string, modelId?: string }} [llm] Connection slice; defaults to loadConfig().
@@ -40,6 +47,14 @@ let defaultInferenceQueue;
 export function getLlmConfigStatus(llm) {
   const slice = llm ?? loadConfig().llm;
   return { ready: true, modelId: slice.modelId ?? null };
+}
+
+/**
+ * Clears the process-start LLM artifact id (unit tests only).
+ * @returns {void}
+ */
+export function resetProbedLlmArtifactIdForTests() {
+  probedLlmArtifactId = null;
 }
 
 /**
@@ -85,6 +100,7 @@ export async function assertLlmAvailable(llm, log = defaultLog) {
     }
 
     log.info({ host, modelId }, 'llm available');
+    probedLlmArtifactId = modelId;
     return { artifactId: modelId };
   } catch (error) {
     log.error({ host, modelId, ...caughtErrorFields(error) }, 'llm probe failed');
@@ -117,7 +133,7 @@ export async function assertLlmAvailable(llm, log = defaultLog) {
  */
 export async function generateText(request) {
   const enableThinking = request.enableThinking === true;
-  const llm = loadConfig().llm;
+  const llm = loadLlmSliceForInference();
   const prepared = prepareModelInput({
     modelArtifactRef: llm.artifactId ?? llm.modelId,
     purpose: request.purpose,
@@ -134,9 +150,10 @@ export async function generateText(request) {
         baseURL: llm.baseUrl,
         apiKey: llm.apiKey || 'not-needed',
       });
+      const prompt = splitPromptForSdk(prepared.messages);
       const call = {
         model: provider.chat(llm.modelId),
-        messages: prepared.messages,
+        ...prompt,
         abortSignal: request.abortSignal,
         maxRetries: 0,
         ...providerCallOptionsForThinking(enableThinking),
@@ -157,6 +174,86 @@ export async function generateText(request) {
       durationMs,
       modelId: llm.modelId,
       contextMetrics: contextMetricsFromPrepared(prepared),
+      enableThinking,
+    };
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    throw apiErrorFromCaught('LLM_PROVIDER_ERROR', error, {
+      log: defaultLog,
+      logMessage: 'llm provider call failed',
+    });
+  }
+}
+
+/**
+ * Queued Chat Completions generate that skips context budgeting and the tokenizer.
+ * For short non-chat jobs while `countTokensForBudget` remains fail-closed (ADR 0034).
+ * Do not use for grounded chat answers. AI SDK v7: pass system text via `instructions`.
+ * @param {{
+ *   purpose: string,
+ *   instructions: string,
+ *   messages: { role: string, content: string }[],
+ *   abortSignal?: AbortSignal,
+ *   enableThinking?: boolean,
+ * }} request Ready instructions + non-system messages (caller truncates README etc.).
+ * @returns {Promise<{
+ *   text: string,
+ *   usage: object | null,
+ *   durationMs: number,
+ *   modelId: string,
+ *   enableThinking: boolean,
+ * }>}
+ * @throws When config, queue, validation, or the provider fails.
+ */
+export async function generateTextWithoutBudget(request) {
+  const enableThinking = request.enableThinking === true;
+  const llm = loadConfig().llm;
+  const instructions = typeof request.instructions === 'string' ? request.instructions.trim() : '';
+  if (!instructions) {
+    throw ApiError.fromCode('VALIDATION_ERROR', {
+      details: [{ path: 'instructions', message: 'instructions must be a non-empty string' }],
+    });
+  }
+  const messages = Array.isArray(request.messages) ? request.messages : [];
+  if (messages.length === 0) {
+    throw ApiError.fromCode('VALIDATION_ERROR', {
+      details: [{ path: 'messages', message: 'messages must be a non-empty array' }],
+    });
+  }
+  if (messages.some((message) => message?.role === 'system')) {
+    throw ApiError.fromCode('VALIDATION_ERROR', {
+      details: [{ path: 'messages', message: 'system role is not allowed in messages; use instructions' }],
+    });
+  }
+  const queue = (defaultInferenceQueue ??= createInferenceQueue());
+  try {
+    const { text, usage, durationMs } = await queue.enqueue(async () => {
+      const startedAt = Date.now();
+      const provider = createOpenAI({
+        baseURL: llm.baseUrl,
+        apiKey: llm.apiKey || 'not-needed',
+      });
+      const result = await sdkGenerateText({
+        model: provider.chat(llm.modelId),
+        instructions,
+        messages,
+        abortSignal: request.abortSignal,
+        maxRetries: 0,
+        ...providerCallOptionsForThinking(enableThinking),
+      });
+      return {
+        text: typeof result?.text === 'string' ? result.text : '',
+        usage: mapUsage(result?.usage),
+        durationMs: Date.now() - startedAt,
+      };
+    });
+    return {
+      text,
+      usage,
+      durationMs,
+      modelId: llm.modelId,
       enableThinking,
     };
   } catch (error) {
@@ -194,7 +291,7 @@ export async function generateText(request) {
  */
 export async function streamText(request) {
   const enableThinking = request.enableThinking === true;
-  const llm = loadConfig().llm;
+  const llm = loadLlmSliceForInference();
   const prepared = prepareModelInput({
     modelArtifactRef: llm.artifactId ?? llm.modelId,
     purpose: request.purpose,
@@ -222,9 +319,10 @@ export async function streamText(request) {
         baseURL: llm.baseUrl,
         apiKey: llm.apiKey || 'not-needed',
       });
+      const prompt = splitPromptForSdk(prepared.messages);
       const call = {
         model: provider.chat(llm.modelId),
-        messages: prepared.messages,
+        ...prompt,
         abortSignal: request.abortSignal,
         maxRetries: 0,
         ...providerCallOptionsForThinking(enableThinking),
@@ -285,6 +383,46 @@ export async function streamText(request) {
     modelId: llm.modelId,
     contextMetrics: contextMetricsFromPrepared(prepared),
     enableThinking,
+  };
+}
+
+/**
+ * Env llm slice with artifactId from the process-start probe when loadConfig omits it.
+ * @returns {{ baseUrl: string, modelId: string, contextCapacity: number, artifactId: string | null, apiKey: string | null, queueMaxConcurrency: number, runBudget: object }}
+ */
+function loadLlmSliceForInference() {
+  const loaded = loadConfig().llm;
+  const fromConfig = typeof loaded.artifactId === 'string' ? loaded.artifactId.trim() : '';
+  return {
+    ...loaded,
+    artifactId: fromConfig || probedLlmArtifactId,
+  };
+}
+
+/**
+ * AI SDK v7 rejects system roles in `messages`; move them to `instructions`.
+ * @param {{ role: string, content: string }[]} messages Budgeter or caller messages.
+ * @returns {{ instructions?: string, messages: { role: string, content: string }[] }}
+ */
+function splitPromptForSdk(messages) {
+  const list = Array.isArray(messages) ? messages : [];
+  /** @type {string[]} */
+  const instructionParts = [];
+  /** @type {{ role: string, content: string }[]} */
+  const conversationMessages = [];
+  for (const message of list) {
+    if (message?.role === 'system') {
+      instructionParts.push(typeof message.content === 'string' ? message.content : '');
+      continue;
+    }
+    conversationMessages.push(message);
+  }
+  if (instructionParts.length === 0) {
+    return { messages: conversationMessages };
+  }
+  return {
+    instructions: instructionParts.join('\n\n'),
+    messages: conversationMessages,
   };
 }
 

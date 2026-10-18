@@ -206,6 +206,17 @@ export async function patchProject(projectId, patch) {
 }
 
 /**
+ * Asks the API to write project.description from the root README via the LLM.
+ * @param {string} projectId Project id.
+ * @returns {Promise<ProjectDto>}
+ */
+export async function fillProjectDescriptionFromReadme(projectId) {
+  return apiRequest(`/masters/projects/fillDescriptionFromReadme/${encodeURIComponent(projectId)}`, {
+    method: 'POST',
+  });
+}
+
+/**
  * Archives a project.
  * @param {string} projectId Project id.
  * @returns {Promise<ProjectDto>}

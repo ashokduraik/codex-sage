@@ -74,7 +74,9 @@ export {
   INFERENCE_QUEUE_MAX_DEPTH,
   assertLlmAvailable,
   generateText,
+  generateTextWithoutBudget,
   getLlmConfigStatus,
+  resetProbedLlmArtifactIdForTests,
   streamText,
 } from './llm.js';
 export { executeTool, listToolDefinitionsForSchema } from './agentTools.js';

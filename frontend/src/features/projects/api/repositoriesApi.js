@@ -173,3 +173,20 @@ export async function retestProjectRepositoryConnection(input) {
     signal: input.signal,
   });
 }
+
+/**
+ * Enqueues a manual repository sync (connected_repo_pull), or returns the active one.
+ * @param {{
+ *   projectId: string,
+ *   idempotencyKey: string,
+ *   signal?: AbortSignal,
+ * }} input Sync inputs.
+ * @returns {Promise<{ job: { id: string, jobType: string, jobStatus: string, scheduledAt: string } }>}
+ */
+export async function syncProjectRepository(input) {
+  return apiRequest(`/knowledge/repositories/sync/${encodeURIComponent(input.projectId)}`, {
+    method: 'POST',
+    idempotencyKey: input.idempotencyKey,
+    signal: input.signal,
+  });
+}

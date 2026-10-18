@@ -10,6 +10,7 @@ import {
   retestProjectRepositoryConnection,
   revokeProjectRepositoryCredential,
   replaceProjectRepositoryCredential,
+  syncProjectRepository,
 } from '@/features/projects/api/repositoriesApi.js';
 
 const apiRequest = vi.fn();
@@ -111,6 +112,18 @@ describe('repositoriesApi', () => {
     await retestProjectRepositoryConnection({ projectId: 'p1' });
     expect(apiRequest).toHaveBeenCalledWith('/knowledge/repositories/retestConnection/p1', {
       method: 'POST',
+      signal: undefined,
+    });
+  });
+
+  it('posts sync with an Idempotency-Key', async () => {
+    apiRequest.mockResolvedValue({
+      job: { id: 'j1', jobType: 'connected_repo_pull', jobStatus: 'pending', scheduledAt: '2026-01-02T00:00:00.000Z' },
+    });
+    await syncProjectRepository({ projectId: 'p1', idempotencyKey: 'idem-sync' });
+    expect(apiRequest).toHaveBeenCalledWith('/knowledge/repositories/sync/p1', {
+      method: 'POST',
+      idempotencyKey: 'idem-sync',
       signal: undefined,
     });
   });

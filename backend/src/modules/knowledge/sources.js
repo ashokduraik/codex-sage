@@ -13,13 +13,6 @@ import { SourceChangeSummary } from '../../models/sourceChangeSummary.model.js';
 import { createPendingJob, findActiveJobForSourceVersion } from '../masters/index.js';
 import { assertOrgId, decodeCursor, encodeCursor, ROW_STATUS_ACTIVE } from '../../platform/data/index.js';
 import {
-  SourceVersion,
-  SOURCE_ORIGIN_UPLOAD,
-  SOURCE_ORIGIN_REPOSITORY,
-  VERSION_LIFECYCLE_VALUES,
-  VERSION_LIFECYCLE_RECEIVED,
-} from '../../models/sourceVersion.model.js';
-import {
   SourceFile,
   SOURCE_FILE_KIND_VALUES,
   SOURCE_FILE_STATE_STORED,
@@ -27,6 +20,13 @@ import {
   SOURCE_FILE_STATE_CORRUPT,
   SOURCE_FILE_STATE_MISSING,
 } from '../../models/sourceFile.model.js';
+import {
+  SourceVersion,
+  SOURCE_ORIGIN_UPLOAD,
+  SOURCE_ORIGIN_REPOSITORY,
+  VERSION_LIFECYCLE_VALUES,
+  VERSION_LIFECYCLE_RECEIVED,
+} from '../../models/sourceVersion.model.js';
 
 export { SourceFile } from '../../models/sourceFile.model.js';
 
@@ -922,6 +922,49 @@ export async function enqueueSourceReingest(input) {
     sourceVersionId: String(version._id),
     jobType: 'project_knowledge_rebuild',
   };
+}
+
+/**
+ * Finds the newest active source version for a project, preferring a matching commit SHA.
+ * Used by manual repository sync when HEAD is unchanged so knowledge can rebuild without a new pull.
+ * @param {{
+ *   orgId: string,
+ *   projectId: string,
+ *   commitSha?: string | null,
+ * }} input Scope and optional commit filter preference.
+ * @returns {Promise<{ _id: import('mongoose').Types.ObjectId } | null>}
+ */
+export async function findLatestActiveSourceVersionForProject(input) {
+  assertOrgId(input.orgId);
+  if (!mongoose.isValidObjectId(input.projectId)) {
+    return null;
+  }
+  const projectObjectId = new mongoose.Types.ObjectId(String(input.projectId));
+  const commitSha = input.commitSha ? String(input.commitSha) : null;
+  if (commitSha) {
+    const matchingCommit = await SourceVersion.findOne({
+      orgId: input.orgId,
+      projectId: projectObjectId,
+      status: ROW_STATUS_ACTIVE,
+      commitSha,
+    })
+      .sort({ createdAt: -1, _id: -1 })
+      .select({ _id: 1 })
+      .lean()
+      .exec();
+    if (matchingCommit) {
+      return matchingCommit;
+    }
+  }
+  return SourceVersion.findOne({
+    orgId: input.orgId,
+    projectId: projectObjectId,
+    status: ROW_STATUS_ACTIVE,
+  })
+    .sort({ createdAt: -1, _id: -1 })
+    .select({ _id: 1 })
+    .lean()
+    .exec();
 }
 
 // --- from sources/sources.routes.js ---

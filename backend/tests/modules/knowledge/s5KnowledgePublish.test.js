@@ -135,6 +135,7 @@ describe('s6Finalize', () => {
         to: 'knowledge_ready',
         source: 'worker',
         knowledgeVersionId: 'kv1',
+        sourceVersionId: 'v1',
         knowledgeHealth: 'ready',
       }),
     );

@@ -76,6 +76,7 @@ import {
   createProjectHttp,
   deleteProjectHttp,
   updateProjectHttp,
+  fillProjectDescriptionFromReadmeHttp,
   archiveProjectHttp,
   deactivateUserHttp,
   restoreProjectHttp,
@@ -173,6 +174,7 @@ export async function registerRoutes(app) {
   app.get('/masters/projects/get/:projectId', withProjectAccess('projects.view'), getProjectHttp);
   app.post('/masters/projects/recordAccess/:projectId', withProjectAccess('projects.view'), recordProjectAccessHttp);
   app.patch('/masters/projects/update/:projectId', withProjectAccess('projects.update'), updateProjectHttp);
+  app.post('/masters/projects/fillDescriptionFromReadme/:projectId', withProjectAccess('projects.update'), fillProjectDescriptionFromReadmeHttp);
   app.get('/masters/projects/getSettings/:projectId', withProjectAccess('settings.manage'), getProjectSettingsHttp);
   app.patch('/masters/projects/updateSettings/:projectId', withProjectAccess('settings.manage'), updateProjectSettingsHttp);
   app.post('/masters/projects/archive/:projectId', withProjectAccess('projects.update'), archiveProjectHttp);

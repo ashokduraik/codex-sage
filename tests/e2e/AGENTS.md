@@ -7,7 +7,7 @@ Local rules for Playwright cross-service journeys. Root [`/AGENTS.md`](../../AGE
 - **Auth:** invalid password, bootstrap login, sign out.
 - **Project lifecycle:** create validation, create without source, search, archive, restore, soft-delete.
 - **Repository onboarding:** empty/invalid URL, public attach, optional private attach, ingest wait, knowledge when ready/partial.
-- **ZIP ingest + knowledge:** reject non-zip, upload fixture, processing/health wait, search/preview, second ZIP → changes.
+- **ZIP ingest + knowledge:** reject non-zip, upload fixture (includes root README), processing/health wait, Overview Fill from README (API + LLM), search/preview, second ZIP → changes.
 - **Admin:** users (code column), create/edit roles in the UI, invite + password + roles + status, audit `user.create`, forced password change, remove user. Do not click seeded Member/Viewer — create roles in the journey.
 
 Catalog + matrix: [`workflows.md`](./workflows.md). Runbook: [`README.md`](./README.md).

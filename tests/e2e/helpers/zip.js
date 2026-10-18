@@ -111,8 +111,14 @@ export function buildStoreZip(entries) {
 export async function writeSampleProjectZip(options = {}) {
   const hello = await readFile(join(fixturesRoot, 'src', 'hello.js'));
   const guide = await readFile(join(fixturesRoot, 'docs', 'guide.md'));
+  const readme = await readFile(join(fixturesRoot, 'README.md'));
   const extra = Array.isArray(options.extraFiles) ? options.extraFiles : [];
-  const zip = buildStoreZip([{ name: 'src/hello.js', data: hello }, { name: 'docs/guide.md', data: guide }, ...extra]);
+  const zip = buildStoreZip([
+    { name: 'README.md', data: readme },
+    { name: 'src/hello.js', data: hello },
+    { name: 'docs/guide.md', data: guide },
+    ...extra,
+  ]);
   const directory = await mkdtemp(join(tmpdir(), 'codex-sage-e2e-'));
   const filePath = join(directory, options.fileName ?? 'sample-project.zip');
   await writeFile(filePath, zip);

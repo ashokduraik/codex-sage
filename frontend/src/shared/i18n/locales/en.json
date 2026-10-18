@@ -170,7 +170,10 @@
     "correlationReference": "Reference: {{reference}}",
     "retryAfter": "Try again in {{seconds}} seconds.",
     "createPending": "Creating…",
-    "skeletonLabel": "Loading projects"
+    "skeletonLabel": "Loading projects",
+    "fillDescriptionFromReadme": "Fill from README",
+    "replaceDescriptionFromReadme": "Replace from README",
+    "fillDescriptionFromReadmeFailed": "Could not fill the description from README."
   },
   "chat": {
     "title": "Chat",
@@ -433,6 +436,8 @@
     "reprocessVersion": "Re-process this version",
     "reprocessHint": "Rebuilds knowledge from the stored files. Use Retry on a failed job to resume from the last step. Upload a new ZIP to replace source.",
     "reprocessFailed": "Could not re-process this version.",
+    "syncRepository": "Sync repository",
+    "syncRepositoryHint": "Pulls the repository again. When the commit is unchanged, rebuilds knowledge from the stored version.",
     "versionMeta": "{{accepted}} accepted · {{skipped}} skipped · {{when}}",
     "listFailed": "Could not load sources.",
     "actionFailed": "The source action could not be completed.",
@@ -771,7 +776,6 @@
     "deactivate": "Deactivate",
     "resetPassword": "Reset password",
     "role": "Role",
-    "roles": "Roles & Permissions",
     "rolesColumn": "Roles",
     "status": "Status",
     "lastActivity": "Last activity",
