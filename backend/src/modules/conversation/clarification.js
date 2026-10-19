@@ -515,7 +515,7 @@ async function runClarificationAnswerStream(input) {
       },
       onDone: (payload) => {
         sawDone = true;
-        terminalStatus = 'completed';
+        terminalStatus = payload?.supportLevel === 'insufficient' ? 'abstained' : 'completed';
         input.writeSse('done', { messageId: String(payload?.messageId ?? input.assistantMessageId) });
       },
       onError: (error) => {

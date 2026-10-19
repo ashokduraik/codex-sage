@@ -307,15 +307,30 @@ async function runExploreCodeTool(toolArgs, toolScope) {
    */
   function mapCodegraphExploreToEvidence(evidenceScope, exploreResult, graphQuery) {
     if (typeof exploreResult === 'string') {
+      const trimmed = exploreResult.trim();
+      // Some library builds return JSON text despite format:'json' — recurse into structured mapping.
+      if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+        try {
+          return mapCodegraphExploreToEvidence(evidenceScope, JSON.parse(trimmed), graphQuery);
+        } catch {
+          // fall through to markdown path extraction
+        }
+      }
       const excerpt = clipEvidenceExcerpt(exploreResult);
       if (!excerpt) {
+        return [];
+      }
+      // Markdown context often embeds repo-relative paths; surface the first for citations.
+      const pathMatch = trimmed.match(/(?:^|[\s`'"(])((?:[\w.-]+\/)+[\w.-]+\.[A-Za-z][\w.-]*)/);
+      const path = pathMatch?.[1] ? String(pathMatch[1]) : '';
+      if (!path) {
         return [];
       }
       return [
         {
           evidenceId: allocateRunEvidenceId(evidenceScope),
           kind: 'code',
-          path: '',
+          path,
           excerpt,
           knowledgeVersionId: evidenceScope.knowledgeVersionId,
           sourceVersionId: evidenceScope.sourceVersionId,

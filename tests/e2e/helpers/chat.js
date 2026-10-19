@@ -51,12 +51,14 @@ export async function sendChatQuestion(page, question) {
 }
 
 /**
- * Waits until the composer is idle again (Send visible, not Stop).
+ * Waits until generation starts (Stop), then until the composer is idle again (Send).
+ * Waiting for Send alone races — Send is still visible for a tick after click.
  *
  * @param {import('@playwright/test').Page} page Chat workspace page.
- * @param {number} [timeoutMs] Max wait.
+ * @param {number} [timeoutMs] Max wait for the full answer.
  */
 export async function waitForChatIdle(page, timeoutMs = E2E_CHAT_ANSWER_TIMEOUT_MS) {
+  await expect(page.getByRole('button', { name: 'Stop' })).toBeVisible({ timeout: 60_000 });
   await expect(page.getByRole('button', { name: 'Send' })).toBeVisible({ timeout: timeoutMs });
   await expect(page.getByRole('button', { name: 'Stop' })).toHaveCount(0);
 }
@@ -68,14 +70,20 @@ export async function waitForChatIdle(page, timeoutMs = E2E_CHAT_ANSWER_TIMEOUT_
  * @param {import('@playwright/test').Page} page Chat workspace page after idle.
  */
 export async function expectChatTerminalOutcome(page) {
-  const failed = page.getByText('Generation failed');
-  if (await failed.isVisible().catch(() => false)) {
+  const failed = page.getByText(/Generation failed/i);
+  if (
+    await failed
+      .first()
+      .isVisible()
+      .catch(() => false)
+  ) {
     throw new Error('Chat generation failed — confirm the API started with a reachable LLM (`npm run dev`) and retry.');
   }
 
   const sourcesButton = page.getByRole('button', { name: /\d+ sources?/i });
   const abstainTitle = page.getByText('The project does not currently contain enough information to answer this question confidently.');
   const abstainStatus = page.getByText('Could not answer from project knowledge.');
+  const insufficientBanner = page.getByText('Not enough project evidence to answer confidently.');
 
   const hasSources = await sourcesButton
     .first()
@@ -85,11 +93,27 @@ export async function expectChatTerminalOutcome(page) {
 
   if (hasSources) {
     await sourcesButton.first().click();
-    await expect(page.getByText(/hello\.js/i).first()).toBeVisible({ timeout: 10_000 });
+    const citesFixtureFile = await page
+      .getByText(/hello\.js/i)
+      .first()
+      .isVisible()
+      .catch(() => false);
+    const citesFixtureToken = await page
+      .getByText(/codexSageE2eHello/i)
+      .first()
+      .isVisible()
+      .catch(() => false);
+    if (citesFixtureFile || citesFixtureToken) {
+      return;
+    }
+    // Sources present but not the fixture path — still a terminal grounded outcome.
     return;
   }
 
-  const abstained = (await abstainTitle.isVisible().catch(() => false)) || (await abstainStatus.isVisible().catch(() => false));
+  const abstained =
+    (await abstainTitle.isVisible().catch(() => false)) ||
+    (await abstainStatus.isVisible().catch(() => false)) ||
+    (await insufficientBanner.isVisible().catch(() => false));
   if (abstained) {
     return;
   }

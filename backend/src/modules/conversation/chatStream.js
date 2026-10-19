@@ -490,7 +490,8 @@ export async function runChatStreamForExistingUser(input) {
           return;
         }
         sawDone = true;
-        terminalStatus = 'completed';
+        // Persist nodes fire onDone for completed and abstained turns — mirror supportLevel.
+        terminalStatus = payload?.supportLevel === 'insufficient' ? 'abstained' : 'completed';
         if (!input.isClientConnected()) {
           return;
         }

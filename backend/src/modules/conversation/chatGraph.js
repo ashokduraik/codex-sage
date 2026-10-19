@@ -4,11 +4,11 @@
  * (ADR 0039). No HTTP or SSE — phase 50 maps stream hooks
  * (onStage / onDelta / onEvidence / onDone / onError).
  */
-import { generateText } from './llm.js';
 import { randomUUID } from 'node:crypto';
-import { buildConversationContext } from './conversationContext.js';
 import { ApiError, caughtErrorFields } from '../../platform/errors.js';
 import { executeTool, listToolDefinitionsForSchema } from './agentTools.js';
+import { generateText, loadLlmSliceForInference } from './llm.js';
+import { buildConversationContext } from './conversationContext.js';
 import { Annotation, Command, END, START, StateGraph, interrupt } from '@langchain/langgraph';
 import {
   assertRunBudget,
@@ -30,8 +30,8 @@ import {
   CLARIFICATION_MAX_ROUNDS,
   toolChoiceDecisionSchema,
   understandDecisionSchema,
-  createMongoChatCheckpointer,
   runPersistDirectReplyNode,
+  createMongoChatCheckpointer,
 } from './chatGraph.helper.js';
 
 export {
@@ -441,10 +441,14 @@ async function runUnderstandNode(state, onStage, log = null) {
   fireStage(onStage, 'understanding_question', {
     route: decision.needsClarification ? 'clarify' : decision.route,
   });
+  const rewrittenQuestion =
+    typeof decision.rewrittenQuestion === 'string' && decision.rewrittenQuestion.trim() !== ''
+      ? decision.rewrittenQuestion.trim()
+      : String(state.question ?? '');
   return {
-    rewrittenQuestion: decision.rewrittenQuestion,
-    needsClarification: decision.needsClarification,
-    clarificationQuestions: decision.clarificationQuestions,
+    rewrittenQuestion,
+    needsClarification: decision.needsClarification === true,
+    clarificationQuestions: Array.isArray(decision.clarificationQuestions) ? decision.clarificationQuestions : [],
     route: decision.route,
     metrics: decision.contextMetrics ?? null,
     ...tokens,
@@ -550,9 +554,47 @@ async function runAgentToolsNode(state, onStage, log = null) {
 
   if (!decision) {
     log?.debug?.({ ...debugScope }, 'tool_choice repair failed; finish_retrieval fallback');
+    // Still search once when nothing was retrieved — otherwise retrieve turns abstain
+    // without ever calling explore_code when the model fails structured tool-choice.
+    const alreadyHasEvidence = Array.isArray(working.toolResults) && working.toolResults.length > 0;
+    if (alreadyHasEvidence || isRunAborted(working.scope?.abortSignal)) {
+      return { runMonotonicStartedAt, retrievalComplete: true };
+    }
+    try {
+      assertRunBudget(working, runBudgetConfig);
+    } catch (error) {
+      if (error instanceof ApiError && error.code === 'RUN_BUDGET_EXCEEDED') {
+        return { budgetExhausted: true, runMonotonicStartedAt };
+      }
+      throw error;
+    }
+    fireStage(onStage, 'searching_code', { toolName: 'explore_code', deterministicFallback: true });
+    const fallbackQuery = String(working.rewrittenQuestion ?? working.question ?? '').trim() || 'project';
+    let fallbackToolResult;
+    try {
+      fallbackToolResult = await executeTool({
+        name: 'explore_code',
+        args: { query: fallbackQuery },
+        scope: buildToolExecutionScope(working.scope),
+        budgetState: buildToolBudgetState(working.scope),
+      });
+    } catch (error) {
+      if (error instanceof ApiError && (error.code === 'KNOWLEDGE_UNAVAILABLE' || error.code === 'KNOWLEDGE_UPDATING')) {
+        throw error;
+      }
+      if (error instanceof ApiError && error.code === 'TOOL_UNKNOWN') {
+        throw error;
+      }
+      throw error instanceof ApiError ? error : ApiError.fromCode('LLM_PROVIDER_ERROR', { cause: error });
+    }
+    const afterFallbackTool = applyToolUsageToRunBudget(working, fallbackToolResult.usage);
     return {
       runMonotonicStartedAt,
+      totalCalls: afterFallbackTool.totalCalls,
+      cumulativeToolResultBytes: afterFallbackTool.cumulativeToolResultBytes,
+      toolResults: fallbackToolResult.evidenceRecords ?? [],
       retrievalComplete: true,
+      ...(fallbackToolResult.stop ? { toolStop: fallbackToolResult.stop } : {}),
     };
   }
 
@@ -835,10 +877,8 @@ function toolChoiceDecisionJsonSchema() {
  * @returns {object | null}
  */
 function parseUnderstandDecisionText(text) {
-  let raw;
-  try {
-    raw = JSON.parse(typeof text === 'string' && text !== '' ? text : 'null');
-  } catch {
+  const raw = parseJsonObjectFromModelText(text);
+  if (raw == null) {
     return null;
   }
   const result = understandDecisionSchema.safeParse(raw);
@@ -851,14 +891,47 @@ function parseUnderstandDecisionText(text) {
  * @returns {object | null}
  */
 function parseToolChoiceDecisionText(text) {
-  let raw;
-  try {
-    raw = JSON.parse(typeof text === 'string' && text !== '' ? text : 'null');
-  } catch {
+  const raw = parseJsonObjectFromModelText(text);
+  if (raw == null) {
     return null;
   }
   const result = toolChoiceDecisionSchema.safeParse(raw);
   return result.success ? result.data : null;
+}
+
+/**
+ * Best-effort JSON object from model text (plain, fenced, or wrapped in prose).
+ * @param {string} text Model text.
+ * @returns {unknown | null}
+ */
+function parseJsonObjectFromModelText(text) {
+  if (typeof text !== 'string' || text.trim() === '') {
+    return null;
+  }
+  const trimmed = text.trim();
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    // continue
+  }
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenced?.[1]) {
+    try {
+      return JSON.parse(fenced[1].trim());
+    } catch {
+      // continue
+    }
+  }
+  const start = trimmed.indexOf('{');
+  const end = trimmed.lastIndexOf('}');
+  if (start >= 0 && end > start) {
+    try {
+      return JSON.parse(trimmed.slice(start, end + 1));
+    } catch {
+      return null;
+    }
+  }
+  return null;
 }
 
 /**
@@ -982,16 +1055,33 @@ function buildToolExecutionScope(scope) {
 }
 
 /**
- * Builds executeTool budgetState from scope (caller supplies modelArtifactRef).
+ * Builds executeTool budgetState from scope, or from process LLM when callers omit it.
+ * Stream/queue paths historically passed workspace only — tools still need artifact id.
  * @param {object | null} scope Graph scope.
  * @returns {object}
- * @throws {ApiError} When budgetState.modelArtifactRef is missing.
+ * @throws {ApiError} When no model artifact id is available.
  */
 function buildToolBudgetState(scope) {
-  if (!scope?.budgetState?.modelArtifactRef) {
+  if (scope?.budgetState?.modelArtifactRef) {
+    return scope.budgetState;
+  }
+  // loadConfig() rebuilds without probed artifactId — use the inference slice.
+  const llm = loadLlmSliceForInference();
+  const fromArtifact = typeof llm?.artifactId === 'string' ? llm.artifactId.trim() : '';
+  const fromModelId = typeof llm?.modelId === 'string' ? llm.modelId.trim() : '';
+  const modelArtifactRef = fromArtifact || fromModelId;
+  if (!modelArtifactRef || !Number.isFinite(llm?.contextCapacity) || llm.contextCapacity <= 0) {
     throw ApiError.fromCode('VALIDATION_ERROR', { details: { reason: 'chat_graph_tool_budget_state_missing' } });
   }
-  return scope.budgetState;
+  return {
+    modelArtifactRef,
+    options: {
+      llm: {
+        ...llm,
+        artifactId: modelArtifactRef,
+      },
+    },
+  };
 }
 
 /**

@@ -68,36 +68,46 @@ export const AGENT_TOOL_NAME_VALUES = Object.freeze([
 
 /**
  * Zod schema for the UNDERSTAND structured decision.
- * Extra keys are stripped; invalid route fails validation.
+ * Extra keys are stripped (not `.strict()` — models often emit helper fields).
+ * Invalid route fails validation. `rewrittenQuestion` may be omitted — the graph
+ * falls back to the original user question.
  */
-export const understandDecisionSchema = z
-  .object({
-    rewrittenQuestion: z.string().min(1),
-    needsClarification: z.boolean(),
-    clarificationQuestions: z.array(
+export const understandDecisionSchema = z.object({
+  rewrittenQuestion: z
+    .string()
+    .optional()
+    .transform((value) => (typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined)),
+  needsClarification: z.boolean().optional().default(false),
+  clarificationQuestions: z
+    .array(
       z.object({
         id: z.string().min(1).optional(),
         type: z.enum(CLARIFICATION_QUESTION_TYPES),
         prompt: z.string().min(1),
         options: z.array(z.string()).optional(),
       }),
-    ),
-    route: z.enum(UNDERSTAND_ROUTE_VALUES),
-  })
-  .strict();
+    )
+    .optional()
+    .default([]),
+  route: z.enum(UNDERSTAND_ROUTE_VALUES),
+});
 
 /**
  * Zod schema for AGENT_TOOLS tool-choice structured output.
  * `reason` is optional short product text — never chain-of-thought / SSE.
+ * Extra keys are stripped so soft-parsed model JSON still validates.
  */
 export const toolChoiceDecisionSchema = z
   .object({
     action: z.enum(TOOL_CHOICE_ACTION_VALUES),
     toolName: z.enum(AGENT_TOOL_NAME_VALUES).optional(),
-    toolArgs: z.record(z.string(), z.unknown()).optional(),
+    // Models sometimes emit null/arrays; only plain objects become tool args.
+    toolArgs: z
+      .unknown()
+      .optional()
+      .transform((value) => (value && typeof value === 'object' && !Array.isArray(value) ? value : undefined)),
     reason: z.string().max(500).optional(),
   })
-  .strict()
   .superRefine((value, context) => {
     if (value.action === 'call_tool' && !value.toolName) {
       context.addIssue({

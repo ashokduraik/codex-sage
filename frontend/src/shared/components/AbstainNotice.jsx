@@ -4,7 +4,8 @@ import { Info, RefreshCw, Search } from 'lucide-react';
 
 /**
  * Notice shown when the assistant abstains due to insufficient project evidence.
- * @param props - Abstain notice props.
+ * Retry / narrow buttons render only when the matching callback is provided.
+ * @param {{ missing?: string[], onRetry?: () => void, onNarrow?: () => void }} props Abstain notice props.
  * @returns Abstain notice UI.
  */
 export default function AbstainNotice({ missing = [], onRetry, onNarrow }) {
@@ -22,16 +23,22 @@ export default function AbstainNotice({ missing = [], onRetry, onNarrow }) {
               ))}
             </ul>
           )}
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Button type="button" size="sm" variant="outline" onClick={onNarrow}>
-              <Search className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-              {t('abstain.narrow')}
-            </Button>
-            <Button type="button" size="sm" variant="outline" onClick={onRetry}>
-              <RefreshCw className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-              {t('abstain.retry')}
-            </Button>
-          </div>
+          {typeof onRetry === 'function' || typeof onNarrow === 'function' ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {typeof onNarrow === 'function' ? (
+                <Button type="button" size="sm" variant="outline" onClick={onNarrow}>
+                  <Search className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                  {t('abstain.narrow')}
+                </Button>
+              ) : null}
+              {typeof onRetry === 'function' ? (
+                <Button type="button" size="sm" variant="outline" onClick={onRetry}>
+                  <RefreshCw className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                  {t('abstain.retry')}
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

@@ -76,6 +76,7 @@ export {
   generateText,
   generateTextWithoutBudget,
   getLlmConfigStatus,
+  loadLlmSliceForInference,
   resetProbedLlmArtifactIdForTests,
   streamText,
 } from './llm.js';

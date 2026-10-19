@@ -4,19 +4,19 @@
 import { Composer } from './Composer';
 import { MessageItem } from './MessageItem';
 import { useTranslation } from 'react-i18next';
-import { useEffect, useMemo, useRef, useState } from 'react';
 import { ConversationList } from './ConversationList';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ClarificationPanel } from './ClarificationPanel.jsx';
-import { Loader2, PanelLeftOpen, Sparkles } from 'lucide-react';
-import { useOutletContext, useSearchParams } from 'react-router-dom';
 import { SourcePreviewDrawer } from '@/shared/source-preview';
-import { useConversation } from '@/features/chat/hooks/useConversation.js';
+import { Loader2, PanelLeftOpen, Sparkles } from 'lucide-react';
 import KnowledgeVersionNotice from './KnowledgeVersionNotice.jsx';
-import { isProjectAskable, isProjectArchived } from '@/shared/components/StatusBadge.jsx';
-import { useAskAboutContext } from '@/features/chat/hooks/useAskAboutContext.js';
-import { useCreateConversation } from '@/features/chat/hooks/useConversationMutations.js';
+import { useOutletContext, useSearchParams } from 'react-router-dom';
 import { useSendMessage } from '@/features/chat/hooks/useSendMessage.js';
+import { useConversation } from '@/features/chat/hooks/useConversation.js';
+import { useAskAboutContext } from '@/features/chat/hooks/useAskAboutContext.js';
 import { useClarificationWizard } from '@/features/chat/hooks/useClarificationWizard.js';
+import { isProjectAskable, isProjectArchived } from '@/shared/components/StatusBadge.jsx';
+import { useCreateConversation } from '@/features/chat/hooks/useConversationMutations.js';
 import { isForbiddenApiError, isNotFoundApiError, messageFromUnknown } from '@/shared/api';
 import { useConversationMessages, flattenMessagePages } from '@/features/chat/hooks/useConversationMessages.js';
 
@@ -263,7 +263,9 @@ export default function ChatWorkspace() {
   const latestAssistant = [...messages].reverse().find((m) => m.role === 'assistant');
   const canRetryLatest =
     latestAssistant &&
-    (latestAssistant.messageStatus === 'failed' || latestAssistant.messageStatus === 'interrupted') &&
+    (latestAssistant.messageStatus === 'failed' ||
+      latestAssistant.messageStatus === 'interrupted' ||
+      latestAssistant.messageStatus === 'abstained') &&
     !isBusy &&
     !clarificationActive;
 

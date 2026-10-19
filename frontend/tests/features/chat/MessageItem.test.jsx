@@ -125,17 +125,19 @@ describe('MessageItem', () => {
     expect(screen.queryByRole('button', { name: /Retry/i })).toBeNull();
   });
 
-  it('shows abstained copy without retry when handler omitted', () => {
+  it('shows abstain notice without retry actions when handler omitted', () => {
     renderWithProviders(
       <MessageItem
         message={buildMessage({
           content: '',
           messageStatus: 'abstained',
+          supportLevel: 'insufficient',
         })}
         isUser={false}
       />,
     );
-    expect(screen.getAllByText(/Could not answer from project knowledge/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/does not currently contain enough information/i)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Retry/i })).toBeNull();
   });
 
   it('supports inline edit when canEdit is true', () => {
@@ -313,7 +315,7 @@ describe('MessageItem', () => {
     expect(screen.queryByRole('button', { name: /source/i })).toBeNull();
   });
 
-  it('shows insufficient support banner for abstained turns', () => {
+  it('shows insufficient support banner and abstain notice for abstained turns', () => {
     renderWithProviders(
       <MessageItem
         message={buildMessage({
@@ -325,5 +327,6 @@ describe('MessageItem', () => {
       />,
     );
     expect(screen.getByText(/Not enough project evidence/i)).toBeTruthy();
+    expect(screen.getByText(/does not currently contain enough information/i)).toBeTruthy();
   });
 });

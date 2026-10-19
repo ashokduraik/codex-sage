@@ -46,6 +46,13 @@ const {
 vi.mock('../../../src/modules/conversation/llm.js', () => ({
   generateText: (...args) => mockGenerateText(...args),
   streamText: (...args) => mockStreamText(...args),
+  loadLlmSliceForInference: () => ({
+    modelId: 'test-model',
+    artifactId: 'test-model',
+    contextCapacity: 10_000,
+    baseUrl: 'http://127.0.0.1:11434/v1',
+    apiKey: null,
+  }),
   assertLlmAvailable: vi.fn(),
   getLlmConfigStatus: vi.fn(),
   INFERENCE_QUEUE_MAX_CONCURRENCY: 1,
@@ -244,7 +251,7 @@ afterEach(() => {
 });
 
 describe('understandDecisionSchema', () => {
-  it('rejects an invalid route and missing rewrittenQuestion', () => {
+  it('rejects an invalid route and accepts omitted rewrittenQuestion', () => {
     expect(
       understandDecisionSchema.safeParse({
         rewrittenQuestion: '',
@@ -253,13 +260,14 @@ describe('understandDecisionSchema', () => {
         route: 'clarify',
       }).success,
     ).toBe(false);
+    // Models often omit rewrittenQuestion; the graph falls back to the user question.
     expect(
       understandDecisionSchema.safeParse({
         needsClarification: false,
         clarificationQuestions: [],
         route: 'retrieve',
       }).success,
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it('accepts retrieve and abstain_early with typed questions', () => {
@@ -985,7 +993,7 @@ describe('AGENT_TOOLS loop', () => {
     expect(mockGenerateText.mock.calls.filter((call) => call[0].purpose === 'tool_choice')).toHaveLength(2);
   });
 
-  it('marks retrieval complete when tool-choice stays invalid after repair', async () => {
+  it('runs a one-shot explore_code when tool-choice stays invalid after repair', async () => {
     mockGenerateText.mockResolvedValueOnce(llmResult(decision())).mockResolvedValue({
       text: '{still-bad',
       usage: null,
@@ -994,14 +1002,23 @@ describe('AGENT_TOOLS loop', () => {
       contextMetrics: {},
       enableThinking: false,
     });
+    mockExecuteTool.mockResolvedValueOnce({
+      evidenceRecords: [{ evidenceId: 'e1', path: 'src/hello.js', kind: 'code' }],
+      usage: { toolResultBytes: 12 },
+    });
     const checkpointer = new MemorySaver();
     const result = await invokeChatGraph({
       threadId: `${threadId}-tool-invalid`,
       checkpointer,
-      input: { scope: scope(), question: 'q' },
+      input: { scope: scope(), question: 'Where is hello defined?' },
     });
     expect(result.retrievalComplete).toBe(true);
-    expect(mockExecuteTool).not.toHaveBeenCalled();
+    expect(mockExecuteTool).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'explore_code',
+        args: { query: expect.any(String) },
+      }),
+    );
   });
 
   it('rejects missing tool workspace or budgetState before executeTool', async () => {
@@ -1031,19 +1048,21 @@ describe('AGENT_TOOLS loop', () => {
         toolArgs: { path: 'a.js', startLine: 1, endLine: 2 },
       }),
     );
-    await expect(
-      invokeChatGraph({
-        threadId: `${threadId}-budget-missing`,
-        checkpointer,
-        input: {
-          scope: scope({ budgetState: undefined }),
-          question: 'q',
-        },
-      }),
-    ).rejects.toMatchObject({
-      code: 'VALIDATION_ERROR',
-      details: { reason: 'chat_graph_tool_budget_state_missing' },
+    // Stream callers historically omit budgetState — graph fills it from process LLM.
+    mockExecuteTool.mockResolvedValueOnce({
+      evidenceRecords: [{ evidenceId: 'e-budget', path: 'a.js', kind: 'code' }],
+      usage: { toolResultBytes: 4 },
     });
+    const budgetFilled = await invokeChatGraph({
+      threadId: `${threadId}-budget-missing`,
+      checkpointer,
+      input: {
+        scope: scope({ budgetState: undefined }),
+        question: 'q',
+      },
+    });
+    expect(budgetFilled.retrievalComplete).toBe(true);
+    expect(mockExecuteTool).toHaveBeenCalled();
   });
 
   it('ends cleanly when abortSignal is already aborted at AGENT_TOOLS entry', async () => {

@@ -164,8 +164,13 @@ export async function generateText(request) {
       }
       try {
         const result = await sdkGenerateText(call);
+        // Prefer text; when Output.json succeeds some providers leave text empty and put the object on output.
+        let text = typeof result?.text === 'string' ? result.text : '';
+        if (text === '' && result?.output != null && typeof result.output === 'object') {
+          text = JSON.stringify(result.output);
+        }
         return {
-          text: typeof result?.text === 'string' ? result.text : '',
+          text,
           usage: mapUsage(result?.usage),
           durationMs: Date.now() - startedAt,
         };
@@ -473,9 +478,10 @@ function usageFromNoObjectGeneratedError(error) {
 
 /**
  * Env llm slice with artifactId from the process-start probe when loadConfig omits it.
+ * Exported for chat tool budgetState (stream callers historically omit budgetState).
  * @returns {{ baseUrl: string, modelId: string, contextCapacity: number, artifactId: string | null, apiKey: string | null, queueMaxConcurrency: number, runBudget: object }}
  */
-function loadLlmSliceForInference() {
+export function loadLlmSliceForInference() {
   const loaded = loadConfig().llm;
   const fromConfig = typeof loaded.artifactId === 'string' ? loaded.artifactId.trim() : '';
   return {

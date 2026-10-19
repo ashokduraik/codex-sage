@@ -435,10 +435,18 @@ describe('explore_code', () => {
   it('maps a string buildContext payload and ignores hits without a path', async () => {
     createCodegraphAdapter.mockReturnValueOnce({
       acquireReadLease: async () => ({ ok: true, lease: { graph: {}, release: () => {} } }),
-      buildContext: async () => 'relevant context about login',
+      buildContext: async () => '### src/hello.js\nexport const codexSageE2eHello = "hello";',
     });
     const stringed = await executeTool(toolInput('explore_code', { query: 'x' }));
-    expect(stringed.evidenceRecords[0].excerpt).toContain('relevant context');
+    expect(stringed.evidenceRecords[0].path).toBe('src/hello.js');
+    expect(stringed.evidenceRecords[0].excerpt).toContain('codexSageE2eHello');
+
+    createCodegraphAdapter.mockReturnValueOnce({
+      acquireReadLease: async () => ({ ok: true, lease: { graph: {}, release: () => {} } }),
+      buildContext: async () => 'relevant context about login with no file path',
+    });
+    const pathlessString = await executeTool(toolInput('explore_code', { query: 'x' }));
+    expect(pathlessString.evidenceRecords).toEqual([]);
 
     createCodegraphAdapter.mockReturnValueOnce({
       acquireReadLease: async () => ({ ok: true, lease: { graph: {}, release: () => {} } }),

@@ -18,7 +18,9 @@ import EvidenceItem from './EvidenceItem.jsx';
 export default function EvidenceList({ evidence, projectId, conversationId, onPreview }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
-  const items = Array.isArray(evidence) ? evidence.filter((row) => row && typeof row === 'object' && typeof row.path === 'string') : [];
+  const items = Array.isArray(evidence)
+    ? evidence.filter((row) => row && typeof row === 'object' && typeof row.path === 'string' && row.path.trim() !== '')
+    : [];
   if (items.length === 0) {
     return null;
   }

@@ -300,9 +300,9 @@ async function resumeClaimedQueuedMessage(input) {
       onStage: () => {},
       onDelta: () => {},
       onEvidence: () => {},
-      onDone: () => {
+      onDone: (payload) => {
         sawDone = true;
-        terminalStatus = 'completed';
+        terminalStatus = payload?.supportLevel === 'insufficient' ? 'abstained' : 'completed';
       },
       onError: () => {
         terminalStatus = 'failed';

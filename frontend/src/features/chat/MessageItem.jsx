@@ -8,10 +8,10 @@ import { useTranslation } from 'react-i18next';
 import { Textarea } from '@/shared/ui/textarea';
 import MetricsLine from '@/features/chat/MetricsLine.jsx';
 import EvidenceList from '@/features/chat/EvidenceList.jsx';
+import { ExecutionStatus } from '@/features/chat/ExecutionStatus.jsx';
 import { MarkdownRenderer, AbstainNotice } from '@/shared/components';
 import SupportLevelBanner from '@/features/chat/SupportLevelBanner.jsx';
 import { StreamingMarkdown } from '@/features/chat/StreamingMarkdown.jsx';
-import { ExecutionStatus } from '@/features/chat/ExecutionStatus.jsx';
 import { shortenKnowledgeVersionId } from '@/features/chat/utils/formatMessageMetrics.js';
 import { X, Ban, Check, Clock, Pencil, Loader2, RefreshCw, AlertTriangle } from 'lucide-react';
 
@@ -230,9 +230,12 @@ export function MessageItem({
             {!streaming && (isCompleted || isAbstained) ? (
               <SupportLevelBanner supportLevel={message.supportLevel} messageStatus={statusCode} />
             ) : null}
-            {isAbstained && typeof onRetry === 'function' ? <AbstainNotice missing={message.missing} onRetry={onRetry} onNarrow={onRetry} /> : null}
-            {isAbstained && typeof onRetry !== 'function' && !message.supportLevel ? (
-              <p className="mt-2 text-sm text-muted-foreground">{t('chat.statusAbstained')}</p>
+            {isAbstained ? (
+              <AbstainNotice
+                missing={message.missing}
+                onRetry={typeof onRetry === 'function' ? onRetry : undefined}
+                onNarrow={typeof onRetry === 'function' ? onRetry : undefined}
+              />
             ) : null}
             {(isFailed || isInterrupted) && !isAbstained && !streaming ? (
               <div className="mt-2 flex items-center gap-2">
