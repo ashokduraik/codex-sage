@@ -494,9 +494,9 @@ export async function inspectZip(input) {
 }
 
 /**
- * Consumes the zip archive part and sets request.body for idempotency hashing.
+ * Consumes multipart `projectId` + zip archive and sets request.body for ACL + idempotency.
  * Opt-in via route `config.consumeSourceArchive: true`.
- * Must run before the Phase 12 idempotency preHandler.
+ * Must run before the Phase 12 idempotency preHandler and project ACL (body carries projectId).
  * @param {import('fastify').FastifyRequest} request Incoming request.
  * @returns {Promise<void>}
  */
@@ -506,14 +506,44 @@ export async function consumeSourceArchivePreHandler(request) {
     return;
   }
 
-  if (typeof request.file !== 'function') {
+  if (typeof request.parts !== 'function') {
     throw ApiError.fromCode('VALIDATION_ERROR', {
       details: [{ path: ARCHIVE_FIELD_NAME, message: 'multipart archive is required' }],
     });
   }
 
-  const part = await request.file();
-  if (!part || part.fieldname !== ARCHIVE_FIELD_NAME) {
+  let projectId = null;
+  let archivePart = null;
+  for await (const part of request.parts()) {
+    if (part.type === 'file') {
+      if (part.fieldname === ARCHIVE_FIELD_NAME && !archivePart) {
+        archivePart = part;
+        // Drain the archive stream now so later parts can be read; keep buffer for the handler.
+        const buffer = await readPartWithinCap(part.file);
+        const contentSha256 = createHash(UPLOAD_HASH_ALGORITHM).update(buffer).digest('hex');
+        request.sourceUpload = {
+          buffer,
+          contentSha256,
+          filename: typeof part.filename === 'string' ? part.filename : null,
+        };
+      } else {
+        // Discard unexpected file parts so the multipart parser can finish.
+        part.file.resume();
+      }
+      continue;
+    }
+
+    if (part.fieldname === 'projectId' && typeof part.value === 'string') {
+      projectId = part.value;
+    }
+  }
+
+  if (!projectId) {
+    throw ApiError.fromCode('VALIDATION_ERROR', {
+      details: [{ path: 'projectId', message: 'projectId must be a valid ObjectId' }],
+    });
+  }
+  if (!archivePart || !request.sourceUpload) {
     throw ApiError.fromCode('VALIDATION_ERROR', {
       details: [
         {
@@ -524,16 +554,11 @@ export async function consumeSourceArchivePreHandler(request) {
     });
   }
 
-  const buffer = await readPartWithinCap(part.file);
-  const contentSha256 = createHash(UPLOAD_HASH_ALGORITHM).update(buffer).digest('hex');
-
-  request.sourceUpload = {
-    buffer,
-    contentSha256,
-    filename: typeof part.filename === 'string' ? part.filename : null,
+  // Stable JSON body: project ACL reads projectId; Phase 12 hashes archive identity.
+  request.body = {
+    projectId,
+    archiveSha256: request.sourceUpload.contentSha256,
   };
-  // Stable JSON body so Phase 12 hashes the archive identity, not an empty multipart body.
-  request.body = { archiveSha256: contentSha256 };
 
   /**
    * Collects a readable stream into a Buffer, enforcing the archive size cap.
@@ -867,7 +892,7 @@ export async function persistSourceUpload(input) {
 }
 
 /**
- * POST /knowledge/uploads/upload/:projectId — accept a source archive upload and enqueue ingest.
+ * POST /knowledge/uploads/upload — accept a source archive upload and enqueue ingest (projectId in multipart body).
  * @param {import('fastify').FastifyRequest} request Fastify request (archive consumed by pre-handler).
  * @param {import('fastify').FastifyReply} reply Fastify reply.
  * @returns {Promise<object>} 202 payload with source version and job ids.

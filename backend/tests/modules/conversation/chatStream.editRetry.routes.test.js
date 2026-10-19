@@ -184,13 +184,13 @@ describe('chatStream edit/retry routes', () => {
   async function postMessage(instance, accessToken, projectId, conversationId, opts = {}) {
     return instance.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/chatStream/streamMessage/${projectId}/${conversationId}`,
+      url: `${API_BASE_PATH}/conversation/chatStream/streamMessage`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         accept: 'text/event-stream',
         'idempotency-key': opts.idempotencyKey ?? `idem-send-${Date.now()}`,
       },
-      payload: opts.payload ?? { content: 'How does checkout work?' },
+      payload: { projectId, conversationId, ...(opts.payload ?? { content: 'How does checkout work?' }) },
     });
   }
 
@@ -205,13 +205,13 @@ describe('chatStream edit/retry routes', () => {
   async function postEdit(instance, accessToken, projectId, conversationId, messageId, opts = {}) {
     return instance.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/chatStream/editMessage/${projectId}/${conversationId}/${messageId}`,
+      url: `${API_BASE_PATH}/conversation/chatStream/editMessage`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         accept: opts.accept ?? 'text/event-stream',
         'idempotency-key': opts.idempotencyKey ?? `idem-edit-${Date.now()}`,
       },
-      payload: opts.payload ?? { content: 'Edited checkout question?' },
+      payload: { projectId, conversationId, messageId, ...(opts.payload ?? { content: 'Edited checkout question?' }) },
     });
   }
 
@@ -226,13 +226,13 @@ describe('chatStream edit/retry routes', () => {
   async function postRetry(instance, accessToken, projectId, conversationId, messageId, opts = {}) {
     return instance.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/chatStream/retryMessage/${projectId}/${conversationId}/${messageId}`,
+      url: `${API_BASE_PATH}/conversation/chatStream/retryMessage`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         accept: opts.accept ?? 'text/event-stream',
         'idempotency-key': opts.idempotencyKey ?? `idem-retry-${Date.now()}`,
       },
-      payload: {},
+      payload: { projectId, conversationId, messageId },
     });
   }
 
@@ -246,9 +246,9 @@ describe('chatStream edit/retry routes', () => {
 
     const created = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/conversation/create/${project.id}`,
+      url: `${API_BASE_PATH}/conversation/conversation/create`,
       headers: { authorization: `Bearer ${accessToken}`, 'idempotency-key': 'idem-edit-conv-1' },
-      payload: {},
+      payload: { projectId: project.id },
     });
     const conversationId = created.json().id;
 
@@ -309,9 +309,9 @@ describe('chatStream edit/retry routes', () => {
     await markProjectReady(project.id, org._id);
     const created = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/conversation/create/${project.id}`,
+      url: `${API_BASE_PATH}/conversation/conversation/create`,
       headers: { authorization: `Bearer ${accessToken}`, 'idempotency-key': 'idem-edit-conv-asst' },
-      payload: {},
+      payload: { projectId: project.id },
     });
     const conversationId = created.json().id;
     await postMessage(app, accessToken, project.id, conversationId, { idempotencyKey: 'idem-edit-send-asst' });
@@ -333,9 +333,9 @@ describe('chatStream edit/retry routes', () => {
     await markProjectReady(project.id, org._id);
     const created = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/conversation/create/${project.id}`,
+      url: `${API_BASE_PATH}/conversation/conversation/create`,
       headers: { authorization: `Bearer ${accessToken}`, 'idempotency-key': 'idem-edit-conv-inf' },
-      payload: {},
+      payload: { projectId: project.id },
     });
     const conversationId = created.json().id;
     await postMessage(app, accessToken, project.id, conversationId, { idempotencyKey: 'idem-edit-send-inf' });
@@ -367,9 +367,9 @@ describe('chatStream edit/retry routes', () => {
     await markProjectReady(project.id, org._id);
     const created = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/conversation/create/${project.id}`,
+      url: `${API_BASE_PATH}/conversation/conversation/create`,
       headers: { authorization: `Bearer ${accessToken}`, 'idempotency-key': 'idem-retry-conv-1' },
-      payload: {},
+      payload: { projectId: project.id },
     });
     const conversationId = created.json().id;
     await postMessage(app, accessToken, project.id, conversationId, {
@@ -411,9 +411,9 @@ describe('chatStream edit/retry routes', () => {
     await markProjectReady(project.id, org._id);
     const created = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/conversation/create/${project.id}`,
+      url: `${API_BASE_PATH}/conversation/conversation/create`,
       headers: { authorization: `Bearer ${accessToken}`, 'idempotency-key': 'idem-retry-conv-done' },
-      payload: {},
+      payload: { projectId: project.id },
     });
     const conversationId = created.json().id;
     await postMessage(app, accessToken, project.id, conversationId, { idempotencyKey: 'idem-retry-send-done' });
@@ -435,9 +435,9 @@ describe('chatStream edit/retry routes', () => {
     await markProjectReady(project.id, org._id);
     const created = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/conversation/create/${project.id}`,
+      url: `${API_BASE_PATH}/conversation/conversation/create`,
       headers: { authorization: `Bearer ${accessToken}`, 'idempotency-key': 'idem-edit-conv-idem' },
-      payload: {},
+      payload: { projectId: project.id },
     });
     const conversationId = created.json().id;
     await postMessage(app, accessToken, project.id, conversationId, { idempotencyKey: 'idem-edit-send-idem' });
@@ -469,9 +469,9 @@ describe('chatStream edit/retry routes', () => {
     const project = await createProject(app, accessToken, 'Edit Queued', 'idem-edit-proj-q');
     const created = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/conversation/create/${project.id}`,
+      url: `${API_BASE_PATH}/conversation/conversation/create`,
       headers: { authorization: `Bearer ${accessToken}`, 'idempotency-key': 'idem-edit-conv-q' },
-      payload: {},
+      payload: { projectId: project.id },
     });
     const conversationId = created.json().id;
     mockAssertKnowledgeReadable.mockResolvedValue({ action: 'queue', code: 'KNOWLEDGE_UPDATING' });

@@ -902,15 +902,19 @@ const projectIdParamsSchema = z.object({
   projectId: z.string().min(1),
 });
 
-const memberUserParamsSchema = z.object({
-  projectId: z.string().min(1),
-  userId: z.string().min(1),
-});
+// Body for removing a member: which project and which user.
+const removeMemberBodySchema = z
+  .object({
+    projectId: z.string().min(1),
+    userId: z.string().min(1),
+  })
+  .strict();
 
 const emptyQuerySchema = z.object({}).strict();
 
 const addBodySchema = z
   .object({
+    projectId: z.string().min(1),
     userId: z.string().min(1),
     roleId: z.string().min(1).nullable().optional(),
     permissions: z.array(z.string().min(1)).optional(),
@@ -973,15 +977,11 @@ export async function listProjectMembersHttp(request) {
 }
 
 /**
- * POST /masters/projectMembers/create/:projectId — add or update a project member.
+ * POST /masters/projectMembers/create — add or update a project member.
  * @param {import('fastify').FastifyRequest} request Request.
  * @param {import('fastify').FastifyReply} reply Reply.
  */
 export async function addProjectMemberHttp(request, reply) {
-  const params = projectIdParamsSchema.safeParse(request.params ?? {});
-  if (!params.success) {
-    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
-  }
   const parsed = addBodySchema.safeParse(request.body ?? {});
   if (!parsed.success) {
     throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
@@ -989,7 +989,7 @@ export async function addProjectMemberHttp(request, reply) {
   const ctx = serviceContext(request);
   const result = await addProjectMember({
     ...ctx,
-    projectId: params.data.projectId,
+    projectId: parsed.data.projectId,
     userId: parsed.data.userId,
     roleId: parsed.data.roleId,
     permissions: parsed.data.permissions,
@@ -998,20 +998,20 @@ export async function addProjectMemberHttp(request, reply) {
 }
 
 /**
- * DELETE /masters/projectMembers/delete/:projectId/:userId — remove a project member.
+ * DELETE /masters/projectMembers/delete — remove a project member.
  * @param {import('fastify').FastifyRequest} request Request.
  * @param {import('fastify').FastifyReply} reply Reply.
  */
 export async function removeProjectMemberHttp(request, reply) {
-  const params = memberUserParamsSchema.safeParse(request.params ?? {});
-  if (!params.success) {
-    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+  const parsed = removeMemberBodySchema.safeParse(request.body ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
   }
   const ctx = serviceContext(request);
   await removeProjectMember({
     ...ctx,
-    projectId: params.data.projectId,
-    userId: params.data.userId,
+    projectId: parsed.data.projectId,
+    userId: parsed.data.userId,
   });
   return reply.code(204).send();
 }

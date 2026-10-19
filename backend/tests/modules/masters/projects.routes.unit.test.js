@@ -78,8 +78,7 @@ describe('projects.routes unit edges', () => {
     await expect(
       updateProjectHttp({
         ...baseRequest(),
-        params: { projectId: 'p1' },
-        body: {},
+        body: { projectId: 'p1' },
       }),
     ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
   });
@@ -88,17 +87,26 @@ describe('projects.routes unit edges', () => {
     await expect(
       updateProjectSettingsHttp({
         ...baseRequest(),
-        params: { projectId: 'p1' },
-        body: { settings: 'nope' },
+        body: { projectId: 'p1', settings: 'nope' },
       }),
     ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
 
+    for (const handler of [getProjectSettingsHttp, getProjectDeletionPreviewHttp]) {
+      await expect(
+        handler(
+          {
+            ...baseRequest(),
+            params: { projectId: '' },
+          },
+          { code: () => ({ send: () => undefined }) },
+        ),
+      ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    }
+
     for (const handler of [
-      getProjectSettingsHttp,
       recordProjectAccessHttp,
       archiveProjectHttp,
       restoreProjectHttp,
-      getProjectDeletionPreviewHttp,
       deleteProjectHttp,
       updateProjectHttp,
       fillProjectDescriptionFromReadmeHttp,
@@ -107,7 +115,7 @@ describe('projects.routes unit edges', () => {
         handler(
           {
             ...baseRequest(),
-            params: { projectId: '' },
+            body: { projectId: '' },
           },
           { code: () => ({ send: () => undefined }) },
         ),
@@ -126,8 +134,7 @@ describe('projects.routes unit edges', () => {
     await expect(
       updateProjectSettingsHttp({
         ...baseRequest(),
-        params: { projectId: '' },
-        body: { settings: {} },
+        body: { projectId: '', settings: {} },
       }),
     ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
   });

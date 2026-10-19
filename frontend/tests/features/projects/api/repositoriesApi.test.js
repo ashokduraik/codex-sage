@@ -30,9 +30,9 @@ describe('repositoriesApi', () => {
       projectId: 'p1',
       repositoryUrl: 'https://github.com/acme/atlas',
     });
-    expect(apiRequest).toHaveBeenCalledWith('/knowledge/repositories/probe/p1', {
+    expect(apiRequest).toHaveBeenCalledWith('/knowledge/repositories/probe', {
       method: 'POST',
-      body: { repositoryUrl: 'https://github.com/acme/atlas' },
+      body: { projectId: 'p1', repositoryUrl: 'https://github.com/acme/atlas' },
       signal: undefined,
     });
   });
@@ -45,6 +45,7 @@ describe('repositoriesApi', () => {
       accessToken: 'tok',
     });
     expect(apiRequest.mock.calls[0][1].body).toEqual({
+      projectId: 'p1',
       repositoryUrl: 'https://github.com/acme/private',
       accessToken: 'tok',
     });
@@ -59,9 +60,10 @@ describe('repositoriesApi', () => {
       accessToken: 'tok',
       idempotencyKey: 'idem-1',
     });
-    expect(apiRequest).toHaveBeenCalledWith('/knowledge/repositories/attach/p1', {
+    expect(apiRequest).toHaveBeenCalledWith('/knowledge/repositories/attach', {
       method: 'POST',
       body: {
+        projectId: 'p1',
         repositoryUrl: 'https://github.com/acme/atlas',
         selectedBranch: 'main',
         accessToken: 'tok',
@@ -80,6 +82,7 @@ describe('repositoriesApi', () => {
       idempotencyKey: 'idem-2',
     });
     expect(apiRequest.mock.calls[0][1].body).toEqual({
+      projectId: 'p1',
       repositoryUrl: 'https://github.com/acme/atlas',
       selectedBranch: 'develop',
     });
@@ -97,21 +100,23 @@ describe('repositoriesApi', () => {
   it('replaces, revokes, and re-tests credentials on the shipped paths', async () => {
     apiRequest.mockResolvedValue({ connection: { id: 'c1' } });
     await replaceProjectRepositoryCredential({ projectId: 'p1', accessToken: 'tok' });
-    expect(apiRequest).toHaveBeenCalledWith('/knowledge/repositories/replaceCredential/p1', {
+    expect(apiRequest).toHaveBeenCalledWith('/knowledge/repositories/replaceCredential', {
       method: 'POST',
-      body: { accessToken: 'tok' },
+      body: { projectId: 'p1', accessToken: 'tok' },
       signal: undefined,
     });
     apiRequest.mockResolvedValue(undefined);
     await revokeProjectRepositoryCredential({ projectId: 'p1' });
-    expect(apiRequest).toHaveBeenCalledWith('/knowledge/repositories/revokeCredential/p1', {
+    expect(apiRequest).toHaveBeenCalledWith('/knowledge/repositories/revokeCredential', {
       method: 'POST',
+      body: { projectId: 'p1' },
       signal: undefined,
     });
     apiRequest.mockResolvedValue({ connectionStatus: 'connected' });
     await retestProjectRepositoryConnection({ projectId: 'p1' });
-    expect(apiRequest).toHaveBeenCalledWith('/knowledge/repositories/retestConnection/p1', {
+    expect(apiRequest).toHaveBeenCalledWith('/knowledge/repositories/retestConnection', {
       method: 'POST',
+      body: { projectId: 'p1' },
       signal: undefined,
     });
   });
@@ -121,8 +126,9 @@ describe('repositoriesApi', () => {
       job: { id: 'j1', jobType: 'connected_repo_pull', jobStatus: 'pending', scheduledAt: '2026-01-02T00:00:00.000Z' },
     });
     await syncProjectRepository({ projectId: 'p1', idempotencyKey: 'idem-sync' });
-    expect(apiRequest).toHaveBeenCalledWith('/knowledge/repositories/sync/p1', {
+    expect(apiRequest).toHaveBeenCalledWith('/knowledge/repositories/sync', {
       method: 'POST',
+      body: { projectId: 'p1' },
       idempotencyKey: 'idem-sync',
       signal: undefined,
     });

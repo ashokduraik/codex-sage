@@ -16,7 +16,8 @@ instead of doing that work inline.
   adapters, or worker handler + persistence). Overflow uses `resource.helper.js`
   then `resource.util.js` only after 1000 code lines (`file-colocation.mdc`).
 - **HTTP catalog:** every API path is registered only in `backend/src/http/route.js`
-  — path shape `/{module}/{file}/{action}/:ids…`, access via `withPublicAccess` /
+  — path shape `/{module}/{file}/{action}` (GET may append `/:ids…`); mutating methods
+  put resource ids in the body. Access via `withPublicAccess` /
   `withAuthenticatedAccess` / `withRequiredPermissions` / `withProjectAccess`,
   product-named `*Http` handlers from module barrels. Full rules: `http-routes.mdc`.
   Do not add per-resource `*Routes` plugins.
@@ -37,13 +38,13 @@ instead of doing that work inline.
 
 ```js
 // ❌ BAD: blocking heavy work in a request handler
-app.post('/knowledge/uploads/upload/:projectId', async (req, res) => {
+app.post('/knowledge/uploads/upload', async (req, res) => {
   await ingestAndIndex(req.body); // minutes of work
   res.send('done');
 });
 
 // ✅ GOOD: enqueue and return immediately (catalog wires uploadProjectSourceHttp)
-app.post('/knowledge/uploads/upload/:projectId', async (req, res) => {
+app.post('/knowledge/uploads/upload', async (req, res) => {
   const source = await sources.attach(req.body); // fast CRUD
   await queue.enqueue('ingest', { sourceId: source.id });
   res.status(202).json({ sourceId: source.id, status: 'processing' });

@@ -160,52 +160,52 @@ export async function registerRoutes(app) {
   app.post('/masters/users/create', withRequiredPermissions('users.manage', true), createUserHttp);
   app.get('/masters/users/list', withRequiredPermissions('users.manage'), listUsersHttp);
   app.get('/masters/users/get/:userId', withRequiredPermissions('users.manage'), getUserHttp);
-  app.patch('/masters/users/update/:userId', withRequiredPermissions('users.manage'), updateUserHttp);
-  app.post('/masters/users/activate/:userId', withRequiredPermissions('users.manage'), activateUserHttp);
-  app.post('/masters/users/deactivate/:userId', withRequiredPermissions('users.manage'), deactivateUserHttp);
-  app.delete('/masters/users/delete/:userId', withRequiredPermissions('users.manage'), deleteUserHttp);
-  app.put('/masters/users/replaceRoles/:userId', withRequiredPermissions(['users.manage', 'roles.manage']), replaceUserRolesHttp);
-  app.post('/masters/users/resetPassword/:userId', withRequiredPermissions('users.manage'), resetUserPasswordHttp);
+  app.patch('/masters/users/update', withRequiredPermissions('users.manage'), updateUserHttp);
+  app.post('/masters/users/activate', withRequiredPermissions('users.manage'), activateUserHttp);
+  app.post('/masters/users/deactivate', withRequiredPermissions('users.manage'), deactivateUserHttp);
+  app.delete('/masters/users/delete', withRequiredPermissions('users.manage'), deleteUserHttp);
+  app.put('/masters/users/replaceRoles', withRequiredPermissions(['users.manage', 'roles.manage']), replaceUserRolesHttp);
+  app.post('/masters/users/resetPassword', withRequiredPermissions('users.manage'), resetUserPasswordHttp);
 
   // roles.js
 
   app.get('/masters/roles/list', withRequiredPermissions('roles.manage'), listRolesHttp);
   app.post('/masters/roles/create', withRequiredPermissions('roles.manage'), createRoleHttp);
-  app.patch('/masters/roles/update/:roleId', withRequiredPermissions('roles.manage'), updateRoleHttp);
-  app.delete('/masters/roles/delete/:roleId', withRequiredPermissions('roles.manage'), deleteRoleHttp);
+  app.patch('/masters/roles/update', withRequiredPermissions('roles.manage'), updateRoleHttp);
+  app.delete('/masters/roles/delete', withRequiredPermissions('roles.manage'), deleteRoleHttp);
 
   // projects.js
 
   app.post('/masters/projects/create', withRequiredPermissions('projects.create', true), createProjectHttp);
   app.get('/masters/projects/list', withRequiredPermissions('projects.view'), listProjectsHttp);
   app.get('/masters/projects/get/:projectId', withProjectAccess('projects.view'), getProjectHttp);
-  app.post('/masters/projects/recordAccess/:projectId', withProjectAccess('projects.view'), recordProjectAccessHttp);
-  app.patch('/masters/projects/update/:projectId', withProjectAccess('projects.update'), updateProjectHttp);
-  app.post('/masters/projects/fillDescriptionFromReadme/:projectId', withProjectAccess('projects.update'), fillProjectDescriptionFromReadmeHttp);
+  app.post('/masters/projects/recordAccess', withProjectAccess('projects.view'), recordProjectAccessHttp);
+  app.patch('/masters/projects/update', withProjectAccess('projects.update'), updateProjectHttp);
+  app.post('/masters/projects/fillDescriptionFromReadme', withProjectAccess('projects.update'), fillProjectDescriptionFromReadmeHttp);
   app.get('/masters/projects/getSettings/:projectId', withProjectAccess('settings.manage'), getProjectSettingsHttp);
-  app.patch('/masters/projects/updateSettings/:projectId', withProjectAccess('settings.manage'), updateProjectSettingsHttp);
-  app.post('/masters/projects/archive/:projectId', withProjectAccess('projects.update'), archiveProjectHttp);
-  app.post('/masters/projects/restore/:projectId', withProjectAccess('projects.update'), restoreProjectHttp);
+  app.patch('/masters/projects/updateSettings', withProjectAccess('settings.manage'), updateProjectSettingsHttp);
+  app.post('/masters/projects/archive', withProjectAccess('projects.update'), archiveProjectHttp);
+  app.post('/masters/projects/restore', withProjectAccess('projects.update'), restoreProjectHttp);
   app.get('/masters/projects/getDeletionPreview/:projectId', withProjectAccess('projects.delete'), getProjectDeletionPreviewHttp);
-  app.delete('/masters/projects/delete/:projectId', withProjectAccess('projects.delete'), deleteProjectHttp);
+  app.delete('/masters/projects/delete', withProjectAccess('projects.delete'), deleteProjectHttp);
 
   // projectMembers.js
 
   app.get('/masters/projectMembers/list/:projectId', withProjectAccess(['projects.update', 'users.manage']), listProjectMembersHttp);
-  app.post('/masters/projectMembers/create/:projectId', withProjectAccess(['projects.update', 'users.manage']), addProjectMemberHttp);
-  app.delete('/masters/projectMembers/delete/:projectId/:userId', withProjectAccess(['projects.update', 'users.manage']), removeProjectMemberHttp);
+  app.post('/masters/projectMembers/create', withProjectAccess(['projects.update', 'users.manage']), addProjectMemberHttp);
+  app.delete('/masters/projectMembers/delete', withProjectAccess(['projects.update', 'users.manage']), removeProjectMemberHttp);
 
   // jobs.js
 
-  app.post('/masters/jobs/retry/:jobId', withAuthenticatedAccess(false, true), retryJobHttp);
-  app.post('/masters/jobs/cancel/:jobId', withAuthenticatedAccess(), cancelJobHttp);
+  app.post('/masters/jobs/retry', withAuthenticatedAccess(false, true), retryJobHttp);
+  app.post('/masters/jobs/cancel', withAuthenticatedAccess(), cancelJobHttp);
   app.get('/masters/jobs/list/:projectId', withProjectAccess('projects.view'), listProjectJobsHttp);
   app.get('/masters/jobs/get/:jobId', withAuthenticatedAccess(), getJobHttp);
 
   // notifications.js
 
   app.get('/masters/notifications/list', withRequiredPermissions('notifications.view'), listNotificationsHttp);
-  app.post('/masters/notifications/markRead/:notificationId', withRequiredPermissions('notifications.view'), markNotificationReadHttp);
+  app.post('/masters/notifications/markRead', withRequiredPermissions('notifications.view'), markNotificationReadHttp);
   app.post('/masters/notifications/markAllRead', withRequiredPermissions('notifications.view'), markAllNotificationsReadHttp);
 
   // projectActivities.js (usage)
@@ -224,12 +224,12 @@ export async function registerRoutes(app) {
 
   // uploads.js
 
-  app.post('/knowledge/uploads/upload/:projectId', withProjectAccess('sources.upload', true, true), uploadProjectSourceHttp);
+  app.post('/knowledge/uploads/upload', withProjectAccess('sources.upload', true, true), uploadProjectSourceHttp);
 
   // sources.js
 
   app.get('/knowledge/sources/listVersions/:projectId', withProjectAccess('projects.view'), listProjectSourceVersionsHttp);
-  app.post('/knowledge/sources/reingest/:projectId/:sourceVersionId', withProjectAccess('knowledge.trigger', true), reingestSourceHttp);
+  app.post('/knowledge/sources/reingest', withProjectAccess('knowledge.trigger', true), reingestSourceHttp);
 
   // sourcePreview.js
 
@@ -242,14 +242,14 @@ export async function registerRoutes(app) {
 
   // repositories.js
 
-  app.post('/knowledge/repositories/probe/:projectId', withProjectAccess('repos.connect'), probeRepositoryHttp);
-  app.post('/knowledge/repositories/attach/:projectId', withProjectAccess('repos.connect', true), attachRepositoryHttp);
-  app.post('/knowledge/repositories/sync/:projectId', withProjectAccess('repos.connect', true), syncRepositoryHttp);
+  app.post('/knowledge/repositories/probe', withProjectAccess('repos.connect'), probeRepositoryHttp);
+  app.post('/knowledge/repositories/attach', withProjectAccess('repos.connect', true), attachRepositoryHttp);
+  app.post('/knowledge/repositories/sync', withProjectAccess('repos.connect', true), syncRepositoryHttp);
   app.get('/knowledge/repositories/getConnection/:projectId', withProjectAccess(['projects.view', 'repos.connect']), getRepositoryConnectionHttp);
-  app.patch('/knowledge/repositories/updateBranch/:projectId', withProjectAccess('repos.connect'), updateRepositoryBranchHttp);
-  app.post('/knowledge/repositories/replaceCredential/:projectId', withProjectAccess('repos.connect'), replaceRepositoryCredentialHttp);
-  app.post('/knowledge/repositories/revokeCredential/:projectId', withProjectAccess('repos.connect'), revokeRepositoryCredentialHttp);
-  app.post('/knowledge/repositories/retestConnection/:projectId', withProjectAccess('repos.connect'), retestRepositoryConnectionHttp);
+  app.patch('/knowledge/repositories/updateBranch', withProjectAccess('repos.connect'), updateRepositoryBranchHttp);
+  app.post('/knowledge/repositories/replaceCredential', withProjectAccess('repos.connect'), replaceRepositoryCredentialHttp);
+  app.post('/knowledge/repositories/revokeCredential', withProjectAccess('repos.connect'), revokeRepositoryCredentialHttp);
+  app.post('/knowledge/repositories/retestConnection', withProjectAccess('repos.connect'), retestRepositoryConnectionHttp);
 
   // knowledge.js
 
@@ -274,33 +274,25 @@ export async function registerRoutes(app) {
 
   // conversation.js
 
-  app.post('/conversation/conversation/create/:projectId', withProjectAccess('chat.ask', true), createConversationHttp);
+  app.post('/conversation/conversation/create', withProjectAccess('chat.ask', true), createConversationHttp);
   app.get('/conversation/conversation/list/:projectId', withProjectAccess('chat.ask'), listConversationsHttp);
   app.get('/conversation/conversation/search/:projectId', withProjectAccess('conversations.search'), searchConversationsHttp);
   app.get('/conversation/conversation/get/:projectId/:conversationId', withProjectAccess('chat.ask'), getConversationHttp);
   app.get('/conversation/conversation/listMessages/:projectId/:conversationId', withProjectAccess('chat.ask'), listConversationMessagesHttp);
-  app.patch('/conversation/conversation/rename/:projectId/:conversationId', withProjectAccess('chat.ask'), renameConversationHttp);
-  app.post('/conversation/conversation/archive/:projectId/:conversationId', withProjectAccess('conversations.archive'), archiveConversationHttp);
-  app.post('/conversation/conversation/restore/:projectId/:conversationId', withProjectAccess('conversations.archive'), restoreConversationHttp);
-  app.delete('/conversation/conversation/delete/:projectId/:conversationId', withProjectAccess('conversations.archive'), deleteConversationHttp);
+  app.patch('/conversation/conversation/rename', withProjectAccess('chat.ask'), renameConversationHttp);
+  app.post('/conversation/conversation/archive', withProjectAccess('conversations.archive'), archiveConversationHttp);
+  app.post('/conversation/conversation/restore', withProjectAccess('conversations.archive'), restoreConversationHttp);
+  app.delete('/conversation/conversation/delete', withProjectAccess('conversations.archive'), deleteConversationHttp);
 
   // chatStream.js
 
-  app.post('/conversation/chatStream/streamMessage/:projectId/:conversationId', withProjectAccess('chat.ask', true), streamConversationMessageHttp);
-  app.post(
-    '/conversation/chatStream/editMessage/:projectId/:conversationId/:messageId',
-    withProjectAccess('chat.ask', true),
-    editConversationMessageHttp,
-  );
-  app.post(
-    '/conversation/chatStream/retryMessage/:projectId/:conversationId/:messageId',
-    withProjectAccess('chat.ask', true),
-    retryConversationMessageHttp,
-  );
+  app.post('/conversation/chatStream/streamMessage', withProjectAccess('chat.ask', true), streamConversationMessageHttp);
+  app.post('/conversation/chatStream/editMessage', withProjectAccess('chat.ask', true), editConversationMessageHttp);
+  app.post('/conversation/chatStream/retryMessage', withProjectAccess('chat.ask', true), retryConversationMessageHttp);
 
   // clarification.js
 
-  app.post('/conversation/clarification/answer/:projectId', withProjectAccess('chat.ask', true), answerClarificationHttp);
+  app.post('/conversation/clarification/answer', withProjectAccess('chat.ask', true), answerClarificationHttp);
 
   // conversationContext.js
 

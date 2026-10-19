@@ -186,7 +186,8 @@ describe('projects.routes', () => {
 
     const archiveRes = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/masters/projects/archive/${ids[0]}`,
+      url: `${API_BASE_PATH}/masters/projects/archive`,
+      payload: { projectId: ids[0] },
       headers,
     });
     expect(archiveRes.statusCode).toBe(200);
@@ -208,7 +209,8 @@ describe('projects.routes', () => {
 
     const restoreRes = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/masters/projects/restore/${ids[0]}`,
+      url: `${API_BASE_PATH}/masters/projects/restore`,
+      payload: { projectId: ids[0] },
       headers,
     });
     expect(restoreRes.statusCode).toBe(200);
@@ -216,9 +218,9 @@ describe('projects.routes', () => {
 
     const badPatch = await app.inject({
       method: 'PATCH',
-      url: `${API_BASE_PATH}/masters/projects/update/${ids[1]}`,
+      url: `${API_BASE_PATH}/masters/projects/update`,
       headers,
-      payload: { lifecycleStatus: 'knowledge_ready' },
+      payload: { projectId: ids[1], lifecycleStatus: 'knowledge_ready' },
     });
     expect(badPatch.statusCode).toBe(400);
     expect(badPatch.json().error.code).toBe('VALIDATION_ERROR');
@@ -226,33 +228,34 @@ describe('projects.routes', () => {
 
     const goodPatch = await app.inject({
       method: 'PATCH',
-      url: `${API_BASE_PATH}/masters/projects/update/${ids[1]}`,
+      url: `${API_BASE_PATH}/masters/projects/update`,
       headers,
-      payload: { name: 'Renamed', description: 'updated' },
+      payload: { projectId: ids[1], name: 'Renamed', description: 'updated' },
     });
     expect(goodPatch.statusCode).toBe(200);
     expect(goodPatch.json().name).toBe('Renamed');
 
     const badSettings = await app.inject({
       method: 'PATCH',
-      url: `${API_BASE_PATH}/masters/projects/updateSettings/${ids[1]}`,
+      url: `${API_BASE_PATH}/masters/projects/updateSettings`,
       headers,
-      payload: { settings: { mystery: 1 } },
+      payload: { projectId: ids[1], settings: { mystery: 1 } },
     });
     expect(badSettings.statusCode).toBe(400);
     expect(badSettings.json().error.code).toBe('UNKNOWN_SETTING');
 
     const emptySettings = await app.inject({
       method: 'PATCH',
-      url: `${API_BASE_PATH}/masters/projects/updateSettings/${ids[1]}`,
+      url: `${API_BASE_PATH}/masters/projects/updateSettings`,
       headers,
-      payload: { settings: {} },
+      payload: { projectId: ids[1], settings: {} },
     });
     expect(emptySettings.statusCode).toBe(200);
 
     const accessRes = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/masters/projects/recordAccess/${ids[0]}`,
+      url: `${API_BASE_PATH}/masters/projects/recordAccess`,
+      payload: { projectId: ids[0] },
       headers,
     });
     expect(accessRes.statusCode).toBe(200);
@@ -277,7 +280,8 @@ describe('projects.routes', () => {
 
     const del = await app.inject({
       method: 'DELETE',
-      url: `${API_BASE_PATH}/masters/projects/delete/${ids[1]}`,
+      url: `${API_BASE_PATH}/masters/projects/delete`,
+      payload: { projectId: ids[1] },
       headers,
     });
     expect(del.statusCode).toBe(204);
@@ -316,9 +320,9 @@ describe('projects.routes', () => {
 
     const patchRes = await app.inject({
       method: 'PATCH',
-      url: `${API_BASE_PATH}/masters/projects/update/${foreignId}`,
+      url: `${API_BASE_PATH}/masters/projects/update`,
       headers: { authorization: `Bearer ${accessToken}` },
-      payload: { name: 'X' },
+      payload: { projectId: foreignId, name: 'X' },
     });
     expect(patchRes.statusCode).toBe(404);
   });

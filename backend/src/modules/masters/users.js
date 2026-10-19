@@ -1067,6 +1067,7 @@ const createUserBodySchema = z
 
 const patchUserBodySchema = z
   .object({
+    userId: objectIdStringSchema,
     email: z.string().email().max(320).optional(),
     displayName: z.string().trim().min(1).max(120).optional(),
     roleIds: roleIdsSchema.optional(),
@@ -1080,7 +1081,7 @@ const patchUserBodySchema = z
     },
   );
 
-const replaceRolesBodySchema = z.object({ roleIds: roleIdsSchema }).strict();
+const replaceRolesBodySchema = z.object({ userId: objectIdStringSchema, roleIds: roleIdsSchema }).strict();
 
 const listUsersQuerySchema = z
   .object({
@@ -1094,7 +1095,10 @@ const listUsersQuerySchema = z
 
 const userIdParamsSchema = z.object({ userId: objectIdStringSchema });
 
-const resetBodySchema = z.object({ newPassword: z.string().min(1).max(1024) }).strict();
+// Body for mutating admin actions that only need the target user (activate, deactivate, delete).
+const userIdBodySchema = z.object({ userId: objectIdStringSchema }).strict();
+
+const resetBodySchema = z.object({ userId: objectIdStringSchema, newPassword: z.string().min(1).max(1024) }).strict();
 
 /**
  * Maps zod issues to VALIDATION_ERROR details.
@@ -1176,14 +1180,10 @@ export async function getUserHttp(request) {
 }
 
 /**
- * PATCH /masters/users/update/:userId — update user profile and roles (admin).
+ * PATCH /masters/users/update — update user profile and roles (admin). Target `userId` is in the body.
  * @param {import('fastify').FastifyRequest} request Request.
  */
 export async function updateUserHttp(request) {
-  const params = userIdParamsSchema.safeParse(request.params ?? {});
-  if (!params.success) {
-    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
-  }
   const parsed = patchUserBodySchema.safeParse(request.body ?? {});
   if (!parsed.success) {
     throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
@@ -1191,7 +1191,7 @@ export async function updateUserHttp(request) {
   const ctx = serviceContext(request);
   return updateUserDetails({
     ...ctx,
-    targetUserId: params.data.userId,
+    targetUserId: parsed.data.userId,
     displayName: parsed.data.displayName,
     email: parsed.data.email,
     roleIds: parsed.data.roleIds,
@@ -1200,55 +1200,51 @@ export async function updateUserHttp(request) {
 }
 
 /**
- * POST /masters/users/activate/:userId — re-enable a disabled user (admin).
+ * POST /masters/users/activate — re-enable a disabled user (admin). Target `userId` is in the body.
  * @param {import('fastify').FastifyRequest} request Request.
  */
 export async function activateUserHttp(request) {
-  const params = userIdParamsSchema.safeParse(request.params ?? {});
-  if (!params.success) {
-    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+  const parsed = userIdBodySchema.safeParse(request.body ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
   }
   const ctx = serviceContext(request);
-  return activateUser({ ...ctx, targetUserId: params.data.userId });
+  return activateUser({ ...ctx, targetUserId: parsed.data.userId });
 }
 
 /**
- * POST /masters/users/deactivate/:userId — disable a user (admin).
+ * POST /masters/users/deactivate — disable a user (admin). Target `userId` is in the body.
  * @param {import('fastify').FastifyRequest} request Request.
  */
 export async function deactivateUserHttp(request) {
-  const params = userIdParamsSchema.safeParse(request.params ?? {});
-  if (!params.success) {
-    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+  const parsed = userIdBodySchema.safeParse(request.body ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
   }
   const ctx = serviceContext(request);
-  return deactivateUser({ ...ctx, targetUserId: params.data.userId });
+  return deactivateUser({ ...ctx, targetUserId: parsed.data.userId });
 }
 
 /**
- * DELETE /masters/users/delete/:userId — soft-delete a user (admin).
+ * DELETE /masters/users/delete — soft-delete a user (admin). Target `userId` is in the body.
  * @param {import('fastify').FastifyRequest} request Request.
  * @param {import('fastify').FastifyReply} reply Reply.
  */
 export async function deleteUserHttp(request, reply) {
-  const params = userIdParamsSchema.safeParse(request.params ?? {});
-  if (!params.success) {
-    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+  const parsed = userIdBodySchema.safeParse(request.body ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
   }
   const ctx = serviceContext(request);
-  await removeUser({ ...ctx, targetUserId: params.data.userId });
+  await removeUser({ ...ctx, targetUserId: parsed.data.userId });
   return reply.code(204).send();
 }
 
 /**
- * PUT /masters/users/replaceRoles/:userId — replace a user's role assignments (admin).
+ * PUT /masters/users/replaceRoles — replace a user's role assignments (admin). Target `userId` is in the body.
  * @param {import('fastify').FastifyRequest} request Request.
  */
 export async function replaceUserRolesHttp(request) {
-  const params = userIdParamsSchema.safeParse(request.params ?? {});
-  if (!params.success) {
-    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
-  }
   const parsed = replaceRolesBodySchema.safeParse(request.body ?? {});
   if (!parsed.success) {
     throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
@@ -1256,20 +1252,16 @@ export async function replaceUserRolesHttp(request) {
   const ctx = serviceContext(request);
   return replaceUserRoles({
     ...ctx,
-    targetUserId: params.data.userId,
+    targetUserId: parsed.data.userId,
     roleIds: parsed.data.roleIds,
   });
 }
 
 /**
- * POST /masters/users/resetPassword/:userId — admin-set password with audit (admin).
+ * POST /masters/users/resetPassword — admin-set password with audit (admin). Target `userId` is in the body.
  * @param {import('fastify').FastifyRequest} request Request.
  */
 export async function resetUserPasswordHttp(request) {
-  const params = userIdParamsSchema.safeParse(request.params ?? {});
-  if (!params.success) {
-    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
-  }
   const parsed = resetBodySchema.safeParse(request.body ?? {});
   if (!parsed.success) {
     throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
@@ -1285,7 +1277,7 @@ export async function resetUserPasswordHttp(request) {
     {
       orgId: principal.orgId,
       actorUserId: principal.userId,
-      targetUserId: params.data.userId,
+      targetUserId: parsed.data.userId,
       newPassword: parsed.data.newPassword,
     },
     { log: request.log },
@@ -1308,7 +1300,7 @@ export async function resetUserPasswordHttp(request) {
       actorUserId: principal.userId,
       action: 'user.password_set_by_admin',
       resourceType: 'user',
-      resourceId: String(result.userId ?? params.data.userId),
+      resourceId: String(result.userId ?? parsed.data.userId),
       result: 'success',
       context: { reason: 'admin_set', sessionsRevoked: true },
     },

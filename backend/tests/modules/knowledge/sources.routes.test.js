@@ -124,12 +124,12 @@ describe('source project_knowledge_rebuild routes', () => {
 
     const first = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/knowledge/sources/reingest/${projectId}/${sourceVersionId}`,
+      url: `${API_BASE_PATH}/knowledge/sources/reingest`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': 'idem-project_knowledge_rebuild-happy-1',
       },
-      payload: {},
+      payload: { projectId, sourceVersionId },
     });
     expect(first.statusCode).toBe(202);
     expect(first.json()).toMatchObject({
@@ -139,12 +139,12 @@ describe('source project_knowledge_rebuild routes', () => {
 
     const replay = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/knowledge/sources/reingest/${projectId}/${sourceVersionId}`,
+      url: `${API_BASE_PATH}/knowledge/sources/reingest`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': 'idem-project_knowledge_rebuild-happy-1',
       },
-      payload: {},
+      payload: { projectId, sourceVersionId },
     });
     expect(replay.statusCode).toBe(202);
     expect(replay.json().jobId).toBe(first.json().jobId);
@@ -175,12 +175,12 @@ describe('source project_knowledge_rebuild routes', () => {
 
     const res = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/knowledge/sources/reingest/${projectId}/${otherVersionId}`,
+      url: `${API_BASE_PATH}/knowledge/sources/reingest`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': 'idem-project_knowledge_rebuild-404-1',
       },
-      payload: {},
+      payload: { projectId, sourceVersionId: otherVersionId },
     });
     expect(res.statusCode).toBe(404);
     expect(res.json().error.code).toBe('SOURCE_VERSION_NOT_FOUND');
@@ -234,12 +234,12 @@ describe('source project_knowledge_rebuild routes', () => {
     const { accessToken: viewerToken } = await login(app, 'viewer-project_knowledge_rebuild@example.com', 'ViewerPass1!');
     const res = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/knowledge/sources/reingest/${projectId}/${sourceVersionId}`,
+      url: `${API_BASE_PATH}/knowledge/sources/reingest`,
       headers: {
         authorization: `Bearer ${viewerToken}`,
         'idempotency-key': 'idem-project_knowledge_rebuild-forbidden-1',
       },
-      payload: {},
+      payload: { projectId, sourceVersionId },
     });
     expect(res.statusCode).toBe(403);
     expect(res.json().error.code).toBe('FORBIDDEN');

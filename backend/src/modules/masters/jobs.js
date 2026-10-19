@@ -85,8 +85,8 @@ export function zodDetails(error, emptyPath = 'query') {
 }
 
 /**
- * Parses and validates `:jobId` route params.
- * @param {unknown} params Fastify request.params.
+ * Parses and validates the `jobId` field of the object it is given (request.body for retry/cancel).
+ * @param {unknown} params Object holding `jobId` (Fastify request.body for mutating job-control routes).
  * @returns {{ jobId: string }}
  * @throws {ApiError} VALIDATION_ERROR when invalid.
  */
@@ -99,12 +99,12 @@ export function parseJobControlParams(params) {
 }
 
 /**
- * POST /masters/jobs/retry/:jobId — user-initiated job retry.
+ * POST /masters/jobs/retry — user-initiated job retry.
  * @param {import('fastify').FastifyRequest} request Request.
  * @param {import('fastify').FastifyReply} reply Reply.
  */
 export async function retryJobHttp(request, reply) {
-  const params = parseJobControlParams(request.params);
+  const params = parseJobControlParams(request.body);
   if (!request.projectAclMemo) {
     request.projectAclMemo = new Map();
   }
@@ -116,12 +116,12 @@ export async function retryJobHttp(request, reply) {
 }
 
 /**
- * POST /masters/jobs/cancel/:jobId — user-initiated job cancel.
+ * POST /masters/jobs/cancel — user-initiated job cancel.
  * @param {import('fastify').FastifyRequest} request Request.
  * @param {import('fastify').FastifyReply} reply Reply.
  */
 export async function cancelJobHttp(request, reply) {
-  const params = parseJobControlParams(request.params);
+  const params = parseJobControlParams(request.body);
   if (!request.projectAclMemo) {
     request.projectAclMemo = new Map();
   }

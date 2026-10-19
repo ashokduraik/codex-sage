@@ -128,10 +128,10 @@ describe('adminIdentityApi', () => {
     await patchUser('u1', { roleIds: ['r2', 'r3'] });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      `${API_BASE_URL}/masters/users/update/u1`,
+      `${API_BASE_URL}/masters/users/update`,
       expect.objectContaining({
         method: 'PATCH',
-        body: JSON.stringify({ roleIds: ['r2', 'r3'] }),
+        body: JSON.stringify({ userId: 'u1', roleIds: ['r2', 'r3'] }),
       }),
     );
   });
@@ -147,10 +147,13 @@ describe('adminIdentityApi', () => {
     await deactivateUser('u1');
     await removeUser('u1');
 
-    expect(fetchMock.mock.calls[0][0]).toBe(`${API_BASE_URL}/masters/users/activate/u1`);
-    expect(fetchMock.mock.calls[1][0]).toBe(`${API_BASE_URL}/masters/users/deactivate/u1`);
-    expect(fetchMock.mock.calls[2][0]).toBe(`${API_BASE_URL}/masters/users/delete/u1`);
+    expect(fetchMock.mock.calls[0][0]).toBe(`${API_BASE_URL}/masters/users/activate`);
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ userId: 'u1' });
+    expect(fetchMock.mock.calls[1][0]).toBe(`${API_BASE_URL}/masters/users/deactivate`);
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ userId: 'u1' });
+    expect(fetchMock.mock.calls[2][0]).toBe(`${API_BASE_URL}/masters/users/delete`);
     expect(fetchMock.mock.calls[2][1].method).toBe('DELETE');
+    expect(JSON.parse(fetchMock.mock.calls[2][1].body)).toEqual({ userId: 'u1' });
   });
 
   it('resetUserPassword sends newPassword and never expects it in the response', async () => {
@@ -170,6 +173,7 @@ describe('adminIdentityApi', () => {
     expect(result.passwordResetStatus).toBe('completed');
     expect(result).not.toHaveProperty('newPassword');
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      userId: 'u1',
       newPassword: 'SuperSecret1!',
     });
     expect(fetchMock.mock.calls[0][1].headers['Idempotency-Key']).toBe('idem-reset-1');
@@ -263,7 +267,7 @@ describe('adminIdentityApi', () => {
     );
   });
 
-  it('patchRole and removeRole call the role id path', async () => {
+  it('patchRole and removeRole send the role id in the body', async () => {
     const fetchMock = /** @type {ReturnType<typeof vi.fn>} */ (fetch);
     fetchMock
       .mockResolvedValueOnce(jsonResponse({ status: 200, body: { id: 'r1', name: 'X' } }))
@@ -272,9 +276,11 @@ describe('adminIdentityApi', () => {
     await patchRole('r1', { name: 'X' });
     await removeRole('r1');
 
-    expect(String(fetchMock.mock.calls[0][0])).toBe(`${API_BASE_URL}/masters/roles/update/r1`);
+    expect(String(fetchMock.mock.calls[0][0])).toBe(`${API_BASE_URL}/masters/roles/update`);
     expect(fetchMock.mock.calls[0][1].method).toBe('PATCH');
-    expect(String(fetchMock.mock.calls[1][0])).toBe(`${API_BASE_URL}/masters/roles/delete/r1`);
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ roleId: 'r1', name: 'X' });
+    expect(String(fetchMock.mock.calls[1][0])).toBe(`${API_BASE_URL}/masters/roles/delete`);
     expect(fetchMock.mock.calls[1][1].method).toBe('DELETE');
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ roleId: 'r1' });
   });
 });

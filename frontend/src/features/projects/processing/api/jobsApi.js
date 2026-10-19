@@ -207,8 +207,9 @@ export async function getJob(jobId, options = {}) {
  * @returns {Promise<JobRetryResult>}
  */
 export async function retryJob(input) {
-  return apiRequest(`/masters/jobs/retry/${encodeURIComponent(input.jobId)}`, {
+  return apiRequest('/masters/jobs/retry', {
     method: 'POST',
+    body: { jobId: input.jobId },
     idempotencyKey: input.idempotencyKey,
     signal: input.signal,
   });
@@ -223,8 +224,9 @@ export async function retryJob(input) {
  * @returns {Promise<JobCancelResult>}
  */
 export async function cancelJob(input) {
-  return apiRequest(`/masters/jobs/cancel/${encodeURIComponent(input.jobId)}`, {
+  return apiRequest('/masters/jobs/cancel', {
     method: 'POST',
+    body: { jobId: input.jobId },
     signal: input.signal,
   });
 }

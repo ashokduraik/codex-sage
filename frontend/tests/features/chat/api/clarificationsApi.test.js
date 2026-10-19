@@ -55,10 +55,11 @@ describe('clarificationsApi', () => {
     expect(result.terminal).toBe('done');
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toContain('/conversation/clarification/answer/p1');
+    expect(url).toMatch(/\/conversation\/clarification\/answer$/);
     expect(init.headers.Accept).toBe('text/event-stream');
     expect(init.headers['Idempotency-Key']).toBe('idem-1');
     expect(JSON.parse(init.body)).toEqual({
+      projectId: 'p1',
       conversationId: 'c1',
       messageId: 'msg_1',
       clarificationSetId: 'clr_1',

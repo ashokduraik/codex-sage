@@ -199,9 +199,9 @@ export async function createProject(input) {
  * @returns {Promise<ProjectDto>}
  */
 export async function patchProject(projectId, patch) {
-  return apiRequest(`/masters/projects/update/${encodeURIComponent(projectId)}`, {
+  return apiRequest('/masters/projects/update', {
     method: 'PATCH',
-    body: patch,
+    body: { projectId, ...patch },
   });
 }
 
@@ -211,8 +211,9 @@ export async function patchProject(projectId, patch) {
  * @returns {Promise<ProjectDto>}
  */
 export async function fillProjectDescriptionFromReadme(projectId) {
-  return apiRequest(`/masters/projects/fillDescriptionFromReadme/${encodeURIComponent(projectId)}`, {
+  return apiRequest('/masters/projects/fillDescriptionFromReadme', {
     method: 'POST',
+    body: { projectId },
   });
 }
 
@@ -222,8 +223,9 @@ export async function fillProjectDescriptionFromReadme(projectId) {
  * @returns {Promise<ProjectDto>}
  */
 export async function archiveProject(projectId) {
-  return apiRequest(`/masters/projects/archive/${encodeURIComponent(projectId)}`, {
+  return apiRequest('/masters/projects/archive', {
     method: 'POST',
+    body: { projectId },
   });
 }
 
@@ -233,8 +235,9 @@ export async function archiveProject(projectId) {
  * @returns {Promise<ProjectDto>}
  */
 export async function restoreProject(projectId) {
-  return apiRequest(`/masters/projects/restore/${encodeURIComponent(projectId)}`, {
+  return apiRequest('/masters/projects/restore', {
     method: 'POST',
+    body: { projectId },
   });
 }
 
@@ -244,8 +247,9 @@ export async function restoreProject(projectId) {
  * @returns {Promise<void>}
  */
 export async function deleteProject(projectId) {
-  return apiRequest(`/masters/projects/delete/${encodeURIComponent(projectId)}`, {
+  return apiRequest('/masters/projects/delete', {
     method: 'DELETE',
+    body: { projectId },
   });
 }
 
@@ -267,7 +271,8 @@ export async function getProjectDeletionPreview(projectId, options = {}) {
  * @returns {Promise<ProjectDto>}
  */
 export async function recordProjectAccess(projectId) {
-  return apiRequest(`/masters/projects/recordAccess/${encodeURIComponent(projectId)}`, {
+  return apiRequest('/masters/projects/recordAccess', {
     method: 'POST',
+    body: { projectId },
   });
 }

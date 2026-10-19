@@ -468,9 +468,9 @@ describe('conversationContext HTTP', () => {
     const projectId = project.json().id;
     const created = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/conversation/create/${projectId}`,
+      url: `${API_BASE_PATH}/conversation/conversation/create`,
       headers: { authorization: `Bearer ${accessToken}`, 'idempotency-key': 'ctx-conv-1' },
-      payload: { title: 'Metrics thread' },
+      payload: { projectId, title: 'Metrics thread' },
     });
     const conversationId = created.json().id;
     const userRow = await Message.create({
@@ -557,9 +557,9 @@ describe('conversationContext HTTP', () => {
     const projectId = project.json().id;
     const created = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/conversation/create/${projectId}`,
+      url: `${API_BASE_PATH}/conversation/conversation/create`,
       headers: { authorization: `Bearer ${admin.accessToken}`, 'idempotency-key': 'ctx-conv-404' },
-      payload: { title: 'Private' },
+      payload: { projectId, title: 'Private' },
     });
     const conversationId = created.json().id;
 
@@ -584,7 +584,8 @@ describe('conversationContext HTTP', () => {
 
     await app.inject({
       method: 'DELETE',
-      url: `${API_BASE_PATH}/conversation/conversation/delete/${projectId}/${conversationId}`,
+      url: `${API_BASE_PATH}/conversation/conversation/delete`,
+      payload: { projectId, conversationId },
       headers: { authorization: `Bearer ${admin.accessToken}` },
     });
     const deleted = await app.inject({
@@ -610,9 +611,9 @@ describe('conversationContext HTTP', () => {
     const projectId = project.json().id;
     const created = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/conversation/create/${projectId}`,
+      url: `${API_BASE_PATH}/conversation/conversation/create`,
       headers: { authorization: `Bearer ${admin.accessToken}`, 'idempotency-key': 'ctx-conv-auth' },
-      payload: { title: 'Admin thread' },
+      payload: { projectId, title: 'Admin thread' },
     });
     const role = await createRoleInRepo(org._id, {
       code: 'NOCHATCTX',

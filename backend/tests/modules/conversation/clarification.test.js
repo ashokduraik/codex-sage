@@ -469,9 +469,9 @@ describe('clarification answer routes', () => {
   async function interruptWithClarification(instance, accessToken, projectId, idemPrefix) {
     const created = await instance.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/conversation/create/${projectId}`,
+      url: `${API_BASE_PATH}/conversation/conversation/create`,
       headers: { authorization: `Bearer ${accessToken}`, 'idempotency-key': `${idemPrefix}-conv` },
-      payload: {},
+      payload: { projectId },
     });
     expect(created.statusCode).toBe(201);
     const conversationId = created.json().id;
@@ -491,13 +491,13 @@ describe('clarification answer routes', () => {
 
     const stream = await instance.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/chatStream/streamMessage/${projectId}/${conversationId}`,
+      url: `${API_BASE_PATH}/conversation/chatStream/streamMessage`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         accept: 'text/event-stream',
         'idempotency-key': `${idemPrefix}-msg`,
       },
-      payload: { content: 'Need clarify' },
+      payload: { projectId, conversationId, content: 'Need clarify' },
     });
     expect(stream.statusCode).toBe(200);
     expect(stream.body).toContain('event: clarification');
@@ -532,13 +532,16 @@ describe('clarification answer routes', () => {
     };
     return instance.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/clarification/answer/${projectId}`,
+      url: `${API_BASE_PATH}/conversation/clarification/answer`,
       headers,
-      payload: opts.payload ?? {
-        conversationId,
-        messageId: opts.messageId,
-        clarificationSetId: opts.clarificationSetId ?? 'clr_route_test',
-        answers: opts.answers ?? { q1: 'A' },
+      payload: {
+        projectId,
+        ...(opts.payload ?? {
+          conversationId,
+          messageId: opts.messageId,
+          clarificationSetId: opts.clarificationSetId ?? 'clr_route_test',
+          answers: opts.answers ?? { q1: 'A' },
+        }),
       },
     });
   }
@@ -568,13 +571,14 @@ describe('clarification answer routes', () => {
 
     const answer = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/clarification/answer/${project.id}`,
+      url: `${API_BASE_PATH}/conversation/clarification/answer`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         accept: 'text/event-stream',
         'idempotency-key': 'idem-clr-answer',
       },
       payload: {
+        projectId: project.id,
         conversationId,
         messageId,
         clarificationSetId: 'clr_route_test',
@@ -608,13 +612,14 @@ describe('clarification answer routes', () => {
 
     const res = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/clarification/answer/${project.id}`,
+      url: `${API_BASE_PATH}/conversation/clarification/answer`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         accept: 'application/json',
         'idempotency-key': 'idem-clr406-answer',
       },
       payload: {
+        projectId: project.id,
         conversationId,
         messageId,
         clarificationSetId: 'clr_route_test',
@@ -626,13 +631,14 @@ describe('clarification answer routes', () => {
 
     const emptyAccept = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/clarification/answer/${project.id}`,
+      url: `${API_BASE_PATH}/conversation/clarification/answer`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         accept: '',
         'idempotency-key': 'idem-clr406-empty',
       },
       payload: {
+        projectId: project.id,
         conversationId,
         messageId,
         clarificationSetId: 'clr_route_test',
@@ -653,13 +659,14 @@ describe('clarification answer routes', () => {
 
     const first = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/clarification/answer/${project.id}`,
+      url: `${API_BASE_PATH}/conversation/clarification/answer`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         accept: 'text/event-stream',
         'idempotency-key': 'idem-clr409-a1',
       },
       payload: {
+        projectId: project.id,
         conversationId,
         messageId,
         clarificationSetId: 'clr_route_test',
@@ -670,13 +677,14 @@ describe('clarification answer routes', () => {
 
     const second = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/clarification/answer/${project.id}`,
+      url: `${API_BASE_PATH}/conversation/clarification/answer`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         accept: 'text/event-stream',
         'idempotency-key': 'idem-clr409-a2',
       },
       payload: {
+        projectId: project.id,
         conversationId,
         messageId,
         clarificationSetId: 'clr_route_test',
@@ -698,13 +706,14 @@ describe('clarification answer routes', () => {
 
     const badParams = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/clarification/answer/${project.id}`,
+      url: `${API_BASE_PATH}/conversation/clarification/answer`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         accept: 'text/event-stream',
         'idempotency-key': 'idem-clr-params-bad',
       },
       payload: {
+        projectId: project.id,
         conversationId,
         clarificationSetId: 'clr_route_test',
         answers: { q1: 'A' },
@@ -714,13 +723,14 @@ describe('clarification answer routes', () => {
 
     const badOption = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/clarification/answer/${project.id}`,
+      url: `${API_BASE_PATH}/conversation/clarification/answer`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         accept: ['text/event-stream'],
         'idempotency-key': 'idem-clr-params-opt',
       },
       payload: {
+        projectId: project.id,
         conversationId,
         messageId,
         clarificationSetId: 'clr_route_test',
@@ -742,13 +752,14 @@ describe('clarification answer routes', () => {
 
     const badId = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/clarification/answer/${project.id}`,
+      url: `${API_BASE_PATH}/conversation/clarification/answer`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         accept: 'text/event-stream',
         'idempotency-key': 'idem-clr-state-badid',
       },
       payload: {
+        projectId: project.id,
         conversationId,
         messageId: 'not-an-id',
         clarificationSetId: 'clr_route_test',
@@ -760,13 +771,14 @@ describe('clarification answer routes', () => {
     await Message.updateOne({ _id: messageId }, { $set: { messageStatus: 'completed' } });
     const notAwaiting = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/clarification/answer/${project.id}`,
+      url: `${API_BASE_PATH}/conversation/clarification/answer`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         accept: 'text/event-stream',
         'idempotency-key': 'idem-clr-state-done',
       },
       payload: {
+        projectId: project.id,
         conversationId,
         messageId,
         clarificationSetId: 'clr_route_test',
@@ -788,25 +800,26 @@ describe('clarification answer routes', () => {
 
     const missingAnswers = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/clarification/answer/${project.id}`,
+      url: `${API_BASE_PATH}/conversation/clarification/answer`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         accept: 'text/event-stream',
         'idempotency-key': 'idem-clr-val-empty',
       },
-      payload: { conversationId, messageId, clarificationSetId: 'clr_route_test' },
+      payload: { projectId: project.id, conversationId, messageId, clarificationSetId: 'clr_route_test' },
     });
     expect(missingAnswers.statusCode).toBe(400);
 
     const badBody = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/clarification/answer/${project.id}`,
+      url: `${API_BASE_PATH}/conversation/clarification/answer`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         accept: 'text/event-stream',
         'idempotency-key': 'idem-clr-val-bad',
       },
       payload: {
+        projectId: project.id,
         conversationId,
         messageId,
         clarificationSetId: 'clr_route_test',
@@ -818,13 +831,14 @@ describe('clarification answer routes', () => {
 
     const missing = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/clarification/answer/${project.id}`,
+      url: `${API_BASE_PATH}/conversation/clarification/answer`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         accept: 'text/event-stream',
         'idempotency-key': 'idem-clr-val-404',
       },
       payload: {
+        projectId: project.id,
         conversationId,
         messageId,
         clarificationSetId: 'clr_missing',
@@ -858,13 +872,14 @@ describe('clarification answer routes', () => {
 
     const answer = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/clarification/answer/${project.id}`,
+      url: `${API_BASE_PATH}/conversation/clarification/answer`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         accept: 'text/event-stream',
         'idempotency-key': 'idem-clr-r2-answer',
       },
       payload: {
+        projectId: project.id,
         conversationId,
         messageId,
         clarificationSetId: 'clr_route_test',
@@ -894,13 +909,14 @@ describe('clarification answer routes', () => {
 
     const answer = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/clarification/answer/${project.id}`,
+      url: `${API_BASE_PATH}/conversation/clarification/answer`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         accept: 'text/event-stream',
         'idempotency-key': 'idem-clr-nodone-answer',
       },
       payload: {
+        projectId: project.id,
         conversationId,
         messageId,
         clarificationSetId: 'clr_route_test',
@@ -928,13 +944,14 @@ describe('clarification answer routes', () => {
 
     const answer = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/clarification/answer/${project.id}`,
+      url: `${API_BASE_PATH}/conversation/clarification/answer`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         accept: 'text/event-stream',
         'idempotency-key': 'idem-clr-emptyint-answer',
       },
       payload: {
+        projectId: project.id,
         conversationId,
         messageId,
         clarificationSetId: 'clr_route_test',
@@ -963,13 +980,14 @@ describe('clarification answer routes', () => {
 
     const answer = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/clarification/answer/${project.id}`,
+      url: `${API_BASE_PATH}/conversation/clarification/answer`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         accept: 'text/event-stream',
         'idempotency-key': 'idem-clr-abs-answer',
       },
       payload: {
+        projectId: project.id,
         conversationId,
         messageId,
         clarificationSetId: 'clr_route_test',
@@ -995,13 +1013,14 @@ describe('clarification answer routes', () => {
 
     const answer = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/clarification/answer/${project.id}`,
+      url: `${API_BASE_PATH}/conversation/clarification/answer`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         accept: 'text/event-stream',
         'idempotency-key': 'idem-clr-err-answer',
       },
       payload: {
+        projectId: project.id,
         conversationId,
         messageId,
         clarificationSetId: 'clr_route_test',
@@ -1030,13 +1049,14 @@ describe('clarification answer routes', () => {
 
     const answer = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/clarification/answer/${project.id}`,
+      url: `${API_BASE_PATH}/conversation/clarification/answer`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         accept: 'text/event-stream',
         'idempotency-key': 'idem-clr-onerr-answer',
       },
       payload: {
+        projectId: project.id,
         conversationId,
         messageId,
         clarificationSetId: 'clr_route_test',
@@ -1066,13 +1086,14 @@ describe('clarification answer routes', () => {
 
     const answer = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/clarification/answer/${project.id}`,
+      url: `${API_BASE_PATH}/conversation/clarification/answer`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         accept: 'text/event-stream',
         'idempotency-key': 'idem-clr-finfail-answer',
       },
       payload: {
+        projectId: project.id,
         conversationId,
         messageId,
         clarificationSetId: 'clr_route_test',
@@ -1098,13 +1119,14 @@ describe('clarification answer routes', () => {
 
     const answer = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/clarification/answer/${project.id}`,
+      url: `${API_BASE_PATH}/conversation/clarification/answer`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         accept: 'text/event-stream',
         'idempotency-key': 'idem-clr-nestfail-answer',
       },
       payload: {
+        projectId: project.id,
         conversationId,
         messageId,
         clarificationSetId: 'clr_route_test',
@@ -1126,13 +1148,14 @@ describe('clarification answer routes', () => {
 
     const first = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/clarification/answer/${project.id}`,
+      url: `${API_BASE_PATH}/conversation/clarification/answer`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         accept: 'text/event-stream',
         'idempotency-key': 'idem-clr-answer-replay',
       },
       payload: {
+        projectId: project.id,
         conversationId,
         messageId,
         clarificationSetId: 'clr_route_test',
@@ -1144,13 +1167,14 @@ describe('clarification answer routes', () => {
 
     const second = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/clarification/answer/${project.id}`,
+      url: `${API_BASE_PATH}/conversation/clarification/answer`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         accept: 'text/event-stream',
         'idempotency-key': 'idem-clr-answer-replay',
       },
       payload: {
+        projectId: project.id,
         conversationId,
         messageId,
         clarificationSetId: 'clr_route_test',

@@ -145,7 +145,8 @@ describe('identity.routes', () => {
 
     const activate = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/masters/users/activate/${created.id}`,
+      url: `${API_BASE_PATH}/masters/users/activate`,
+      payload: { userId: created.id },
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(activate.statusCode).toBe(200);
@@ -153,7 +154,8 @@ describe('identity.routes', () => {
 
     const remove = await app.inject({
       method: 'DELETE',
-      url: `${API_BASE_PATH}/masters/users/delete/${created.id}`,
+      url: `${API_BASE_PATH}/masters/users/delete`,
+      payload: { userId: created.id },
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(remove.statusCode).toBe(204);
@@ -278,9 +280,9 @@ describe('identity.routes', () => {
 
     const patch = await app.inject({
       method: 'PATCH',
-      url: `${API_BASE_PATH}/masters/users/update/${target._id}`,
+      url: `${API_BASE_PATH}/masters/users/update`,
       headers: { authorization: `Bearer ${admin.accessToken}` },
-      payload: { email: 'renamed@example.com' },
+      payload: { userId: target._id, email: 'renamed@example.com' },
     });
     expect(patch.statusCode).toBe(200);
     expect(patch.json().email).toBe('renamed@example.com');
@@ -309,9 +311,9 @@ describe('identity.routes', () => {
     const adminRole = await findRoleByCode(org._id, 'ADMIN');
     const patchAdmin = await app.inject({
       method: 'PATCH',
-      url: `${API_BASE_PATH}/masters/roles/update/${adminRole._id}`,
+      url: `${API_BASE_PATH}/masters/roles/update`,
       headers: { authorization: `Bearer ${admin.accessToken}` },
-      payload: { name: 'Renamed Admin', permissions: ['org.view', 'users.manage', 'roles.manage'] },
+      payload: { roleId: adminRole._id, name: 'Renamed Admin', permissions: ['org.view', 'users.manage', 'roles.manage'] },
     });
     expect(patchAdmin.statusCode).toBe(200);
     expect(patchAdmin.json().name).toBe('Renamed Admin');
@@ -319,7 +321,8 @@ describe('identity.routes', () => {
 
     const delAssigned = await app.inject({
       method: 'DELETE',
-      url: `${API_BASE_PATH}/masters/roles/delete/${memberRole._id}`,
+      url: `${API_BASE_PATH}/masters/roles/delete`,
+      payload: { roleId: memberRole._id },
       headers: { authorization: `Bearer ${admin.accessToken}` },
     });
     expect(delAssigned.statusCode).toBe(409);
@@ -340,7 +343,8 @@ describe('identity.routes', () => {
 
     const delRole = await app.inject({
       method: 'DELETE',
-      url: `${API_BASE_PATH}/masters/roles/delete/${roleId}`,
+      url: `${API_BASE_PATH}/masters/roles/delete`,
+      payload: { roleId },
       headers: { authorization: `Bearer ${admin.accessToken}` },
     });
     expect(delRole.statusCode).toBe(204);
@@ -367,7 +371,8 @@ describe('identity.routes', () => {
     const { accessToken, user } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const self = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/masters/users/deactivate/${user.id}`,
+      url: `${API_BASE_PATH}/masters/users/deactivate`,
+      payload: { userId: user.id },
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(self.statusCode).toBe(409);
@@ -567,9 +572,9 @@ describe('identity.routes', () => {
     const secret = 'brand-new-secret-99';
     const res = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/masters/users/resetPassword/${target._id}`,
+      url: `${API_BASE_PATH}/masters/users/resetPassword`,
       headers: { authorization: `Bearer ${accessToken}` },
-      payload: { newPassword: secret },
+      payload: { userId: target._id, newPassword: secret },
     });
     expect(res.statusCode).toBe(200);
     expect(res.json().passwordResetStatus).toBe('completed');

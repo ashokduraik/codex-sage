@@ -210,9 +210,9 @@ describe('password.routes and adminPasswordReset.routes', () => {
 
     const reset = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/masters/users/resetPassword/${invited._id}`,
+      url: `${API_BASE_PATH}/masters/users/resetPassword`,
       headers: { authorization: `Bearer ${accessToken}` },
-      payload: { newPassword: 'temp-secret' },
+      payload: { userId: invited._id, newPassword: 'temp-secret' },
     });
     expect(reset.statusCode).toBe(200);
     const body = reset.json();
@@ -233,9 +233,9 @@ describe('password.routes and adminPasswordReset.routes', () => {
 
     const blocked = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/masters/users/resetPassword/${admin.id}`,
+      url: `${API_BASE_PATH}/masters/users/resetPassword`,
       headers: { authorization: `Bearer ${targetLogin.accessToken}` },
-      payload: { newPassword: 'another1' },
+      payload: { userId: admin.id, newPassword: 'another1' },
     });
     expect(blocked.statusCode).toBe(403);
     expect(['PASSWORD_CHANGE_REQUIRED', 'FORBIDDEN']).toContain(blocked.json().error.code);
@@ -269,9 +269,9 @@ describe('password.routes and adminPasswordReset.routes', () => {
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const reset = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/masters/users/resetPassword/${outsider._id}`,
+      url: `${API_BASE_PATH}/masters/users/resetPassword`,
       headers: { authorization: `Bearer ${accessToken}` },
-      payload: { newPassword: 'temp-secret' },
+      payload: { userId: outsider._id, newPassword: 'temp-secret' },
     });
     expect(reset.statusCode).toBe(404);
     expect(reset.json().error.code).toBe('NOT_FOUND');
@@ -283,9 +283,9 @@ describe('password.routes and adminPasswordReset.routes', () => {
     const { accessToken, user } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const reset = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/masters/users/resetPassword/${user.id}`,
+      url: `${API_BASE_PATH}/masters/users/resetPassword`,
       headers: { authorization: `Bearer ${accessToken}` },
-      payload: { newPassword: 'temp-secret' },
+      payload: { userId: user.id, newPassword: 'temp-secret' },
     });
     expect(reset.statusCode).toBe(409);
     expect(reset.json().error.code).toBe('CANNOT_MODIFY_SELF');
@@ -319,9 +319,9 @@ describe('password.routes and adminPasswordReset.routes', () => {
     const { accessToken } = await login(app, 'member@example.com', 'member1');
     const reset = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/masters/users/resetPassword/${target._id}`,
+      url: `${API_BASE_PATH}/masters/users/resetPassword`,
       headers: { authorization: `Bearer ${accessToken}` },
-      payload: { newPassword: 'temp-secret' },
+      payload: { userId: target._id, newPassword: 'temp-secret' },
     });
     expect(reset.statusCode).toBe(403);
     expect(reset.json().error.code).toBe('FORBIDDEN');
@@ -345,9 +345,9 @@ describe('password.routes and adminPasswordReset.routes', () => {
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const reset = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/masters/users/resetPassword/${gone._id}`,
+      url: `${API_BASE_PATH}/masters/users/resetPassword`,
       headers: { authorization: `Bearer ${accessToken}` },
-      payload: { newPassword: 'temp-secret' },
+      payload: { userId: gone._id, newPassword: 'temp-secret' },
     });
     expect(reset.statusCode).toBe(404);
   });
@@ -395,17 +395,17 @@ describe('password.routes and adminPasswordReset.routes', () => {
 
     const missing = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/masters/users/resetPassword/${target._id}`,
+      url: `${API_BASE_PATH}/masters/users/resetPassword`,
       headers: { authorization: `Bearer ${accessToken}` },
-      payload: {},
+      payload: { userId: target._id },
     });
     expect(missing.statusCode).toBe(400);
 
     const short = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/masters/users/resetPassword/${target._id}`,
+      url: `${API_BASE_PATH}/masters/users/resetPassword`,
       headers: { authorization: `Bearer ${accessToken}` },
-      payload: { newPassword: 'ab' },
+      payload: { userId: target._id, newPassword: 'ab' },
     });
     expect(short.statusCode).toBe(422);
     expect(short.json().error.details.violations).toContain('TOO_SHORT');
@@ -439,9 +439,9 @@ describe('password.routes and adminPasswordReset.routes', () => {
     const { accessToken } = await login(app, 'mgr@example.com', 'manager1');
     const reset = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/masters/users/resetPassword/${target._id}`,
+      url: `${API_BASE_PATH}/masters/users/resetPassword`,
       headers: { authorization: `Bearer ${accessToken}` },
-      payload: { newPassword: 'fresh12' },
+      payload: { userId: target._id, newPassword: 'fresh12' },
     });
     expect(reset.statusCode).toBe(200);
     expect(reset.json().passwordResetStatus).toBe('completed');
@@ -463,9 +463,9 @@ describe('password.routes and adminPasswordReset.routes', () => {
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const reset = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/masters/users/resetPassword/${target._id}`,
+      url: `${API_BASE_PATH}/masters/users/resetPassword`,
       headers: { authorization: `Bearer ${accessToken}` },
-      payload: { newPassword: 'sameold' },
+      payload: { userId: target._id, newPassword: 'sameold' },
     });
     expect(reset.statusCode).toBe(422);
     expect(reset.json().error.details.violations).toContain('SAME_AS_CURRENT');

@@ -119,9 +119,9 @@ describe('projectMembers.routes', () => {
 
     const addRes = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/masters/projectMembers/create/${project.id}`,
+      url: `${API_BASE_PATH}/masters/projectMembers/create`,
       headers,
-      payload: { userId: String(target._id), permissions: ['projects.view', 'chat.ask'] },
+      payload: { projectId: project.id, userId: String(target._id), permissions: ['projects.view', 'chat.ask'] },
     });
     expect(addRes.statusCode).toBe(201);
     const memberBody = addRes.json();
@@ -130,9 +130,9 @@ describe('projectMembers.routes', () => {
 
     const addAgain = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/masters/projectMembers/create/${project.id}`,
+      url: `${API_BASE_PATH}/masters/projectMembers/create`,
       headers,
-      payload: { userId: String(target._id), permissions: ['projects.view'] },
+      payload: { projectId: project.id, userId: String(target._id), permissions: ['projects.view'] },
     });
     expect(addAgain.statusCode).toBe(200);
     expect(addAgain.json().id).toBe(memberBody.id);
@@ -164,7 +164,8 @@ describe('projectMembers.routes', () => {
 
     const delRes = await app.inject({
       method: 'DELETE',
-      url: `${API_BASE_PATH}/masters/projectMembers/delete/${project.id}/${target._id}`,
+      url: `${API_BASE_PATH}/masters/projectMembers/delete`,
+      payload: { projectId: project.id, userId: target._id },
       headers,
     });
     expect(delRes.statusCode).toBe(204);
@@ -178,7 +179,8 @@ describe('projectMembers.routes', () => {
 
     const delAgain = await app.inject({
       method: 'DELETE',
-      url: `${API_BASE_PATH}/masters/projectMembers/delete/${project.id}/${target._id}`,
+      url: `${API_BASE_PATH}/masters/projectMembers/delete`,
+      payload: { projectId: project.id, userId: target._id },
       headers,
     });
     expect(delAgain.statusCode).toBe(404);
@@ -186,9 +188,9 @@ describe('projectMembers.routes', () => {
 
     const reAdd = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/masters/projectMembers/create/${project.id}`,
+      url: `${API_BASE_PATH}/masters/projectMembers/create`,
       headers,
-      payload: { userId: String(target._id), permissions: ['projects.view'] },
+      payload: { projectId: project.id, userId: String(target._id), permissions: ['projects.view'] },
     });
     expect(reAdd.statusCode).toBe(201);
     expect(reAdd.json().id).toBe(memberBody.id);
@@ -233,9 +235,9 @@ describe('projectMembers.routes', () => {
 
     await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/masters/projectMembers/create/${a.id}`,
+      url: `${API_BASE_PATH}/masters/projectMembers/create`,
       headers: { authorization: `Bearer ${adminToken}` },
-      payload: { userId: String(selectedUser._id), permissions: ['projects.view'] },
+      payload: { projectId: a.id, userId: String(selectedUser._id), permissions: ['projects.view'] },
     });
 
     const { accessToken: selectedToken } = await login(app, 'selected@example.com', 'selpass12');
@@ -306,9 +308,10 @@ describe('projectMembers.routes', () => {
 
     const crossAdd = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/masters/projectMembers/create/${foreignProject._id}`,
+      url: `${API_BASE_PATH}/masters/projectMembers/create`,
       headers: { authorization: `Bearer ${adminToken}` },
       payload: {
+        projectId: foreignProject._id,
         userId: String(otherUser._id),
         permissions: ['projects.view'],
       },
@@ -317,9 +320,10 @@ describe('projectMembers.routes', () => {
 
     const foreignUserAdd = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/masters/projectMembers/create/${project.id}`,
+      url: `${API_BASE_PATH}/masters/projectMembers/create`,
       headers: { authorization: `Bearer ${adminToken}` },
       payload: {
+        projectId: project.id,
         userId: String(otherUser._id),
         permissions: ['projects.view'],
       },
@@ -341,9 +345,10 @@ describe('projectMembers.routes', () => {
     });
     await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/masters/projectMembers/create/${project.id}`,
+      url: `${API_BASE_PATH}/masters/projectMembers/create`,
       headers: { authorization: `Bearer ${adminToken}` },
       payload: {
+        projectId: project.id,
         userId: String(viewer._id),
         permissions: ['projects.view'],
       },
@@ -351,9 +356,9 @@ describe('projectMembers.routes', () => {
     const { accessToken: viewerToken } = await login(app, 'viewer-acl@example.com', 'viewpass12');
     const patchForbidden = await app.inject({
       method: 'PATCH',
-      url: `${API_BASE_PATH}/masters/projects/update/${project.id}`,
+      url: `${API_BASE_PATH}/masters/projects/update`,
       headers: { authorization: `Bearer ${viewerToken}` },
-      payload: { name: 'Nope' },
+      payload: { projectId: project.id, name: 'Nope' },
     });
     expect(patchForbidden.statusCode).toBe(403);
 
@@ -384,14 +389,16 @@ describe('projectMembers.routes', () => {
     await updateUser(org._id, viewer._id, { projectAccessMode: 'selected' });
     await app.inject({
       method: 'DELETE',
-      url: `${API_BASE_PATH}/masters/projectMembers/delete/${project.id}/${viewer._id}`,
+      url: `${API_BASE_PATH}/masters/projectMembers/delete`,
+      payload: { projectId: project.id, userId: viewer._id },
       headers: { authorization: `Bearer ${adminToken}` },
     });
     await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/masters/projectMembers/create/${project.id}`,
+      url: `${API_BASE_PATH}/masters/projectMembers/create`,
       headers: { authorization: `Bearer ${adminToken}` },
       payload: {
+        projectId: project.id,
         userId: String(viewer._id),
         permissions: ['projects.view', 'projects.update'],
       },
@@ -399,26 +406,27 @@ describe('projectMembers.routes', () => {
     const { accessToken: elevatedToken } = await login(app, 'viewer-acl@example.com', 'viewpass12');
     const elevatedPatch = await app.inject({
       method: 'PATCH',
-      url: `${API_BASE_PATH}/masters/projects/update/${project.id}`,
+      url: `${API_BASE_PATH}/masters/projects/update`,
       headers: { authorization: `Bearer ${elevatedToken}` },
-      payload: { name: 'Elevated' },
+      payload: { projectId: project.id, name: 'Elevated' },
     });
     expect(elevatedPatch.statusCode).toBe(200);
     expect(elevatedPatch.json().name).toBe('Elevated');
 
     const emptyOverlay = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/masters/projectMembers/create/${project.id}`,
+      url: `${API_BASE_PATH}/masters/projectMembers/create`,
       headers: { authorization: `Bearer ${adminToken}` },
-      payload: { userId: String(noAccessUser._id) },
+      payload: { projectId: project.id, userId: String(noAccessUser._id) },
     });
     expect(emptyOverlay.statusCode).toBe(400);
 
     const unknownRole = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/masters/projectMembers/create/${project.id}`,
+      url: `${API_BASE_PATH}/masters/projectMembers/create`,
       headers: { authorization: `Bearer ${adminToken}` },
       payload: {
+        projectId: project.id,
         userId: String(noAccessUser._id),
         roleId: new mongoose.Types.ObjectId().toHexString(),
       },
@@ -428,9 +436,9 @@ describe('projectMembers.routes', () => {
 
     const extraBodyKey = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/masters/projectMembers/create/${project.id}`,
+      url: `${API_BASE_PATH}/masters/projectMembers/create`,
       headers: { authorization: `Bearer ${adminToken}` },
-      payload: { userId: String(noAccessUser._id), permissions: ['projects.view'], extra: true },
+      payload: { projectId: project.id, userId: String(noAccessUser._id), permissions: ['projects.view'], extra: true },
     });
     expect(extraBodyKey.statusCode).toBe(400);
     expect(extraBodyKey.json().error.code).toBe('VALIDATION_ERROR');

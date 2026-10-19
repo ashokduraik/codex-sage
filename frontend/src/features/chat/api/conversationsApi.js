@@ -117,9 +117,9 @@ export async function listConversationMessages(projectId, conversationId, option
  * @returns {Promise<import('./conversationTypes.js').ConversationDto>}
  */
 export async function createConversation(projectId, input) {
-  return apiRequest(`/conversation/conversation/create/${encodeURIComponent(projectId)}`, {
+  return apiRequest('/conversation/conversation/create', {
     method: 'POST',
-    body: input.title ? { title: input.title } : {},
+    body: input.title ? { projectId, title: input.title } : { projectId },
     idempotencyKey: input.idempotencyKey,
   });
 }
@@ -132,9 +132,9 @@ export async function createConversation(projectId, input) {
  * @returns {Promise<import('./conversationTypes.js').ConversationDto>}
  */
 export async function renameConversation(projectId, conversationId, input) {
-  return apiRequest(`/conversation/conversation/rename/${encodeURIComponent(projectId)}/${encodeURIComponent(conversationId)}`, {
+  return apiRequest('/conversation/conversation/rename', {
     method: 'PATCH',
-    body: { title: input.title },
+    body: { projectId, conversationId, title: input.title },
   });
 }
 
@@ -145,7 +145,10 @@ export async function renameConversation(projectId, conversationId, input) {
  * @returns {Promise<import('./conversationTypes.js').ConversationDto>}
  */
 export async function archiveConversation(projectId, conversationId) {
-  return apiRequest(`/conversation/conversation/archive/${encodeURIComponent(projectId)}/${encodeURIComponent(conversationId)}`, { method: 'POST' });
+  return apiRequest('/conversation/conversation/archive', {
+    method: 'POST',
+    body: { projectId, conversationId },
+  });
 }
 
 /**
@@ -155,7 +158,10 @@ export async function archiveConversation(projectId, conversationId) {
  * @returns {Promise<import('./conversationTypes.js').ConversationDto>}
  */
 export async function restoreConversation(projectId, conversationId) {
-  return apiRequest(`/conversation/conversation/restore/${encodeURIComponent(projectId)}/${encodeURIComponent(conversationId)}`, { method: 'POST' });
+  return apiRequest('/conversation/conversation/restore', {
+    method: 'POST',
+    body: { projectId, conversationId },
+  });
 }
 
 /**
@@ -165,5 +171,8 @@ export async function restoreConversation(projectId, conversationId) {
  * @returns {Promise<void>}
  */
 export async function deleteConversation(projectId, conversationId) {
-  await apiRequest(`/conversation/conversation/delete/${encodeURIComponent(projectId)}/${encodeURIComponent(conversationId)}`, { method: 'DELETE' });
+  await apiRequest('/conversation/conversation/delete', {
+    method: 'DELETE',
+    body: { projectId, conversationId },
+  });
 }

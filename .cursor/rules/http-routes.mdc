@@ -17,14 +17,20 @@ reuse the same health handlers outside the catalog plugin.
 Product paths:
 
 ```text
-/{module}/{file}/{action}/:ids…
+/{module}/{file}/{action}
+/{module}/{file}/{action}/:ids…   # GET (and HEAD) only
 ```
 
-Examples: `/masters/users/create`, `/conversation/conversation/restore/:projectId/:conversationId`.
+Examples: `/masters/users/create`, `POST /conversation/conversation/restore` (ids in body),
+`GET /conversation/conversation/get/:projectId/:conversationId`.
 
 - **module** — one of `access`, `masters`, `knowledge`, `conversation` (or `http` for probes).
 - **file** — resource file stem (`users`, `auth`, `repositories`, …).
 - **action** — product verb matching the handler (`create`, `list`, `restore`, …).
+- **Mutating methods** (POST, PUT, PATCH, DELETE) — no resource ids in the path; put every
+  id in the JSON body (multipart text fields for upload). Project ACL reads `projectId`
+  from the body on those methods.
+- **GET** may keep `:ids` in the path; project ACL reads `projectId` from params.
 - **Health** stays flat: `/health`, `/readiness` (also registered at process root).
 
 Do not invent alternate path layouts without an explicit product decision.
@@ -61,6 +67,7 @@ app.post('/…', withPublicAccess(app.csrfProtection), refreshSessionHttp);
 
 // ✅ GOOD
 app.post('/masters/users/create', withRequiredPermissions('users.manage', true), createUserHttp);
+app.post('/masters/projects/archive', withProjectAccess('projects.update'), archiveProjectHttp);
 app.get('/masters/projects/get/:projectId', withProjectAccess('projects.view'), getProjectHttp);
 app.post('/access/auth/refresh', withPublicAccess(true), refreshSessionHttp);
 app.get('/…', withProjectAccess(['knowledge.browse', 'knowledge.view']), getKnowledgeSummaryHttp);

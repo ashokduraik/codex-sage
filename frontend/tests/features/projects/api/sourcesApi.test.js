@@ -35,7 +35,7 @@ describe('uploadProjectSource', () => {
       }),
     ).resolves.toEqual({ sourceVersionId: 'sv1', jobId: 'j1' });
     expect(apiUpload).toHaveBeenCalledWith(
-      '/knowledge/uploads/upload/p1',
+      '/knowledge/uploads/upload',
       expect.objectContaining({
         method: 'POST',
         idempotencyKey: 'idem-1',
@@ -43,6 +43,7 @@ describe('uploadProjectSource', () => {
       }),
     );
     const sent = apiUpload.mock.calls[0][1].body;
+    expect(sent.get('projectId')).toBe('p1');
     const archive = sent.get('archive');
     expect(archive).toBeInstanceOf(File);
     expect(archive.name).toBe(file.name);
@@ -65,8 +66,9 @@ describe('uploadProjectSource', () => {
         idempotencyKey: 'idem-re',
       }),
     ).resolves.toEqual({ jobId: 'j9', sourceVersionId: 'sv1', jobType: 'project_knowledge_rebuild' });
-    expect(apiRequest).toHaveBeenCalledWith('/knowledge/sources/reingest/p1/sv1', {
+    expect(apiRequest).toHaveBeenCalledWith('/knowledge/sources/reingest', {
       method: 'POST',
+      body: { projectId: 'p1', sourceVersionId: 'sv1' },
       idempotencyKey: 'idem-re',
       signal: undefined,
     });

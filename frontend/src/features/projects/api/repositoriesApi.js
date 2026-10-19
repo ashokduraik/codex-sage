@@ -78,11 +78,11 @@ export function repositoryConnectionQueryKey(projectId) {
  * @returns {Promise<RepositoryProbeDto>}
  */
 export async function probeProjectRepository(input) {
-  const body = { repositoryUrl: input.repositoryUrl };
+  const body = { projectId: input.projectId, repositoryUrl: input.repositoryUrl };
   if (input.accessToken) {
     body.accessToken = input.accessToken;
   }
-  return apiRequest(`/knowledge/repositories/probe/${encodeURIComponent(input.projectId)}`, {
+  return apiRequest('/knowledge/repositories/probe', {
     method: 'POST',
     body,
     signal: input.signal,
@@ -103,13 +103,14 @@ export async function probeProjectRepository(input) {
  */
 export async function attachProjectRepository(input) {
   const body = {
+    projectId: input.projectId,
     repositoryUrl: input.repositoryUrl,
     selectedBranch: input.selectedBranch,
   };
   if (input.accessToken) {
     body.accessToken = input.accessToken;
   }
-  return apiRequest(`/knowledge/repositories/attach/${encodeURIComponent(input.projectId)}`, {
+  return apiRequest('/knowledge/repositories/attach', {
     method: 'POST',
     body,
     idempotencyKey: input.idempotencyKey,
@@ -137,9 +138,9 @@ export async function getProjectRepositoryConnection(projectId, options = {}) {
  * @returns {Promise<{ connection: RepositoryConnectionDto, connectionStatus?: string }>}
  */
 export async function replaceProjectRepositoryCredential(input) {
-  return apiRequest(`/knowledge/repositories/replaceCredential/${encodeURIComponent(input.projectId)}`, {
+  return apiRequest('/knowledge/repositories/replaceCredential', {
     method: 'POST',
-    body: { accessToken: input.accessToken },
+    body: { projectId: input.projectId, accessToken: input.accessToken },
     signal: input.signal,
   });
 }
@@ -153,8 +154,9 @@ export async function replaceProjectRepositoryCredential(input) {
  * @returns {Promise<void>}
  */
 export async function revokeProjectRepositoryCredential(input) {
-  return apiRequest(`/knowledge/repositories/revokeCredential/${encodeURIComponent(input.projectId)}`, {
+  return apiRequest('/knowledge/repositories/revokeCredential', {
     method: 'POST',
+    body: { projectId: input.projectId },
     signal: input.signal,
   });
 }
@@ -168,8 +170,9 @@ export async function revokeProjectRepositoryCredential(input) {
  * @returns {Promise<{ connectionStatus: string, reason?: object }>}
  */
 export async function retestProjectRepositoryConnection(input) {
-  return apiRequest(`/knowledge/repositories/retestConnection/${encodeURIComponent(input.projectId)}`, {
+  return apiRequest('/knowledge/repositories/retestConnection', {
     method: 'POST',
+    body: { projectId: input.projectId },
     signal: input.signal,
   });
 }
@@ -184,8 +187,9 @@ export async function retestProjectRepositoryConnection(input) {
  * @returns {Promise<{ job: { id: string, jobType: string, jobStatus: string, scheduledAt: string } }>}
  */
 export async function syncProjectRepository(input) {
-  return apiRequest(`/knowledge/repositories/sync/${encodeURIComponent(input.projectId)}`, {
+  return apiRequest('/knowledge/repositories/sync', {
     method: 'POST',
+    body: { projectId: input.projectId },
     idempotencyKey: input.idempotencyKey,
     signal: input.signal,
   });

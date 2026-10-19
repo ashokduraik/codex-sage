@@ -115,9 +115,9 @@ describe('conversation routes', () => {
     }
     return instance.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/conversation/create/${projectId}`,
+      url: `${API_BASE_PATH}/conversation/conversation/create`,
       headers,
-      payload,
+      payload: { projectId, ...payload },
     });
   }
 
@@ -188,7 +188,8 @@ describe('conversation routes', () => {
 
     const archive = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/conversation/archive/${project.id}/${conversationId}`,
+      url: `${API_BASE_PATH}/conversation/conversation/archive`,
+      payload: { projectId: project.id, conversationId },
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(archive.statusCode).toBe(200);
@@ -196,7 +197,8 @@ describe('conversation routes', () => {
 
     const archiveAgain = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/conversation/archive/${project.id}/${conversationId}`,
+      url: `${API_BASE_PATH}/conversation/conversation/archive`,
+      payload: { projectId: project.id, conversationId },
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(archiveAgain.statusCode).toBe(409);
@@ -218,7 +220,8 @@ describe('conversation routes', () => {
 
     const restore = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/conversation/restore/${project.id}/${conversationId}`,
+      url: `${API_BASE_PATH}/conversation/conversation/restore`,
+      payload: { projectId: project.id, conversationId },
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(restore.statusCode).toBe(200);
@@ -226,7 +229,8 @@ describe('conversation routes', () => {
 
     const restoreAgain = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/conversation/restore/${project.id}/${conversationId}`,
+      url: `${API_BASE_PATH}/conversation/conversation/restore`,
+      payload: { projectId: project.id, conversationId },
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(restoreAgain.statusCode).toBe(409);
@@ -241,7 +245,8 @@ describe('conversation routes', () => {
 
     const deleted = await app.inject({
       method: 'DELETE',
-      url: `${API_BASE_PATH}/conversation/conversation/delete/${project.id}/${conversationId}`,
+      url: `${API_BASE_PATH}/conversation/conversation/delete`,
+      payload: { projectId: project.id, conversationId },
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(deleted.statusCode).toBe(204);
@@ -316,16 +321,17 @@ describe('conversation routes', () => {
 
     const archiveDenied = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/conversation/archive/${project.id}/${conversationId}`,
+      url: `${API_BASE_PATH}/conversation/conversation/archive`,
+      payload: { projectId: project.id, conversationId },
       headers: { authorization: `Bearer ${other.accessToken}` },
     });
     expect(archiveDenied.statusCode).toBe(404);
 
     const renameDenied = await app.inject({
       method: 'PATCH',
-      url: `${API_BASE_PATH}/conversation/conversation/rename/${project.id}/${conversationId}`,
+      url: `${API_BASE_PATH}/conversation/conversation/rename`,
       headers: { authorization: `Bearer ${other.accessToken}` },
-      payload: { title: 'Hijacked' },
+      payload: { projectId: project.id, conversationId, title: 'Hijacked' },
     });
     expect(renameDenied.statusCode).toBe(404);
   });
@@ -385,7 +391,8 @@ describe('conversation routes', () => {
 
     await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/conversation/archive/${project.id}/${conversationId}`,
+      url: `${API_BASE_PATH}/conversation/conversation/archive`,
+      payload: { projectId: project.id, conversationId },
       headers: { authorization: `Bearer ${accessToken}` },
     });
     const hidden = await app.inject({
@@ -403,14 +410,15 @@ describe('conversation routes', () => {
 
     await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/conversation/restore/${project.id}/${conversationId}`,
+      url: `${API_BASE_PATH}/conversation/conversation/restore`,
+      payload: { projectId: project.id, conversationId },
       headers: { authorization: `Bearer ${accessToken}` },
     });
     const renamed = await app.inject({
       method: 'PATCH',
-      url: `${API_BASE_PATH}/conversation/conversation/rename/${project.id}/${conversationId}`,
+      url: `${API_BASE_PATH}/conversation/conversation/rename`,
       headers: { authorization: `Bearer ${accessToken}` },
-      payload: { title: 'Payment failure investigation' },
+      payload: { projectId: project.id, conversationId, title: 'Payment failure investigation' },
     });
     expect(renamed.statusCode).toBe(200);
     expect(renamed.json().titleSource).toBe('user');
@@ -418,9 +426,9 @@ describe('conversation routes', () => {
 
     const emptyTitle = await app.inject({
       method: 'PATCH',
-      url: `${API_BASE_PATH}/conversation/conversation/rename/${project.id}/${conversationId}`,
+      url: `${API_BASE_PATH}/conversation/conversation/rename`,
       headers: { authorization: `Bearer ${accessToken}` },
-      payload: { title: '   ' },
+      payload: { projectId: project.id, conversationId, title: '   ' },
     });
     expect(emptyTitle.statusCode).toBe(400);
 
@@ -534,9 +542,9 @@ describe('conversation routes', () => {
 
     const extraPatch = await app.inject({
       method: 'PATCH',
-      url: `${API_BASE_PATH}/conversation/conversation/rename/${project.id}/${created.json().id}`,
+      url: `${API_BASE_PATH}/conversation/conversation/rename`,
       headers: { authorization: `Bearer ${admin.accessToken}` },
-      payload: { title: 'Ok', extra: true },
+      payload: { projectId: project.id, conversationId: created.json().id, title: 'Ok', extra: true },
     });
     expect(extraPatch.statusCode).toBe(400);
   });

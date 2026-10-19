@@ -190,9 +190,9 @@ describe('chatStream routes', () => {
     };
     return instance.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/chatStream/streamMessage/${projectId}/${conversationId}`,
+      url: `${API_BASE_PATH}/conversation/chatStream/streamMessage`,
       headers,
-      payload: opts.payload ?? { content: 'How does checkout work?' },
+      payload: { projectId, conversationId, ...(opts.payload ?? { content: 'How does checkout work?' }) },
     });
   }
 
@@ -206,9 +206,9 @@ describe('chatStream routes', () => {
 
     const created = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/conversation/create/${project.id}`,
+      url: `${API_BASE_PATH}/conversation/conversation/create`,
       headers: { authorization: `Bearer ${accessToken}`, 'idempotency-key': 'idem-sse-conv-1' },
-      payload: {},
+      payload: { projectId: project.id },
     });
     expect(created.statusCode).toBe(201);
     const conversationId = created.json().id;
@@ -237,9 +237,9 @@ describe('chatStream routes', () => {
     await markProjectReady(project.id, org._id);
     const created = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/conversation/create/${project.id}`,
+      url: `${API_BASE_PATH}/conversation/conversation/create`,
       headers: { authorization: `Bearer ${accessToken}`, 'idempotency-key': 'idem-sse-conv-406' },
-      payload: {},
+      payload: { projectId: project.id },
     });
 
     const res = await postMessage(app, accessToken, project.id, created.json().id, {
@@ -258,9 +258,9 @@ describe('chatStream routes', () => {
     const project = await createProject(app, accessToken, 'SSE Updating', 'idem-sse-proj-upd');
     const created = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/conversation/create/${project.id}`,
+      url: `${API_BASE_PATH}/conversation/conversation/create`,
       headers: { authorization: `Bearer ${accessToken}`, 'idempotency-key': 'idem-sse-conv-upd' },
-      payload: {},
+      payload: { projectId: project.id },
     });
     const conversationId = created.json().id;
     mockAssertKnowledgeReadable.mockResolvedValue({ action: 'queue', code: 'KNOWLEDGE_UPDATING' });
@@ -315,9 +315,9 @@ describe('chatStream routes', () => {
     await markProjectReady(project.id, org._id);
     const created = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/conversation/create/${project.id}`,
+      url: `${API_BASE_PATH}/conversation/conversation/create`,
       headers: { authorization: `Bearer ${accessToken}`, 'idempotency-key': 'idem-sse-conv-idem' },
-      payload: {},
+      payload: { projectId: project.id },
     });
     const conversationId = created.json().id;
 
@@ -349,9 +349,9 @@ describe('chatStream routes', () => {
     await markProjectReady(project.id, org._id);
     const created = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/conversation/create/${project.id}`,
+      url: `${API_BASE_PATH}/conversation/conversation/create`,
       headers: { authorization: `Bearer ${accessToken}`, 'idempotency-key': 'idem-sse-conv-clr' },
-      payload: {},
+      payload: { projectId: project.id },
     });
     mockInvokeChatGraph.mockResolvedValue({
       __interrupt__: [
@@ -386,9 +386,9 @@ describe('chatStream routes', () => {
     await markProjectReady(project.id, org._id);
     const created = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/conversation/conversation/create/${project.id}`,
+      url: `${API_BASE_PATH}/conversation/conversation/create`,
       headers: { authorization: `Bearer ${accessToken}`, 'idempotency-key': 'idem-sse-conv-err' },
-      payload: {},
+      payload: { projectId: project.id },
     });
     const { ApiError } = await import('../../../src/platform/errors.js');
     mockInvokeChatGraph.mockRejectedValue(ApiError.fromCode('LLM_PROVIDER_ERROR'));

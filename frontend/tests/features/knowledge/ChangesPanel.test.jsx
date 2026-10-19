@@ -42,7 +42,8 @@ afterEach(() => {
 beforeEach(() => {
   clearAuthSession();
   localStorage.clear();
-  seedAuthSession();
+  // Changes tab requires knowledge.browse or knowledge.view (ProjectDetailPage outlet gate).
+  seedAuthSession('you@acme.io', { permissions: ['knowledge.browse', 'knowledge.view'] });
   fetchChangeSummary.mockReset();
   fetchSourceFileMetadata.mockReset();
   fetchSourceSlice.mockReset();

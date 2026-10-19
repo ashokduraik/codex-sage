@@ -16,20 +16,20 @@ describe('registerRoutes', () => {
     expect(app.hasRoute({ method: 'GET', url: `${API_BASE_PATH}/access/audit/list` })).toBe(true);
     expect(app.hasRoute({ method: 'GET', url: `${API_BASE_PATH}/access/audit/get/:auditEventId` })).toBe(true);
     expect(app.hasRoute({ method: 'POST', url: `${API_BASE_PATH}/masters/projects/create` })).toBe(true);
-    expect(app.hasRoute({ method: 'POST', url: `${API_BASE_PATH}/masters/projects/fillDescriptionFromReadme/:projectId` })).toBe(true);
+    expect(app.hasRoute({ method: 'POST', url: `${API_BASE_PATH}/masters/projects/fillDescriptionFromReadme` })).toBe(true);
     expect(app.hasRoute({ method: 'GET', url: `${API_BASE_PATH}/masters/projects/list` })).toBe(true);
     expect(app.hasRoute({ method: 'GET', url: `${API_BASE_PATH}/masters/projects/get/:projectId` })).toBe(true);
-    expect(app.hasRoute({ method: 'DELETE', url: `${API_BASE_PATH}/masters/projects/delete/:projectId` })).toBe(true);
+    expect(app.hasRoute({ method: 'DELETE', url: `${API_BASE_PATH}/masters/projects/delete` })).toBe(true);
     expect(app.hasRoute({ method: 'GET', url: `${API_BASE_PATH}/masters/projectMembers/list/:projectId` })).toBe(true);
-    expect(app.hasRoute({ method: 'POST', url: `${API_BASE_PATH}/masters/projectMembers/create/:projectId` })).toBe(true);
+    expect(app.hasRoute({ method: 'POST', url: `${API_BASE_PATH}/masters/projectMembers/create` })).toBe(true);
     expect(
       app.hasRoute({
         method: 'DELETE',
-        url: `${API_BASE_PATH}/masters/projectMembers/delete/:projectId/:userId`,
+        url: `${API_BASE_PATH}/masters/projectMembers/delete`,
       }),
     ).toBe(true);
     expect(app.hasRoute({ method: 'GET', url: `${API_BASE_PATH}/masters/notifications/list` })).toBe(true);
-    expect(app.hasRoute({ method: 'POST', url: `${API_BASE_PATH}/masters/notifications/markRead/:notificationId` })).toBe(true);
+    expect(app.hasRoute({ method: 'POST', url: `${API_BASE_PATH}/masters/notifications/markRead` })).toBe(true);
     expect(app.hasRoute({ method: 'POST', url: `${API_BASE_PATH}/masters/notifications/markAllRead` })).toBe(true);
     expect(app.hasRoute({ method: 'GET', url: `${API_BASE_PATH}/masters/projectActivities/getOrganizationUsage` })).toBe(true);
     expect(app.hasRoute({ method: 'GET', url: `${API_BASE_PATH}/masters/projectActivities/getProjectUsage/:projectId` })).toBe(true);
@@ -39,13 +39,13 @@ describe('registerRoutes', () => {
     expect(
       app.hasRoute({
         method: 'POST',
-        url: `${API_BASE_PATH}/conversation/conversation/create/:projectId`,
+        url: `${API_BASE_PATH}/conversation/conversation/create`,
       }),
     ).toBe(true);
     expect(
       app.hasRoute({
         method: 'POST',
-        url: `${API_BASE_PATH}/conversation/chatStream/streamMessage/:projectId/:conversationId`,
+        url: `${API_BASE_PATH}/conversation/chatStream/streamMessage`,
       }),
     ).toBe(true);
     expect(app.hasRoute({ method: 'GET', url: `${API_BASE_PATH}/knowledge/search/run/:projectId` })).toBe(true);

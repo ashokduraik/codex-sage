@@ -16,9 +16,10 @@ describe('requireProjectPermission', () => {
     vi.clearAllMocks();
   });
 
-  it('returns 400 for non-ObjectId projectId without resolving', async () => {
+  it('returns 400 for non-ObjectId projectId in GET params without resolving', async () => {
     const pre = requireProjectPermission('projects.view');
     const request = {
+      method: 'GET',
       principal: { orgId: 'o1', userId: 'u1' },
       params: { projectId: 'not-an-id' },
     };
@@ -26,14 +27,27 @@ describe('requireProjectPermission', () => {
     expect(resolveProjectPermissions).not.toHaveBeenCalled();
   });
 
-  it('returns 404 on NO_ACCESS and 403 when permission missing', async () => {
+  it('returns 400 for non-ObjectId projectId in POST body without resolving', async () => {
+    const pre = requireProjectPermission('projects.view');
+    const request = {
+      method: 'POST',
+      principal: { orgId: 'o1', userId: 'u1' },
+      body: { projectId: 'not-an-id' },
+      params: {},
+    };
+    await expect(pre(request)).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    expect(resolveProjectPermissions).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 on NO_ACCESS and 403 when permission missing for POST body', async () => {
     const projectId = new mongoose.Types.ObjectId().toHexString();
     resolveProjectPermissions.mockResolvedValueOnce({ kind: 'NO_ACCESS' });
     const viewPre = requireProjectPermission('projects.view');
     await expect(
       viewPre({
+        method: 'POST',
         principal: { orgId: 'o1', userId: 'u1' },
-        params: { projectId },
+        body: { projectId },
       }),
     ).rejects.toMatchObject({ code: 'PROJECT_NOT_FOUND' });
 
@@ -45,13 +59,14 @@ describe('requireProjectPermission', () => {
     const updatePre = requireProjectPermission('projects.update');
     await expect(
       updatePre({
+        method: 'PATCH',
         principal: { orgId: 'o1', userId: 'u1' },
-        params: { projectId },
+        body: { projectId },
       }),
     ).rejects.toMatchObject({ code: 'FORBIDDEN' });
   });
 
-  it('decorates projectScope when effective permissions match any mode', async () => {
+  it('reads projectId from GET params and decorates projectScope for any mode', async () => {
     const projectId = new mongoose.Types.ObjectId().toHexString();
     resolveProjectPermissions.mockResolvedValue({
       kind: 'OK',
@@ -62,6 +77,7 @@ describe('requireProjectPermission', () => {
       mode: 'any',
     });
     const request = {
+      method: 'GET',
       principal: { orgId: 'o1', userId: 'u1' },
       params: { projectId },
     };
@@ -72,5 +88,25 @@ describe('requireProjectPermission', () => {
       userId: 'u1',
       permissions: ['users.manage', 'projects.view'],
     });
+  });
+
+  it('reads projectId from DELETE body and ignores params', async () => {
+    const bodyProjectId = new mongoose.Types.ObjectId().toHexString();
+    const paramsProjectId = new mongoose.Types.ObjectId().toHexString();
+    resolveProjectPermissions.mockResolvedValue({
+      kind: 'OK',
+      visible: true,
+      permissions: ['projects.delete'],
+    });
+    const pre = requireProjectPermission('projects.delete');
+    const request = {
+      method: 'DELETE',
+      principal: { orgId: 'o1', userId: 'u1' },
+      body: { projectId: bodyProjectId },
+      params: { projectId: paramsProjectId },
+    };
+    await pre(request);
+    expect(resolveProjectPermissions).toHaveBeenCalledWith('o1', 'u1', bodyProjectId, expect.any(Object));
+    expect(request.projectScope.projectId).toBe(bodyProjectId);
   });
 });

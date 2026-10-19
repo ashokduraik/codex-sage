@@ -103,19 +103,19 @@ function stubAdminFetch(fetchMock, options = {}) {
     if (path.includes('/resetPassword') && method === 'POST') {
       return jsonResponse({ passwordResetStatus: 'completed' });
     }
-    if (method === 'DELETE' && path.startsWith('/masters/users/delete/')) {
+    if (method === 'DELETE' && path.startsWith('/masters/users/delete')) {
       return jsonResponse({ id: 'u1' });
     }
-    if (method === 'PATCH' && path.startsWith('/masters/users/update/')) {
+    if (method === 'PATCH' && path.startsWith('/masters/users/update')) {
       return jsonResponse({ ...USER_LENA, roles: [ROLE_MEMBER] });
     }
-    if (path.includes('/masters/users/deactivate/')) {
+    if (path.includes('/masters/users/deactivate')) {
       if (options.onDeactivate) {
         return options.onDeactivate();
       }
       return jsonResponse({ ...USER_LENA, userStatus: 'disabled' });
     }
-    if (path.includes('/masters/users/activate/')) {
+    if (path.includes('/masters/users/activate')) {
       return jsonResponse({ ...USER_LENA, userStatus: 'active' });
     }
     return jsonResponse({ error: { code: 'NOT_FOUND', message: 'missing stub' } }, 404);
@@ -311,7 +311,11 @@ describe('AdminUsers', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Remove user' }));
 
     await waitFor(() => {
-      expect(fetchMock.mock.calls.some(([url, init]) => String(url).includes('/masters/users/delete/u1') && init?.method === 'DELETE')).toBe(true);
+      expect(
+        fetchMock.mock.calls.some(
+          ([url, init]) => String(url).endsWith('/masters/users/delete') && init?.method === 'DELETE' && JSON.parse(init.body).userId === 'u1',
+        ),
+      ).toBe(true);
     });
   });
 
@@ -391,7 +395,10 @@ describe('AdminUsers', () => {
       expect(
         fetchMock.mock.calls.some(
           ([url, init]) =>
-            String(url).includes('/masters/users/update/u1') && init?.method === 'PATCH' && JSON.parse(init.body).roleIds.includes(ROLE_MEMBER.id),
+            String(url).endsWith('/masters/users/update') &&
+            init?.method === 'PATCH' &&
+            JSON.parse(init.body).userId === 'u1' &&
+            JSON.parse(init.body).roleIds.includes(ROLE_MEMBER.id),
         ),
       ).toBe(true);
     });
@@ -410,7 +417,9 @@ describe('AdminUsers', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Activate' }));
 
     await waitFor(() => {
-      expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/masters/users/activate/'))).toBe(true);
+      expect(
+        fetchMock.mock.calls.some(([url, init]) => String(url).endsWith('/masters/users/activate') && JSON.parse(init.body).userId === 'u1'),
+      ).toBe(true);
     });
     expect(screen.queryByRole('button', { name: 'Activate' })).toBeNull();
   });

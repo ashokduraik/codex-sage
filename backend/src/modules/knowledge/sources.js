@@ -980,6 +980,14 @@ const projectIdParamsSchema = z.object({
   projectId: z.string().min(1),
 });
 
+// Body for re-ingesting one source version: owning project and the version to rebuild.
+const reingestBodySchema = z
+  .object({
+    projectId: z.string().min(1),
+    sourceVersionId: z.string().min(1),
+  })
+  .strict();
+
 /**
  * Maps zod issues to VALIDATION_ERROR details.
  * @param {import('zod').ZodError} error Zod error.
@@ -1020,16 +1028,20 @@ export async function listProjectSourceVersionsHttp(request) {
 }
 
 /**
- * POST /knowledge/sources/reingest/:projectId/:sourceVersionId — enqueue a knowledge rebuild for a version.
+ * POST /knowledge/sources/reingest — enqueue a knowledge rebuild for a version.
  * @param {import('fastify').FastifyRequest} request Fastify request.
  * @param {import('fastify').FastifyReply} reply Fastify reply.
  * @returns {Promise<object>} 202 payload with job id.
  */
 export async function reingestSourceHttp(request, reply) {
+  const parsed = reingestBodySchema.safeParse(request.body ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
+  }
   const result = await enqueueSourceReingest({
     orgId: request.projectScope.orgId,
     projectId: request.projectScope.projectId,
-    sourceVersionId: String(request.params.sourceVersionId),
+    sourceVersionId: parsed.data.sourceVersionId,
     actorUserId: request.projectScope.userId,
     correlationId: request.id,
   });

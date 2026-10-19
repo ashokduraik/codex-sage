@@ -14,7 +14,7 @@ describe('notification.routes unit edges', () => {
     ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
     await expect(
       markNotificationReadHttp({
-        params: { notificationId: '' },
+        body: { notificationId: '' },
         principal: { orgId: '507f1f77bcf86cd799439011', userId: '507f1f77bcf86cd799439012' },
       }),
     ).rejects.toMatchObject({ code: 'NOT_FOUND' });

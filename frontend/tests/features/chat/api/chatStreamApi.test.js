@@ -2,7 +2,13 @@
  * chatStreamApi SSE parser and stage mapping unit tests.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createSseParser, stageToI18nKey, streamConversationMessage } from '@/features/chat/api/chatStreamApi.js';
+import {
+  createSseParser,
+  stageToI18nKey,
+  streamConversationMessage,
+  retryConversationMessage,
+  editConversationMessage,
+} from '@/features/chat/api/chatStreamApi.js';
 
 vi.mock('@/shared/api/apiConfig.js', () => ({
   API_BASE_URL: 'http://api.test/api/v1',
@@ -235,5 +241,46 @@ describe('streamConversationMessage', () => {
         idempotencyKey: 'k1',
       }),
     ).rejects.toMatchObject({ code: 'KNOWLEDGE_UNAVAILABLE', status: 503 });
+  });
+});
+
+describe('chat stream request shape', () => {
+  /**
+   * Stubs fetch with a queued 202 JSON reply and returns the mock for assertions.
+   * @returns {ReturnType<typeof vi.fn>}
+   */
+  function stubQueuedFetch() {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 202,
+      headers: new Headers({ 'Content-Type': 'application/json' }),
+      json: async () => ({ messageId: 'm1', messageStatus: 'queued' }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    return fetchMock;
+  }
+
+  it('streams a message to a bare action path with ids in the body', async () => {
+    const fetchMock = stubQueuedFetch();
+    await streamConversationMessage({ projectId: 'p1', conversationId: 'c1', content: 'hi', idempotencyKey: 'k1' });
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('http://api.test/api/v1/conversation/chatStream/streamMessage');
+    expect(JSON.parse(init.body)).toEqual({ projectId: 'p1', conversationId: 'c1', content: 'hi' });
+  });
+
+  it('retries a message with ids in the body', async () => {
+    const fetchMock = stubQueuedFetch();
+    await retryConversationMessage({ projectId: 'p1', conversationId: 'c1', messageId: 'm1', idempotencyKey: 'k1' });
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('http://api.test/api/v1/conversation/chatStream/retryMessage');
+    expect(JSON.parse(init.body)).toEqual({ projectId: 'p1', conversationId: 'c1', messageId: 'm1' });
+  });
+
+  it('edits a message with ids and content in the body', async () => {
+    const fetchMock = stubQueuedFetch();
+    await editConversationMessage({ projectId: 'p1', conversationId: 'c1', messageId: 'm1', content: 'new', idempotencyKey: 'k1' });
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('http://api.test/api/v1/conversation/chatStream/editMessage');
+    expect(JSON.parse(init.body)).toEqual({ projectId: 'p1', conversationId: 'c1', messageId: 'm1', content: 'new' });
   });
 });

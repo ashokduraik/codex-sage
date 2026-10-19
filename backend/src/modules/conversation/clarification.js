@@ -25,12 +25,9 @@ const CLARIFICATION_SSE_KEEPALIVE_INTERVAL_MS = 15_000;
 /** Echoed on SSE responses (same as HTTP `X-Correlation-Id`). */
 const CORRELATION_ID_HEADER = 'X-Correlation-Id';
 
-const answerParamsSchema = z.object({
-  projectId: z.string().min(1),
-});
-
 const answersBodySchema = z
   .object({
+    projectId: z.string().min(1),
     conversationId: z.string().min(1),
     messageId: z.string().min(1),
     clarificationSetId: z.string().min(1),
@@ -44,10 +41,6 @@ const answersBodySchema = z
  * @param {import('fastify').FastifyReply} reply Hijacked for SSE, or JSON errors / idempotent replay.
  */
 export async function answerClarificationHttp(request, reply) {
-  const params = answerParamsSchema.safeParse(request.params ?? {});
-  if (!params.success) {
-    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
-  }
   const parsed = answersBodySchema.safeParse(request.body ?? {});
   if (!parsed.success) {
     throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });

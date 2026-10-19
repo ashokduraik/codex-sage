@@ -386,7 +386,8 @@ const listQuerySchema = z.object({
   limit: z.coerce.number().int().optional(),
 });
 
-const idParamsSchema = z.object({
+// Body for marking one notification read.
+const markReadBodySchema = z.object({
   notificationId: z.string().min(1),
 });
 
@@ -413,15 +414,15 @@ export async function listNotificationsHttp(request) {
 }
 
 /**
- * POST /masters/notifications/markRead/:notificationId — mark one notification read.
+ * POST /masters/notifications/markRead — mark one notification read.
  * @param {import('fastify').FastifyRequest} request Request.
  */
 export async function markNotificationReadHttp(request) {
-  const params = idParamsSchema.safeParse(request.params ?? {});
-  if (!params.success) {
+  const parsed = markReadBodySchema.safeParse(request.body ?? {});
+  if (!parsed.success) {
     throw ApiError.fromCode('NOT_FOUND');
   }
-  return markNotificationRead(request.principal.orgId, request.principal.userId, params.data.notificationId);
+  return markNotificationRead(request.principal.orgId, request.principal.userId, parsed.data.notificationId);
 }
 
 /**

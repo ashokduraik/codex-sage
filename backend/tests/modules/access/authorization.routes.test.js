@@ -162,9 +162,9 @@ describe('authorization routes', () => {
     const token = await login(app, user.email, password);
     const res = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/masters/users/resetPassword/${admin._id}`,
+      url: `${API_BASE_PATH}/masters/users/resetPassword`,
       headers: { authorization: `Bearer ${token}` },
-      payload: { newPassword: 'abcdef' },
+      payload: { userId: admin._id, newPassword: 'abcdef' },
     });
     expect(res.statusCode).toBe(403);
     expect(res.json().error.code).toBe('FORBIDDEN');

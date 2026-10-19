@@ -62,38 +62,41 @@ describe('conversationsApi', () => {
   it('creates with Idempotency-Key and maps lifecycle verbs', async () => {
     apiRequest.mockResolvedValue({ id: 'c1', title: 'New conversation' });
     await createConversation('p1', { idempotencyKey: 'idem-1' });
-    expect(apiRequest).toHaveBeenCalledWith('/conversation/conversation/create/p1', {
+    expect(apiRequest).toHaveBeenCalledWith('/conversation/conversation/create', {
       method: 'POST',
-      body: {},
+      body: { projectId: 'p1' },
       idempotencyKey: 'idem-1',
     });
 
     await createConversation('p1', { title: 'Auth', idempotencyKey: 'idem-2' });
-    expect(apiRequest).toHaveBeenCalledWith('/conversation/conversation/create/p1', {
+    expect(apiRequest).toHaveBeenCalledWith('/conversation/conversation/create', {
       method: 'POST',
-      body: { title: 'Auth' },
+      body: { projectId: 'p1', title: 'Auth' },
       idempotencyKey: 'idem-2',
     });
 
     await renameConversation('p1', 'c1', { title: 'Renamed' });
-    expect(apiRequest).toHaveBeenCalledWith('/conversation/conversation/rename/p1/c1', {
+    expect(apiRequest).toHaveBeenCalledWith('/conversation/conversation/rename', {
       method: 'PATCH',
-      body: { title: 'Renamed' },
+      body: { projectId: 'p1', conversationId: 'c1', title: 'Renamed' },
     });
 
     await archiveConversation('p1', 'c1');
-    expect(apiRequest).toHaveBeenCalledWith('/conversation/conversation/archive/p1/c1', {
+    expect(apiRequest).toHaveBeenCalledWith('/conversation/conversation/archive', {
       method: 'POST',
+      body: { projectId: 'p1', conversationId: 'c1' },
     });
 
     await restoreConversation('p1', 'c1');
-    expect(apiRequest).toHaveBeenCalledWith('/conversation/conversation/restore/p1/c1', {
+    expect(apiRequest).toHaveBeenCalledWith('/conversation/conversation/restore', {
       method: 'POST',
+      body: { projectId: 'p1', conversationId: 'c1' },
     });
 
     await deleteConversation('p1', 'c1');
-    expect(apiRequest).toHaveBeenCalledWith('/conversation/conversation/delete/p1/c1', {
+    expect(apiRequest).toHaveBeenCalledWith('/conversation/conversation/delete', {
       method: 'DELETE',
+      body: { projectId: 'p1', conversationId: 'c1' },
     });
   });
 });

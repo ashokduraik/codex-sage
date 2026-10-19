@@ -53,8 +53,9 @@ describe('jobsApi', () => {
   it('retries with Idempotency-Key', async () => {
     apiRequest.mockResolvedValue({ jobId: 'j1', jobStatus: 'retrying' });
     await retryJob({ jobId: 'j1', idempotencyKey: 'idem-1' });
-    expect(apiRequest).toHaveBeenCalledWith('/masters/jobs/retry/j1', {
+    expect(apiRequest).toHaveBeenCalledWith('/masters/jobs/retry', {
       method: 'POST',
+      body: { jobId: 'j1' },
       idempotencyKey: 'idem-1',
       signal: undefined,
     });
@@ -63,8 +64,9 @@ describe('jobsApi', () => {
   it('cancels without an idempotency key', async () => {
     apiRequest.mockResolvedValue({ jobId: 'j1', jobStatus: 'running' });
     await cancelJob({ jobId: 'j1' });
-    expect(apiRequest).toHaveBeenCalledWith('/masters/jobs/cancel/j1', {
+    expect(apiRequest).toHaveBeenCalledWith('/masters/jobs/cancel', {
       method: 'POST',
+      body: { jobId: 'j1' },
       signal: undefined,
     });
   });

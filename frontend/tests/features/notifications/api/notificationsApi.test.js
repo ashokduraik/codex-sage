@@ -73,7 +73,8 @@ describe('notificationsApi', () => {
       id: 'n1',
       readAt: '2026-09-26T00:00:00.000Z',
     });
-    expect(String(fetchMock.mock.calls[0][0])).toContain('/masters/notifications/markRead/n1');
+    expect(String(fetchMock.mock.calls[0][0])).toMatch(/\/masters\/notifications\/markRead$/);
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ notificationId: 'n1' });
     await expect(markAllNotificationsRead()).resolves.toEqual({ updatedCount: 2 });
     expect(String(fetchMock.mock.calls[1][0])).toContain('/masters/notifications/markAllRead');
   });

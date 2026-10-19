@@ -21,9 +21,9 @@ export const CLARIFICATION_FREE_TEXT_MAX_LENGTH = 2000;
  * @returns {Promise<{ kind: 'stream', terminal: 'done' | 'error' | 'interrupted' | 'cancelled' | 'awaiting_clarification', messageId?: string, error?: object } | { kind: 'queued', body: object }>}
  */
 export async function answerClarificationStream(input) {
-  const path = `/conversation/clarification/answer/${encodeURIComponent(input.projectId)}`;
-  return postChatStream(path, {
+  return postChatStream('/conversation/clarification/answer', {
     body: {
+      projectId: input.projectId,
       conversationId: input.conversationId,
       messageId: input.messageId,
       clarificationSetId: input.clarificationSetId,

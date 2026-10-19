@@ -49,10 +49,13 @@ afterEach(() => {
   cleanup();
 });
 
+/** Permissions so ProjectDetailPage allows Knowledge and Chat outlets. */
+const KNOWLEDGE_EXPLORER_PERMISSIONS = ['knowledge.browse', 'knowledge.view', 'chat.ask'];
+
 beforeEach(() => {
   clearAuthSession();
   localStorage.clear();
-  seedAuthSession();
+  seedAuthSession('you@acme.io', { permissions: KNOWLEDGE_EXPLORER_PERMISSIONS });
   fetchKnowledgeFacets.mockReset();
   fetchKnowledgeHealth.mockReset();
   fetchKnowledgeWorkflows.mockReset();

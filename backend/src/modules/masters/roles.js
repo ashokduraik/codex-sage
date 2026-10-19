@@ -634,6 +634,7 @@ const createRoleBodySchema = z
 
 const patchRoleBodySchema = z
   .object({
+    roleId: objectIdStringSchema,
     name: z.string().trim().min(1).max(120).optional(),
     description: z.string().trim().max(2000).optional(),
     permissions: z.array(z.string().min(1)).min(1).optional(),
@@ -651,7 +652,8 @@ const listRolesQuerySchema = z
   })
   .strict();
 
-const roleIdParamsSchema = z.object({ roleId: objectIdStringSchema });
+// Body for deleting a role: the target role id.
+const deleteRoleBodySchema = z.object({ roleId: objectIdStringSchema }).strict();
 
 /**
  * Maps zod issues to VALIDATION_ERROR details.
@@ -720,14 +722,10 @@ export async function createRoleHttp(request, reply) {
 }
 
 /**
- * PATCH /masters/roles/update/:roleId — update role metadata and permissions (admin).
+ * PATCH /masters/roles/update — update role metadata and permissions (admin). Target `roleId` is in the body.
  * @param {import('fastify').FastifyRequest} request Request.
  */
 export async function updateRoleHttp(request) {
-  const params = roleIdParamsSchema.safeParse(request.params ?? {});
-  if (!params.success) {
-    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
-  }
   const parsed = patchRoleBodySchema.safeParse(request.body ?? {});
   if (!parsed.success) {
     throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
@@ -735,7 +733,7 @@ export async function updateRoleHttp(request) {
   const ctx = serviceContext(request);
   return updateRole({
     ...ctx,
-    roleId: params.data.roleId,
+    roleId: parsed.data.roleId,
     name: parsed.data.name,
     description: parsed.data.description,
     permissions: parsed.data.permissions,
@@ -743,16 +741,16 @@ export async function updateRoleHttp(request) {
 }
 
 /**
- * DELETE /masters/roles/delete/:roleId — soft-delete a role (admin).
+ * DELETE /masters/roles/delete — soft-delete a role (admin). Target `roleId` is in the body.
  * @param {import('fastify').FastifyRequest} request Request.
  * @param {import('fastify').FastifyReply} reply Reply.
  */
 export async function deleteRoleHttp(request, reply) {
-  const params = roleIdParamsSchema.safeParse(request.params ?? {});
-  if (!params.success) {
-    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+  const parsed = deleteRoleBodySchema.safeParse(request.body ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
   }
   const ctx = serviceContext(request);
-  await softDeleteRole({ ...ctx, roleId: params.data.roleId });
+  await softDeleteRole({ ...ctx, roleId: parsed.data.roleId });
   return reply.code(204).send();
 }

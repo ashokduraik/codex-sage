@@ -34,6 +34,7 @@ const createBodySchema = z.object({
 
 const patchBodySchema = z
   .object({
+    projectId: z.string().min(1),
     name: z.string().trim().min(1).max(120).optional(),
     description: z.string().trim().max(2000).optional(),
   })
@@ -44,6 +45,7 @@ const patchBodySchema = z
 
 const settingsBodySchema = z
   .object({
+    projectId: z.string().min(1),
     settings: z.record(z.string(), z.unknown()),
   })
   .strict();
@@ -63,6 +65,9 @@ const listQuerySchema = z.object({
 const projectIdParamsSchema = z.object({
   projectId: z.string().min(1),
 });
+
+// Body for mutating project actions that only need the target project (recordAccess, archive, restore, delete, ...).
+const projectIdBodySchema = z.object({ projectId: z.string().min(1) }).strict();
 
 /**
  * POST /masters/projects/create — create a project for the org.
@@ -114,26 +119,22 @@ export async function getProjectHttp(request) {
 }
 
 /**
- * POST /masters/projects/recordAccess/:projectId — record last-accessed for the caller.
+ * POST /masters/projects/recordAccess — record last-accessed for the caller.
  * @param {import('fastify').FastifyRequest} request Request.
  */
 export async function recordProjectAccessHttp(request) {
-  const params = projectIdParamsSchema.safeParse(request.params ?? {});
-  if (!params.success) {
-    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+  const parsed = projectIdBodySchema.safeParse(request.body ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
   }
   return recordProjectAccess(request.projectScope.orgId, request.projectScope.projectId);
 }
 
 /**
- * PATCH /masters/projects/update/:projectId — update project metadata (project ACL).
+ * PATCH /masters/projects/update — update project metadata (project ACL).
  * @param {import('fastify').FastifyRequest} request Request.
  */
 export async function updateProjectHttp(request) {
-  const params = projectIdParamsSchema.safeParse(request.params ?? {});
-  if (!params.success) {
-    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
-  }
   const parsed = patchBodySchema.safeParse(request.body ?? {});
   if (!parsed.success) {
     throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
@@ -148,13 +149,13 @@ export async function updateProjectHttp(request) {
 }
 
 /**
- * POST /masters/projects/fillDescriptionFromReadme/:projectId — LLM description from root README.
+ * POST /masters/projects/fillDescriptionFromReadme — LLM description from root README.
  * @param {import('fastify').FastifyRequest} request Request.
  */
 export async function fillProjectDescriptionFromReadmeHttp(request) {
-  const params = projectIdParamsSchema.safeParse(request.params ?? {});
-  if (!params.success) {
-    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+  const parsed = projectIdBodySchema.safeParse(request.body ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
   }
   const ctx = serviceContext(request);
   return fillProjectDescriptionFromReadme({
@@ -176,14 +177,10 @@ export async function getProjectSettingsHttp(request) {
 }
 
 /**
- * PATCH /masters/projects/updateSettings/:projectId — merge project settings (project ACL).
+ * PATCH /masters/projects/updateSettings — merge project settings (project ACL).
  * @param {import('fastify').FastifyRequest} request Request.
  */
 export async function updateProjectSettingsHttp(request) {
-  const params = projectIdParamsSchema.safeParse(request.params ?? {});
-  if (!params.success) {
-    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
-  }
   const parsed = settingsBodySchema.safeParse(request.body ?? {});
   if (!parsed.success) {
     throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
@@ -197,26 +194,26 @@ export async function updateProjectSettingsHttp(request) {
 }
 
 /**
- * POST /masters/projects/archive/:projectId — archive project lifecycle (project ACL).
+ * POST /masters/projects/archive — archive project lifecycle (project ACL).
  * @param {import('fastify').FastifyRequest} request Request.
  */
 export async function archiveProjectHttp(request) {
-  const params = projectIdParamsSchema.safeParse(request.params ?? {});
-  if (!params.success) {
-    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+  const parsed = projectIdBodySchema.safeParse(request.body ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
   }
   const ctx = serviceContext(request);
   return archiveProject({ ...ctx, projectId: request.projectScope.projectId });
 }
 
 /**
- * POST /masters/projects/restore/:projectId — restore archived project (project ACL).
+ * POST /masters/projects/restore — restore archived project (project ACL).
  * @param {import('fastify').FastifyRequest} request Request.
  */
 export async function restoreProjectHttp(request) {
-  const params = projectIdParamsSchema.safeParse(request.params ?? {});
-  if (!params.success) {
-    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+  const parsed = projectIdBodySchema.safeParse(request.body ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
   }
   const ctx = serviceContext(request);
   return restoreProject({ ...ctx, projectId: request.projectScope.projectId });
@@ -235,14 +232,14 @@ export async function getProjectDeletionPreviewHttp(request) {
 }
 
 /**
- * DELETE /masters/projects/delete/:projectId — soft-delete project (project ACL).
+ * DELETE /masters/projects/delete — soft-delete project (project ACL).
  * @param {import('fastify').FastifyRequest} request Request.
  * @param {import('fastify').FastifyReply} reply Reply.
  */
 export async function deleteProjectHttp(request, reply) {
-  const params = projectIdParamsSchema.safeParse(request.params ?? {});
-  if (!params.success) {
-    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+  const parsed = projectIdBodySchema.safeParse(request.body ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
   }
   const ctx = serviceContext(request);
   await deleteProject({ ...ctx, projectId: request.projectScope.projectId });

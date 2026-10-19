@@ -35,7 +35,8 @@ afterEach(() => {
 beforeEach(() => {
   clearAuthSession();
   localStorage.clear();
-  seedAuthSession();
+  // Health tab requires knowledge.view (ProjectDetailPage outlet gate).
+  seedAuthSession('you@acme.io', { permissions: ['knowledge.view'] });
   getProjectRepositoryConnection.mockReset();
   getProjectRepositoryConnection.mockImplementation(async (projectId) => {
     if (projectId === 'prj_atlas' || projectId === 'prj_helios') {

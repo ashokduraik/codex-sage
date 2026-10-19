@@ -55,8 +55,9 @@ export async function listNotifications(options = {}) {
  * @returns {Promise<{ id: string, readAt: string }>}
  */
 export async function markNotificationRead(input) {
-  return apiRequest(`/masters/notifications/markRead/${encodeURIComponent(input.notificationId)}`, {
+  return apiRequest('/masters/notifications/markRead', {
     method: 'POST',
+    body: { notificationId: input.notificationId },
     signal: input.signal,
   });
 }

@@ -61,24 +61,25 @@ describe('projectsApi', () => {
     expect(apiRequest).toHaveBeenCalledWith('/masters/projects/get/p1', { signal: undefined });
 
     await patchProject('p1', { name: 'N' });
-    expect(apiRequest).toHaveBeenCalledWith('/masters/projects/update/p1', {
+    expect(apiRequest).toHaveBeenCalledWith('/masters/projects/update', {
       method: 'PATCH',
-      body: { name: 'N' },
+      body: { projectId: 'p1', name: 'N' },
     });
 
     await fillProjectDescriptionFromReadme('p1');
-    expect(apiRequest).toHaveBeenCalledWith('/masters/projects/fillDescriptionFromReadme/p1', {
+    expect(apiRequest).toHaveBeenCalledWith('/masters/projects/fillDescriptionFromReadme', {
       method: 'POST',
+      body: { projectId: 'p1' },
     });
 
     await archiveProject('p1');
-    expect(apiRequest).toHaveBeenCalledWith('/masters/projects/archive/p1', { method: 'POST' });
+    expect(apiRequest).toHaveBeenCalledWith('/masters/projects/archive', { method: 'POST', body: { projectId: 'p1' } });
 
     await restoreProject('p1');
-    expect(apiRequest).toHaveBeenCalledWith('/masters/projects/restore/p1', { method: 'POST' });
+    expect(apiRequest).toHaveBeenCalledWith('/masters/projects/restore', { method: 'POST', body: { projectId: 'p1' } });
 
     await deleteProject('p1');
-    expect(apiRequest).toHaveBeenCalledWith('/masters/projects/delete/p1', { method: 'DELETE' });
+    expect(apiRequest).toHaveBeenCalledWith('/masters/projects/delete', { method: 'DELETE', body: { projectId: 'p1' } });
 
     await getProjectDeletionPreview('p1');
     expect(apiRequest).toHaveBeenCalledWith('/masters/projects/getDeletionPreview/p1', {
@@ -86,6 +87,6 @@ describe('projectsApi', () => {
     });
 
     await recordProjectAccess('p1');
-    expect(apiRequest).toHaveBeenCalledWith('/masters/projects/recordAccess/p1', { method: 'POST' });
+    expect(apiRequest).toHaveBeenCalledWith('/masters/projects/recordAccess', { method: 'POST', body: { projectId: 'p1' } });
   });
 });

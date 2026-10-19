@@ -12,16 +12,18 @@ import {
 
 describe('repositories.schemas', () => {
   it('accepts a probe body with or without a token', () => {
-    expect(probeBodySchema.safeParse({ repositoryUrl: 'https://github.com/acme/app' }).success).toBe(true);
+    expect(probeBodySchema.safeParse({ projectId: 'p1', repositoryUrl: 'https://github.com/acme/app' }).success).toBe(true);
     expect(
       probeBodySchema.safeParse({
+        projectId: 'p1',
         repositoryUrl: 'https://github.com/acme/app',
         accessToken: 'tok',
       }).success,
     ).toBe(true);
-    expect(probeBodySchema.safeParse({ repositoryUrl: '' }).success).toBe(false);
+    expect(probeBodySchema.safeParse({ projectId: 'p1', repositoryUrl: '' }).success).toBe(false);
     expect(
       probeBodySchema.safeParse({
+        projectId: 'p1',
         repositoryUrl: 'https://github.com/acme/app',
         extra: true,
       }).success,
@@ -31,17 +33,20 @@ describe('repositories.schemas', () => {
   it('requires selectedBranch on attach and rejects extra keys', () => {
     expect(
       attachBodySchema.safeParse({
+        projectId: 'p1',
         repositoryUrl: 'https://github.com/acme/app',
         selectedBranch: 'main',
       }).success,
     ).toBe(true);
     expect(
       attachBodySchema.safeParse({
+        projectId: 'p1',
         repositoryUrl: 'https://github.com/acme/app',
       }).success,
     ).toBe(false);
     expect(
       attachBodySchema.safeParse({
+        projectId: 'p1',
         repositoryUrl: 'https://github.com/acme/app',
         selectedBranch: 'main',
         extra: 1,
@@ -50,10 +55,11 @@ describe('repositories.schemas', () => {
   });
 
   it('requires selectedBranch on patch and accessToken on replace', () => {
-    expect(patchBranchBodySchema.safeParse({ selectedBranch: 'develop' }).success).toBe(true);
-    expect(patchBranchBodySchema.safeParse({}).success).toBe(false);
-    expect(replaceCredentialBodySchema.safeParse({ accessToken: 'new' }).success).toBe(true);
-    expect(replaceCredentialBodySchema.safeParse({}).success).toBe(false);
+    expect(patchBranchBodySchema.safeParse({ projectId: 'p1', selectedBranch: 'develop' }).success).toBe(true);
+    expect(patchBranchBodySchema.safeParse({ projectId: 'p1' }).success).toBe(false);
+    expect(patchBranchBodySchema.safeParse({ selectedBranch: 'develop' }).success).toBe(false);
+    expect(replaceCredentialBodySchema.safeParse({ projectId: 'p1', accessToken: 'new' }).success).toBe(true);
+    expect(replaceCredentialBodySchema.safeParse({ projectId: 'p1' }).success).toBe(false);
   });
 
   it('redacts accessToken paths and falls back to body for root issues', () => {

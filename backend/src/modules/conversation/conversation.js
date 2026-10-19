@@ -37,11 +37,14 @@ import {
  * Conversation HTTP routes under `/api/v1/conversation/conversation/*`.
  */
 const createBodySchema = z.object({
+  projectId: z.string().min(1),
   title: z.string().trim().min(1).max(CONVERSATION_TITLE_MAX_LENGTH).optional(),
 });
 
 const patchBodySchema = z
   .object({
+    projectId: z.string().min(1),
+    conversationId: z.string().min(1),
     title: z.string().trim().min(1).max(CONVERSATION_TITLE_MAX_LENGTH),
   })
   .strict();
@@ -64,26 +67,18 @@ const searchQuerySchema = z.object({
   archived: archivedQueryTransform,
 });
 
-const projectIdParamsSchema = z.object({
-  projectId: z.string().min(1),
-});
-
 const conversationParamsSchema = z.object({
   projectId: z.string().min(1),
   conversationId: z.string().min(1),
 });
 
 /**
- * POST /conversation/conversation/create/:projectId — create a conversation.
+ * POST /conversation/conversation/create — create a conversation.
  * @param {import('fastify').FastifyRequest} request Request with projectScope.
  * @param {import('fastify').FastifyReply} reply Reply for 201.
  * @returns {Promise<object>} Created conversation DTO.
  */
 export async function createConversationHttp(request, reply) {
-  const params = projectIdParamsSchema.safeParse(request.params ?? {});
-  if (!params.success) {
-    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
-  }
   const parsed = createBodySchema.safeParse(request.body ?? {});
   if (!parsed.success) {
     throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
@@ -165,32 +160,31 @@ export async function listConversationMessagesHttp(request, reply) {
 }
 
 /**
- * PATCH /conversation/conversation/rename/:projectId/:conversationId — rename title.
+ * PATCH /conversation/conversation/rename — rename title.
  * @param {import('fastify').FastifyRequest} request Request with projectScope.
  * @param {import('fastify').FastifyReply} reply Reply.
  * @returns Updated conversation DTO.
  */
 export async function renameConversationHttp(request, reply) {
-  const params = parseConversationParams(request.params);
   const parsed = patchBodySchema.safeParse(request.body ?? {});
   if (!parsed.success) {
     throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
   }
   return updateConversationTitle({
     ...serviceContext(request),
-    conversationId: params.conversationId,
+    conversationId: parsed.data.conversationId,
     title: parsed.data.title,
   });
 }
 
 /**
- * POST /conversation/conversation/archive/:projectId/:conversationId — archive.
+ * POST /conversation/conversation/archive — archive.
  * @param {import('fastify').FastifyRequest} request Request with projectScope.
  * @param {import('fastify').FastifyReply} reply Reply.
  * @returns Archived conversation DTO.
  */
 export async function archiveConversationHttp(request, reply) {
-  const params = parseConversationParams(request.params);
+  const params = parseConversationParams(request.body);
   return archiveConversation({
     ...serviceContext(request),
     conversationId: params.conversationId,
@@ -198,13 +192,13 @@ export async function archiveConversationHttp(request, reply) {
 }
 
 /**
- * POST /conversation/conversation/restore/:projectId/:conversationId — restore.
+ * POST /conversation/conversation/restore — restore.
  * @param {import('fastify').FastifyRequest} request Request with projectScope.
  * @param {import('fastify').FastifyReply} reply Reply.
  * @returns Restored conversation DTO.
  */
 export async function restoreConversationHttp(request, reply) {
-  const params = parseConversationParams(request.params);
+  const params = parseConversationParams(request.body);
   return restoreConversation({
     ...serviceContext(request),
     conversationId: params.conversationId,
@@ -212,12 +206,12 @@ export async function restoreConversationHttp(request, reply) {
 }
 
 /**
- * DELETE /conversation/conversation/delete/:projectId/:conversationId — soft delete.
+ * DELETE /conversation/conversation/delete — soft delete.
  * @param {import('fastify').FastifyRequest} request Request with projectScope.
  * @param {import('fastify').FastifyReply} reply Reply for 204.
  */
 export async function deleteConversationHttp(request, reply) {
-  const params = parseConversationParams(request.params);
+  const params = parseConversationParams(request.body);
   await deleteConversation({
     ...serviceContext(request),
     conversationId: params.conversationId,
@@ -276,8 +270,8 @@ function serviceContext(request) {
 }
 
 /**
- * Parses conversation params or throws VALIDATION_ERROR.
- * @param {unknown} params Route params.
+ * Parses conversation ids or throws VALIDATION_ERROR.
+ * @param {unknown} params Route params (GET) or request body (mutating routes).
  * @returns {{ projectId: string, conversationId: string }}
  */
 function parseConversationParams(params) {

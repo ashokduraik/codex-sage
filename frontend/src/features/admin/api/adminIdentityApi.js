@@ -136,9 +136,9 @@ export async function createUser(input) {
  * @returns {Promise<object>} Updated user DTO.
  */
 export async function patchUser(userId, patch) {
-  return apiRequest(`/masters/users/update/${userId}`, {
+  return apiRequest('/masters/users/update', {
     method: 'PATCH',
-    body: patch,
+    body: { userId, ...patch },
   });
 }
 
@@ -148,7 +148,7 @@ export async function patchUser(userId, patch) {
  * @returns {Promise<object>} Updated user DTO.
  */
 export async function activateUser(userId) {
-  return apiRequest(`/masters/users/activate/${userId}`, { method: 'POST' });
+  return apiRequest('/masters/users/activate', { method: 'POST', body: { userId } });
 }
 
 /**
@@ -157,7 +157,7 @@ export async function activateUser(userId) {
  * @returns {Promise<object>} Updated user DTO.
  */
 export async function deactivateUser(userId) {
-  return apiRequest(`/masters/users/deactivate/${userId}`, { method: 'POST' });
+  return apiRequest('/masters/users/deactivate', { method: 'POST', body: { userId } });
 }
 
 /**
@@ -166,7 +166,7 @@ export async function deactivateUser(userId) {
  * @returns {Promise<object | undefined>}
  */
 export async function removeUser(userId) {
-  return apiRequest(`/masters/users/delete/${userId}`, { method: 'DELETE' });
+  return apiRequest('/masters/users/delete', { method: 'DELETE', body: { userId } });
 }
 
 /**
@@ -176,9 +176,9 @@ export async function removeUser(userId) {
  * @returns {Promise<{ passwordResetStatus: string, completedAt?: string }>}
  */
 export async function resetUserPassword(userId, input) {
-  return apiRequest(`/masters/users/resetPassword/${userId}`, {
+  return apiRequest('/masters/users/resetPassword', {
     method: 'POST',
-    body: { newPassword: input.newPassword },
+    body: { userId, newPassword: input.newPassword },
     idempotencyKey: input.idempotencyKey,
   });
 }
@@ -262,9 +262,9 @@ export async function createRole(input) {
  * @returns {Promise<object>} Updated role DTO.
  */
 export async function patchRole(roleId, patch) {
-  return apiRequest(`/masters/roles/update/${roleId}`, {
+  return apiRequest('/masters/roles/update', {
     method: 'PATCH',
-    body: patch,
+    body: { roleId, ...patch },
   });
 }
 
@@ -274,5 +274,5 @@ export async function patchRole(roleId, patch) {
  * @returns {Promise<object | undefined>}
  */
 export async function removeRole(roleId) {
-  return apiRequest(`/masters/roles/delete/${roleId}`, { method: 'DELETE' });
+  return apiRequest('/masters/roles/delete', { method: 'DELETE', body: { roleId } });
 }

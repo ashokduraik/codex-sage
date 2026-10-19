@@ -39,34 +39,41 @@ export const SSE_KEEPALIVE_INTERVAL_MS = 15_000;
 /** Assistant `messageStatus` values that allow user-initiated retry. */
 const MESSAGE_RETRY_ALLOWED_STATUSES = Object.freeze(['failed', 'interrupted']);
 
-const conversationParamsSchema = z.object({
-  projectId: z.string().min(1),
-  conversationId: z.string().min(1),
-});
-
-const messageParamsSchema = z.object({
-  projectId: z.string().min(1),
-  conversationId: z.string().min(1),
-  messageId: z.string().min(1),
-});
-
-const askBodySchema = z
+// Body for streaming a new user question into a conversation.
+const streamMessageBodySchema = z
   .object({
+    projectId: z.string().min(1),
+    conversationId: z.string().min(1),
     content: z.string().trim().min(1).max(CHAT_MESSAGE_CONTENT_MAX_LENGTH),
   })
   .strict();
 
+// Body for editing an earlier user message and regenerating the answer.
+const editMessageBodySchema = z
+  .object({
+    projectId: z.string().min(1),
+    conversationId: z.string().min(1),
+    messageId: z.string().min(1),
+    content: z.string().trim().min(1).max(CHAT_MESSAGE_CONTENT_MAX_LENGTH),
+  })
+  .strict();
+
+// Body for retrying a failed or interrupted assistant message.
+const retryMessageBodySchema = z
+  .object({
+    projectId: z.string().min(1),
+    conversationId: z.string().min(1),
+    messageId: z.string().min(1),
+  })
+  .strict();
+
 /**
- * POST /conversation/chatStream/streamMessage/:projectId/:conversationId — grounded chat SSE or 202 queue.
+ * POST /conversation/chatStream/streamMessage — grounded chat SSE or 202 queue.
  * @param {import('fastify').FastifyRequest} request Request with projectScope and Accept stream.
  * @param {import('fastify').FastifyReply} reply Hijacked for SSE, or JSON 202 / errors.
  */
 export async function streamConversationMessageHttp(request, reply) {
-  const params = conversationParamsSchema.safeParse(request.params ?? {});
-  if (!params.success) {
-    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
-  }
-  const parsed = askBodySchema.safeParse(request.body ?? {});
+  const parsed = streamMessageBodySchema.safeParse(request.body ?? {});
   if (!parsed.success) {
     throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
   }
@@ -74,7 +81,7 @@ export async function streamConversationMessageHttp(request, reply) {
   const scope = request.projectScope;
   const audit = buildAuditContextFromRequest(request);
   const correlationId = audit.correlationId ?? request.id;
-  const conversationId = params.data.conversationId;
+  const conversationId = parsed.data.conversationId;
 
   const conversation = await loadConversationForUser(scope.orgId, scope.projectId, conversationId, scope.userId);
   assertConversationWritable(conversation, scope.userId);
@@ -178,7 +185,7 @@ export async function streamConversationMessageHttp(request, reply) {
     const outcome = await runChatMessageStream({
       orgId: scope.orgId,
       projectId: scope.projectId,
-      conversationId: params.data.conversationId,
+      conversationId: parsed.data.conversationId,
       actorUserId: scope.userId,
       content: parsed.data.content,
       correlationId,
@@ -654,16 +661,12 @@ export async function runChatStreamForExistingUser(input) {
 }
 
 /**
- * POST /conversation/chatStream/editMessage/:projectId/:conversationId/:messageId — edit + replace downstream + SSE/202.
+ * POST /conversation/chatStream/editMessage — edit + replace downstream + SSE/202.
  * @param {import('fastify').FastifyRequest} request Request with projectScope.
  * @param {import('fastify').FastifyReply} reply SSE, JSON 200/202, or errors.
  */
 export async function editConversationMessageHttp(request, reply) {
-  const params = messageParamsSchema.safeParse(request.params ?? {});
-  if (!params.success) {
-    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
-  }
-  const parsed = askBodySchema.safeParse(request.body ?? {});
+  const parsed = editMessageBodySchema.safeParse(request.body ?? {});
   if (!parsed.success) {
     throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
   }
@@ -672,14 +675,14 @@ export async function editConversationMessageHttp(request, reply) {
   const audit = buildAuditContextFromRequest(request);
   const correlationId = audit.correlationId ?? request.id;
 
-  const conversation = await loadConversationForUser(scope.orgId, scope.projectId, params.data.conversationId, scope.userId);
+  const conversation = await loadConversationForUser(scope.orgId, scope.projectId, parsed.data.conversationId, scope.userId);
   assertConversationWritable(conversation, scope.userId);
 
   const userMessage = await findActiveMessageInConversation({
     orgId: scope.orgId,
     projectId: scope.projectId,
-    conversationId: params.data.conversationId,
-    messageId: params.data.messageId,
+    conversationId: parsed.data.conversationId,
+    messageId: parsed.data.messageId,
   });
   if (!userMessage || userMessage.role !== 'user') {
     throw ApiError.fromCode('CONVERSATION_NOT_FOUND');
@@ -693,8 +696,8 @@ export async function editConversationMessageHttp(request, reply) {
     const applied = await applyUserMessageEditReplaceDownstream({
       orgId: scope.orgId,
       projectId: scope.projectId,
-      conversationId: params.data.conversationId,
-      messageId: params.data.messageId,
+      conversationId: parsed.data.conversationId,
+      messageId: parsed.data.messageId,
       content: parsed.data.content,
       actorUserId: scope.userId,
       afterCreatedAt: userMessage.createdAt,
@@ -710,7 +713,7 @@ export async function editConversationMessageHttp(request, reply) {
       expiresAt: applied.userMessage.expiresAt ? new Date(applied.userMessage.expiresAt).toISOString() : undefined,
       jobId: applied.userMessage.blockingJobId ? String(applied.userMessage.blockingJobId) : null,
     };
-    await recordChatEditAudit(request, scope, params.data.conversationId, correlationId, audit, {
+    await recordChatEditAudit(request, scope, parsed.data.conversationId, correlationId, audit, {
       messageId: body.userMessageId,
       removedMessageIds: body.removedMessageIds,
       editGeneration: body.editGeneration,
@@ -723,7 +726,7 @@ export async function editConversationMessageHttp(request, reply) {
     await conversationHasInFlightChatMessage({
       orgId: scope.orgId,
       projectId: scope.projectId,
-      conversationId: params.data.conversationId,
+      conversationId: parsed.data.conversationId,
     })
   ) {
     throw ApiError.fromCode('MESSAGE_NOT_EDITABLE');
@@ -737,14 +740,14 @@ export async function editConversationMessageHttp(request, reply) {
   const applied = await applyUserMessageEditReplaceDownstream({
     orgId: scope.orgId,
     projectId: scope.projectId,
-    conversationId: params.data.conversationId,
-    messageId: params.data.messageId,
+    conversationId: parsed.data.conversationId,
+    messageId: parsed.data.messageId,
     content: parsed.data.content,
     actorUserId: scope.userId,
     afterCreatedAt: userMessage.createdAt,
   });
 
-  await recordChatEditAudit(request, scope, params.data.conversationId, correlationId, audit, {
+  await recordChatEditAudit(request, scope, parsed.data.conversationId, correlationId, audit, {
     messageId: String(applied.userMessage._id),
     removedMessageIds: applied.removedMessageIds,
     editGeneration: applied.userMessage.editGeneration ?? 0,
@@ -757,7 +760,7 @@ export async function editConversationMessageHttp(request, reply) {
     await markUserMessageQueued({
       orgId: scope.orgId,
       projectId: scope.projectId,
-      conversationId: params.data.conversationId,
+      conversationId: parsed.data.conversationId,
       messageId: String(applied.userMessage._id),
       actorUserId: scope.userId,
       blockingJobId: jobId,
@@ -786,7 +789,7 @@ export async function editConversationMessageHttp(request, reply) {
   const assistant = await insertAssistantForExistingUser({
     orgId: scope.orgId,
     projectId: scope.projectId,
-    conversationId: params.data.conversationId,
+    conversationId: parsed.data.conversationId,
     userMessageId: String(applied.userMessage._id),
     actorUserId: scope.userId,
     knowledgeVersionId: gate.knowledgeVersionId ?? null,
@@ -795,7 +798,7 @@ export async function editConversationMessageHttp(request, reply) {
   return streamExistingUserTurnReply(request, reply, {
     orgId: scope.orgId,
     projectId: scope.projectId,
-    conversationId: params.data.conversationId,
+    conversationId: parsed.data.conversationId,
     actorUserId: scope.userId,
     userMessageId: String(applied.userMessage._id),
     assistantMessageId: String(assistant._id),
@@ -808,28 +811,28 @@ export async function editConversationMessageHttp(request, reply) {
 }
 
 /**
- * POST /conversation/chatStream/retryMessage/:projectId/:conversationId/:messageId — retry failed assistant SSE/202.
+ * POST /conversation/chatStream/retryMessage — retry failed assistant SSE/202.
  * @param {import('fastify').FastifyRequest} request Request with projectScope.
  * @param {import('fastify').FastifyReply} reply SSE, JSON 202, or errors.
  */
 export async function retryConversationMessageHttp(request, reply) {
-  const params = messageParamsSchema.safeParse(request.params ?? {});
-  if (!params.success) {
-    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(params.error) });
+  const parsed = retryMessageBodySchema.safeParse(request.body ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: zodDetails(parsed.error) });
   }
 
   const scope = request.projectScope;
   const audit = buildAuditContextFromRequest(request);
   const correlationId = audit.correlationId ?? request.id;
 
-  const conversation = await loadConversationForUser(scope.orgId, scope.projectId, params.data.conversationId, scope.userId);
+  const conversation = await loadConversationForUser(scope.orgId, scope.projectId, parsed.data.conversationId, scope.userId);
   assertConversationWritable(conversation, scope.userId);
 
   const assistantMessage = await findActiveMessageInConversation({
     orgId: scope.orgId,
     projectId: scope.projectId,
-    conversationId: params.data.conversationId,
-    messageId: params.data.messageId,
+    conversationId: parsed.data.conversationId,
+    messageId: parsed.data.messageId,
   });
   if (!assistantMessage || assistantMessage.role !== 'assistant') {
     throw ApiError.fromCode('CONVERSATION_NOT_FOUND');
@@ -841,7 +844,7 @@ export async function retryConversationMessageHttp(request, reply) {
   const latest = await findLatestActiveMessageInConversation({
     orgId: scope.orgId,
     projectId: scope.projectId,
-    conversationId: params.data.conversationId,
+    conversationId: parsed.data.conversationId,
   });
   if (!latest || String(latest._id) !== String(assistantMessage._id)) {
     throw ApiError.fromCode('MESSAGE_NOT_RETRYABLE');
@@ -851,7 +854,7 @@ export async function retryConversationMessageHttp(request, reply) {
     await conversationHasInFlightChatMessage({
       orgId: scope.orgId,
       projectId: scope.projectId,
-      conversationId: params.data.conversationId,
+      conversationId: parsed.data.conversationId,
     })
   ) {
     throw ApiError.fromCode('MESSAGE_NOT_RETRYABLE');
@@ -863,7 +866,7 @@ export async function retryConversationMessageHttp(request, reply) {
   const userMessage = await findActiveMessageInConversation({
     orgId: scope.orgId,
     projectId: scope.projectId,
-    conversationId: params.data.conversationId,
+    conversationId: parsed.data.conversationId,
     messageId: String(assistantMessage.parentMessageId),
   });
   if (!userMessage || userMessage.role !== 'user') {
@@ -879,7 +882,7 @@ export async function retryConversationMessageHttp(request, reply) {
   await softDeleteActiveMessageById({
     orgId: scope.orgId,
     projectId: scope.projectId,
-    conversationId: params.data.conversationId,
+    conversationId: parsed.data.conversationId,
     messageId: String(assistantMessage._id),
     actorUserId: scope.userId,
   });
@@ -891,7 +894,7 @@ export async function retryConversationMessageHttp(request, reply) {
   await refreshConversationSearchText({
     orgId: scope.orgId,
     projectId: scope.projectId,
-    conversationId: params.data.conversationId,
+    conversationId: parsed.data.conversationId,
   });
 
   await recordAuditEvent(
@@ -900,7 +903,7 @@ export async function retryConversationMessageHttp(request, reply) {
       actorUserId: scope.userId,
       action: 'chat.message_retry',
       resourceType: 'conversation',
-      resourceId: params.data.conversationId,
+      resourceId: parsed.data.conversationId,
       result: 'success',
       correlationId,
       ip: audit.ip,
@@ -921,7 +924,7 @@ export async function retryConversationMessageHttp(request, reply) {
     await markUserMessageQueued({
       orgId: scope.orgId,
       projectId: scope.projectId,
-      conversationId: params.data.conversationId,
+      conversationId: parsed.data.conversationId,
       messageId: String(userMessage._id),
       actorUserId: scope.userId,
       blockingJobId: jobId,
@@ -949,7 +952,7 @@ export async function retryConversationMessageHttp(request, reply) {
   const assistant = await insertAssistantForExistingUser({
     orgId: scope.orgId,
     projectId: scope.projectId,
-    conversationId: params.data.conversationId,
+    conversationId: parsed.data.conversationId,
     userMessageId: String(userMessage._id),
     actorUserId: scope.userId,
     knowledgeVersionId: gate.knowledgeVersionId ?? null,
@@ -958,7 +961,7 @@ export async function retryConversationMessageHttp(request, reply) {
   return streamExistingUserTurnReply(request, reply, {
     orgId: scope.orgId,
     projectId: scope.projectId,
-    conversationId: params.data.conversationId,
+    conversationId: parsed.data.conversationId,
     actorUserId: scope.userId,
     userMessageId: String(userMessage._id),
     assistantMessageId: String(assistant._id),

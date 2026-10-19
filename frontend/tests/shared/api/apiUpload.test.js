@@ -94,16 +94,17 @@ describe('apiUpload', () => {
     const xhrMock = mockXhr();
     xhrMock.install();
     const body = new FormData();
+    body.append('projectId', 'p1');
     body.append('archive', new File(['x'], 'a.zip'));
     const onUploadProgress = vi.fn();
-    const pending = apiUpload('/knowledge/uploads/upload/p1', {
+    const pending = apiUpload('/knowledge/uploads/upload', {
       body,
       idempotencyKey: 'idem-1',
       onUploadProgress,
     });
     const xhr = xhrMock.instances[0];
     expect(xhr.method).toBe('POST');
-    expect(xhr.url).toBe(`${API_BASE_URL}/knowledge/uploads/upload/p1`);
+    expect(xhr.url).toBe(`${API_BASE_URL}/knowledge/uploads/upload`);
     expect(xhr.headers.Authorization).toBe('Bearer access-1');
     expect(xhr.headers['Idempotency-Key']).toBe('idem-1');
     expect(xhr.headers['Content-Type']).toBeUndefined();
@@ -119,7 +120,7 @@ describe('apiUpload', () => {
   it('maps envelope errors and network failures', async () => {
     const xhrMock = mockXhr();
     xhrMock.install();
-    const pending = apiUpload('/knowledge/uploads/upload/p1', {
+    const pending = apiUpload('/knowledge/uploads/upload', {
       body: new FormData(),
       idempotencyKey: 'idem-2',
     });
@@ -136,14 +137,14 @@ describe('apiUpload', () => {
       correlationId: 'corr-err',
     });
 
-    const pendingNet = apiUpload('/knowledge/uploads/upload/p1', {
+    const pendingNet = apiUpload('/knowledge/uploads/upload', {
       body: new FormData(),
       idempotencyKey: 'idem-3',
     });
     xhrMock.instances[1].onerror();
     await expect(pendingNet).rejects.toBeInstanceOf(ApiError);
 
-    const pendingAbort = apiUpload('/knowledge/uploads/upload/p1', {
+    const pendingAbort = apiUpload('/knowledge/uploads/upload', {
       body: new FormData(),
       idempotencyKey: 'idem-4',
     });
@@ -154,14 +155,14 @@ describe('apiUpload', () => {
   it('joins a path without a leading slash and accepts extra headers', async () => {
     const xhrMock = mockXhr();
     xhrMock.install();
-    const pending = apiUpload('knowledge/uploads/upload/p1', {
+    const pending = apiUpload('knowledge/uploads/upload', {
       body: new FormData(),
       method: 'PUT',
       headers: { 'X-Extra': 'yes' },
     });
     const xhr = xhrMock.instances[0];
     expect(xhr.method).toBe('PUT');
-    expect(xhr.url).toBe(`${API_BASE_URL}/knowledge/uploads/upload/p1`);
+    expect(xhr.url).toBe(`${API_BASE_URL}/knowledge/uploads/upload`);
     expect(xhr.headers['X-Extra']).toBe('yes');
     xhr.status = 204;
     xhr.responseText = '';
@@ -173,7 +174,7 @@ describe('apiUpload', () => {
     const xhrMock = mockXhr();
     xhrMock.install();
     await expect(
-      apiUpload('/knowledge/uploads/upload/p1', {
+      apiUpload('/knowledge/uploads/upload', {
         body: new FormData(),
         signal: AbortSignal.abort(),
       }),
@@ -181,7 +182,7 @@ describe('apiUpload', () => {
 
     const onUploadProgress = vi.fn();
     const controller = new AbortController();
-    const pending = apiUpload('/knowledge/uploads/upload/p1', {
+    const pending = apiUpload('/knowledge/uploads/upload', {
       body: new FormData(),
       signal: controller.signal,
       onUploadProgress,
@@ -200,7 +201,7 @@ describe('apiUpload', () => {
     refreshAccessToken.mockResolvedValue('fresh');
     const xhrMock = mockXhr();
     xhrMock.install();
-    const pending = apiUpload('/knowledge/uploads/upload/p1', {
+    const pending = apiUpload('/knowledge/uploads/upload', {
       body: new FormData(),
       idempotencyKey: 'idem-r',
     });
@@ -222,13 +223,13 @@ describe('apiUpload', () => {
     refreshAccessToken.mockRejectedValueOnce(new RequestAbortedError());
     const xhrMock = mockXhr();
     xhrMock.install();
-    const pendingAbort = apiUpload('/knowledge/uploads/upload/p1', { body: new FormData() });
+    const pendingAbort = apiUpload('/knowledge/uploads/upload', { body: new FormData() });
     xhrMock.instances[0].status = 401;
     xhrMock.instances[0].onload();
     await expect(pendingAbort).rejects.toBeInstanceOf(RequestAbortedError);
 
     refreshAccessToken.mockRejectedValueOnce(new ApiError({ status: 401, code: 'SESSION_EXPIRED', message: 'gone' }));
-    const pendingFail = apiUpload('/knowledge/uploads/upload/p1', { body: new FormData() });
+    const pendingFail = apiUpload('/knowledge/uploads/upload', { body: new FormData() });
     const failXhr = xhrMock.instances[1];
     failXhr.status = 401;
     failXhr.responseText = JSON.stringify({
@@ -243,7 +244,7 @@ describe('apiUpload', () => {
     refreshAccessToken.mockResolvedValue('fresh');
     const xhrMock = mockXhr();
     xhrMock.install();
-    const pending = apiUpload('/knowledge/uploads/upload/p1', { body: new FormData() });
+    const pending = apiUpload('/knowledge/uploads/upload', { body: new FormData() });
     xhrMock.instances[0].status = 401;
     xhrMock.instances[0].onload();
     await vi.waitFor(() => expect(xhrMock.instances.length).toBe(2));
@@ -259,7 +260,7 @@ describe('apiUpload', () => {
   it('skips refresh, treats empty 200 as undefined, and rejects invalid JSON', async () => {
     const xhrMock = mockXhr();
     xhrMock.install();
-    const skipped = apiUpload('/knowledge/uploads/upload/p1', {
+    const skipped = apiUpload('/knowledge/uploads/upload', {
       body: new FormData(),
       skipAuthRefresh: true,
     });
@@ -271,13 +272,13 @@ describe('apiUpload', () => {
     await expect(skipped).rejects.toMatchObject({ code: 'INVALID_CREDENTIALS' });
     expect(refreshAccessToken).not.toHaveBeenCalled();
 
-    const empty = apiUpload('/knowledge/uploads/upload/p1', { body: new FormData() });
+    const empty = apiUpload('/knowledge/uploads/upload', { body: new FormData() });
     xhrMock.instances[1].status = 200;
     xhrMock.instances[1].responseText = '';
     xhrMock.instances[1].onload();
     await expect(empty).resolves.toBeUndefined();
 
-    const invalid = apiUpload('/knowledge/uploads/upload/p1', { body: new FormData() });
+    const invalid = apiUpload('/knowledge/uploads/upload', { body: new FormData() });
     xhrMock.instances[2].status = 200;
     xhrMock.instances[2].responseText = 'not-json';
     xhrMock.instances[2].onload();

@@ -25,8 +25,7 @@ describe('adminPasswordReset.routes edge outcomes', () => {
     await expect(
       resetUserPasswordHttp({
         principal: { orgId: 'o1', userId: 'u1' },
-        params: { userId: 'aaaaaaaaaaaaaaaaaaaaaaaa' },
-        body: { newPassword: 'abcdef' },
+        body: { userId: 'aaaaaaaaaaaaaaaaaaaaaaaa', newPassword: 'abcdef' },
         log: {},
         id: 'corr-1',
       }),
@@ -37,8 +36,7 @@ describe('adminPasswordReset.routes edge outcomes', () => {
     await expect(
       resetUserPasswordHttp({
         principal: { orgId: 'o1', userId: 'u1' },
-        params: { userId: '' },
-        body: { newPassword: 'abcdef' },
+        body: { userId: '', newPassword: 'abcdef' },
         log: {},
         id: 'corr-1',
       }),

@@ -115,9 +115,9 @@ describe('repository probe routes', () => {
 
     const res = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/knowledge/repositories/probe/${project.id}`,
+      url: `${API_BASE_PATH}/knowledge/repositories/probe`,
       headers: { authorization: `Bearer ${accessToken}` },
-      payload: { repositoryUrl: 'https://github.com/acme/payments' },
+      payload: { projectId: project.id, repositoryUrl: 'https://github.com/acme/payments' },
     });
     expect(res.statusCode).toBe(200);
     expect(res.json().probeStatus).toBe('connected');
@@ -141,9 +141,9 @@ describe('repository probe routes', () => {
 
     const res = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/knowledge/repositories/probe/${project.id}`,
+      url: `${API_BASE_PATH}/knowledge/repositories/probe`,
       headers: { authorization: `Bearer ${accessToken}` },
-      payload: { repositoryUrl: 'https://gitlab.example.com/group/payments' },
+      payload: { projectId: project.id, repositoryUrl: 'https://gitlab.example.com/group/payments' },
     });
     expect(res.statusCode).toBe(200);
     expect(res.json().probeStatus).toBe('authentication_required');
@@ -157,7 +157,8 @@ describe('repository probe routes', () => {
     const project = await createProject(app, accessToken, 'Probe Empty', 'idem-probe-proj-empty');
     const res = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/knowledge/repositories/probe/${project.id}`,
+      url: `${API_BASE_PATH}/knowledge/repositories/probe`,
+      payload: { projectId: project.id },
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(res.statusCode).toBe(400);
@@ -171,9 +172,9 @@ describe('repository probe routes', () => {
     const project = await createProject(app, accessToken, 'Probe Bad', 'idem-probe-proj-3');
     const res = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/knowledge/repositories/probe/${project.id}`,
+      url: `${API_BASE_PATH}/knowledge/repositories/probe`,
       headers: { authorization: `Bearer ${accessToken}` },
-      payload: { repositoryUrl: '' },
+      payload: { projectId: project.id, repositoryUrl: '' },
     });
     expect(res.statusCode).toBe(400);
     expect(probeRepository).not.toHaveBeenCalled();
@@ -209,17 +210,17 @@ describe('repository probe routes', () => {
     const { accessToken: viewerToken } = await login(app, 'viewer-probe@example.com', 'ViewerPass1!');
     const forbidden = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/knowledge/repositories/probe/${project.id}`,
+      url: `${API_BASE_PATH}/knowledge/repositories/probe`,
       headers: { authorization: `Bearer ${viewerToken}` },
-      payload: { repositoryUrl: 'https://github.com/acme/payments' },
+      payload: { projectId: project.id, repositoryUrl: 'https://github.com/acme/payments' },
     });
     expect(forbidden.statusCode).toBe(403);
 
     const missing = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/knowledge/repositories/probe/000000000000000000000000`,
+      url: `${API_BASE_PATH}/knowledge/repositories/probe`,
       headers: { authorization: `Bearer ${adminToken}` },
-      payload: { repositoryUrl: 'https://github.com/acme/payments' },
+      payload: { projectId: '000000000000000000000000', repositoryUrl: 'https://github.com/acme/payments' },
     });
     expect(missing.statusCode).toBe(404);
   });
@@ -304,13 +305,14 @@ describe('repository attach routes', () => {
       'idempotency-key': 'idem-attach-repo-1',
     };
     const payload = {
+      projectId: project.id,
       repositoryUrl: 'https://github.com/acme/payments',
       selectedBranch: 'main',
       accessToken: TOKEN_FIXTURE,
     };
     const first = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/knowledge/repositories/attach/${project.id}`,
+      url: `${API_BASE_PATH}/knowledge/repositories/attach`,
       headers,
       payload,
     });
@@ -320,7 +322,7 @@ describe('repository attach routes', () => {
 
     const replay = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/knowledge/repositories/attach/${project.id}`,
+      url: `${API_BASE_PATH}/knowledge/repositories/attach`,
       headers,
       payload,
     });
@@ -348,12 +350,13 @@ describe('repository attach routes', () => {
     });
     const res = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/knowledge/repositories/attach/${project.id}`,
+      url: `${API_BASE_PATH}/knowledge/repositories/attach`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': 'idem-attach-fail-1',
       },
       payload: {
+        projectId: project.id,
         repositoryUrl: 'https://github.com/acme/payments',
         selectedBranch: 'main',
         accessToken: TOKEN_FIXTURE,
@@ -372,9 +375,10 @@ describe('repository attach routes', () => {
     const project = await createProject(app, accessToken, 'Attach Valid', 'idem-attach-proj-3');
     const missing = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/knowledge/repositories/attach/${project.id}`,
+      url: `${API_BASE_PATH}/knowledge/repositories/attach`,
       headers: { authorization: `Bearer ${accessToken}` },
       payload: {
+        projectId: project.id,
         repositoryUrl: 'https://github.com/acme/payments',
         selectedBranch: 'main',
       },
@@ -384,24 +388,25 @@ describe('repository attach routes', () => {
 
     const invalid = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/knowledge/repositories/attach/${project.id}`,
+      url: `${API_BASE_PATH}/knowledge/repositories/attach`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': 'idem-attach-bad-body',
       },
-      payload: { repositoryUrl: 'https://github.com/acme/payments' },
+      payload: { projectId: project.id, repositoryUrl: 'https://github.com/acme/payments' },
     });
     expect(invalid.statusCode).toBe(400);
     expect(probeRepository).not.toHaveBeenCalled();
 
     const secretInvalid = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/knowledge/repositories/attach/${project.id}`,
+      url: `${API_BASE_PATH}/knowledge/repositories/attach`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': 'idem-attach-empty-token',
       },
       payload: {
+        projectId: project.id,
         repositoryUrl: 'https://github.com/acme/payments',
         selectedBranch: 'main',
         accessToken: '',
@@ -422,12 +427,13 @@ describe('repository attach routes', () => {
     mockConnectedProbe();
     const attached = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/knowledge/repositories/attach/${project.id}`,
+      url: `${API_BASE_PATH}/knowledge/repositories/attach`,
       headers: {
         authorization: `Bearer ${adminToken}`,
         'idempotency-key': 'idem-attach-acl-1',
       },
       payload: {
+        projectId: project.id,
         repositoryUrl: 'https://github.com/acme/payments',
         selectedBranch: 'main',
         accessToken: TOKEN_FIXTURE,
@@ -468,7 +474,8 @@ describe('repository attach routes', () => {
 
     const forbidden = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/knowledge/repositories/retestConnection/${project.id}`,
+      url: `${API_BASE_PATH}/knowledge/repositories/retestConnection`,
+      payload: { projectId: project.id },
       headers: { authorization: `Bearer ${viewerToken}` },
     });
     expect(forbidden.statusCode).toBe(403);
@@ -483,9 +490,10 @@ describe('repository attach routes', () => {
     const auth = { authorization: `Bearer ${accessToken}` };
     await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/knowledge/repositories/attach/${project.id}`,
+      url: `${API_BASE_PATH}/knowledge/repositories/attach`,
       headers: { ...auth, 'idempotency-key': 'idem-attach-cycle-1' },
       payload: {
+        projectId: project.id,
         repositoryUrl: 'https://github.com/acme/payments',
         selectedBranch: 'main',
         accessToken: TOKEN_FIXTURE,
@@ -494,25 +502,26 @@ describe('repository attach routes', () => {
 
     const patched = await app.inject({
       method: 'PATCH',
-      url: `${API_BASE_PATH}/knowledge/repositories/updateBranch/${project.id}`,
+      url: `${API_BASE_PATH}/knowledge/repositories/updateBranch`,
       headers: auth,
-      payload: { selectedBranch: 'develop' },
+      payload: { projectId: project.id, selectedBranch: 'develop' },
     });
     expect(patched.statusCode).toBe(200);
     expect(patched.json().connection.selectedBranch).toBe('develop');
 
     const replaced = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/knowledge/repositories/replaceCredential/${project.id}`,
+      url: `${API_BASE_PATH}/knowledge/repositories/replaceCredential`,
       headers: auth,
-      payload: { accessToken: 'ghp_replacement_token_value' },
+      payload: { projectId: project.id, accessToken: 'ghp_replacement_token_value' },
     });
     expect(replaced.statusCode).toBe(200);
     expect(JSON.stringify(replaced.json())).not.toContain('ghp_replacement_token_value');
 
     const retest = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/knowledge/repositories/retestConnection/${project.id}`,
+      url: `${API_BASE_PATH}/knowledge/repositories/retestConnection`,
+      payload: { projectId: project.id },
       headers: auth,
     });
     expect(retest.statusCode).toBe(200);
@@ -520,7 +529,8 @@ describe('repository attach routes', () => {
 
     const revoked = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/knowledge/repositories/revokeCredential/${project.id}`,
+      url: `${API_BASE_PATH}/knowledge/repositories/revokeCredential`,
+      payload: { projectId: project.id },
       headers: auth,
     });
     expect(revoked.statusCode).toBe(204);
@@ -534,17 +544,17 @@ describe('repository attach routes', () => {
 
     const badBranch = await app.inject({
       method: 'PATCH',
-      url: `${API_BASE_PATH}/knowledge/repositories/updateBranch/${project.id}`,
+      url: `${API_BASE_PATH}/knowledge/repositories/updateBranch`,
       headers: auth,
-      payload: {},
+      payload: { projectId: project.id },
     });
     expect(badBranch.statusCode).toBe(400);
 
     const badReplace = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/knowledge/repositories/replaceCredential/${project.id}`,
+      url: `${API_BASE_PATH}/knowledge/repositories/replaceCredential`,
       headers: auth,
-      payload: { accessToken: '' },
+      payload: { projectId: project.id, accessToken: '' },
     });
     expect(badReplace.statusCode).toBe(400);
     expect(JSON.stringify(badReplace.json())).not.toContain(TOKEN_FIXTURE);
@@ -556,12 +566,13 @@ describe('repository attach routes', () => {
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const res = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/knowledge/repositories/attach/000000000000000000000000`,
+      url: `${API_BASE_PATH}/knowledge/repositories/attach`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': 'idem-attach-missing',
       },
       payload: {
+        projectId: '000000000000000000000000',
         repositoryUrl: 'https://github.com/acme/payments',
         selectedBranch: 'main',
       },
@@ -587,12 +598,13 @@ describe('repository attach routes', () => {
     });
     await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/knowledge/repositories/attach/${project.id}`,
+      url: `${API_BASE_PATH}/knowledge/repositories/attach`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': 'idem-sync-attach',
       },
       payload: {
+        projectId: project.id,
         repositoryUrl: 'https://github.com/acme/payments',
         selectedBranch: 'main',
       },
@@ -600,7 +612,8 @@ describe('repository attach routes', () => {
 
     const first = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/knowledge/repositories/sync/${project.id}`,
+      url: `${API_BASE_PATH}/knowledge/repositories/sync`,
+      payload: { projectId: project.id },
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': 'idem-sync-1',
@@ -611,7 +624,8 @@ describe('repository attach routes', () => {
 
     const replay = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/knowledge/repositories/sync/${project.id}`,
+      url: `${API_BASE_PATH}/knowledge/repositories/sync`,
+      payload: { projectId: project.id },
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': 'idem-sync-1',
@@ -623,7 +637,8 @@ describe('repository attach routes', () => {
     const other = await createProject(app, accessToken, 'No Conn', 'idem-sync-nocon');
     const missing = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/knowledge/repositories/sync/${other.id}`,
+      url: `${API_BASE_PATH}/knowledge/repositories/sync`,
+      payload: { projectId: other.id },
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': 'idem-sync-missing',

@@ -141,7 +141,8 @@ describe('jobControl.routes', () => {
 
     const first = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/masters/jobs/retry/${jobId}`,
+      url: `${API_BASE_PATH}/masters/jobs/retry`,
+      payload: { jobId },
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': 'idem-retry-same-1',
@@ -157,7 +158,8 @@ describe('jobControl.routes', () => {
 
     const second = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/masters/jobs/retry/${jobId}`,
+      url: `${API_BASE_PATH}/masters/jobs/retry`,
+      payload: { jobId },
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': 'idem-retry-same-1',
@@ -205,7 +207,8 @@ describe('jobControl.routes', () => {
 
     const first = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/masters/jobs/retry/${jobId}`,
+      url: `${API_BASE_PATH}/masters/jobs/retry`,
+      payload: { jobId },
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': 'idem-retry-a',
@@ -215,7 +218,8 @@ describe('jobControl.routes', () => {
 
     const second = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/masters/jobs/retry/${jobId}`,
+      url: `${API_BASE_PATH}/masters/jobs/retry`,
+      payload: { jobId },
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': 'idem-retry-b',
@@ -251,7 +255,8 @@ describe('jobControl.routes', () => {
     );
     const notRetryable = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/masters/jobs/retry/${badUploadId}`,
+      url: `${API_BASE_PATH}/masters/jobs/retry`,
+      payload: { jobId: badUploadId },
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': 'idem-retry-bad',
@@ -268,7 +273,8 @@ describe('jobControl.routes', () => {
     await Job.updateOne({ _id: completedId }, { $set: { jobStatus: 'completed' } });
     const completed = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/masters/jobs/retry/${completedId}`,
+      url: `${API_BASE_PATH}/masters/jobs/retry`,
+      payload: { jobId: completedId },
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': 'idem-retry-done',
@@ -293,7 +299,8 @@ describe('jobControl.routes', () => {
     });
     const pendingCancel = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/masters/jobs/cancel/${pendingId}`,
+      url: `${API_BASE_PATH}/masters/jobs/cancel`,
+      payload: { jobId: pendingId },
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(pendingCancel.statusCode).toBe(200);
@@ -307,7 +314,8 @@ describe('jobControl.routes', () => {
     await Job.updateOne({ _id: runningId }, { $set: { jobStatus: 'running', workerId: 'w1', startedAt: new Date() } });
     const runningCancel = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/masters/jobs/cancel/${runningId}`,
+      url: `${API_BASE_PATH}/masters/jobs/cancel`,
+      payload: { jobId: runningId },
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(runningCancel.statusCode).toBe(202);
@@ -327,7 +335,8 @@ describe('jobControl.routes', () => {
     const { accessToken } = await login(app, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD);
     const missingKey = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/masters/jobs/retry/665f1c9d4b2a8e0012a4f001`,
+      url: `${API_BASE_PATH}/masters/jobs/retry`,
+      payload: { jobId: '665f1c9d4b2a8e0012a4f001' },
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(missingKey.statusCode).toBeGreaterThanOrEqual(400);
@@ -359,7 +368,8 @@ describe('jobControl.routes', () => {
 
     const unauth = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/masters/jobs/retry/${jobId}`,
+      url: `${API_BASE_PATH}/masters/jobs/retry`,
+      payload: { jobId },
       headers: { 'idempotency-key': 'idem-unauth' },
     });
     expect(unauth.statusCode).toBe(401);
@@ -388,7 +398,8 @@ describe('jobControl.routes', () => {
     const { accessToken: viewerToken } = await login(app, 'viewer-ctrl@example.com', 'ViewerPass1!');
     const forbidden = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/masters/jobs/retry/${jobId}`,
+      url: `${API_BASE_PATH}/masters/jobs/retry`,
+      payload: { jobId },
       headers: {
         authorization: `Bearer ${viewerToken}`,
         'idempotency-key': 'idem-viewer-retry',
@@ -399,7 +410,8 @@ describe('jobControl.routes', () => {
     const foreignJobId = new mongoose.Types.ObjectId().toHexString();
     const missing = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/masters/jobs/cancel/${foreignJobId}`,
+      url: `${API_BASE_PATH}/masters/jobs/cancel`,
+      payload: { jobId: foreignJobId },
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(missing.statusCode).toBe(404);
@@ -407,7 +419,8 @@ describe('jobControl.routes', () => {
     await softDelete(Project, { _id: projectId, orgId: org._id });
     const deletedProject = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/masters/jobs/retry/${jobId}`,
+      url: `${API_BASE_PATH}/masters/jobs/retry`,
+      payload: { jobId },
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': 'idem-deleted-project',

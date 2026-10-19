@@ -45,7 +45,7 @@ Additional docs and ADRs live under [`docs/`](./docs/).
   then `resource.util.js` if the helper also exceeds 1000. The 1000-line cap
   applies to production files under `src/` only — not `backend/tests/` or
   `frontend/tests/`. **API URL map:** `backend/src/http/route.js` registers every
-  path (`/{module}/{file}/{action}/:ids…`) with access helpers and a product-named
+  path (`/{module}/{file}/{action}`; GET may append `/:ids…`) with access helpers and a product-named
   `*Http` handler — see `.cursor/rules/http-routes.mdc`.
 
 - **No deep cross-module imports.** Modules expose a public surface; internals stay private.

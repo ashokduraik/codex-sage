@@ -120,9 +120,12 @@ export function createSseParser() {
  * @returns {Promise<{ kind: 'stream', terminal: 'done' | 'error' | 'interrupted' | 'cancelled' | 'awaiting_clarification', messageId?: string, error?: object } | { kind: 'queued', body: object }>}
  */
 export async function streamConversationMessage(input) {
-  const path = `/conversation/chatStream/streamMessage/${encodeURIComponent(input.projectId)}/${encodeURIComponent(input.conversationId)}`;
-  return postChatStream(path, {
-    body: { content: input.content },
+  return postChatStream('/conversation/chatStream/streamMessage', {
+    body: {
+      projectId: input.projectId,
+      conversationId: input.conversationId,
+      content: input.content,
+    },
     idempotencyKey: input.idempotencyKey,
     signal: input.signal,
     onEvent: input.onEvent,
@@ -142,8 +145,12 @@ export async function streamConversationMessage(input) {
  * @returns {Promise<{ kind: 'stream', terminal: 'done' | 'error' | 'interrupted' | 'cancelled' | 'awaiting_clarification', messageId?: string, error?: object } | { kind: 'queued', body: object }>}
  */
 export async function retryConversationMessage(input) {
-  const path = `/conversation/chatStream/retryMessage/${encodeURIComponent(input.projectId)}/${encodeURIComponent(input.conversationId)}/${encodeURIComponent(input.messageId)}`;
-  return postChatStream(path, {
+  return postChatStream('/conversation/chatStream/retryMessage', {
+    body: {
+      projectId: input.projectId,
+      conversationId: input.conversationId,
+      messageId: input.messageId,
+    },
     idempotencyKey: input.idempotencyKey,
     signal: input.signal,
     onEvent: input.onEvent,
@@ -164,9 +171,13 @@ export async function retryConversationMessage(input) {
  * @returns {Promise<{ kind: 'stream', terminal: 'done' | 'error' | 'interrupted' | 'cancelled' | 'awaiting_clarification', messageId?: string, error?: object } | { kind: 'queued', body: object }>}
  */
 export async function editConversationMessage(input) {
-  const path = `/conversation/chatStream/editMessage/${encodeURIComponent(input.projectId)}/${encodeURIComponent(input.conversationId)}/${encodeURIComponent(input.messageId)}`;
-  return postChatStream(path, {
-    body: { content: input.content },
+  return postChatStream('/conversation/chatStream/editMessage', {
+    body: {
+      projectId: input.projectId,
+      conversationId: input.conversationId,
+      messageId: input.messageId,
+      content: input.content,
+    },
     idempotencyKey: input.idempotencyKey,
     signal: input.signal,
     onEvent: input.onEvent,

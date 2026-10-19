@@ -627,6 +627,7 @@ export async function retestRepositoryConnection(input) {
  */
 export const probeBodySchema = z
   .object({
+    projectId: z.string().min(1),
     repositoryUrl: z.string().trim().min(1).max(2048),
     accessToken: z.string().min(1).max(4096).optional(),
   })
@@ -634,6 +635,7 @@ export const probeBodySchema = z
 
 export const attachBodySchema = z
   .object({
+    projectId: z.string().min(1),
     repositoryUrl: z.string().trim().min(1).max(2048),
     selectedBranch: z.string().trim().min(1).max(512),
     accessToken: z.string().min(1).max(4096).optional(),
@@ -642,15 +644,20 @@ export const attachBodySchema = z
 
 export const patchBranchBodySchema = z
   .object({
+    projectId: z.string().min(1),
     selectedBranch: z.string().trim().min(1).max(512),
   })
   .strict();
 
 export const replaceCredentialBodySchema = z
   .object({
+    projectId: z.string().min(1),
     accessToken: z.string().min(1).max(4096),
   })
   .strict();
+
+/** Body for mutating repo actions that only need the owning project (sync, revoke, retest). */
+export const projectIdBodySchema = z.object({ projectId: z.string().min(1) }).strict();
 
 /**
  * Maps zod issues to VALIDATION_ERROR details without echoing secrets.
@@ -672,7 +679,7 @@ export function mapRepositoryZodDetails(error) {
 }
 
 /**
- * POST /knowledge/repositories/probe/:projectId — validate repo URL and token without persisting.
+ * POST /knowledge/repositories/probe — validate repo URL and token without persisting.
  * @param {import('fastify').FastifyRequest} request Fastify request.
  * @param {import('fastify').FastifyReply} reply Fastify reply.
  * @returns {Promise<object>} Probe result with branches when successful.
@@ -692,7 +699,7 @@ export async function probeRepositoryHttp(request, reply) {
 }
 
 /**
- * POST /knowledge/repositories/attach/:projectId — attach a repository connection to the project.
+ * POST /knowledge/repositories/attach — attach a repository connection to the project.
  * @param {import('fastify').FastifyRequest} request Fastify request.
  * @param {import('fastify').FastifyReply} reply Fastify reply.
  * @returns {Promise<object>} 201 connection summary.
@@ -718,12 +725,18 @@ export async function attachRepositoryHttp(request, reply) {
 }
 
 /**
- * POST /knowledge/repositories/sync/:projectId — enqueue a manual repository sync job.
+ * POST /knowledge/repositories/sync — enqueue a manual repository sync job.
  * @param {import('fastify').FastifyRequest} request Fastify request.
  * @param {import('fastify').FastifyReply} reply Fastify reply.
  * @returns {Promise<object>} 202 payload with job id.
  */
 export async function syncRepositoryHttp(request, reply) {
+  const parsed = projectIdBodySchema.safeParse(request.body ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', {
+      details: mapRepositoryZodDetails(parsed.error),
+    });
+  }
   const result = await enqueueManualRepositorySync({
     orgId: request.projectScope.orgId,
     projectId: request.projectScope.projectId,
@@ -744,7 +757,7 @@ export async function getRepositoryConnectionHttp(request) {
 }
 
 /**
- * PATCH /knowledge/repositories/updateBranch/:projectId — change the tracked branch.
+ * PATCH /knowledge/repositories/updateBranch — change the tracked branch.
  * @param {import('fastify').FastifyRequest} request Fastify request.
  * @returns {Promise<object>} Updated connection summary.
  */
@@ -766,7 +779,7 @@ export async function updateRepositoryBranchHttp(request) {
 }
 
 /**
- * POST /knowledge/repositories/replaceCredential/:projectId — rotate stored repository token.
+ * POST /knowledge/repositories/replaceCredential — rotate stored repository token.
  * @param {import('fastify').FastifyRequest} request Fastify request.
  * @returns {Promise<object>} Updated credential metadata (no plaintext).
  */
@@ -788,12 +801,18 @@ export async function replaceRepositoryCredentialHttp(request) {
 }
 
 /**
- * POST /knowledge/repositories/revokeCredential/:projectId — revoke stored repository credentials.
+ * POST /knowledge/repositories/revokeCredential — revoke stored repository credentials.
  * @param {import('fastify').FastifyRequest} request Fastify request.
  * @param {import('fastify').FastifyReply} reply Fastify reply.
  * @returns {Promise<void>} 204 when revoked.
  */
 export async function revokeRepositoryCredentialHttp(request, reply) {
+  const parsed = projectIdBodySchema.safeParse(request.body ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', {
+      details: mapRepositoryZodDetails(parsed.error),
+    });
+  }
   await revokeRepositoryCredential({
     orgId: request.projectScope.orgId,
     projectId: request.projectScope.projectId,
@@ -805,11 +824,17 @@ export async function revokeRepositoryCredentialHttp(request, reply) {
 }
 
 /**
- * POST /knowledge/repositories/retestConnection/:projectId — re-validate the live connection.
+ * POST /knowledge/repositories/retestConnection — re-validate the live connection.
  * @param {import('fastify').FastifyRequest} request Fastify request.
  * @returns {Promise<object>} Retest outcome and connection health fields.
  */
 export async function retestRepositoryConnectionHttp(request) {
+  const parsed = projectIdBodySchema.safeParse(request.body ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', {
+      details: mapRepositoryZodDetails(parsed.error),
+    });
+  }
   return retestRepositoryConnection({
     orgId: request.projectScope.orgId,
     projectId: request.projectScope.projectId,

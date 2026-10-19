@@ -43,7 +43,8 @@ afterEach(() => {
 beforeEach(() => {
   clearAuthSession();
   localStorage.clear();
-  seedAuthSession();
+  // Search tab needs search.run; Ask about this navigates to Chat (chat.ask).
+  seedAuthSession('you@acme.io', { permissions: ['search.run', 'chat.ask'] });
   fetchProjectSearch.mockReset();
   fetchSourceFileMetadata.mockReset();
   fetchSourceSlice.mockReset();

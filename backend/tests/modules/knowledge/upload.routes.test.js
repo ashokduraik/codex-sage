@@ -105,15 +105,21 @@ describe('source upload routes', () => {
   }
 
   /**
-   * Builds a multipart/form-data body with a single archive part.
+   * Builds a multipart/form-data body with a text `projectId` field followed by the archive part.
+   * @param {string} projectId Target project id sent as a multipart text field.
    * @param {Buffer} zipBuffer Zip bytes.
    * @param {string} [filename] Part filename.
    * @returns {{ payload: Buffer, contentType: string }}
    */
-  function buildArchiveMultipart(zipBuffer, filename = 'project.zip') {
+  function buildArchiveMultipart(projectId, zipBuffer, filename = 'project.zip') {
     const boundary = `----CodexSageUpload${Date.now()}`;
     const header = Buffer.from(
-      `--${boundary}\r\n` + `Content-Disposition: form-data; name="archive"; filename="${filename}"\r\n` + `Content-Type: application/zip\r\n\r\n`,
+      `--${boundary}\r\n` +
+        `Content-Disposition: form-data; name="projectId"\r\n\r\n` +
+        `${projectId}\r\n` +
+        `--${boundary}\r\n` +
+        `Content-Disposition: form-data; name="archive"; filename="${filename}"\r\n` +
+        `Content-Type: application/zip\r\n\r\n`,
       'utf8',
     );
     const footer = Buffer.from(`\r\n--${boundary}--\r\n`, 'utf8');
@@ -133,7 +139,7 @@ describe('source upload routes', () => {
    * }} input
    */
   async function uploadSource(instance, input) {
-    const multipart = buildArchiveMultipart(input.zipBuffer);
+    const multipart = buildArchiveMultipart(input.projectId, input.zipBuffer);
     /** @type {Record<string, string>} */
     const headers = {
       authorization: `Bearer ${input.accessToken}`,
@@ -144,7 +150,7 @@ describe('source upload routes', () => {
     }
     return instance.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/knowledge/uploads/upload/${input.projectId}`,
+      url: `${API_BASE_PATH}/knowledge/uploads/upload`,
       headers,
       payload: multipart.payload,
     });
@@ -410,6 +416,9 @@ describe('source upload routes', () => {
     const boundary = `----CodexSageUpload${Date.now()}`;
     const payload = Buffer.from(
       `--${boundary}\r\n` +
+        `Content-Disposition: form-data; name="projectId"\r\n\r\n` +
+        `${projectId}\r\n` +
+        `--${boundary}\r\n` +
         `Content-Disposition: form-data; name="file"; filename="x.zip"\r\n` +
         `Content-Type: application/zip\r\n\r\n` +
         `not-a-zip\r\n` +
@@ -419,7 +428,7 @@ describe('source upload routes', () => {
 
     const res = await app.inject({
       method: 'POST',
-      url: `${API_BASE_PATH}/knowledge/uploads/upload/${projectId}`,
+      url: `${API_BASE_PATH}/knowledge/uploads/upload`,
       headers: {
         authorization: `Bearer ${accessToken}`,
         'idempotency-key': 'idem-upload-badfield-1',
