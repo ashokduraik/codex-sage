@@ -31,3 +31,7 @@ See implementation in:
 3. Tool-choice thinking disabled; `maxTotalCalls` = tool-choice LLM + `executeTool`.
 4. Budget trip → `budgetExhausted: true`; phase 49 chooses draft vs abstain.
 5. No `MAX_TOOL_ROUNDS`; no new Mongo schema.
+6. Tool-choice actions: `call_tool` | `finish_retrieval` | `ask_clarification` (ADR 0040).
+   `ask_clarification` may run when evidence count is 0 or ≥ 2 and shared clarify rounds remain;
+   otherwise it is treated as `finish_retrieval`. Successful asks reuse `clarify_set` /
+   `clarify_wait` (same interrupt / SSE / resume as UNDERSTAND).

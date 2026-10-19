@@ -41,9 +41,11 @@ export {
   DIRECT_REPLY_DESCRIPTION_NOTE,
   DIRECT_REPLY_EMPTY_DESCRIPTION,
   UNDERSTAND_ROUTE_VALUES,
+  TOOL_CHOICE_ACTION_VALUES,
   buildChatGraphThreadId,
   createMongoChatCheckpointer,
   parseChatGraphThreadId,
+  clarificationQuestionSchema,
   toolChoiceDecisionSchema,
   understandDecisionSchema,
   runDeterministicVerify,
@@ -255,6 +257,7 @@ export function compileChatGraph(deps = {}) {
     })
     .addEdge('abstain_early', 'persist_abstain')
     .addConditionalEdges('agent_tools', routeAfterAgentTools, {
+      clarify_set: 'clarify_set',
       agent_tools: 'agent_tools',
       draft_answer: 'draft_answer',
       persist_abstain: 'persist_abstain',
@@ -456,13 +459,13 @@ async function runUnderstandNode(state, onStage, log = null) {
 }
 
 /**
- * Builds and stores the clarification set; fires awaiting_clarification.
+ * Builds and stores the clarification set from UNDERSTAND or the tool loop; fires awaiting_clarification.
  * @param {object} state Graph state.
  * @param {(event: { stage: string, data?: object }) => void} onStage Stage hook.
  * @returns {object} Partial state update.
  */
 function runClarifySetNode(state, onStage) {
-  // Max rounds are enforced in routeAfterUnderstand before this node runs.
+  // Max rounds are enforced in routeAfterUnderstand / routeAfterAgentTools before this node runs.
   const roundIndex = state.clarifyRoundCount ?? 0;
   const clarificationSet = buildClarificationSet(state.clarificationQuestions ?? [], roundIndex);
   fireStage(onStage, 'awaiting_clarification', { clarificationSet });
@@ -470,7 +473,7 @@ function runClarifySetNode(state, onStage) {
 }
 
 /**
- * Interrupts until phase 52 resumes with answers, then binds them into state.
+ * Interrupts until answers resume (UNDERSTAND or tool-loop clarify); binds them into state.
  * @param {object} state Graph state.
  * @returns {object} Partial state update.
  */
@@ -606,6 +609,37 @@ async function runAgentToolsNode(state, onStage, log = null) {
     ...afterModelCalls,
   };
 
+  if (decision.action === 'ask_clarification') {
+    const evidenceCount = Array.isArray(working.toolResults) ? working.toolResults.length : 0;
+    const roundsRemain = (working.clarifyRoundCount ?? 0) < CLARIFICATION_MAX_ROUNDS;
+    const evidenceAllowsAsk = evidenceCount === 0 || evidenceCount >= 2;
+    const questions = Array.isArray(decision.clarificationQuestions) ? decision.clarificationQuestions : [];
+    const questionsUsable = areClarificationQuestionsUsable(questions);
+    if (roundsRemain && evidenceAllowsAsk && questionsUsable) {
+      log?.debug?.({ ...debugScope }, 'tool loop requested clarification');
+      return {
+        runMonotonicStartedAt,
+        ...afterModelTokens,
+        ...afterModelCalls,
+        needsClarification: true,
+        clarificationQuestions: questions,
+      };
+    }
+    const skipReason = !roundsRemain
+      ? 'clarify_rounds_exhausted'
+      : !evidenceAllowsAsk
+        ? 'evidence_count_not_eligible'
+        : 'clarification_questions_unusable';
+    log?.debug?.({ ...debugScope, skipReason }, 'tool loop clarification ignored; finish_retrieval');
+    return {
+      runMonotonicStartedAt,
+      ...afterModelTokens,
+      ...afterModelCalls,
+      needsClarification: false,
+      retrievalComplete: true,
+    };
+  }
+
   if (decision.action === 'finish_retrieval') {
     return {
       runMonotonicStartedAt,
@@ -715,11 +749,15 @@ function routeAfterClarifyWait(state) {
 }
 
 /**
- * After AGENT_TOOLS: loop, draft when evidence exists, overview fallback, or abstain.
+ * After AGENT_TOOLS: clarify from evidence, loop, draft, overview fallback, or abstain.
  * @param {object} state Graph state.
- * @returns {'agent_tools' | 'draft_answer' | 'persist_abstain' | 'reply_direct'}
+ * @returns {'clarify_set' | 'agent_tools' | 'draft_answer' | 'persist_abstain' | 'reply_direct'}
  */
 function routeAfterAgentTools(state) {
+  // Exhausted / unusable ask_clarification is forced to finish_retrieval in the tools node.
+  if (state.needsClarification) {
+    return 'clarify_set';
+  }
   if (!(state.budgetExhausted || state.toolStop || state.retrievalComplete)) {
     return 'agent_tools';
   }
@@ -797,12 +835,13 @@ async function requestUnderstandDecision(segments, summarySegment, repair, abort
  * @returns {Promise<object | null>}
  */
 async function requestToolChoiceDecision(state, repair) {
-  const segments = buildToolChoiceSegments(state, repair);
+  const allowAskClarification = isToolLoopClarificationAllowed(state);
+  const segments = buildToolChoiceSegments(state, repair, allowAskClarification);
   const result = await generateText({
     purpose: 'tool_choice',
     enableThinking: false,
     segments,
-    outputSchema: toolChoiceDecisionJsonSchema(),
+    outputSchema: toolChoiceDecisionJsonSchema(allowAskClarification),
     abortSignal: state.scope?.abortSignal,
   });
   const parsed = parseToolChoiceDecisionText(result.text);
@@ -852,22 +891,44 @@ function understandDecisionJsonSchema() {
 
 /**
  * JSON Schema for tool-choice Output.json.
+ * @param {boolean} allowAskClarification Whether ask_clarification is offered this step.
  * @returns {object}
  */
-function toolChoiceDecisionJsonSchema() {
+function toolChoiceDecisionJsonSchema(allowAskClarification) {
+  /** @type {string[]} */
+  const actions = ['call_tool', 'finish_retrieval'];
+  /** @type {object} */
+  const properties = {
+    action: { type: 'string', enum: actions },
+    toolName: {
+      type: 'string',
+      enum: ['explore_code', 'search_documents', 'list_documents', 'read_document_slice', 'read_file_slice', 'abstain'],
+    },
+    toolArgs: { type: 'object', additionalProperties: true },
+    reason: { type: 'string' },
+  };
+  if (allowAskClarification) {
+    actions.push('ask_clarification');
+    properties.clarificationQuestions = {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['type', 'prompt'],
+        properties: {
+          id: { type: 'string' },
+          type: { type: 'string', enum: ['single_select', 'multi_select', 'free_text'] },
+          prompt: { type: 'string' },
+          options: { type: 'array', items: { type: 'string' } },
+        },
+      },
+    };
+  }
   return {
     type: 'object',
     additionalProperties: false,
     required: ['action'],
-    properties: {
-      action: { type: 'string', enum: ['call_tool', 'finish_retrieval'] },
-      toolName: {
-        type: 'string',
-        enum: ['explore_code', 'search_documents', 'list_documents', 'read_document_slice', 'read_file_slice', 'abstain'],
-      },
-      toolArgs: { type: 'object', additionalProperties: true },
-      reason: { type: 'string' },
-    },
+    properties,
   };
 }
 
@@ -974,9 +1035,10 @@ function buildUnderstandSegments(state) {
  * Builds budgeter segments for tool choice (rewritten question + compact evidence ids).
  * @param {object} state Graph state.
  * @param {boolean} repair Whether this is the repair retry.
+ * @param {boolean} allowAskClarification Whether ask_clarification is offered this step.
  * @returns {object[]}
  */
-function buildToolChoiceSegments(state, repair) {
+function buildToolChoiceSegments(state, repair, allowAskClarification) {
   const toolNames = listToolDefinitionsForSchema()
     .map((definition) => definition.name)
     .join(', ');
@@ -985,14 +1047,21 @@ function buildToolChoiceSegments(state, repair) {
     path: record.path ?? null,
     kind: record.kind ?? null,
   }));
+  const actionHint = allowAskClarification ? 'call_tool|finish_retrieval|ask_clarification' : 'call_tool|finish_retrieval';
+  let systemContent =
+    `Choose one scoped tool or finish retrieval. Allowed tools: ${toolNames}. ` +
+    `Return JSON only with action ${actionHint}. Do not invent evidence. Omit private reasoning.`;
+  if (allowAskClarification) {
+    systemContent +=
+      ' Use ask_clarification only when the question could mean several separate features or files in the evidence, ' +
+      'or when nothing was found and the question is unclear; build options from the evidence paths; include clarificationQuestions.';
+  }
   /** @type {object[]} */
   const segments = [
     {
       id: 'system_tool_choice',
       kind: 'system',
-      content:
-        `Choose one scoped tool or finish retrieval. Allowed tools: ${toolNames}. ` +
-        'Return JSON only with action call_tool|finish_retrieval. Do not invent evidence. Omit private reasoning.',
+      content: systemContent,
       protected: true,
     },
     {
@@ -1008,15 +1077,61 @@ function buildToolChoiceSegments(state, repair) {
       content: `Evidence so far (ids/paths only): ${JSON.stringify(evidenceSummary)}`,
     },
   ];
+  if (state.clarificationAnswers && typeof state.clarificationAnswers === 'object') {
+    segments.push({
+      id: 'clarification_answers',
+      kind: 'turn',
+      role: 'user',
+      content: `Clarification answers: ${JSON.stringify(state.clarificationAnswers)}`,
+    });
+  }
   if (repair) {
     segments.push({
       id: 'tool_choice_repair',
       kind: 'system',
-      content: 'Previous structured output was invalid. Reply with JSON only: action call_tool|finish_retrieval; toolName required when call_tool.',
+      content: `Previous structured output was invalid. Reply with JSON only: action ${actionHint}; toolName required when call_tool.`,
       protected: true,
     });
   }
   return segments;
+}
+
+/**
+ * Whether the tool loop may offer ask_clarification (shared round budget + evidence gate).
+ * @param {object} state Graph state.
+ * @returns {boolean}
+ */
+function isToolLoopClarificationAllowed(state) {
+  if ((state.clarifyRoundCount ?? 0) >= CLARIFICATION_MAX_ROUNDS) {
+    return false;
+  }
+  const evidenceCount = Array.isArray(state.toolResults) ? state.toolResults.length : 0;
+  return evidenceCount === 0 || evidenceCount >= 2;
+}
+
+/**
+ * Whether clarification questions are usable for an interrupt (not merely Zod-shaped).
+ * @param {object[]} questions Candidate questions.
+ * @returns {boolean}
+ */
+function areClarificationQuestionsUsable(questions) {
+  if (!Array.isArray(questions) || questions.length === 0) {
+    return false;
+  }
+  // Questions are Zod-shaped objects; this gate checks usable prompts/options only.
+  for (const question of questions) {
+    const prompt = typeof question.prompt === 'string' ? question.prompt.trim() : '';
+    if (prompt === '') {
+      return false;
+    }
+    if (question.type === 'single_select' || question.type === 'multi_select') {
+      const options = Array.isArray(question.options) ? question.options.filter((option) => typeof option === 'string' && option.trim() !== '') : [];
+      if (options.length < 2) {
+        return false;
+      }
+    }
+  }
+  return true;
 }
 
 /**

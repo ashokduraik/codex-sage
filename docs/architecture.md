@@ -284,6 +284,10 @@ next stage boundary. A sweeper requeues or fails jobs whose heartbeat expired.
 
 ## 6. Chat — question becomes a grounded answer
 
+**Node-by-node / edge / tool guide (for LangGraph newcomers):**  
+[`docs/chat-stream-langgraph.md`](./chat-stream-langgraph.md) — file map, full graph
+diagram, and case flows (retrieve, clarify, direct reply, abstain, verify-revise).
+
 ### 6.1 HTTP / SSE (API process)
 
 `POST /api/v1/conversation/chatStream/streamMessage/:projectId/:conversationId` with
@@ -315,6 +319,9 @@ available). The UI reloads by conversation messages and may Retry. See ADR 0037.
 
 ### 6.2 LangGraph workflow
 
+Step-by-step nodes, conditional edges, and tool-choice loops:  
+[`docs/chat-stream-langgraph.md`](./chat-stream-langgraph.md).
+
 Every model call: assemble the exact messages → count tokens for the **active model**
 (`backend/src/modules/conversation/contextBudgeter.js`) → compact, or fail closed →
 `conversation/llm.js` enqueue (per-worker, concurrency 1) → `provider.chat`.
@@ -331,18 +338,19 @@ artifact mismatch → `CONTEXT_ACCOUNTING_UNAVAILABLE`. Still over after compact
     ▼         ▼       ▼          ▼              ▼
 CLARIFY_SET  AGENT_   REPLY_   ABSTAIN_EARLY
 pause for UI TOOLS    DIRECT   not enough to proceed
-             │        (converse /
-             │         general_knowledge /
-             │         overview fallback)
-             │              │
-             ▼              ▼
-      DRAFT_ANSWER    PERSIST_DIRECT
-             │        completed, supportLevel null
-             ▼
-      VERIFY_ANSWER
-             │
-             ▼
-      PERSIST + DONE
+     ▲         │      (converse /
+     │         │       general_knowledge /
+     │         │       overview fallback)
+     │         │ ask_clarification (ADR 0040)
+     └─────────┤              │
+               ▼              ▼
+        DRAFT_ANSWER    PERSIST_DIRECT
+               │        completed, supportLevel null
+               ▼
+        VERIFY_ANSWER
+               │
+               ▼
+        PERSIST + DONE
 ```
 
 **UNDERSTAND** (implemented in `backend/src/modules/conversation/chatGraph.js`) returns
@@ -361,7 +369,8 @@ time locally, then POSTs **all** answers once to
 `Accept: text/event-stream` (same SSE events as ask). The workflow resumes
 from a Mongo **`chatCheckpoints`** snapshot (`threadId` =
 `{orgId}:{conversationId}:{assistantMessageId}`) at **UNDERSTAND** with answers bound.
-At most one extra clarification round (two sets total).
+At most one extra clarification round (two sets total). Clarification may start from
+**UNDERSTAND** or from **AGENT_TOOLS** (`ask_clarification` — ADR 0040).
 
 **AGENT_TOOLS** (every tool is scoped to org + project + current knowledge version +
 active rows):
@@ -374,6 +383,9 @@ active rows):
 | `read_document_slice` | GridFS / materialized file, heading or line range | No |
 | `read_file_slice` | Same, for code/config | No |
 | `abstain` | Stop; do not invent a code answer | No |
+
+Tool-choice may also return `ask_clarification` (not a scoped tool) when evidence is
+empty or spans multiple records and clarify rounds remain — see ADR 0040.
 
 Reject stale, cross-project, unlocated, or oversized tool results. Surviving snippets
 go through `prepareModelInput` **before** they enter graph state. Evidence ids are

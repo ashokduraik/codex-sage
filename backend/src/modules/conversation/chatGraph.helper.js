@@ -53,8 +53,8 @@ export const DIRECT_REPLY_DESCRIPTION_NOTE = "_Based on the project's saved desc
 export const DIRECT_REPLY_EMPTY_DESCRIPTION =
   'No project overview is available yet. Ask a concrete question about the code or documentation, or add a project description.';
 
-/** Tool-choice actions for AGENT_TOOLS. */
-export const TOOL_CHOICE_ACTION_VALUES = Object.freeze(['call_tool', 'finish_retrieval']);
+/** Tool-choice actions for AGENT_TOOLS (ask_clarification → existing clarify interrupt). */
+export const TOOL_CHOICE_ACTION_VALUES = Object.freeze(['call_tool', 'finish_retrieval', 'ask_clarification']);
 
 /** Scoped agent tools the model may request (phase 46). */
 export const AGENT_TOOL_NAME_VALUES = Object.freeze([
@@ -65,6 +65,17 @@ export const AGENT_TOOL_NAME_VALUES = Object.freeze([
   'read_file_slice',
   'abstain',
 ]);
+
+/**
+ * One clarification question from UNDERSTAND or tool-choice `ask_clarification`.
+ * Shape only — usable-option gates (e.g. select needs ≥2 options) live in the graph.
+ */
+export const clarificationQuestionSchema = z.object({
+  id: z.string().min(1).optional(),
+  type: z.enum(CLARIFICATION_QUESTION_TYPES),
+  prompt: z.string().min(1),
+  options: z.array(z.string()).optional(),
+});
 
 /**
  * Zod schema for the UNDERSTAND structured decision.
@@ -78,17 +89,7 @@ export const understandDecisionSchema = z.object({
     .optional()
     .transform((value) => (typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined)),
   needsClarification: z.boolean().optional().default(false),
-  clarificationQuestions: z
-    .array(
-      z.object({
-        id: z.string().min(1).optional(),
-        type: z.enum(CLARIFICATION_QUESTION_TYPES),
-        prompt: z.string().min(1),
-        options: z.array(z.string()).optional(),
-      }),
-    )
-    .optional()
-    .default([]),
+  clarificationQuestions: z.array(clarificationQuestionSchema).optional().default([]),
   route: z.enum(UNDERSTAND_ROUTE_VALUES),
 });
 
@@ -96,6 +97,7 @@ export const understandDecisionSchema = z.object({
  * Zod schema for AGENT_TOOLS tool-choice structured output.
  * `reason` is optional short product text — never chain-of-thought / SSE.
  * Extra keys are stripped so soft-parsed model JSON still validates.
+ * `ask_clarification` may carry `clarificationQuestions`; usable gates are in the graph.
  */
 export const toolChoiceDecisionSchema = z
   .object({
@@ -107,6 +109,7 @@ export const toolChoiceDecisionSchema = z
       .optional()
       .transform((value) => (value && typeof value === 'object' && !Array.isArray(value) ? value : undefined)),
     reason: z.string().max(500).optional(),
+    clarificationQuestions: z.array(clarificationQuestionSchema).optional().default([]),
   })
   .superRefine((value, context) => {
     if (value.action === 'call_tool' && !value.toolName) {

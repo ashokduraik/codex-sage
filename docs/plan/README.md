@@ -13,6 +13,7 @@ Source-of-truth documents this plan derives from (read them before any non-trivi
 | [`frontend/requirments.md`](../../frontend/requirments.md) | UI/UX requirements (§1–§108) |
 | [`backend/solution.md`](../../backend/solution.md) | Chosen MVP technical solution (§1–§15) |
 | [`docs/architecture.md`](../architecture.md) | Process topology and the two main flows |
+| [`docs/chat-stream-langgraph.md`](../chat-stream-langgraph.md) | Chat SSE + LangGraph nodes, edges, tools (onboarding) |
 | [`AGENTS.md`](../../AGENTS.md) + [`.cursor/rules/`](../../.cursor/rules/) | Non-negotiable engineering conventions |
 
 ---

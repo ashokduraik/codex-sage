@@ -303,6 +303,27 @@ describe('toolChoiceDecisionSchema', () => {
     ).toBe(true);
     expect(toolChoiceDecisionSchema.safeParse({ action: 'finish_retrieval' }).success).toBe(true);
   });
+
+  it('accepts ask_clarification with typed questions and rejects an unknown type', () => {
+    expect(
+      toolChoiceDecisionSchema.safeParse({
+        action: 'ask_clarification',
+        clarificationQuestions: [
+          {
+            type: 'single_select',
+            prompt: 'Which calculator?',
+            options: ['EMI calculator', 'Chit fund calculator'],
+          },
+        ],
+      }).success,
+    ).toBe(true);
+    expect(
+      toolChoiceDecisionSchema.safeParse({
+        action: 'ask_clarification',
+        clarificationQuestions: [{ type: 'unknown_type', prompt: 'Which?' }],
+      }).success,
+    ).toBe(false);
+  });
 });
 
 describe('thread id helpers', () => {
@@ -775,6 +796,534 @@ describe('AGENT_TOOLS loop', () => {
     expect(result.retrievalComplete).toBe(true);
     expect(result.toolResults).toEqual([]);
     expect(mockExecuteTool).not.toHaveBeenCalled();
+  });
+
+  it('interrupts on ask_clarification after two evidence records', async () => {
+    mockGenerateText
+      .mockResolvedValueOnce(llmResult(decision()))
+      .mockResolvedValueOnce(
+        llmResult({
+          action: 'call_tool',
+          toolName: 'explore_code',
+          toolArgs: { query: 'calculator' },
+        }),
+      )
+      .mockResolvedValueOnce(
+        llmResult({
+          action: 'ask_clarification',
+          clarificationQuestions: [
+            {
+              type: 'single_select',
+              prompt: 'Which calculator?',
+              options: ['EMI calculator', 'Chit fund calculator'],
+            },
+          ],
+        }),
+      );
+    mockExecuteTool.mockResolvedValueOnce({
+      evidenceRecords: [
+        {
+          evidenceId: 'ev_01',
+          path: 'src/app/pages/emi-calculator/emi-calculator.page.ts',
+          kind: 'code',
+          excerpt: 'emi',
+        },
+        {
+          evidenceId: 'ev_02',
+          path: 'src/app/pages/fixed-chit-fund/fixed-chit-fund.page.ts',
+          kind: 'code',
+          excerpt: 'chit',
+        },
+      ],
+      rejected: [],
+      usage: { resultBytes: 20, promptTokensAfterBudget: 4 },
+    });
+
+    const stages = [];
+    const checkpointer = new MemorySaver();
+    const compiled = compileChatGraph({
+      checkpointer,
+      onStage: (event) => stages.push(event.stage),
+    });
+    const interrupted = await invokeChatGraph({
+      threadId: `${threadId}-ask-two`,
+      compiled,
+      checkpointer,
+      input: { scope: scope(), question: 'How does the calculator work?' },
+    });
+    expect(interrupted.__interrupt__).toBeDefined();
+    const clarificationSet = interrupted.__interrupt__[0].value;
+    expect(clarificationSet.clarificationSetId).toMatch(/^clr_r0_/);
+    expect(clarificationSet.questions[0].options).toEqual(['EMI calculator', 'Chit fund calculator']);
+    expect(stages).toContain('awaiting_clarification');
+    expect(mockStreamText).not.toHaveBeenCalled();
+  });
+
+  it('interrupts on ask_clarification with zero evidence on the first tool-choice step', async () => {
+    mockGenerateText.mockResolvedValueOnce(llmResult(decision())).mockResolvedValueOnce(
+      llmResult({
+        action: 'ask_clarification',
+        clarificationQuestions: [{ type: 'free_text', prompt: 'Which area of the app?' }],
+      }),
+    );
+    const stages = [];
+    const checkpointer = new MemorySaver();
+    const compiled = compileChatGraph({
+      checkpointer,
+      onStage: (event) => stages.push(event.stage),
+    });
+    const interrupted = await invokeChatGraph({
+      threadId: `${threadId}-ask-zero`,
+      compiled,
+      checkpointer,
+      input: { scope: scope(), question: 'How does the calculator work?' },
+    });
+    expect(interrupted.__interrupt__).toBeDefined();
+    expect(interrupted.__interrupt__[0].value.questions[0].prompt).toBe('Which area of the app?');
+    expect(stages).toEqual(['understanding_question', 'awaiting_clarification']);
+    expect(mockExecuteTool).not.toHaveBeenCalled();
+    expect(mockStreamText).not.toHaveBeenCalled();
+  });
+
+  it('ignores ask_clarification with exactly one evidence record and drafts', async () => {
+    mockGenerateText
+      .mockResolvedValueOnce(llmResult(decision()))
+      .mockResolvedValueOnce(
+        llmResult({
+          action: 'call_tool',
+          toolName: 'explore_code',
+          toolArgs: { query: 'emi' },
+        }),
+      )
+      .mockResolvedValueOnce(
+        llmResult({
+          action: 'ask_clarification',
+          clarificationQuestions: [
+            {
+              type: 'single_select',
+              prompt: 'Which?',
+              options: ['A', 'B'],
+            },
+          ],
+        }),
+      );
+    mockExecuteTool.mockResolvedValueOnce({
+      evidenceRecords: [{ evidenceId: 'ev_01', path: 'src/a.ts', kind: 'code', excerpt: 'a', knowledgeVersionId: scope().knowledgeVersionId }],
+      rejected: [],
+      usage: { resultBytes: 8, promptTokensAfterBudget: 2 },
+    });
+    mockStreamText.mockResolvedValue(draftStreamResult('EMI math is in ev_01.'));
+
+    const checkpointer = new MemorySaver();
+    const result = await invokeChatGraph({
+      threadId: `${threadId}-ask-one`,
+      checkpointer,
+      input: { scope: scope(), question: 'How does EMI work?' },
+    });
+    expect(result.__interrupt__).toBeUndefined();
+    expect(result.retrievalComplete).toBe(true);
+    expect(result.toolResults).toHaveLength(1);
+    expect(result.supportLevel).toBe('evidence_backed');
+    expect(mockStreamText).toHaveBeenCalled();
+  });
+
+  it('ignores ask_clarification when clarification rounds are exhausted and abstains with no evidence', async () => {
+    mockGenerateText.mockResolvedValueOnce(
+      llmResult(
+        decision({
+          needsClarification: true,
+          clarificationQuestions: [{ type: 'free_text', prompt: 'Round 0?' }],
+        }),
+      ),
+    );
+    const checkpointer = new MemorySaver();
+    const compiled = compileChatGraph({ checkpointer });
+    const first = await invokeChatGraph({
+      threadId: `${threadId}-ask-exhausted`,
+      compiled,
+      checkpointer,
+      input: { scope: scope(), question: 'How does the calculator work?' },
+    });
+    const set1 = first.__interrupt__[0].value;
+    mockGenerateText.mockResolvedValueOnce(
+      llmResult(
+        decision({
+          needsClarification: true,
+          clarificationQuestions: [{ type: 'free_text', prompt: 'Round 1?' }],
+        }),
+      ),
+    );
+    const second = await resumeChatGraphFromClarification({
+      threadId: `${threadId}-ask-exhausted`,
+      compiled,
+      checkpointer,
+      clarificationSetId: set1.clarificationSetId,
+      answers: { q1: 'a' },
+    });
+    const set2 = second.__interrupt__[0].value;
+    expect(set2.roundIndex).toBe(1);
+    mockGenerateText.mockResolvedValueOnce(llmResult(decision({ rewrittenQuestion: 'EMI calculator flow' }))).mockResolvedValueOnce(
+      llmResult({
+        action: 'ask_clarification',
+        clarificationQuestions: [{ type: 'free_text', prompt: 'Still unclear?' }],
+      }),
+    );
+    const third = await resumeChatGraphFromClarification({
+      threadId: `${threadId}-ask-exhausted`,
+      compiled,
+      checkpointer,
+      clarificationSetId: set2.clarificationSetId,
+      answers: { q1: 'b' },
+    });
+    expect(third.__interrupt__).toBeUndefined();
+    expect(third.retrievalComplete).toBe(true);
+    expect(third.supportLevel).toBe('insufficient');
+    expect(mockStreamText).not.toHaveBeenCalled();
+  });
+
+  it('ignores ask_clarification with empty or underspecified select options and finishes', async () => {
+    mockGenerateText.mockResolvedValueOnce(llmResult(decision())).mockResolvedValueOnce(
+      llmResult({
+        action: 'ask_clarification',
+        clarificationQuestions: [],
+      }),
+    );
+    const emptyQuestions = await invokeChatGraph({
+      threadId: `${threadId}-ask-empty`,
+      checkpointer: new MemorySaver(),
+      input: { scope: scope(), question: 'How does the calculator work?' },
+    });
+    expect(emptyQuestions.__interrupt__).toBeUndefined();
+    expect(emptyQuestions.retrievalComplete).toBe(true);
+    expect(emptyQuestions.supportLevel).toBe('insufficient');
+
+    mockGenerateText.mockReset();
+    mockStreamText.mockReset();
+    mockFinalizeAssistantMessage.mockResolvedValue({
+      _id: assistantMessageId,
+      content: 'ok',
+      messageStatus: 'completed',
+    });
+    mockGenerateText.mockResolvedValueOnce(llmResult(decision())).mockResolvedValueOnce(
+      llmResult({
+        action: 'ask_clarification',
+        clarificationQuestions: [{ type: 'single_select', prompt: 'Which?', options: ['Only one'] }],
+      }),
+    );
+    mockStreamText.mockResolvedValue(draftStreamResult());
+    const oneOption = await invokeChatGraph({
+      threadId: `${threadId}-ask-one-opt`,
+      checkpointer: new MemorySaver(),
+      input: { scope: scope(), question: 'How does the calculator work?' },
+    });
+    expect(oneOption.__interrupt__).toBeUndefined();
+    expect(oneOption.retrievalComplete).toBe(true);
+    expect(oneOption.supportLevel).toBe('insufficient');
+  });
+
+  it('ignores ask_clarification when the prompt is whitespace-only or select options are blank', async () => {
+    mockGenerateText.mockResolvedValueOnce(llmResult(decision())).mockResolvedValueOnce(
+      llmResult({
+        action: 'ask_clarification',
+        clarificationQuestions: [{ type: 'free_text', prompt: '   ' }],
+      }),
+    );
+    const blankPrompt = await invokeChatGraph({
+      threadId: `${threadId}-ask-blank-prompt`,
+      checkpointer: new MemorySaver(),
+      log: { debug: vi.fn() },
+      input: { scope: scope(), question: 'How does the calculator work?' },
+    });
+    expect(blankPrompt.__interrupt__).toBeUndefined();
+    expect(blankPrompt.retrievalComplete).toBe(true);
+    expect(blankPrompt.supportLevel).toBe('insufficient');
+
+    mockGenerateText.mockReset();
+    mockGenerateText.mockResolvedValueOnce(llmResult(decision())).mockResolvedValueOnce(
+      llmResult({
+        action: 'ask_clarification',
+        clarificationQuestions: [{ type: 'multi_select', prompt: 'Pick areas', options: ['A', '  ', ''] }],
+      }),
+    );
+    const blankOptions = await invokeChatGraph({
+      threadId: `${threadId}-ask-blank-opts`,
+      checkpointer: new MemorySaver(),
+      log: { debug: vi.fn() },
+      input: { scope: scope(), question: 'How does the calculator work?' },
+    });
+    expect(blankOptions.__interrupt__).toBeUndefined();
+    expect(blankOptions.retrievalComplete).toBe(true);
+
+    mockGenerateText.mockReset();
+    mockGenerateText.mockResolvedValueOnce(llmResult(decision())).mockResolvedValueOnce(
+      llmResult({
+        action: 'ask_clarification',
+        clarificationQuestions: [{ type: 'single_select', prompt: 'Which?' }],
+      }),
+    );
+    const missingOptions = await invokeChatGraph({
+      threadId: `${threadId}-ask-missing-opts`,
+      checkpointer: new MemorySaver(),
+      input: { scope: scope(), question: 'How does the calculator work?' },
+    });
+    expect(missingOptions.__interrupt__).toBeUndefined();
+    expect(missingOptions.retrievalComplete).toBe(true);
+  });
+
+  it('logs debug when ask_clarification succeeds and includes ask in the repair prompt', async () => {
+    const debug = vi.fn();
+    mockGenerateText
+      .mockResolvedValueOnce(llmResult(decision()))
+      .mockResolvedValueOnce(llmResult({ action: 'not_a_real_action' }))
+      .mockResolvedValueOnce(
+        llmResult({
+          action: 'ask_clarification',
+          clarificationQuestions: [{ type: 'free_text', prompt: 'Which module?' }],
+        }),
+      );
+    const interrupted = await invokeChatGraph({
+      threadId: `${threadId}-ask-debug`,
+      checkpointer: new MemorySaver(),
+      log: { debug },
+      input: { scope: scope(), question: 'How does the calculator work?' },
+    });
+    expect(interrupted.__interrupt__).toBeDefined();
+    expect(debug).toHaveBeenCalledWith(expect.any(Object), 'tool loop requested clarification');
+    const repairCall = mockGenerateText.mock.calls.find(
+      (call) => call[0].purpose === 'tool_choice' && call[0].segments.some((segment) => segment.id === 'tool_choice_repair'),
+    );
+    expect(repairCall).toBeDefined();
+    expect(repairCall[0].segments.find((segment) => segment.id === 'tool_choice_repair').content).toContain('ask_clarification');
+    expect(repairCall[0].outputSchema.properties.action.enum).toContain('ask_clarification');
+  });
+
+  it('resumes tool-loop clarification, keeps prior evidence, and appends new evidence before drafting', async () => {
+    const knowledgeVersionId = scope().knowledgeVersionId;
+    mockGenerateText
+      .mockResolvedValueOnce(llmResult(decision()))
+      .mockResolvedValueOnce(
+        llmResult({
+          action: 'call_tool',
+          toolName: 'explore_code',
+          toolArgs: { query: 'calculator' },
+        }),
+      )
+      .mockResolvedValueOnce(
+        llmResult({
+          action: 'ask_clarification',
+          clarificationQuestions: [
+            {
+              type: 'single_select',
+              prompt: 'Which calculator?',
+              options: ['EMI calculator', 'Chit fund calculator'],
+            },
+          ],
+        }),
+      );
+    mockExecuteTool.mockResolvedValueOnce({
+      evidenceRecords: [
+        {
+          evidenceId: 'ev_01',
+          path: 'src/app/pages/emi-calculator/emi-calculator.page.ts',
+          kind: 'code',
+          excerpt: 'emi',
+          knowledgeVersionId,
+        },
+        {
+          evidenceId: 'ev_02',
+          path: 'src/app/pages/fixed-chit-fund/fixed-chit-fund.page.ts',
+          kind: 'code',
+          excerpt: 'chit',
+          knowledgeVersionId,
+        },
+      ],
+      rejected: [],
+      usage: { resultBytes: 20, promptTokensAfterBudget: 4 },
+    });
+
+    const checkpointer = new MemorySaver();
+    const compiled = compileChatGraph({ checkpointer });
+    const interrupted = await invokeChatGraph({
+      threadId: `${threadId}-ask-resume`,
+      compiled,
+      checkpointer,
+      input: { scope: scope({ knowledgeVersionId }), question: 'How does the calculator work?' },
+    });
+    const clarificationSet = interrupted.__interrupt__[0].value;
+
+    mockGenerateText
+      .mockResolvedValueOnce(llmResult(decision({ rewrittenQuestion: 'How does the EMI calculator work?' })))
+      .mockResolvedValueOnce(
+        llmResult({
+          action: 'call_tool',
+          toolName: 'explore_code',
+          toolArgs: { query: 'EMI calculator' },
+        }),
+      )
+      .mockResolvedValueOnce(llmResult(toolChoice()));
+    mockExecuteTool.mockResolvedValueOnce({
+      evidenceRecords: [
+        {
+          evidenceId: 'ev_03',
+          path: 'src/app/services/loan.utils.ts',
+          kind: 'code',
+          excerpt: 'calcEmi',
+          knowledgeVersionId,
+        },
+      ],
+      rejected: [],
+      usage: { resultBytes: 12, promptTokensAfterBudget: 3 },
+    });
+    mockStreamText.mockResolvedValue(draftStreamResult('EMI uses loan.utils per ev_03 and ev_01.'));
+
+    const resumed = await resumeChatGraphFromClarification({
+      threadId: `${threadId}-ask-resume`,
+      compiled,
+      checkpointer,
+      clarificationSetId: clarificationSet.clarificationSetId,
+      answers: { q1: 'EMI calculator' },
+    });
+    expect(resumed.__interrupt__).toBeUndefined();
+    expect(resumed.toolResults.map((record) => record.evidenceId)).toEqual(['ev_01', 'ev_02', 'ev_03']);
+    expect(resumed.rewrittenQuestion).toContain('EMI');
+    expect(resumed.supportLevel).toBe('evidence_backed');
+    expect(mockFinalizeAssistantMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ messageStatus: 'completed', supportLevel: 'evidence_backed' }),
+    );
+  });
+
+  it('allows UNDERSTAND to issue round 1 after a tool-loop round 0, then ignores a third ask', async () => {
+    mockGenerateText.mockResolvedValueOnce(llmResult(decision())).mockResolvedValueOnce(
+      llmResult({
+        action: 'ask_clarification',
+        clarificationQuestions: [{ type: 'free_text', prompt: 'Tool-loop round 0?' }],
+      }),
+    );
+    const checkpointer = new MemorySaver();
+    const compiled = compileChatGraph({ checkpointer });
+    const first = await invokeChatGraph({
+      threadId: `${threadId}-ask-round1`,
+      compiled,
+      checkpointer,
+      input: { scope: scope(), question: 'How does the calculator work?' },
+    });
+    const set0 = first.__interrupt__[0].value;
+    expect(set0.roundIndex).toBe(0);
+
+    mockGenerateText.mockResolvedValueOnce(
+      llmResult(
+        decision({
+          needsClarification: true,
+          clarificationQuestions: [{ type: 'free_text', prompt: 'UNDERSTAND round 1?' }],
+        }),
+      ),
+    );
+    const second = await resumeChatGraphFromClarification({
+      threadId: `${threadId}-ask-round1`,
+      compiled,
+      checkpointer,
+      clarificationSetId: set0.clarificationSetId,
+      answers: { q1: 'emi' },
+    });
+    const set1 = second.__interrupt__[0].value;
+    expect(set1.roundIndex).toBe(1);
+
+    mockGenerateText.mockResolvedValueOnce(llmResult(decision({ rewrittenQuestion: 'EMI calculator internals' }))).mockResolvedValueOnce(
+      llmResult({
+        action: 'ask_clarification',
+        clarificationQuestions: [{ type: 'free_text', prompt: 'Third ask?' }],
+      }),
+    );
+    const third = await resumeChatGraphFromClarification({
+      threadId: `${threadId}-ask-round1`,
+      compiled,
+      checkpointer,
+      clarificationSetId: set1.clarificationSetId,
+      answers: { q1: 'more' },
+    });
+    expect(third.__interrupt__).toBeUndefined();
+    expect(third.retrievalComplete).toBe(true);
+    expect(third.supportLevel).toBe('insufficient');
+  });
+
+  it('includes ask_clarification in the tool-choice schema and prompt only when allowed', async () => {
+    mockGenerateText
+      .mockResolvedValueOnce(llmResult(decision()))
+      .mockResolvedValueOnce(
+        llmResult({
+          action: 'call_tool',
+          toolName: 'explore_code',
+          toolArgs: { query: 'emi' },
+        }),
+      )
+      .mockResolvedValueOnce(llmResult(toolChoice()));
+    mockExecuteTool.mockResolvedValueOnce({
+      evidenceRecords: [
+        {
+          evidenceId: 'ev_01',
+          path: 'src/a.ts',
+          kind: 'code',
+          excerpt: 'a',
+          knowledgeVersionId: scope().knowledgeVersionId,
+        },
+      ],
+      rejected: [],
+      usage: { resultBytes: 4, promptTokensAfterBudget: 1 },
+    });
+    mockStreamText.mockResolvedValue(draftStreamResult('See ev_01.'));
+
+    await invokeChatGraph({
+      threadId: `${threadId}-ask-schema`,
+      checkpointer: new MemorySaver(),
+      input: { scope: scope(), question: 'How does EMI work?' },
+    });
+
+    const toolChoiceCalls = mockGenerateText.mock.calls.filter((call) => call[0].purpose === 'tool_choice');
+    expect(toolChoiceCalls.length).toBeGreaterThanOrEqual(2);
+    const firstSchema = toolChoiceCalls[0][0].outputSchema;
+    const firstSystem = toolChoiceCalls[0][0].segments.find((segment) => segment.id === 'system_tool_choice');
+    expect(firstSchema.properties.action.enum).toContain('ask_clarification');
+    expect(firstSchema.properties.clarificationQuestions).toBeDefined();
+    expect(firstSystem.content).toContain('ask_clarification');
+
+    const secondSchema = toolChoiceCalls[1][0].outputSchema;
+    const secondSystem = toolChoiceCalls[1][0].segments.find((segment) => segment.id === 'system_tool_choice');
+    expect(secondSchema.properties.action.enum).not.toContain('ask_clarification');
+    expect(secondSchema.properties.clarificationQuestions).toBeUndefined();
+    expect(secondSystem.content).not.toContain('ask_clarification');
+  });
+
+  it('includes clarification_answers in tool-choice segments after a resumed clarify', async () => {
+    mockGenerateText.mockResolvedValueOnce(
+      llmResult(
+        decision({
+          needsClarification: true,
+          clarificationQuestions: [{ type: 'single_select', prompt: 'Which?', options: ['EMI', 'Chit'] }],
+        }),
+      ),
+    );
+    const checkpointer = new MemorySaver();
+    const compiled = compileChatGraph({ checkpointer });
+    const interrupted = await invokeChatGraph({
+      threadId: `${threadId}-ask-answers-seg`,
+      compiled,
+      checkpointer,
+      input: { scope: scope(), question: 'How does the calculator work?' },
+    });
+    const set = interrupted.__interrupt__[0].value;
+    mockGenerateText
+      .mockResolvedValueOnce(llmResult(decision({ rewrittenQuestion: 'How does EMI calculator work?' })))
+      .mockResolvedValueOnce(llmResult(toolChoice()));
+    await resumeChatGraphFromClarification({
+      threadId: `${threadId}-ask-answers-seg`,
+      compiled,
+      checkpointer,
+      clarificationSetId: set.clarificationSetId,
+      answers: { q1: 'EMI' },
+    });
+    const toolChoiceCall = mockGenerateText.mock.calls.find((call) => call[0].purpose === 'tool_choice');
+    expect(toolChoiceCall[0].segments.some((segment) => segment.id === 'clarification_answers')).toBe(true);
+    expect(toolChoiceCall[0].segments.find((segment) => segment.id === 'clarification_answers').content).toContain('EMI');
   });
 
   it('runs two tool iterations then finishes with evidence batches', async () => {

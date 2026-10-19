@@ -115,7 +115,9 @@ ClarificationSet
 ```
 
 **Locked:** graph resumes at **UNDERSTAND** with answers bound. Max two sets enforced in the graph
-(`roundIndex` 0 then 1); a third clarify attempt forces early abstain.
+(`roundIndex` 0 then 1), **shared** with tool-loop `ask_clarification` (ADR 0040). A third
+UNDERSTAND clarify attempt forces early abstain; an exhausted tool-loop ask finishes retrieval
+instead.
 
 ### 4.5 Checkpointer
 
@@ -263,5 +265,6 @@ Do **not** add `backend/src/modules/chat/`.
 2. **threadId:** `{orgId}:{conversationId}:{assistantMessageId}`.
 3. **Checkpointer:** custom Mongo saver on `chatCheckpoints` (tenant + status); official package
    only as optional in-module adapter if latest + maintained at install time.
-4. **Follow-up clarification:** max two sets enforced in the graph (`roundIndex` 0 then 1).
+4. **Follow-up clarification:** max two sets enforced in the graph (`roundIndex` 0 then 1),
+   shared with AGENT_TOOLS `ask_clarification` (ADR 0040).
 5. **Prompt size / model id:** phase 05 / env; not blocking graph shape.
