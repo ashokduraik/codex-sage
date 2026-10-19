@@ -827,6 +827,7 @@ export {
   findActiveJobForSourceVersion,
   findJobById,
   insertPendingJob,
+  ensureAgedOrgDataCleanupJobSoon,
   isKnownJobStatus,
   listJobsByProject,
   requestRunningJobCancel,

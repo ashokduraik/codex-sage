@@ -4,6 +4,7 @@
 import { z } from 'zod';
 import { ApiError } from '../../platform/errors.js';
 import { Project } from '../../models/projects.model.js';
+import { ensureAgedOrgDataCleanupJobSoon } from './jobs.helper.js';
 import { buildAuditContextFromRequest, recordAuditEvent } from '../access/index.js';
 import { buildProjectMemberSubdoc, resolveAccessibleProjectFilter } from './projectMembers.js';
 import {
@@ -379,7 +380,7 @@ export function mapProjectToDto(project, options = {}) {
   return dto;
 }
 
-/** Retention defaults mirrored from solution §12.3 for deletion-preview. */
+/** Deletion preview: children cascade via aged_org_data_cleanup; audit kept until auditDays. */
 export const DELETION_PREVIEW_CONSEQUENCES = Object.freeze([
   Object.freeze({ resource: 'source', effect: 'soft_deleted', retentionDays: null }),
   Object.freeze({ resource: 'knowledge', effect: 'soft_deleted', retentionDays: null }),
@@ -1077,6 +1078,21 @@ export async function deleteProject(input) {
     },
     { log: input.log },
   );
+
+  try {
+    await ensureAgedOrgDataCleanupJobSoon(input.orgId);
+  } catch (error) {
+    input.log?.error?.(
+      {
+        errName: error instanceof Error ? error.name : 'Error',
+        errMessage: error instanceof Error ? error.message : String(error),
+        errStack: error instanceof Error ? error.stack : undefined,
+        orgId: input.orgId,
+        projectId: String(input.projectId),
+      },
+      'failed to enqueue aged_org_data_cleanup after project delete',
+    );
+  }
 }
 
 export {

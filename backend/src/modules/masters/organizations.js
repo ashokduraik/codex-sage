@@ -1,12 +1,41 @@
 /**
- * masters/organizations.js — merged resource file.
+ * masters/organizations.js — org CRUD/bootstrap plus writable retention policy.
  */
+import { z } from 'zod';
 import mongoose from 'mongoose';
-import { hashPassword } from '../access/index.js';
 import { Organization } from '../../models/organization.model.js';
 import { ApiError, apiErrorFromCaught, caughtErrorFields } from '../../platform/errors.js';
+import { hashPassword, recordAuditEvent, buildAuditContextFromRequest } from '../access/index.js';
 import { ADMIN_ROLE_CODE, duplicateKeyField, ensureAdminRole, isDuplicateKeyError } from './roles.js';
 import { createUserInRepo, findUserByEmail, findUserByIdWithPassword, setPasswordHashIfMissing, updateUser } from './users.js';
+
+/** Solution §12.3 defaults — single source for schema, API, and cleanup job. */
+export const RETENTION_POLICY_DEFAULTS = Object.freeze({
+  readySourceVersionsKeep: 3,
+  jobDays: 180,
+  notificationDays: 90,
+  notificationReadDays: 30,
+  usageDays: 730,
+  conversationDays: 365,
+  auditDays: 730,
+});
+
+/** Inclusive bounds for admin PATCH (named constants, not env). */
+export const RETENTION_POLICY_BOUNDS = Object.freeze({
+  readySourceVersionsKeep: Object.freeze({ min: 1, max: 20 }),
+  dayFields: Object.freeze({ min: 1, max: 3650 }),
+});
+
+/** Field names accepted on GET/PATCH retention policy. */
+export const RETENTION_POLICY_FIELD_NAMES = Object.freeze([
+  'readySourceVersionsKeep',
+  'jobDays',
+  'notificationDays',
+  'notificationReadDays',
+  'usageDays',
+  'conversationDays',
+  'auditDays',
+]);
 
 // --- from identity/organization.repository.js ---
 /**
@@ -325,4 +354,211 @@ export async function runBootstrapSeed(log) {
   );
 
   return summary;
+}
+
+/**
+ * Merges a stored or partial policy with §12.3 defaults (existing orgs may lack the subdoc).
+ * @param {unknown} stored Raw org.retentionPolicy or null.
+ * @returns {{
+ *   readySourceVersionsKeep: number,
+ *   jobDays: number,
+ *   notificationDays: number,
+ *   notificationReadDays: number,
+ *   usageDays: number,
+ *   conversationDays: number,
+ *   auditDays: number,
+ * }}
+ */
+export function resolveEffectiveRetentionPolicy(stored) {
+  const raw = stored && typeof stored === 'object' ? /** @type {Record<string, unknown>} */ (stored) : {};
+  /** @type {Record<string, number>} */
+  const effective = { ...RETENTION_POLICY_DEFAULTS };
+  for (const fieldName of RETENTION_POLICY_FIELD_NAMES) {
+    const value = raw[fieldName];
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      effective[fieldName] = value;
+    }
+  }
+  return /** @type {typeof RETENTION_POLICY_DEFAULTS} */ (effective);
+}
+
+/**
+ * Loads the effective retention policy for an organization.
+ * @param {string} orgId Tenant id (organization _id).
+ * @returns {Promise<ReturnType<typeof resolveEffectiveRetentionPolicy>>}
+ * @throws {ApiError} NOT_FOUND when the org is missing.
+ */
+export async function getRetentionPolicy(orgId) {
+  const organization = await findOrganizationById(orgId);
+  if (!organization) {
+    throw ApiError.fromCode('NOT_FOUND', { message: 'Organization not found.' });
+  }
+  return resolveEffectiveRetentionPolicy(organization.retentionPolicy);
+}
+
+/**
+ * Validates and persists a retention policy patch, then audits the change.
+ * @param {{
+ *   orgId: string,
+ *   actorUserId: string,
+ *   patch: Record<string, number>,
+ *   correlationId: string,
+ *   ip?: string,
+ *   userAgent?: string,
+ *   log?: { error?: Function },
+ * }} input Update inputs.
+ * @returns {Promise<ReturnType<typeof resolveEffectiveRetentionPolicy>>}
+ * @throws {ApiError} NOT_FOUND | VALIDATION_ERROR
+ */
+export async function updateRetentionPolicy(input) {
+  const organization = await findOrganizationById(input.orgId);
+  if (!organization) {
+    throw ApiError.fromCode('NOT_FOUND', { message: 'Organization not found.' });
+  }
+  const previous = resolveEffectiveRetentionPolicy(organization.retentionPolicy);
+  const next = { ...previous, ...input.patch };
+  assertRetentionPolicyWithinBounds(next);
+
+  const updated = await Organization.findOneAndUpdate(
+    { _id: input.orgId },
+    {
+      $set: {
+        retentionPolicy: next,
+        updatedBy: input.actorUserId,
+        updatedAt: new Date(),
+      },
+    },
+    { returnDocument: 'after' },
+  ).exec();
+  if (!updated) {
+    throw ApiError.fromCode('NOT_FOUND', { message: 'Organization not found.' });
+  }
+
+  const effective = resolveEffectiveRetentionPolicy(updated.retentionPolicy);
+  await recordAuditEvent(
+    {
+      orgId: input.orgId,
+      actorUserId: input.actorUserId,
+      action: 'retention.policy_changed',
+      resourceType: 'organization',
+      resourceId: String(input.orgId),
+      result: 'success',
+      correlationId: input.correlationId,
+      ip: input.ip,
+      userAgent: input.userAgent,
+      // Scalars only — audit sanitizer drops nested objects
+      context: flattenRetentionPolicyForAudit(previous, effective),
+    },
+    { log: input.log },
+  );
+  return effective;
+}
+
+/**
+ * Flattens before/after retention windows into audit-safe scalar context keys.
+ * @param {ReturnType<typeof resolveEffectiveRetentionPolicy>} previous Prior policy.
+ * @param {ReturnType<typeof resolveEffectiveRetentionPolicy>} next New policy.
+ * @returns {Record<string, number>}
+ */
+function flattenRetentionPolicyForAudit(previous, next) {
+  /** @type {Record<string, number>} */
+  const context = {};
+  for (const fieldName of RETENTION_POLICY_FIELD_NAMES) {
+    context[`previous_${fieldName}`] = previous[fieldName];
+    context[`next_${fieldName}`] = next[fieldName];
+  }
+  return context;
+}
+
+/**
+ * Throws when any policy field is outside safe min/max.
+ * @param {Record<string, number>} policy Candidate policy.
+ * @throws {ApiError} VALIDATION_ERROR
+ */
+function assertRetentionPolicyWithinBounds(policy) {
+  /** @type {{ path: string, message: string }[]} */
+  const details = [];
+  const keep = policy.readySourceVersionsKeep;
+  if (
+    !Number.isInteger(keep) ||
+    keep < RETENTION_POLICY_BOUNDS.readySourceVersionsKeep.min ||
+    keep > RETENTION_POLICY_BOUNDS.readySourceVersionsKeep.max
+  ) {
+    details.push({
+      path: 'readySourceVersionsKeep',
+      message: `must be an integer between ${RETENTION_POLICY_BOUNDS.readySourceVersionsKeep.min} and ${RETENTION_POLICY_BOUNDS.readySourceVersionsKeep.max}`,
+    });
+  }
+  for (const fieldName of RETENTION_POLICY_FIELD_NAMES) {
+    if (fieldName === 'readySourceVersionsKeep') {
+      continue;
+    }
+    const value = policy[fieldName];
+    if (!Number.isInteger(value) || value < RETENTION_POLICY_BOUNDS.dayFields.min || value > RETENTION_POLICY_BOUNDS.dayFields.max) {
+      details.push({
+        path: fieldName,
+        message: `must be an integer between ${RETENTION_POLICY_BOUNDS.dayFields.min} and ${RETENTION_POLICY_BOUNDS.dayFields.max}`,
+      });
+    }
+  }
+  if (details.length > 0) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details });
+  }
+}
+
+const retentionPolicyPatchSchema = z
+  .object({
+    readySourceVersionsKeep: z.number().int().optional(),
+    jobDays: z.number().int().optional(),
+    notificationDays: z.number().int().optional(),
+    notificationReadDays: z.number().int().optional(),
+    usageDays: z.number().int().optional(),
+    conversationDays: z.number().int().optional(),
+    auditDays: z.number().int().optional(),
+  })
+  .strict()
+  .refine((body) => Object.keys(body).length > 0, { message: 'at least one field is required' });
+
+/**
+ * Maps zod issues to VALIDATION_ERROR details.
+ * @param {import('zod').ZodError} error Zod error.
+ * @returns {{ path: string, message: string }[]}
+ */
+function retentionZodDetails(error) {
+  return error.issues.map((issue) => ({
+    path: issue.path.join('.') || 'body',
+    message: issue.message,
+  }));
+}
+
+/**
+ * GET /masters/organizations/getRetentionPolicy — effective org retention windows.
+ * @param {import('fastify').FastifyRequest} request Request.
+ * @returns {Promise<object>}
+ */
+export async function getRetentionPolicyHttp(request) {
+  const orgId = /** @type {string} */ (request.principal.orgId);
+  return getRetentionPolicy(orgId);
+}
+
+/**
+ * PATCH /masters/organizations/updateRetentionPolicy — admin override of retention windows.
+ * @param {import('fastify').FastifyRequest} request Request.
+ * @returns {Promise<object>}
+ */
+export async function updateRetentionPolicyHttp(request) {
+  const parsed = retentionPolicyPatchSchema.safeParse(request.body ?? {});
+  if (!parsed.success) {
+    throw ApiError.fromCode('VALIDATION_ERROR', { details: retentionZodDetails(parsed.error) });
+  }
+  const audit = buildAuditContextFromRequest(request);
+  return updateRetentionPolicy({
+    orgId: /** @type {string} */ (request.principal.orgId),
+    actorUserId: /** @type {string} */ (request.principal.userId),
+    patch: parsed.data,
+    correlationId: audit.correlationId,
+    ip: audit.ip,
+    userAgent: audit.userAgent,
+    log: request.log,
+  });
 }

@@ -21,7 +21,7 @@ import { assertOrgId, decodeCursor, encodeCursor, includeDeleted } from '../../p
  * Later phases add entries in the same change that introduces their routes.
  */
 
-/** @typedef {'user' | 'role' | 'membership' | 'route' | 'project' | 'job' | 'source' | 'knowledge' | 'repository' | 'conversation'} AuditResourceType */
+/** @typedef {'user' | 'role' | 'membership' | 'route' | 'project' | 'job' | 'source' | 'knowledge' | 'repository' | 'conversation' | 'organization'} AuditResourceType */
 
 /**
  * Map of known `<domain>.<verb>` actions to their paired resourceType.
@@ -69,6 +69,7 @@ export const AUDIT_ACTION_RESOURCE_TYPES = Object.freeze({
   'chat.message_edited': 'conversation',
   'chat.message_retry': 'conversation',
   'chat.clarification_answered': 'conversation',
+  'retention.policy_changed': 'organization',
 });
 
 /** Frozen list of known action strings. */

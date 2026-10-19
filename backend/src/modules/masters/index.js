@@ -16,6 +16,14 @@ export {
   findOrganizationBySlug,
   createOrganization,
   bumpOrganizationAclVersion,
+  RETENTION_POLICY_DEFAULTS,
+  RETENTION_POLICY_BOUNDS,
+  RETENTION_POLICY_FIELD_NAMES,
+  resolveEffectiveRetentionPolicy,
+  getRetentionPolicy,
+  updateRetentionPolicy,
+  getRetentionPolicyHttp,
+  updateRetentionPolicyHttp,
 } from './organizations.js';
 export {
   findUserByEmail,
@@ -97,6 +105,7 @@ export {
   findActiveJobForProjectByTypes,
   findActiveJobForSourceVersion,
   insertPendingJob,
+  ensureAgedOrgDataCleanupJobSoon,
   createPendingJob,
   retryJobHttp,
   cancelJobHttp,

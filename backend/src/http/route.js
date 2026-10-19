@@ -86,12 +86,14 @@ import {
   listNotificationsHttp,
   resetUserPasswordHttp,
   getProjectSettingsHttp,
+  getRetentionPolicyHttp,
   listProjectMembersHttp,
   recordProjectAccessHttp,
   removeProjectMemberHttp,
   getOrganizationUsageHttp,
   markNotificationReadHttp,
   updateProjectSettingsHttp,
+  updateRetentionPolicyHttp,
   markAllNotificationsReadHttp,
   getProjectDeletionPreviewHttp,
   fillProjectDescriptionFromReadmeHttp,
@@ -150,6 +152,11 @@ export async function registerRoutes(app) {
 
   // users.js
 
+  // organizations.js
+  app.get('/masters/organizations/getRetentionPolicy', withRequiredPermissions('org.manage'), getRetentionPolicyHttp);
+  app.patch('/masters/organizations/updateRetentionPolicy', withRequiredPermissions('org.manage', true), updateRetentionPolicyHttp);
+
+  // users.js
   app.post('/masters/users/create', withRequiredPermissions('users.manage', true), createUserHttp);
   app.get('/masters/users/list', withRequiredPermissions('users.manage'), listUsersHttp);
   app.get('/masters/users/get/:userId', withRequiredPermissions('users.manage'), getUserHttp);

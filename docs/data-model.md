@@ -64,9 +64,12 @@ Same external MongoDB 8 replica set as development; database name forced to
 ### `organizations`
 
 Opts out of the tenant `orgId` plugin (`_id` is the org id). Fields: `code` (uppercase
-`[A-Z0-9_-]{2,64}`, set on create only), `name`, `slug`, `config`, plus base fields.
+`[A-Z0-9_-]{2,64}`, set on create only), `name`, `slug`, `config`, `aclVersion`,
+`retentionPolicy` (embedded: `readySourceVersionsKeep` default 3, `jobDays` 180,
+`notificationDays` 90, `notificationReadDays` 30, `usageDays` 730, `conversationDays` 365,
+`auditDays` 730 — admins with `org.manage` may PATCH), plus base fields.
 Unique partial indexes on `{ slug: 1 }` and `{ code: 1 }` where `status: 'A'`. Seeded
-org uses `code: "DEFAULT_ORG"`. See ADR 0032.
+org uses `code: "DEFAULT_ORG"`. See ADR 0032 and Phase 60.
 
 ### `users`
 

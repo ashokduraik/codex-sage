@@ -13,14 +13,32 @@ import { Notification } from '../../src/models/notification.model.js';
 import { Organization } from '../../src/models/organization.model.js';
 import { Conversation } from '../../src/models/conversations.model.js';
 import { SourceVersion } from '../../src/models/sourceVersion.model.js';
+import { ChatCheckpoint } from '../../src/models/chatCheckpoint.model.js';
+import { DocumentSection } from '../../src/models/documentSection.model.js';
 import { ProjectActivity } from '../../src/models/projectActivity.model.js';
 import { KnowledgeVersion } from '../../src/models/knowledgeVersion.model.js';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { ROW_STATUS_DELETED, includeDeleted } from '../../src/platform/data/index.js';
+import { RETENTION_POLICY_DEFAULTS } from '../../src/modules/masters/organizations.js';
+import { ensureAgedOrgDataCleanupJobSoon } from '../../src/modules/masters/jobs.helper.js';
 import { runAgedOrgDataCleanupJob, applyAgedOrgDataCleanupForOrg, enqueueDueAgedOrgDataCleanupJobs } from '../../src/worker/agedOrgDataCleanupJob.js';
 
 const harness = createMongoHarness({
-  models: [AuditEvent, Conversation, Job, KnowledgeVersion, Message, Notification, Organization, Project, SourceFile, SourceVersion, ProjectActivity],
+  models: [
+    AuditEvent,
+    ChatCheckpoint,
+    Conversation,
+    DocumentSection,
+    Job,
+    KnowledgeVersion,
+    Message,
+    Notification,
+    Organization,
+    Project,
+    SourceFile,
+    SourceVersion,
+    ProjectActivity,
+  ],
   uri: TEST_APP_CONFIG.mongo.uri,
 });
 
@@ -76,6 +94,19 @@ async function insertReadyPair(input) {
     gridFsId: new mongoose.Types.ObjectId(),
     excludedFromGraph: false,
     fileState: 'stored',
+    createdBy: null,
+    updatedBy: null,
+  });
+  await DocumentSection.create({
+    orgId: input.orgId,
+    projectId: input.projectId,
+    sourceVersionId,
+    path: 'README.md',
+    heading: 'Intro',
+    startLine: 1,
+    endLine: 2,
+    text: 'hello',
+    sectionIndex: 0,
     createdBy: null,
     updatedBy: null,
   });
@@ -154,8 +185,114 @@ describe('agedOrgDataCleanupJob', () => {
     expect(await SourceVersion.countDocuments({ orgId })).toBe(3);
     expect(await KnowledgeVersion.countDocuments({ orgId })).toBe(3);
     expect(await SourceFile.countDocuments({ orgId })).toBe(3);
+    expect(await DocumentSection.countDocuments({ orgId })).toBe(3);
     const hiddenSource = await includeDeleted(SourceVersion.findOne({ _id: oldest.sourceVersionId })).exec();
     expect(hiddenSource.status).toBe(ROW_STATUS_DELETED);
+    const hiddenSection = await includeDeleted(DocumentSection.findOne({ sourceVersionId: oldest.sourceVersionId })).exec();
+    expect(hiddenSection.status).toBe(ROW_STATUS_DELETED);
+  });
+
+  it('uses org retentionPolicy overrides for job age', async () => {
+    const org = await Organization.create({
+      code: `POL_${new mongoose.Types.ObjectId().toHexString().slice(0, 8).toUpperCase()}`,
+      name: 'Policy Co',
+      slug: `pol-${new mongoose.Types.ObjectId().toHexString().slice(0, 8)}`,
+      retentionPolicy: { ...RETENTION_POLICY_DEFAULTS, jobDays: 1 },
+      createdBy: null,
+      updatedBy: null,
+    });
+    const orgId = String(org._id);
+    const projectId = new mongoose.Types.ObjectId();
+    await insertProject(orgId, String(projectId));
+    await Job.create({
+      orgId,
+      projectId,
+      jobType: 'project_knowledge_build',
+      jobStatus: 'completed',
+      completedAt: new Date('2026-09-20T00:00:00.000Z'),
+      createdBy: null,
+      updatedBy: null,
+    });
+    const summary = await applyAgedOrgDataCleanupForOrg(orgId, NOW);
+    expect(summary.jobs).toBe(1);
+  });
+
+  it('cascades soft-delete for deleted projects and leaves audit active', async () => {
+    const orgId = new mongoose.Types.ObjectId().toHexString();
+    const projectId = new mongoose.Types.ObjectId().toHexString();
+    await insertProject(orgId, projectId);
+    await Project.updateOne({ _id: projectId }, { $set: { status: ROW_STATUS_DELETED } });
+    const pair = await insertReadyPair({
+      orgId,
+      projectId,
+      publishedAt: new Date('2026-05-01T00:00:00.000Z'),
+      current: true,
+    });
+    const conversationId = new mongoose.Types.ObjectId();
+    await Conversation.create({
+      _id: conversationId,
+      orgId,
+      projectId,
+      ownerUserId: new mongoose.Types.ObjectId(),
+      title: 'Cascade thread',
+      titleSource: 'user',
+      lifecycleStatus: 'active',
+      createdBy: null,
+      updatedBy: null,
+    });
+    await Message.create({
+      orgId,
+      projectId,
+      conversationId,
+      role: 'user',
+      content: 'hi',
+      messageStatus: 'completed',
+      createdBy: null,
+      updatedBy: null,
+    });
+    await ChatCheckpoint.create({
+      orgId,
+      threadId: `${orgId}:${String(conversationId)}:${new mongoose.Types.ObjectId().toHexString()}`,
+      checkpointNs: '',
+      checkpointId: 'cp1',
+      checkpoint: { v: 1 },
+      createdBy: null,
+      updatedBy: null,
+    });
+    await AuditEvent.create({
+      orgId,
+      action: 'project.delete',
+      resourceType: 'project',
+      resourceId: projectId,
+      result: 'success',
+      correlationId: 'corr-cascade',
+    });
+
+    const summary = await applyAgedOrgDataCleanupForOrg(orgId, NOW);
+    expect(summary.cascade.sourceVersions).toBeGreaterThanOrEqual(1);
+    expect(summary.cascade.conversations).toBe(1);
+    expect(summary.cascade.chatCheckpoints).toBe(1);
+    expect(await SourceVersion.countDocuments({ orgId })).toBe(0);
+    expect(await Conversation.countDocuments({ orgId })).toBe(0);
+    expect(await ChatCheckpoint.countDocuments({ orgId })).toBe(0);
+    expect(await AuditEvent.countDocuments({ orgId })).toBe(1);
+    void pair;
+  });
+
+  it('ensureAgedOrgDataCleanupJobSoon enqueues or bumps a pending job', async () => {
+    const org = await Organization.create({
+      code: `SOON_${new mongoose.Types.ObjectId().toHexString().slice(0, 8).toUpperCase()}`,
+      name: 'Soon Co',
+      slug: `soon-${new mongoose.Types.ObjectId().toHexString().slice(0, 8)}`,
+      createdBy: null,
+      updatedBy: null,
+    });
+    const first = await ensureAgedOrgDataCleanupJobSoon(String(org._id), { now: NOW });
+    expect(first.enqueued).toBe(true);
+    const second = await ensureAgedOrgDataCleanupJobSoon(String(org._id), { now: new Date('2026-09-26T13:00:00.000Z') });
+    expect(second.bumped).toBe(true);
+    const job = await Job.findOne({ orgId: org._id, jobType: 'aged_org_data_cleanup' });
+    expect(job.scheduledAt.toISOString()).toBe('2026-09-26T13:00:00.000Z');
   });
 
   it('hides terminal jobs older than 180 days and leaves running jobs', async () => {

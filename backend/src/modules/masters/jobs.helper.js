@@ -631,6 +631,42 @@ export async function insertPendingJob(input, options = {}) {
 }
 
 /**
+ * Ensures a pending/retrying aged_org_data_cleanup job exists for the org and is due now.
+ * Used after project soft-delete so cascade runs soon without a new jobType.
+ * @param {string} orgId Tenant id.
+ * @param {{ now?: Date }} [options] Optional clock.
+ * @returns {Promise<{ enqueued: boolean, bumped: boolean }>}
+ */
+export async function ensureAgedOrgDataCleanupJobSoon(orgId, options = {}) {
+  assertOrgId(orgId);
+  const now = options.now ?? new Date();
+  const existing = await Job.findOne({
+    orgId,
+    jobType: 'aged_org_data_cleanup',
+    jobStatus: { $in: ['pending', 'running', 'retrying'] },
+    status: ROW_STATUS_ACTIVE,
+  })
+    .select({ _id: 1, jobStatus: 1 })
+    .lean()
+    .exec();
+  if (existing) {
+    if (existing.jobStatus === 'pending' || existing.jobStatus === 'retrying') {
+      await Job.updateOne({ _id: existing._id }, { $set: { scheduledAt: now } }).exec();
+      return { enqueued: false, bumped: true };
+    }
+    return { enqueued: false, bumped: false };
+  }
+  await insertPendingJob({
+    orgId,
+    projectId: null,
+    jobType: 'aged_org_data_cleanup',
+    createdBy: null,
+    scheduledAt: now,
+  });
+  return { enqueued: true, bumped: false };
+}
+
+/**
  * Finds an active job by id within an org.
  * @param {import('mongoose').Types.ObjectId | string} orgId Tenant id.
  * @param {string} jobId Job id.

@@ -1140,7 +1140,10 @@ sees `/me` without `usage.view`.
 
 ### 12.3 Retention
 
-Configurable **per organization** (defaults below). Enforced by scheduled Mongo job (same worker poller).
+Configurable **per organization** via embedded `organizations.retentionPolicy` (defaults
+below). Admins with `org.manage` use Admin Retention (`GET`/`PATCH`
+`/masters/organizations/*RetentionPolicy`). Enforced by scheduled Mongo job
+`aged_org_data_cleanup` (same worker poller; one pending job per org).
 
 | Data                        | MVP default                                                             | Action after expiry                                     |
 | --------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------- |

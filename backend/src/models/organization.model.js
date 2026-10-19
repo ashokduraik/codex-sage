@@ -23,6 +23,27 @@ function isValidMasterCode(value) {
   return typeof value === 'string' && MASTER_CODE_PATTERN.test(value);
 }
 
+/** Org retention windows (solution §12.3); worker reads these instead of hard-coded constants only. */
+const retentionPolicySchema = new mongoose.Schema(
+  {
+    // Ready knowledge/source versions to keep per project (older ones soft-deleted)
+    readySourceVersionsKeep: { type: Number, required: true, default: 3, min: 1, max: 20 },
+    // Soft-delete terminal jobs older than this many days
+    jobDays: { type: Number, required: true, default: 180, min: 1, max: 3650 },
+    // Soft-delete unread notifications older than this many days
+    notificationDays: { type: Number, required: true, default: 90, min: 1, max: 3650 },
+    // Soft-delete read notifications this many days after readAt
+    notificationReadDays: { type: Number, required: true, default: 30, min: 1, max: 3650 },
+    // Soft-delete projectActivities older than this many days (by occurredAt)
+    usageDays: { type: Number, required: true, default: 730, min: 1, max: 3650 },
+    // Soft-delete archived conversations older than this many days
+    conversationDays: { type: Number, required: true, default: 365, min: 1, max: 3650 },
+    // Soft-delete audit rows older than this many days (retention job only)
+    auditDays: { type: Number, required: true, default: 730, min: 1, max: 3650 },
+  },
+  { _id: false },
+);
+
 const organizationSchema = createBaseSchema(
   {
     // Stable unique handle across orgs, e.g. "DEFAULT_ORG". Set on create only
@@ -63,6 +84,8 @@ const organizationSchema = createBaseSchema(
     config: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
     // Goes up when roles or project access change, so cached permissions are discarded
     aclVersion: { type: Number, required: true, default: 0, min: 0 },
+    // How long the retention worker keeps aged org data (admins may PATCH)
+    retentionPolicy: { type: retentionPolicySchema, required: true, default: () => ({}) },
   },
   { tenantScoped: false },
 );
