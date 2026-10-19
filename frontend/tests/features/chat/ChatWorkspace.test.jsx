@@ -25,6 +25,7 @@ const restoreConversation = vi.fn();
 const deleteConversation = vi.fn();
 const streamConversationMessage = vi.fn();
 const retryConversationMessage = vi.fn();
+const editConversationMessage = vi.fn();
 const answerClarificationStream = vi.fn();
 
 vi.mock('@/features/chat/api/conversationsApi.js', async (importOriginal) => {
@@ -49,6 +50,7 @@ vi.mock('@/features/chat/api/chatStreamApi.js', async (importOriginal) => {
     ...actual,
     streamConversationMessage: (...args) => streamConversationMessage(...args),
     retryConversationMessage: (...args) => retryConversationMessage(...args),
+    editConversationMessage: (...args) => editConversationMessage(...args),
   };
 });
 
@@ -133,6 +135,7 @@ beforeEach(() => {
   });
   streamConversationMessage.mockResolvedValue({ kind: 'stream', terminal: 'done', messageId: 'm_new' });
   retryConversationMessage.mockResolvedValue({ kind: 'stream', terminal: 'done', messageId: 'm_retry' });
+  editConversationMessage.mockResolvedValue({ kind: 'stream', terminal: 'done', messageId: 'm_edit' });
   answerClarificationStream.mockResolvedValue({ kind: 'stream', terminal: 'done', messageId: 'm_new' });
 });
 

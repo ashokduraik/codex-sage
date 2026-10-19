@@ -17,10 +17,11 @@ payload or **compact in the documented order**. If counting is unavailable or pa
 every caller gets **`CONTEXT_ACCOUNTING_UNAVAILABLE`** — no prompt is sent with guessed sizes
 (backend §43, solution §1.2, architecture §6.2).
 
-Operators can re-measure context on any host with
-`npm run measure-llm-context` ([`scripts/measure-llm-context.mjs`](../../scripts/measure-llm-context.mjs);
-runbook: [`docs/evaluation/README.md`](../evaluation/README.md)). This machine’s latest run is
-[`docs/evaluation/phase-43-context.md`](../evaluation/phase-43-context.md).
+Operators can re-measure context (and queue / run budgets) on any host with
+`npm run measure-llm-host` ([`scripts/measure-llm-host.mjs`](../../scripts/measure-llm-host.mjs);
+runbook: [`docs/evaluation/README.md`](../evaluation/README.md)). This machine’s latest
+context-oriented note is [`docs/evaluation/phase-43-context.md`](../evaluation/phase-43-context.md);
+current host recommendations live in [`docs/evaluation/llm-host.md`](../evaluation/llm-host.md).
 
 You can see the module working in unit tests: under a fixture tokenizer, assembly fits budget; when
 input exceeds budget, compaction steps run in order; when the tokenizer adapter throws, callers fail
@@ -113,14 +114,15 @@ Overflow is `contextBudgeter.helper.js` only after 1000 code lines. Do not add
 Runbook: [`docs/evaluation/README.md`](../evaluation/README.md).
 
 ```bash
-npm run measure-llm-context -- \
+npm run measure-llm-host -- \
   --base-url "${LLM_BASE_URL:-http://127.0.0.1:11434/v1}" \
   --model qwen3.8:latest
 ```
 
-Each run overwrites `phase-43-context.md` and `phase-43-context.raw.json` and records host, Node,
-model id, and the 32K → 64K → 128K prompt-size ladder. Vendor advertised context is
-**not** the operational cap until that window is a passing step on **that** machine.
+Each run overwrites `llm-host.md` / `llm-host.raw.json` (and prints recommended `backend/.env`
+lines). Context ladder steps still record host, Node, model id, and the 32K → 64K → 128K
+prompt-size windows. Vendor advertised context is **not** the operational cap until that
+window is a passing step on **that** machine.
 
 Re-run when the machine, RAM/GPU, provider, or model id changes; before go-live on a new host;
 after an OOM or accounting failure that looks like a wrong cap. Promote the reviewed operational window into `LLM_CONTEXT_CAPACITY` in
@@ -162,16 +164,16 @@ Lives in `contextBudgeter.js` (same file):
 Each action appends `{ action: 'drop_turn' | 'replace_with_summary' | 'shrink_excerpt' |
 'drop_tool_body', segmentId, beforeTokens, afterTokens }` with **measured** counts only.
 
-### 4.5 Integration points (future)
+### 4.5 Integration points (shipped)
 
 | Caller | Purpose |
 |---|---|
-| Phase 45 LLM client (also in `conversation/`, not `platform/llm/`) | Every `generateText` / `streamText` |
-| Phase 46 tools | Segments for tool excerpts, then `prepareModelInput` |
-| Phase 44 loader | Supply summary + pinned segments |
+| `conversation/llm.js` (`generateText` / `streamText`) | Every model call runs `prepareModelInput` before the provider |
+| Phase 46 tools (`agentTools.js`) | Tool excerpts become segments; budget fit via `prepareModelInput` |
+| Phase 44 loader (`conversationContext.js`) | Supply summary + pinned segments for the next prepare |
 | Phase 49 VERIFY | Budget optional LLM verify call |
 
-No HTTP handler imports the budgeter in Phase 43.
+HTTP handlers do not import the budgeter directly — they go through the LLM / graph path.
 
 ## 5. Data model changes
 
@@ -240,10 +242,10 @@ Artifact id is **not** a separate env. API startup sets it to `LLM_MODEL_ID` aft
 
 | Path | Purpose |
 |---|---|
-| `scripts/measure-llm-context.mjs` | Reusable OpenAI-compatible measurement (`npm run measure-llm-context`) |
+| `scripts/measure-llm-host.mjs` | OpenAI-compatible host measurement (`npm run measure-llm-host`) |
 | `docs/evaluation/README.md` | Runbook for other environments (this pass) |
-| `docs/evaluation/phase-43-context.md` | Latest human run (this pass) |
-| `docs/evaluation/phase-43-context.raw.json` | Latest machine-readable run (this pass) |
+| `docs/evaluation/llm-host.md` | Latest host run (context + queue + run budgets) |
+| `docs/evaluation/phase-43-context.md` | Historical context ladder note (superseded operator path: measure-llm-host) |
 | `.cursor/rules/platform-layer.mdc` | Platform is infra only (this pass) |
 | `backend/src/modules/conversation/contextBudgeter.js` | `prepareModelInput` (implementation PR) |
 | `backend/src/modules/conversation/index.js` | Export public budgeter surface (implementation PR) |
@@ -285,7 +287,7 @@ Artifact id is **not** a separate env. API startup sets it to `LLM_MODEL_ID` aft
 
 ### Implementation PR
 
-- [x] Single public `prepareModelInput` used by no HTTP routes yet.
+- [x] Single public `prepareModelInput`; HTTP does not call it directly — `llm.js` / tools do before every model call.
 - [x] Compaction order matches solution §1.2 and architecture §6.2.
 - [x] Capacity comes from required env; artifact id is the configured model id after `GET /models`; no guessed tokens as measured usage.
 - [x] `CONTEXT_ACCOUNTING_UNAVAILABLE` on missing tokenizer/config/parity failure.

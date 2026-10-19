@@ -48,7 +48,7 @@ export default function ChatWorkspace() {
   const askable = isProjectAskable(project);
   const knowledgeUpdating = project?.knowledgeHealth === 'updating' || project?.lifecycleStatus === 'updating';
   const title = conversation?.title || t('chat.newChat');
-  const { stream, isBusy, isSubmittingClarification, send, retry, submitClarificationAnswers, stop, clearClarification } = useSendMessage({
+  const { stream, isBusy, isSubmittingClarification, send, retry, edit, submitClarificationAnswers, stop, clearClarification } = useSendMessage({
     projectId,
     conversationId: activeConvId,
   });
@@ -216,6 +216,18 @@ export default function ChatWorkspace() {
   };
 
   /**
+   * Edits a user message and regenerates the answer (replace-downstream).
+   * @param {string} messageId User message id.
+   * @param {string} content Replacement question text.
+   */
+  const handleEdit = (messageId, content) => {
+    if (!askable || archivedProject || isBusy || wizard.active || isSubmittingClarification) {
+      return;
+    }
+    void edit(messageId, content);
+  };
+
+  /**
    * Submits the full clarification answer map once.
    * @param {Record<string, string | string[]>} answers Answer map.
    */
@@ -380,7 +392,8 @@ export default function ChatWorkspace() {
                     key={message.id}
                     message={message}
                     isUser={message.role === 'user'}
-                    canEdit={false}
+                    canEdit={message.role === 'user' && askable && !archivedProject && !isBusy && !clarificationActive && !isSubmittingClarification}
+                    onEdit={(content) => handleEdit(message.id, content)}
                     projectId={projectId}
                     conversationId={activeConvId}
                     currentKnowledgeVersionId={currentKnowledgeVersionId}

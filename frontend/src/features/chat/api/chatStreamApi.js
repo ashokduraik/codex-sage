@@ -151,6 +151,29 @@ export async function retryConversationMessage(input) {
 }
 
 /**
+ * Edits a user message, replaces downstream turns, and streams a new answer (or 202 queue).
+ * @param {{
+ *   projectId: string,
+ *   conversationId: string,
+ *   messageId: string,
+ *   content: string,
+ *   idempotencyKey: string,
+ *   signal?: AbortSignal,
+ *   onEvent?: (frame: { event: string, data: unknown }) => void,
+ * }} input Edit inputs.
+ * @returns {Promise<{ kind: 'stream', terminal: 'done' | 'error' | 'interrupted' | 'cancelled' | 'awaiting_clarification', messageId?: string, error?: object } | { kind: 'queued', body: object }>}
+ */
+export async function editConversationMessage(input) {
+  const path = `/conversation/chatStream/editMessage/${encodeURIComponent(input.projectId)}/${encodeURIComponent(input.conversationId)}/${encodeURIComponent(input.messageId)}`;
+  return postChatStream(path, {
+    body: { content: input.content },
+    idempotencyKey: input.idempotencyKey,
+    signal: input.signal,
+    onEvent: input.onEvent,
+  });
+}
+
+/**
  * Shared POST + Accept event-stream with optional JSON body (ask, retry, clarification answer).
  * @param {string} path API path under base URL.
  * @param {{

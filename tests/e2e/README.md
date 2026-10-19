@@ -37,7 +37,8 @@ Private-repo tests **skip** when `E2E_PRIVATE_REPO_URL` or `E2E_GITHUB_TOKEN` is
 
 ```bash
 npm run test:e2e -- journey-auth
-npm run test:e2e -- journey-chat   # chat alone (worker + LLM)
+npm run test:e2e -- journey-chat        # ZIP chat accuracy (worker + LLM)
+npm run test:e2e -- journey-chat-repo   # prepayment-advisor chat (worker + LLM + git)
 npx playwright test tests/e2e/web -c tests/e2e/playwright.config.js
 npx playwright test -g "valid login" -c tests/e2e/playwright.config.js
 npm run test:e2e:env
@@ -52,7 +53,8 @@ npm run test:e2e:env
 | `E2E_BASE_URL`                           | No       | Web app (default `http://localhost:5173`)                     |
 | `E2E_API_URL`                            | No       | API origin (default `http://localhost:3000`)                  |
 | `E2E_ADMIN_EMAIL` / `E2E_ADMIN_PASSWORD` | No       | Bootstrap admin (defaults match ADR 0011)                     |
-| `E2E_PUBLIC_REPO_URL`                    | No       | Override default public repo (`sindresorhus/is-docker`)       |
+| `E2E_PUBLIC_REPO_URL`                    | No       | Override onboarding public repo (`sindresorhus/is-docker`)    |
+| `E2E_CHAT_REPO_URL`                      | No       | Override chat dogfood repo (`ashokduraik/prepayment-advisor`) |
 | `E2E_REPO_BRANCH`                        | No       | Unused default `main` (dialog uses the probed default branch) |
 | `E2E_PRIVATE_REPO_URL`                   | No       | Private Git URL; skip private attach when blank               |
 | `E2E_GITHUB_TOKEN`                       | No       | Token for the private repo; skip when blank                   |
@@ -63,13 +65,14 @@ npm run test:e2e:env
 
 ## Specs & helpers
 
-| Journey                     | Spec                                                                               |
-| --------------------------- | ---------------------------------------------------------------------------------- |
-| Auth                        | `web/journey-auth.spec.js`                                                         |
-| Project lifecycle           | `web/journey-project-lifecycle.spec.js`                                            |
-| Repository onboarding       | `web/journey-repository-onboarding.spec.js`                                        |
-| ZIP ingest + knowledge      | `web/journey-zip-ingest-and-knowledge.spec.js`                                     |
-| Chat ask                    | `web/journey-chat.spec.js` (worker + LLM; grounded + greeting + general reply)     |
-| Admin users / roles / audit | `web/journey-admin.spec.js` (creates roles in the UI; invite requires user `code`) |
+| Journey                     | Spec                                                                                        |
+| --------------------------- | ------------------------------------------------------------------------------------------- |
+| Auth                        | `web/journey-auth.spec.js`                                                                  |
+| Project lifecycle           | `web/journey-project-lifecycle.spec.js`                                                     |
+| Repository onboarding       | `web/journey-repository-onboarding.spec.js`                                                 |
+| ZIP ingest + knowledge      | `web/journey-zip-ingest-and-knowledge.spec.js`                                              |
+| Chat ask (ZIP)              | `web/journey-chat.spec.js` (worker + LLM; strict grounded + context + routing flows)        |
+| Chat ask (repo)             | `web/journey-chat-repo.spec.js` (worker + LLM; prepayment-advisor EMI functional/technical) |
+| Admin users / roles / audit | `web/journey-admin.spec.js` (creates roles in the UI; invite requires user `code`)          |
 
 Helpers live in [`helpers/`](./helpers/). Notifications, usage, and retention are **not** covered yet.

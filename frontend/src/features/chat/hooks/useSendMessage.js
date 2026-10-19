@@ -1,17 +1,17 @@
 /**
- * Sends / retries chat messages and clarification answers over SSE; holds in-flight draft state.
+ * Sends / retries / edits chat messages and clarification answers over SSE; holds in-flight draft state.
  */
 import { useRef, useState } from 'react';
+import { messageFromUnknown } from '@/shared/api';
 import { useQueryClient } from '@tanstack/react-query';
 import { isRequestAbortedError } from '@/shared/api/ApiError.js';
-import { messageFromUnknown } from '@/shared/api';
+import { answerClarificationStream } from '@/features/chat/api/clarificationsApi.js';
+import { editConversationMessage, retryConversationMessage, streamConversationMessage } from '@/features/chat/api/chatStreamApi.js';
 import {
-  CONVERSATIONS_DETAIL_QUERY_ROOT,
   CONVERSATIONS_LIST_QUERY_ROOT,
+  CONVERSATIONS_DETAIL_QUERY_ROOT,
   CONVERSATIONS_MESSAGES_QUERY_ROOT,
 } from '@/features/chat/conversationQueryKeys.js';
-import { answerClarificationStream } from '@/features/chat/api/clarificationsApi.js';
-import { retryConversationMessage, streamConversationMessage } from '@/features/chat/api/chatStreamApi.js';
 
 /**
  * @typedef {'idle' | 'posting' | 'streaming' | 'completed' | 'failed' | 'cancelled' | 'interrupted' | 'queued' | 'awaiting_clarification'} StreamPhase
@@ -158,6 +158,7 @@ export function messageStreamReducer(state = { ...INITIAL_STREAM_STATE }, action
  *   isSubmittingClarification: boolean,
  *   send: (content: string, options?: { conversationId?: string }) => Promise<void>,
  *   retry: (assistantMessageId: string) => Promise<void>,
+ *   edit: (userMessageId: string, content: string) => Promise<void>,
  *   submitClarificationAnswers: (args: {
  *     conversationId: string,
  *     messageId: string,
@@ -357,6 +358,58 @@ export function useSendMessage(input) {
   }
 
   /**
+   * Edits a user message, drops downstream turns, and streams a replacement answer.
+   * @param {string} userMessageId User message id to replace.
+   * @param {string} content New question text.
+   * @returns {Promise<void>}
+   */
+  async function edit(userMessageId, content) {
+    const projectId = String(input.projectId || '');
+    const conversationId = input.conversationId ? String(input.conversationId) : '';
+    const messageId = String(userMessageId || '');
+    const trimmed = typeof content === 'string' ? content.trim() : '';
+    if (!projectId || !conversationId || !messageId || !trimmed || busyRef.current || submittingClarificationRef.current) {
+      return;
+    }
+    busyRef.current = true;
+    const controller = new AbortController();
+    abortRef.current = controller;
+    dispatch({ type: 'posting', content: trimmed });
+    try {
+      const result = await editConversationMessage({
+        projectId,
+        conversationId,
+        messageId,
+        content: trimmed,
+        idempotencyKey: crypto.randomUUID(),
+        signal: controller.signal,
+        onEvent: (frame) => {
+          if (frame.event === 'status' || frame.event === 'delta') {
+            dispatch({ type: 'streaming' });
+          }
+          onEvent(frame);
+        },
+      });
+      await finishResult(result);
+    } catch (error) {
+      if (isRequestAbortedError(error) || controller.signal.aborted) {
+        dispatch({ type: 'cancelled' });
+        await invalidateConversationQueries();
+      } else {
+        const apiErr = error && typeof error === 'object' ? /** @type {Record<string, unknown>} */ (error) : {};
+        dispatch({
+          type: 'failed',
+          message: messageFromUnknown(error),
+          reference: typeof apiErr.correlationId === 'string' ? apiErr.correlationId : null,
+        });
+      }
+    } finally {
+      busyRef.current = false;
+      abortRef.current = null;
+    }
+  }
+
+  /**
    * POSTs all clarification answers once and resumes the paused run over SSE.
    * @param {{
    *   conversationId: string,
@@ -451,6 +504,7 @@ export function useSendMessage(input) {
     isSubmittingClarification,
     send,
     retry,
+    edit,
     submitClarificationAnswers,
     stop,
     clearStream,

@@ -1,18 +1,20 @@
 /**
  * useSendMessage lifecycle: send, abort, 202, HTTP error.
  */
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { act, renderHook, waitFor } from '@testing-library/react';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { messageStreamReducer, useSendMessage } from '@/features/chat/hooks/useSendMessage.js';
 
 const streamConversationMessage = vi.fn();
 const retryConversationMessage = vi.fn();
+const editConversationMessage = vi.fn();
 const answerClarificationStream = vi.fn();
 
 vi.mock('@/features/chat/api/chatStreamApi.js', () => ({
   streamConversationMessage: (...args) => streamConversationMessage(...args),
   retryConversationMessage: (...args) => retryConversationMessage(...args),
+  editConversationMessage: (...args) => editConversationMessage(...args),
   stageToI18nKey: (s) => `chat.stages.${s || 'working'}`,
 }));
 
@@ -33,6 +35,7 @@ function wrapper({ children }) {
 beforeEach(() => {
   streamConversationMessage.mockReset();
   retryConversationMessage.mockReset();
+  editConversationMessage.mockReset();
   answerClarificationStream.mockReset();
 });
 
@@ -124,6 +127,28 @@ describe('useSendMessage', () => {
     });
     expect(result.current.stream.phase).toBe('failed');
     expect(result.current.stream.errorMessage).toMatch(/no knowledge/i);
+  });
+
+  it('edits via editConversationMessage', async () => {
+    editConversationMessage.mockImplementation(async ({ onEvent }) => {
+      onEvent?.({ event: 'delta', data: { text: 'Edited' } });
+      return { kind: 'stream', terminal: 'done', messageId: 'm_edit' };
+    });
+    const { result } = renderHook(() => useSendMessage({ projectId: 'p1', conversationId: 'c1' }), { wrapper });
+    await act(async () => {
+      await result.current.edit('user_1', 'Revised question');
+    });
+    await waitFor(() => {
+      expect(result.current.stream.phase).toBe('completed');
+    });
+    expect(editConversationMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messageId: 'user_1',
+        content: 'Revised question',
+        idempotencyKey: expect.any(String),
+      }),
+    );
+    expect(result.current.stream.draftText).toBe('Edited');
   });
 
   it('retries via retryConversationMessage', async () => {
