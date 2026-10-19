@@ -36,6 +36,8 @@ export default function ChatWorkspace() {
   const historyToggleRef = useRef(null);
   const initRef = useRef(false);
   const nearBottomRef = useRef(true);
+  // Blocks a second create+send before React Query flips isPending / isBusy.
+  const createAndSendLockRef = useRef(false);
   const projectId = project?.id ? String(project.id) : '';
   const currentKnowledgeVersionId = typeof project?.currentKnowledgeVersionId === 'string' ? project.currentKnowledgeVersionId : null;
   const { attachment, clearAttachment } = useAskAboutContext();
@@ -181,10 +183,11 @@ export default function ChatWorkspace() {
    * @param {string} content Question text.
    */
   const handleSend = (content) => {
-    if (!askable || archivedProject || isBusy || wizard.active || isSubmittingClarification) {
+    if (!askable || archivedProject || isBusy || wizard.active || isSubmittingClarification || createAndSendLockRef.current) {
       return;
     }
     if (!activeConvId) {
+      createAndSendLockRef.current = true;
       setCreateError('');
       createMutation.mutate(
         {
@@ -195,9 +198,12 @@ export default function ChatWorkspace() {
           onSuccess: (created) => {
             setActiveConvId(created.id);
             setSearchParams({ conv: created.id }, { replace: true });
+            // send() sets busyRef synchronously; release create lock so a later turn can create again.
+            createAndSendLockRef.current = false;
             void send(content, { conversationId: created.id });
           },
           onError: (error) => {
+            createAndSendLockRef.current = false;
             setCreateError(messageFromUnknown(error, t('chat.createFailed')));
           },
         },
@@ -272,7 +278,12 @@ export default function ChatWorkspace() {
   const showStreamingAssistant =
     (isBusy || stream.phase === 'cancelled' || stream.phase === 'interrupted' || stream.phase === 'failed') &&
     stream.phase !== 'awaiting_clarification';
-  const latestAssistant = [...messages].reverse().find((m) => m.role === 'assistant');
+  // Messages refetch can return the just-inserted turn while SSE chrome is still up — hide that pair so the question is not listed twice.
+  const visibleMessages = useMemo(
+    () => (showOptimisticUser ? omitTrailingOptimisticDuplicateTurn(messages, stream.optimisticUserContent) : messages),
+    [messages, showOptimisticUser, stream.optimisticUserContent],
+  );
+  const latestAssistant = [...visibleMessages].reverse().find((m) => m.role === 'assistant');
   const canRetryLatest =
     latestAssistant &&
     (latestAssistant.messageStatus === 'failed' ||
@@ -385,9 +396,9 @@ export default function ChatWorkspace() {
             </div>
           ) : (
             <>
-              <KnowledgeVersionNotice projectId={projectId} currentKnowledgeVersionId={currentKnowledgeVersionId} messages={messages} />
+              <KnowledgeVersionNotice projectId={projectId} currentKnowledgeVersionId={currentKnowledgeVersionId} messages={visibleMessages} />
               <div className="mx-auto max-w-3xl pb-4">
-                {messages.map((message) => (
+                {visibleMessages.map((message) => (
                   <MessageItem
                     key={message.id}
                     message={message}
@@ -441,7 +452,7 @@ export default function ChatWorkspace() {
                     onPreview={setPreviewTarget}
                   />
                 ) : null}
-                {messages.length === 0 && !showOptimisticUser ? (
+                {visibleMessages.length === 0 && !showOptimisticUser ? (
                   <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
                     <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-muted text-brand">
                       <Sparkles className="h-6 w-6" aria-hidden="true" />
@@ -485,4 +496,34 @@ export default function ChatWorkspace() {
       <SourcePreviewDrawer projectId={projectId} target={previewTarget} onClose={() => setPreviewTarget(null)} />
     </div>
   );
+}
+
+/**
+ * Drops a trailing user (+ optional in-flight assistant) that duplicates the optimistic SSE bubble.
+ * The list query can return the just-persisted turn while stream chrome is still showing it.
+ *
+ * @param {object[]} messages Flattened conversation messages (oldest → newest).
+ * @param {string | null | undefined} optimisticUserContent Pending user text from the stream hook.
+ * @returns {object[]} Messages safe to render beside optimistic/streaming overlays.
+ */
+function omitTrailingOptimisticDuplicateTurn(messages, optimisticUserContent) {
+  if (!Array.isArray(messages) || messages.length === 0 || typeof optimisticUserContent !== 'string' || !optimisticUserContent) {
+    return messages;
+  }
+  let end = messages.length;
+  const trailing = messages[end - 1];
+  if (
+    trailing?.role === 'assistant' &&
+    (trailing.messageStatus === 'generating' || trailing.messageStatus === 'accepted' || trailing.messageStatus === 'queued')
+  ) {
+    end -= 1;
+  }
+  if (end < 1) {
+    return messages;
+  }
+  const userMessage = messages[end - 1];
+  if (userMessage?.role === 'user' && userMessage.content === optimisticUserContent) {
+    return messages.slice(0, end - 1);
+  }
+  return messages;
 }

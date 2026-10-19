@@ -36,6 +36,8 @@ export function Composer({
   const { t } = useTranslation();
   const [value, setValue] = useState('');
   const textareaRef = useRef(null);
+  // Sync lock so a double Enter (before isGenerating/disabled re-renders) cannot call onSend twice.
+  const submitLockRef = useRef(false);
   const resolvedPlaceholder = placeholder ?? t('chat.askPlaceholder');
   useEffect(() => {
     if (textareaRef.current) {
@@ -50,12 +52,19 @@ export function Composer({
     }
   }, [attachment?.title, attachment?.id]);
 
+  useEffect(() => {
+    if (!isGenerating && !disabled) {
+      submitLockRef.current = false;
+    }
+  }, [isGenerating, disabled]);
+
   /**
    * Submit the current draft when non-empty and not blocked.
    * Prepends ask-about context into content when a chip is active.
    */
   const submit = () => {
-    if (!value.trim() || isGenerating || disabled) return;
+    if (!value.trim() || isGenerating || disabled || submitLockRef.current) return;
+    submitLockRef.current = true;
     const question = value.trim();
     const content =
       attachment?.title != null && String(attachment.title).trim()

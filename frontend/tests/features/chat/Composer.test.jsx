@@ -45,6 +45,17 @@ describe('Composer', () => {
     fireEvent.keyDown(input, { key: 'Enter', shiftKey: false });
     expect(onSend).toHaveBeenCalledWith('Explain checkout');
   });
+
+  it('calls onSend only once when Enter fires twice before parent marks busy', () => {
+    const onSend = vi.fn();
+    renderWithProviders(<Composer onSend={onSend} onStop={() => undefined} />);
+    const input = screen.getByPlaceholderText('Ask anything about this project…');
+    fireEvent.change(input, { target: { value: 'How does the calculator work?' } });
+    fireEvent.keyDown(input, { key: 'Enter', shiftKey: false });
+    fireEvent.keyDown(input, { key: 'Enter', shiftKey: false });
+    expect(onSend).toHaveBeenCalledTimes(1);
+    expect(onSend).toHaveBeenCalledWith('How does the calculator work?');
+  });
   it('shows queued and context warning notices', () => {
     renderWithProviders(<Composer onSend={() => undefined} onStop={() => undefined} queued contextWarning />);
     expect(screen.getByText(/queued/i)).toBeTruthy();

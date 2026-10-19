@@ -190,6 +190,76 @@ describe('ChatWorkspace', () => {
     });
   });
 
+  it('does not show the user question twice when the messages query returns the in-flight turn mid-stream', async () => {
+    let releaseStream;
+    const streamGate = new Promise((resolve) => {
+      releaseStream = resolve;
+    });
+    const question = 'How does the calculator work?';
+    streamConversationMessage.mockImplementation(async ({ onEvent }) => {
+      onEvent?.({ event: 'status', data: { stage: 'accepted' } });
+      await streamGate;
+      return { kind: 'stream', terminal: 'done', messageId: 'm_a_live' };
+    });
+    renderChat('/projects/prj_atlas/chat?conv=conv_1');
+    await screen.findByText(/JWT-based session/i);
+    const input = screen.getByPlaceholderText(/Ask anything about this project/i);
+    fireEvent.change(input, { target: { value: question } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await waitFor(() => {
+      expect(streamConversationMessage).toHaveBeenCalled();
+    });
+    expect(await screen.findByText(/Accepted/i)).toBeTruthy();
+
+    listConversationMessages.mockResolvedValue({
+      items: [
+        {
+          id: 'm1',
+          role: 'user',
+          content: 'How does authentication work in this project?',
+          messageStatus: 'completed',
+          createdAt: '2026-09-11T11:00:00Z',
+        },
+        {
+          id: 'm2',
+          role: 'assistant',
+          content: 'JWT-based session tokens.',
+          messageStatus: 'completed',
+          createdAt: '2026-09-11T11:01:00Z',
+        },
+        {
+          id: 'm_u_live',
+          role: 'user',
+          content: question,
+          messageStatus: 'accepted',
+          createdAt: '2026-09-11T11:02:00Z',
+        },
+        {
+          id: 'm_a_live',
+          role: 'assistant',
+          content: '\u200b',
+          messageStatus: 'generating',
+          createdAt: '2026-09-11T11:02:01Z',
+        },
+      ],
+      nextCursor: null,
+    });
+    const { queryClientInstance } = await import('@/shared/lib/query-client.js');
+    await queryClientInstance.invalidateQueries({ queryKey: ['conversations', 'messages'] });
+
+    await waitFor(() => {
+      expect(screen.getAllByText(question)).toHaveLength(1);
+    });
+    // Persisted "Generating answer…" chrome must not appear beside the SSE stage label.
+    expect(screen.queryByText(/Generating answer/i)).toBeFalsy();
+    expect(screen.getByText(/Accepted/i)).toBeTruthy();
+
+    releaseStream();
+    await waitFor(() => {
+      expect(screen.queryByText(/Accepted/i)).toBeFalsy();
+    });
+  });
+
   it('stops an in-flight stream', async () => {
     let rejectAbort;
     streamConversationMessage.mockImplementation(
