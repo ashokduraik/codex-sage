@@ -173,9 +173,10 @@ export async function openProjectTab(page, tabLabel) {
   if (PROJECT_TAB_PATHS[tabLabel] === undefined) {
     throw new Error(`Unknown project tab: ${tabLabel}`);
   }
-  // Click the project-shell tab (SPA). A second page.goto would boot-refresh and
-  // can revoke the session when the previous navigation's refresh is still rotating.
-  const tabLink = page.getByRole('main').getByRole('link', { name: tabLabel, exact: true });
+  // Click the project-shell tab nav only. Overview CTAs also link to Knowledge/Chat
+  // with the same accessible name, which breaks Playwright strict mode under main.
+  // Prefer SPA click over page.goto — a second full load can revoke a rotating session.
+  const tabLink = page.getByRole('main').getByRole('navigation').getByRole('link', { name: tabLabel, exact: true });
   await expect(tabLink).toBeVisible();
   await tabLink.click();
   if (tabLabel !== 'Overview') {

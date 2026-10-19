@@ -85,10 +85,12 @@ test.describe('Journey: ZIP ingest and knowledge via UI', () => {
     await page.goto(`/projects/${projectId}`);
     await expect(page.getByRole('heading', { name: 'Summary' })).toBeVisible();
     await page.getByRole('button', { name: /Fill from README/i }).click();
-    const summary = page.getByRole('heading', { name: 'Summary' }).locator('xpath=..');
+    // Summary heading sits in a flex row with the fill button; description is a sibling under the section.
+    const summary = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Summary' }) });
+    const description = summary.locator('p').first();
     await expect(summary.getByText('No description')).toHaveCount(0, { timeout: 120_000 });
-    await expect(summary.locator('p').first()).not.toHaveText('No description');
-    await expect(summary.locator('p').first()).not.toBeEmpty();
+    await expect(description).not.toHaveText('No description');
+    await expect(description).not.toBeEmpty();
   });
 
   test('knowledge and search work when health is ready or partial', async ({ page }) => {

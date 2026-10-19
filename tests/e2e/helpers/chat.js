@@ -27,7 +27,8 @@ export const E2E_CHAT_ANSWER_TIMEOUT_MS = 240_000;
  * @param {string} projectId Project id.
  */
 export async function openProjectChat(page, projectId) {
-  const chatTab = page.getByRole('main').getByRole('link', { name: 'Chat', exact: true });
+  // Tab nav only — Overview also has an Open Chat CTA with the same accessible name.
+  const chatTab = page.getByRole('main').getByRole('navigation').getByRole('link', { name: 'Chat', exact: true });
   if (await chatTab.isVisible().catch(() => false)) {
     await chatTab.click();
   } else {
