@@ -18,7 +18,8 @@ import {
   editLastUserMessage,
   expectAbstain,
   expectChatDirectReply,
-  expectClarificationOrUngroundedReply,
+  answerClarificationWizardCoveringAllTypes,
+  expectClarificationUi,
   expectEvidenceInspectFixture,
   expectGroundedAnswer,
   expectNoContextWarning,
@@ -262,9 +263,9 @@ test.describe('Journey: Chat ask via UI', () => {
     });
   });
 
-  test('ambiguous question clarifies or stays ungrounded', async ({ page }) => {
+  test('ambiguous question opens clarification covering all answer types', async ({ page }) => {
     test.skip(!isKnowledgeBrowsable(healthLabel), `Chat needs ready/partial knowledge; health is ${healthLabel ?? 'unknown'}`);
-    test.setTimeout(E2E_CHAT_ANSWER_TIMEOUT_MS + 120_000);
+    test.setTimeout(E2E_CHAT_ANSWER_TIMEOUT_MS * 2 + 120_000);
 
     await openProjectFromList(page, projectName);
     await openProjectChat(page, projectId);
@@ -308,7 +309,8 @@ test.describe('Journey: Chat ask via UI', () => {
         { timeout: E2E_CHAT_ANSWER_TIMEOUT_MS },
       )
       .toBe(true);
-    await expectClarificationOrUngroundedReply(page);
+    await expectClarificationUi(page);
+    await answerClarificationWizardCoveringAllTypes(page);
   });
 
   test('Stop cancels an in-flight generation', async ({ page }) => {

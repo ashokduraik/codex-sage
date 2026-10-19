@@ -72,10 +72,15 @@ second ZIP → Changes path diffs
 ```
 Users list includes bootstrap admin (code ADMIN)
 Create custom roles on Roles & Permissions, edit permissions
-create invited user (with code) → set password → edit roles → deactivate/activate
+create Upload project (no ingest) for RBAC
+create invited chat-limited user (View org/projects + Ask questions, All projects) → set password
+edit roles → deactivate/activate
 Audit filter User created
-login as that user → forced change password → Sign out
-admin removes the user
+login as that user → forced change password → assert:
+  no Create project; Chat visible; Health/Sources/Knowledge/Search/Changes hidden
+  deep-link Health/Sources → forbidden; Chat loads
+  Admin Users/Roles FORBIDDEN; Audit/Usage nav hidden
+Sign out → admin removes the user (+ afterAll soft-deletes RBAC project)
 ```
 
 - **Spec:** [`web/journey-admin.spec.js`](./web/journey-admin.spec.js)
@@ -93,7 +98,7 @@ if ready/partial → Chat:
   abstain on fictional module
   New Chat isolation
   edit + resubmit
-  clarification on ambiguous ask
+  clarification on ambiguous ask → walk single_select / multi_select / free_text (fail if any type missing) → submit → resume idle
   Stop cancels generation
   second ZIP while ask → queued path then grounded answer
   archive / restore / rename / search → continue ask
@@ -103,6 +108,7 @@ if ready/partial → Chat:
 
 - **Spec:** [`web/journey-chat.spec.js`](./web/journey-chat.spec.js)
 - Worker + LLM required. Grounded asks **fail** on abstain when health is ready/partial.
+- Clarification type walk **fails** if the live LLM omits any of the three question types in one set.
 - `afterAll` soft-deletes the created project
 
 ### 7. Chat ask via git-synced prepayment-advisor — **done**

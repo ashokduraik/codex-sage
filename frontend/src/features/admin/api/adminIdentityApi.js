@@ -106,6 +106,7 @@ export async function listUsers(options = {}) {
  *   email: string,
  *   displayName: string,
  *   roleIds: string[],
+ *   projectAccessMode?: 'all' | 'selected' | 'none',
  *   idempotencyKey: string,
  * }} input Create payload.
  * @returns {Promise<object>} Created user DTO.
@@ -118,6 +119,7 @@ export async function createUser(input) {
       email: input.email,
       displayName: input.displayName,
       roleIds: input.roleIds,
+      ...(input.projectAccessMode ? { projectAccessMode: input.projectAccessMode } : {}),
     },
     idempotencyKey: input.idempotencyKey,
   });

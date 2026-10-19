@@ -8,9 +8,9 @@ Local rules for Playwright cross-service journeys. Root [`/AGENTS.md`](../../AGE
 - **Project lifecycle:** create validation, create without source, search, archive, restore, soft-delete.
 - **Repository onboarding:** empty/invalid URL, public attach (`sindresorhus/is-docker`), optional private attach, ingest wait, knowledge when ready/partial.
 - **ZIP ingest + knowledge:** reject non-zip, upload fixture (includes root README), processing/health wait, Overview Fill from README (API + LLM), search/preview, second ZIP → changes.
-- **Chat ask (ZIP):** sample ZIP → strict grounded ask (`hello.js` + value), evidence inspect, multi-turn context, leave/reopen, abstain, New Chat isolation, edit/resubmit, clarification, Stop, queue-while-updating, archive/restore/rename/search, Search Ask about this, greeting/general routing (needs worker + LLM).
+- **Chat ask (ZIP):** sample ZIP → strict grounded ask (`hello.js` + value), evidence inspect, multi-turn context, leave/reopen, abstain, New Chat isolation, edit/resubmit, clarification walk (`single_select` / `multi_select` / `free_text`, fail if any type missing), Stop, queue-while-updating, archive/restore/rename/search, Search Ask about this, greeting/general routing (needs worker + LLM).
 - **Chat ask (repo):** git-sync `ashokduraik/prepayment-advisor` → functional + technical EMI asks, multi-turn follow-up, leave/reopen, clarification (needs worker + LLM + GitHub).
-- **Admin:** users (code column), create/edit roles in the UI, invite + password + roles + status, audit `user.create`, forced password change, remove user. Do not click seeded Member/Viewer — create roles in the journey.
+- **Admin:** users (code column), create/edit roles in the UI, invite with All projects + password + roles + status, audit `user.create`, chat-limited RBAC (no Health/Sources/admin manage), remove user. Do not click seeded Member/Viewer — create roles in the journey.
 
 Catalog + matrix: [`workflows.md`](./workflows.md). Runbook: [`README.md`](./README.md).
 

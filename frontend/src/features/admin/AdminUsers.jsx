@@ -53,6 +53,7 @@ export default function AdminUsers() {
     email: '',
     code: '',
     roleIds: /** @type {string[]} */ ([]),
+    projectAccessMode: /** @type {'all' | 'selected' | 'none'} */ ('selected'),
   });
   const [editRoleIds, setEditRoleIds] = useState(/** @type {string[]} */ ([]));
   const [newPassword, setNewPassword] = useState('');
@@ -192,6 +193,7 @@ export default function AdminUsers() {
       email: '',
       code: '',
       roleIds: roles[0] ? [String(roles[0].id)] : [],
+      projectAccessMode: 'selected',
     });
     setCreateOpen(true);
   }
@@ -209,6 +211,7 @@ export default function AdminUsers() {
         email: createForm.email.trim(),
         displayName: createForm.displayName.trim(),
         roleIds: createForm.roleIds,
+        projectAccessMode: createForm.projectAccessMode,
         idempotencyKey: crypto.randomUUID(),
       });
       setCreateOpen(false);
@@ -635,6 +638,30 @@ export default function AdminUsers() {
                   setCreateForm({ ...createForm, roleIds });
                 }}
               />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="admin-create-project-access">{t('admin.projectAccessMode')}</Label>
+              <Select
+                value={createForm.projectAccessMode}
+                disabled={createBusy}
+                onValueChange={(value) => {
+                  createMutation.reset();
+                  setCreateForm({
+                    ...createForm,
+                    projectAccessMode: /** @type {'all' | 'selected' | 'none'} */ (value),
+                  });
+                }}
+              >
+                <SelectTrigger id="admin-create-project-access" aria-label={t('admin.projectAccessMode')}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="selected">{t('admin.projectAccessSelected')}</SelectItem>
+                  <SelectItem value="all">{t('admin.projectAccessAll')}</SelectItem>
+                  <SelectItem value="none">{t('admin.projectAccessNone')}</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">{t('admin.projectAccessModeHint')}</p>
             </div>
             <InlineErrorAlert message={createError} correlationId={createCorrelation} />
           </div>

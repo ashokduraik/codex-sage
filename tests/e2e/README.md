@@ -71,8 +71,8 @@ npm run test:e2e:env
 | Project lifecycle           | `web/journey-project-lifecycle.spec.js`                                                     |
 | Repository onboarding       | `web/journey-repository-onboarding.spec.js`                                                 |
 | ZIP ingest + knowledge      | `web/journey-zip-ingest-and-knowledge.spec.js`                                              |
-| Chat ask (ZIP)              | `web/journey-chat.spec.js` (worker + LLM; strict grounded + context + routing flows)        |
+| Chat ask (ZIP)              | `web/journey-chat.spec.js` (worker + LLM; grounded + clarification type walk + routing)     |
 | Chat ask (repo)             | `web/journey-chat-repo.spec.js` (worker + LLM; prepayment-advisor EMI functional/technical) |
-| Admin users / roles / audit | `web/journey-admin.spec.js` (creates roles in the UI; invite requires user `code`)          |
+| Admin users / roles / audit | `web/journey-admin.spec.js` (roles + invite All projects + chat-limited RBAC)               |
 
 Helpers live in [`helpers/`](./helpers/). Notifications, usage, and retention are **not** covered yet.

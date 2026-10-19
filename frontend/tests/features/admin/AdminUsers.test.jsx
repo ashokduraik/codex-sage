@@ -213,7 +213,41 @@ describe('AdminUsers', () => {
       const body = JSON.parse(createCall[1].body);
       expect(body.code).toBe('NEW-HIRE');
       expect(body.roleIds).toEqual(expect.arrayContaining([ROLE_VIEWER.id, ROLE_MEMBER.id]));
+      expect(body.projectAccessMode).toBe('selected');
       expect(createCall[1].headers['Idempotency-Key']).toBeTruthy();
+    });
+  });
+
+  it('sends projectAccessMode all when the invite form selects All projects', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    stubAdminFetch(fetchMock);
+
+    renderWithProviders(<AdminUsers />, { route: '/admin/users' });
+    await screen.findByText('Lena Park');
+
+    fireEvent.click(screen.getByRole('button', { name: /Invite user/i }));
+    fireEvent.change(screen.getByLabelText('Full name'), {
+      target: { value: 'All Access' },
+    });
+    fireEvent.change(screen.getByLabelText('Email'), {
+      target: { value: 'all.access@acme.io' },
+    });
+    fireEvent.change(screen.getByLabelText('Code'), {
+      target: { value: 'ALL-ACC' },
+    });
+    fireEvent.click(await screen.findByLabelText('Member'));
+    fireEvent.click(screen.getByLabelText('Project access'));
+    fireEvent.click(await screen.findByRole('option', { name: 'All projects' }));
+
+    const dialogInvite = screen.getAllByRole('button', { name: /Invite user/i }).at(-1);
+    fireEvent.click(dialogInvite);
+
+    await waitFor(() => {
+      const createCall = fetchMock.mock.calls.find(([url, init]) => String(url).endsWith('/masters/users/create') && init?.method === 'POST');
+      expect(createCall).toBeTruthy();
+      const body = JSON.parse(createCall[1].body);
+      expect(body.projectAccessMode).toBe('all');
     });
   });
 

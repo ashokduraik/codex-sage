@@ -73,6 +73,8 @@ export default function SourcesPanel() {
   const syncRepository = useSyncRepository();
   const canReingest = Boolean(user?.permissions?.includes('knowledge.trigger'));
   const canSyncRepository = Boolean(user?.permissions?.includes('repos.connect'));
+  const canUploadSource = Boolean(user?.permissions?.includes('sources.upload'));
+  const canConnectRepository = Boolean(user?.permissions?.includes('repos.connect'));
   const versions = flattenSourceVersionPages(versionsQuery.data);
   const connection = connectionQuery.data?.connection ?? null;
   const isRepository = Boolean(connection) || project?.sourceConfig?.sourceType === 'repository';
@@ -80,8 +82,9 @@ export default function SourcesPanel() {
   const reprocessSourceVersionId = versions[0]?.id ?? project?.sourceConfig?.currentSourceVersionId ?? null;
   // Attach rejects a second repository connection; hide Add source once one exists.
   // Wait for the connection query so we do not flash the button while loading.
-  // Upload projects keep the button so a new ZIP can replace source.
-  const showAddSource = !connectionQuery.isLoading && !connection;
+  // Upload projects keep the button so a new ZIP can replace source — only when permitted.
+  const canAddSource = isRepository ? canConnectRepository : canUploadSource;
+  const showAddSource = !connectionQuery.isLoading && !connection && canAddSource;
   const [uploadOpen, setUploadOpen] = useState(false);
   const [connectOpen, setConnectOpen] = useState(false);
   const [replaceOpen, setReplaceOpen] = useState(false);

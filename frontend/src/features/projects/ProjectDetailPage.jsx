@@ -4,6 +4,7 @@ import { Button } from '@/shared/ui/button';
 import { useTranslation } from 'react-i18next';
 import { useAppData } from '@/shared/mock-data';
 import { useProject } from './hooks/useProject.js';
+import { useAuth } from '@/features/auth/AuthContext';
 import { ProjectDeleteDialog } from './ProjectDeleteDialog.jsx';
 import { useRecordProjectAccess } from './hooks/useRecordProjectAccess.js';
 import { Popover, PopoverContent, PopoverTrigger } from '@/shared/ui/popover';
@@ -37,16 +38,53 @@ import {
   AlertDialogDescription,
 } from '@/shared/ui/alert-dialog';
 
+/**
+ * Project sub-nav tabs. `anyOf` = show when the user holds at least one listed permission;
+ * omit `anyOf` for tabs every project viewer may open (Overview, Processing).
+ */
 const PROJECT_TABS = [
   { to: '', labelKey: 'projects.overview', icon: LayoutDashboard },
-  { to: '/chat', labelKey: 'nav.chat', icon: MessageSquare },
-  { to: '/knowledge', labelKey: 'nav.knowledge', icon: BookOpen },
-  { to: '/search', labelKey: 'nav.search', icon: Search },
-  { to: '/changes', labelKey: 'changes.title', icon: GitCompare },
-  { to: '/sources', labelKey: 'sources.title', icon: Database },
+  { to: '/chat', labelKey: 'nav.chat', icon: MessageSquare, anyOf: ['chat.ask'] },
+  { to: '/knowledge', labelKey: 'nav.knowledge', icon: BookOpen, anyOf: ['knowledge.browse', 'knowledge.view'] },
+  { to: '/search', labelKey: 'nav.search', icon: Search, anyOf: ['search.run'] },
+  { to: '/changes', labelKey: 'changes.title', icon: GitCompare, anyOf: ['knowledge.browse', 'knowledge.view'] },
+  { to: '/sources', labelKey: 'sources.title', icon: Database, anyOf: ['sources.preview', 'sources.upload', 'repos.connect'] },
   { to: '/processing', labelKey: 'nav.processing', icon: Activity },
-  { to: '/health', labelKey: 'health.title', icon: HeartPulse },
+  { to: '/health', labelKey: 'health.title', icon: HeartPulse, anyOf: ['knowledge.view'] },
 ];
+
+/**
+ * Returns whether the caller holds at least one of the required keys.
+ * @param {Iterable<string> | null | undefined} permissions Effective permission keys.
+ * @param {string[] | undefined} anyOf Required keys (any match). Undefined = always allowed.
+ * @returns {boolean}
+ */
+export function hasAnyPermission(permissions, anyOf) {
+  if (!anyOf || anyOf.length === 0) {
+    return true;
+  }
+  const set = permissions instanceof Set ? permissions : new Set(Array.isArray(permissions) ? permissions : []);
+  return anyOf.some((key) => set.has(key));
+}
+
+/**
+ * Picks the PROJECT_TABS entry that matches the current path under a project base.
+ * @param {string} pathname Location pathname.
+ * @param {string} base Project base path (`/projects/:id`).
+ * @returns {(typeof PROJECT_TABS)[number] | null}
+ */
+export function matchProjectTabForPath(pathname, base) {
+  const ranked = [...PROJECT_TABS].filter((tab) => tab.to !== '').sort((left, right) => right.to.length - left.to.length);
+  for (const tab of ranked) {
+    if (pathname.startsWith(base + tab.to)) {
+      return tab;
+    }
+  }
+  if (pathname === base || pathname === `${base}/`) {
+    return PROJECT_TABS.find((tab) => tab.to === '') ?? null;
+  }
+  return null;
+}
 
 /**
  * Maps backend lifecycle codes onto legacy mock status display strings for panels.
@@ -133,6 +171,7 @@ export default function ProjectDetailPage() {
   const { id } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { getProject } = useAppData();
   const detailQuery = useProject(id);
   const archiveMutation = useArchiveProject();
@@ -145,6 +184,11 @@ export default function ProjectDetailPage() {
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [actionError, setActionError] = useState('');
+
+  const permissions = user?.permissions;
+  const canUpdateProject = Boolean(user?.permissions?.includes('projects.update'));
+  const canDeleteProject = Boolean(user?.permissions?.includes('projects.delete'));
+  const visibleTabs = useMemo(() => PROJECT_TABS.filter((tab) => hasAnyPermission(permissions, tab.anyOf)), [permissions]);
 
   const apiProject = detailQuery.data;
   const mockFallback = id ? getProject(id) : undefined;
@@ -205,6 +249,9 @@ export default function ProjectDetailPage() {
   }
 
   const base = `/projects/${id}`;
+  const matchedTab = matchProjectTabForPath(location.pathname, base);
+  const tabAllowed = !matchedTab || hasAnyPermission(permissions, matchedTab.anyOf);
+  const showActionsMenu = canUpdateProject || canDeleteProject;
 
   /**
    * Runs archive and surfaces errors inline.
@@ -249,49 +296,54 @@ export default function ProjectDetailPage() {
             </div>
             {apiProject.description ? <p className="mt-0.5 line-clamp-1 text-sm text-muted-foreground">{apiProject.description}</p> : null}
           </div>
-          <div className="flex items-center gap-2">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="ghost" size="icon" aria-label={t('common.actions')}>
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="end" className="w-48 space-y-1 p-2">
-                {archived ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="w-full justify-start"
-                    onClick={handleRestore}
-                    disabled={restoreMutation.isPending}
-                  >
-                    <RotateCcw className="mr-2 h-4 w-4" aria-hidden="true" />
-                    {t('projects.restore')}
+          {showActionsMenu ? (
+            <div className="flex items-center gap-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="icon" aria-label={t('common.actions')}>
+                    <MoreHorizontal className="h-4 w-4" />
                   </Button>
-                ) : (
-                  <Button type="button" variant="ghost" size="sm" className="w-full justify-start" onClick={() => setArchiveOpen(true)}>
-                    <Archive className="mr-2 h-4 w-4" aria-hidden="true" />
-                    {t('projects.archive')}
-                  </Button>
-                )}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="w-full justify-start text-destructive hover:text-destructive"
-                  onClick={() => setDeleteOpen(true)}
-                >
-                  <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />
-                  {t('projects.delete')}
-                </Button>
-              </PopoverContent>
-            </Popover>
-          </div>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-48 space-y-1 p-2">
+                  {canUpdateProject && archived ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="w-full justify-start"
+                      onClick={handleRestore}
+                      disabled={restoreMutation.isPending}
+                    >
+                      <RotateCcw className="mr-2 h-4 w-4" aria-hidden="true" />
+                      {t('projects.restore')}
+                    </Button>
+                  ) : null}
+                  {canUpdateProject && !archived ? (
+                    <Button type="button" variant="ghost" size="sm" className="w-full justify-start" onClick={() => setArchiveOpen(true)}>
+                      <Archive className="mr-2 h-4 w-4" aria-hidden="true" />
+                      {t('projects.archive')}
+                    </Button>
+                  ) : null}
+                  {canDeleteProject ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="w-full justify-start text-destructive hover:text-destructive"
+                      onClick={() => setDeleteOpen(true)}
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />
+                      {t('projects.delete')}
+                    </Button>
+                  ) : null}
+                </PopoverContent>
+              </Popover>
+            </div>
+          ) : null}
         </div>
 
         <nav className="mt-3 flex gap-1 overflow-x-auto scrollbar-thin">
-          {PROJECT_TABS.map((tab) => {
+          {visibleTabs.map((tab) => {
             const to = base + tab.to;
             const active = tab.to === '' ? location.pathname === base : location.pathname.startsWith(to);
             const isChat = tab.to === '/chat';
@@ -329,14 +381,16 @@ export default function ProjectDetailPage() {
       {archived ? (
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800 sm:px-6">
           <span>{t('projects.archivedBanner')}</span>
-          <Button size="sm" variant="outline" onClick={handleRestore} disabled={restoreMutation.isPending} aria-busy={restoreMutation.isPending}>
-            {restoreMutation.isPending ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
-            ) : (
-              <RotateCcw className="mr-2 h-4 w-4" aria-hidden="true" />
-            )}
-            {t('projects.restore')}
-          </Button>
+          {canUpdateProject ? (
+            <Button size="sm" variant="outline" onClick={handleRestore} disabled={restoreMutation.isPending} aria-busy={restoreMutation.isPending}>
+              {restoreMutation.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+              ) : (
+                <RotateCcw className="mr-2 h-4 w-4" aria-hidden="true" />
+              )}
+              {t('projects.restore')}
+            </Button>
+          ) : null}
         </div>
       ) : null}
 
@@ -354,7 +408,15 @@ export default function ProjectDetailPage() {
       ) : null}
 
       <div className="min-h-0 flex-1">
-        <Outlet context={context} />
+        {tabAllowed ? (
+          <Outlet context={context} />
+        ) : (
+          <div className="flex h-full items-center justify-center px-6">
+            <p role="alert" className="max-w-md text-center text-sm text-destructive">
+              {t('errors.forbidden')}
+            </p>
+          </div>
+        )}
       </div>
 
       <AlertDialog open={archiveOpen} onOpenChange={setArchiveOpen}>

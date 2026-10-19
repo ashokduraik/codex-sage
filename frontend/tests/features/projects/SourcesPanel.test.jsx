@@ -79,7 +79,9 @@ afterEach(() => {
 beforeEach(() => {
   clearAuthSession();
   localStorage.clear();
-  seedAuthSession();
+  seedAuthSession('you@acme.io', {
+    permissions: ['users.manage', 'sources.preview', 'sources.upload', 'repos.connect', 'knowledge.trigger', 'projects.update', 'projects.delete'],
+  });
   listProjectSourceVersions.mockReset();
   reingestProjectSource.mockReset();
   getProjectRepositoryConnection.mockReset();
@@ -245,7 +247,9 @@ describe('SourcesPanel', () => {
   });
 
   it('shows Sync repository on Origin when history is empty and no sourceVersionId pointer exists', async () => {
-    seedAuthSession('you@acme.io', { permissions: ['users.manage', 'repos.connect', 'knowledge.trigger'] });
+    seedAuthSession('you@acme.io', {
+      permissions: ['users.manage', 'sources.preview', 'repos.connect', 'knowledge.trigger'],
+    });
     listProjectSourceVersions.mockResolvedValue({
       items: [],
       pageInfo: { nextCursor: null, hasMore: false },
@@ -265,7 +269,7 @@ describe('SourcesPanel', () => {
   });
 
   it('keeps sync history visible when re-process fails', async () => {
-    seedAuthSession('you@acme.io', { permissions: ['users.manage', 'knowledge.trigger'] });
+    seedAuthSession('you@acme.io', { permissions: ['users.manage', 'sources.preview', 'knowledge.trigger'] });
     reingestProjectSource.mockRejectedValue(new ApiError({ status: 404, code: 'SOURCE_VERSION_NOT_FOUND', message: 'missing' }));
     renderSources();
     expect(await screen.findByText(/4812 accepted/i)).toBeTruthy();
@@ -290,13 +294,22 @@ describe('SourcesPanel', () => {
   });
 
   it('hides re-process when the user cannot trigger knowledge', async () => {
+    seedAuthSession('you@acme.io', { permissions: ['users.manage', 'sources.preview'] });
     renderSources();
     expect(await screen.findByRole('heading', { name: 'Sources' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: /Re-process this version/i })).toBeNull();
   });
 
+  it('hides Add source when the user lacks upload and connect permissions', async () => {
+    seedAuthSession('you@acme.io', { permissions: ['users.manage', 'sources.preview'] });
+    getProjectRepositoryConnection.mockResolvedValue({ connection: null });
+    renderSources();
+    expect(await screen.findByRole('heading', { name: 'Sources' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Add source/i })).toBeNull();
+  });
+
   it('re-processes a version and navigates to processing', async () => {
-    seedAuthSession('you@acme.io', { permissions: ['users.manage', 'knowledge.trigger'] });
+    seedAuthSession('you@acme.io', { permissions: ['users.manage', 'sources.preview', 'knowledge.trigger'] });
     reingestProjectSource.mockResolvedValue({ jobId: 'job_new', sourceVersionId: 'sv_atlas', jobType: 'project_knowledge_rebuild' });
     renderSources();
     const buttons = await screen.findAllByRole('button', { name: /Re-process this version/i });
@@ -313,7 +326,7 @@ describe('SourcesPanel', () => {
   });
 
   it('reuses an in-flight reingest job id from the API', async () => {
-    seedAuthSession('you@acme.io', { permissions: ['users.manage', 'knowledge.trigger'] });
+    seedAuthSession('you@acme.io', { permissions: ['users.manage', 'sources.preview', 'knowledge.trigger'] });
     reingestProjectSource.mockResolvedValue({ jobId: 'job_existing', sourceVersionId: 'sv_atlas', jobType: 'project_knowledge_rebuild' });
     renderSources();
     const buttons = await screen.findAllByRole('button', { name: /Re-process this version/i });
@@ -324,7 +337,7 @@ describe('SourcesPanel', () => {
   });
 
   it('shows a forbidden alert when reingest is denied', async () => {
-    seedAuthSession('you@acme.io', { permissions: ['users.manage', 'knowledge.trigger'] });
+    seedAuthSession('you@acme.io', { permissions: ['users.manage', 'sources.preview', 'knowledge.trigger'] });
     reingestProjectSource.mockRejectedValue(new ApiError({ status: 403, code: 'FORBIDDEN', message: 'nope' }));
     renderSources();
     const buttons = await screen.findAllByRole('button', { name: /Re-process this version/i });

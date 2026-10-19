@@ -128,7 +128,10 @@ export async function deleteRoleViaUi(page, role) {
  *
  * @param {import('@playwright/test').Page} page Admin users page.
  * @param {{ displayName: string, email: string, code: string }} user Identity.
- * @param {{ roleName: string }} assignment Role to assign.
+ * @param {{
+ *   roleName: string,
+ *   projectAccessMode?: 'All projects' | 'Selected projects only' | 'No projects',
+ * }} assignment Role and optional project access.
  */
 export async function createInvitedUserViaUi(page, user, assignment) {
   await openAdminSection(page, 'Users');
@@ -140,6 +143,10 @@ export async function createInvitedUserViaUi(page, user, assignment) {
   await dialog.locator('#admin-create-code').fill(user.code);
   await setLabeledCheckbox(dialog, assignment.roleName, true);
   await setLabeledCheckbox(dialog, 'Org Admin', false);
+  if (assignment.projectAccessMode) {
+    await dialog.getByLabel('Project access', { exact: true }).click();
+    await page.getByRole('option', { name: assignment.projectAccessMode, exact: true }).click();
+  }
   const inviteButton = dialog.getByRole('button', { name: 'Invite user' });
   await inviteButton.evaluate((element) => {
     element.click();

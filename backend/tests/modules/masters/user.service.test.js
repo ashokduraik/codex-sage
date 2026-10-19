@@ -185,8 +185,25 @@ describe('mapUserToDto', () => {
       [{ _id: '6712f0b1c9a41d2f8e4b3a03', name: 'Member' }],
     );
     expect(dto.passwordResetStatus).toBe('none');
+    expect(dto.projectAccessMode).toBe('selected');
     expect(containsForbiddenSecretKey(dto)).toBe(false);
     expect(dto).not.toHaveProperty('passwordHash');
+  });
+
+  it('maps projectAccessMode all from the user document', () => {
+    const dto = mapUserToDto(
+      {
+        _id: '6712f0b1c9a41d2f8e4b3a04',
+        code: 'ADA',
+        email: 'ada@acme.example',
+        displayName: 'Ada',
+        userStatus: 'active',
+        projectAccessMode: 'all',
+        createdAt: new Date('2026-09-11T09:14:22.481Z'),
+      },
+      [],
+    );
+    expect(dto.projectAccessMode).toBe('all');
   });
 
   it('maps passwordResetStatus completed when passwordUpdatedAt is set', () => {

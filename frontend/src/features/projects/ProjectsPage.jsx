@@ -4,6 +4,7 @@ import { Button } from '@/shared/ui/button';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { formatRelative } from '@/shared/lib/format';
+import { useAuth } from '@/features/auth/AuthContext';
 import { CreateProjectDialog } from './CreateProjectDialog';
 import { flattenProjectPages, useProjects } from './hooks/useProjects.js';
 import { EmptyState, KnowledgeHealthBadge, ProjectLifecycleBadge } from '@/shared/components';
@@ -17,6 +18,8 @@ import { FolderKanban, Plus, Search, Archive, GitBranch, UploadCloud, Loader2 } 
  */
 export default function ProjectsPage() {
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const canCreateProject = Boolean(user?.permissions?.includes('projects.create'));
   const [createOpen, setCreateOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -46,10 +49,12 @@ export default function ProjectsPage() {
             <h1 className="font-display text-2xl font-medium text-foreground">{t('projects.title')}</h1>
             <p className="text-sm text-muted-foreground">{t('projects.subtitle')}</p>
           </div>
-          <Button onClick={() => setCreateOpen(true)} className="bg-brand text-brand-foreground hover:bg-brand/90">
-            <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
-            {t('projects.create')}
-          </Button>
+          {canCreateProject ? (
+            <Button onClick={() => setCreateOpen(true)} className="bg-brand text-brand-foreground hover:bg-brand/90">
+              <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
+              {t('projects.create')}
+            </Button>
+          ) : null}
         </div>
 
         <div className="mt-5 flex items-center gap-2">
@@ -93,10 +98,12 @@ export default function ProjectsPage() {
               title={showArchived ? t('projects.emptyArchivedTitle') : t('projects.emptyTitle')}
               description={showArchived ? t('projects.emptyArchivedDescription') : t('projects.emptyDescription')}
               action={
-                <Button onClick={() => setCreateOpen(true)} className="bg-brand text-brand-foreground hover:bg-brand/90">
-                  <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
-                  {t('projects.create')}
-                </Button>
+                canCreateProject ? (
+                  <Button onClick={() => setCreateOpen(true)} className="bg-brand text-brand-foreground hover:bg-brand/90">
+                    <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
+                    {t('projects.create')}
+                  </Button>
+                ) : undefined
               }
             />
           ) : null}

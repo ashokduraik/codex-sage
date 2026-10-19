@@ -57,7 +57,7 @@ afterEach(() => {
 beforeEach(() => {
   clearAuthSession();
   localStorage.clear();
-  seedAuthSession();
+  seedAuthSession('you@acme.io', { permissions: ['users.manage', 'projects.view', 'projects.create'] });
   listProjects.mockResolvedValue({
     items: SAMPLE,
     pageInfo: { nextCursor: null, hasMore: false },
@@ -87,6 +87,14 @@ describe('ProjectsPage', () => {
     await screen.findByText('Atlas Commerce');
     fireEvent.click(screen.getByRole('button', { name: /Create project/i }));
     expect(screen.getByRole('heading', { name: 'Create project' })).toBeTruthy();
+  });
+
+  it('hides Create project when the user lacks projects.create', async () => {
+    clearAuthSession();
+    seedAuthSession('viewer@acme.io', { permissions: ['projects.view'] });
+    renderWithProviders(<ProjectsPage />);
+    await screen.findByText('Atlas Commerce');
+    expect(screen.queryByRole('button', { name: /Create project/i })).toBeNull();
   });
 
   it('toggles archived and shows empty when none returned', async () => {

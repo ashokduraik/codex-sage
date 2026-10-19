@@ -464,6 +464,7 @@ export function mapUserToDto(user, roles = []) {
     email: user.email,
     displayName: user.displayName,
     userStatus: user.userStatus,
+    projectAccessMode: user.projectAccessMode === 'all' || user.projectAccessMode === 'none' ? user.projectAccessMode : 'selected',
     roles: roles.map((role) => ({
       id: String(role._id ?? role.id),
       name: role.name,
@@ -498,6 +499,7 @@ async function loadRolesForUser(orgId, user) {
  *   email: string,
  *   displayName: string,
  *   roleIds: string[],
+ *   projectAccessMode?: 'all' | 'selected' | 'none',
  *   correlationId: string,
  *   ip?: string,
  *   userAgent?: string,
@@ -523,6 +525,7 @@ export async function createUser(input) {
             displayName: input.displayName,
             userStatus: 'invited',
             roleIds,
+            projectAccessMode: input.projectAccessMode,
             createdBy: input.actorUserId,
             updatedBy: input.actorUserId,
           },
@@ -607,7 +610,7 @@ export async function getUser(orgId, userId) {
 }
 
 /**
- * Patches displayName, email, and/or roleIds.
+ * Patches displayName, email, roleIds, and/or projectAccessMode.
  * @param {{
  *   orgId: string,
  *   actorUserId: string,
@@ -615,6 +618,7 @@ export async function getUser(orgId, userId) {
  *   displayName?: string,
  *   email?: string,
  *   roleIds?: string[],
+ *   projectAccessMode?: 'all' | 'selected' | 'none',
  *   correlationId: string,
  *   ip?: string,
  *   userAgent?: string,
@@ -630,6 +634,7 @@ export async function updateUserDetails(input) {
 
   const previousEmail = user.email;
   const emailChanged = input.email !== undefined && String(input.email).toLowerCase().trim() !== String(previousEmail).toLowerCase();
+  const accessModeChanged = input.projectAccessMode !== undefined && String(input.projectAccessMode) !== String(user.projectAccessMode ?? 'selected');
 
   /** @type {string[] | undefined} */
   let previousRoleIds;
@@ -651,7 +656,7 @@ export async function updateUserDetails(input) {
 
   /** @type {import('mongoose').Document | null} */
   let updated = user;
-  const needsTxn = Boolean(input.roleIds) || emailChanged;
+  const needsTxn = Boolean(input.roleIds) || emailChanged || accessModeChanged;
 
   if (needsTxn) {
     const mongoSession = await mongoose.startSession();
@@ -667,7 +672,7 @@ export async function updateUserDetails(input) {
           updated = rolesUpdated;
           await bumpProjectAclVersion(input.orgId, opts);
         }
-        if (input.displayName !== undefined || input.email !== undefined) {
+        if (input.displayName !== undefined || input.email !== undefined || input.projectAccessMode !== undefined) {
           try {
             updated = await updateUser(
               input.orgId,
@@ -675,6 +680,7 @@ export async function updateUserDetails(input) {
               {
                 displayName: input.displayName,
                 email: input.email,
+                projectAccessMode: input.projectAccessMode,
                 updatedBy: input.actorUserId,
               },
               opts,
@@ -690,6 +696,9 @@ export async function updateUserDetails(input) {
           }
           if (!updated) {
             throw ApiError.fromCode('NOT_FOUND', { message: 'User not found.' });
+          }
+          if (accessModeChanged && !(input.roleIds && nextRoleIds)) {
+            await bumpProjectAclVersion(input.orgId, opts);
           }
         }
         if (emailChanged && updated) {
@@ -1044,12 +1053,15 @@ const identityCodeSchema = z
   .transform((value) => value.toUpperCase())
   .refine((value) => /^[A-Z0-9_-]{2,64}$/.test(value), { message: 'code must match [A-Z0-9_-]{2,64}' });
 
+const projectAccessModeSchema = z.enum(['all', 'selected', 'none']);
+
 const createUserBodySchema = z
   .object({
     code: identityCodeSchema,
     email: z.string().email().max(320),
     displayName: z.string().trim().min(1).max(120),
     roleIds: roleIdsSchema,
+    projectAccessMode: projectAccessModeSchema.optional(),
   })
   .strict();
 
@@ -1058,11 +1070,15 @@ const patchUserBodySchema = z
     email: z.string().email().max(320).optional(),
     displayName: z.string().trim().min(1).max(120).optional(),
     roleIds: roleIdsSchema.optional(),
+    projectAccessMode: projectAccessModeSchema.optional(),
   })
   .strict()
-  .refine((body) => body.email !== undefined || body.displayName !== undefined || body.roleIds !== undefined, {
-    message: 'at least one of email, displayName, roleIds is required',
-  });
+  .refine(
+    (body) => body.email !== undefined || body.displayName !== undefined || body.roleIds !== undefined || body.projectAccessMode !== undefined,
+    {
+      message: 'at least one of email, displayName, roleIds, projectAccessMode is required',
+    },
+  );
 
 const replaceRolesBodySchema = z.object({ roleIds: roleIdsSchema }).strict();
 
@@ -1125,6 +1141,7 @@ export async function createUserHttp(request, reply) {
     email: parsed.data.email,
     displayName: parsed.data.displayName,
     roleIds: parsed.data.roleIds,
+    projectAccessMode: parsed.data.projectAccessMode,
   });
   return reply.code(201).send(user);
 }
@@ -1178,6 +1195,7 @@ export async function updateUserHttp(request) {
     displayName: parsed.data.displayName,
     email: parsed.data.email,
     roleIds: parsed.data.roleIds,
+    projectAccessMode: parsed.data.projectAccessMode,
   });
 }
 

@@ -408,6 +408,87 @@ export async function expectClarificationUi(page) {
   }
 }
 
+/** Canonical clarification control types the product can emit. */
+export const E2E_CLARIFICATION_TYPES = Object.freeze(['single_select', 'multi_select', 'free_text']);
+
+/**
+ * Detects the control type for the current clarification question.
+ *
+ * @param {import('@playwright/test').Locator} panel Clarification panel locator.
+ * @returns {Promise<'single_select' | 'multi_select' | 'free_text'>}
+ */
+async function detectClarificationControlType(panel) {
+  if ((await panel.getByRole('radio').count()) > 0) {
+    return 'single_select';
+  }
+  if ((await panel.getByRole('checkbox').count()) > 0) {
+    return 'multi_select';
+  }
+  if ((await panel.locator('textarea').count()) > 0) {
+    return 'free_text';
+  }
+  throw new Error('Clarification panel has no radio, checkbox, or textarea control.');
+}
+
+/**
+ * Answers every question in the open clarification wizard and requires all three
+ * product types (`single_select`, `multi_select`, `free_text`) to appear once.
+ * Then waits for the resume stream to leave clarification (panel gone, Send idle).
+ *
+ * @param {import('@playwright/test').Page} page Chat page with clarification panel visible.
+ * @param {{ timeoutMs?: number }} [options] Wait budget after submit.
+ */
+export async function answerClarificationWizardCoveringAllTypes(page, options = {}) {
+  const timeoutMs = options.timeoutMs ?? E2E_CHAT_ANSWER_TIMEOUT_MS;
+  await expectClarificationUi(page);
+
+  const panel = page.getByTestId('clarification-panel');
+  await expect(panel).toBeVisible();
+
+  /** @type {Set<string>} */
+  const seenTypes = new Set();
+  const maxSteps = 12;
+
+  for (let step = 0; step < maxSteps; step += 1) {
+    if (!(await panel.isVisible().catch(() => false))) {
+      break;
+    }
+
+    const type = await detectClarificationControlType(panel);
+    seenTypes.add(type);
+
+    if (type === 'single_select') {
+      await panel.getByRole('radio').first().check({ force: true });
+    } else if (type === 'multi_select') {
+      await panel.getByRole('checkbox').first().check({ force: true });
+    } else {
+      await panel.locator('textarea').fill('E2E clarification free-text answer');
+    }
+
+    const submit = panel.getByRole('button', { name: 'Submit answers' });
+    const next = panel.getByRole('button', { name: 'Next' });
+    if (await submit.isVisible().catch(() => false)) {
+      await submit.click();
+      break;
+    }
+    if (await next.isVisible().catch(() => false)) {
+      await next.click();
+      continue;
+    }
+    throw new Error('Clarification panel has neither Next nor Submit answers.');
+  }
+
+  const missing = E2E_CLARIFICATION_TYPES.filter((type) => !seenTypes.has(type));
+  if (missing.length > 0) {
+    throw new Error(
+      `Clarification set must include single_select, multi_select, and free_text. Seen: [${[...seenTypes].join(', ') || 'none'}]. Missing: [${missing.join(', ')}].`,
+    );
+  }
+
+  await expect(panel).toHaveCount(0, { timeout: timeoutMs });
+  await expect(page.getByRole('button', { name: 'Send' })).toBeVisible({ timeout: timeoutMs });
+  await expect(page.getByRole('button', { name: 'Stop' })).toHaveCount(0);
+}
 /**
  * Ambiguous asks may clarify, abstain, or answer without project Sources (general/ungrounded).
  * Fails only when the model invents project Sources for a personal/non-project question.

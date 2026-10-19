@@ -54,6 +54,7 @@ export function useCreateUser() {
      *   email: string,
      *   displayName: string,
      *   roleIds: string[],
+     *   projectAccessMode?: 'all' | 'selected' | 'none',
      *   idempotencyKey: string,
      * }} input Create payload.
      */

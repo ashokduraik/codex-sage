@@ -57,10 +57,26 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+/** Permissions needed for full project chrome in these tests. */
+const FULL_PROJECT_PERMISSIONS = [
+  'users.manage',
+  'projects.view',
+  'projects.update',
+  'projects.delete',
+  'projects.create',
+  'chat.ask',
+  'knowledge.view',
+  'knowledge.browse',
+  'search.run',
+  'sources.preview',
+  'sources.upload',
+  'repos.connect',
+];
+
 beforeEach(() => {
   clearAuthSession();
   localStorage.clear();
-  seedAuthSession();
+  seedAuthSession('you@acme.io', { permissions: FULL_PROJECT_PERMISSIONS });
   recordProjectAccess.mockImplementation(async (projectId) => ({
     id: projectId,
     name: 'Atlas Commerce',
@@ -292,5 +308,73 @@ describe('ProjectDetailPage', () => {
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toContain('detail boom');
     expect(alert.textContent).toContain('corr-detail');
+  });
+
+  it('hides Health Sources Knowledge Search Changes when the user only has chat and view', async () => {
+    clearAuthSession();
+    seedAuthSession('chat@acme.io', {
+      permissions: ['org.view', 'projects.view', 'chat.ask'],
+    });
+    getProject.mockResolvedValue({
+      id: 'p1',
+      name: 'Chat Only Project',
+      description: '',
+      lifecycleStatus: 'knowledge_ready',
+      knowledgeHealth: 'ready',
+      sourceConfig: { sourceType: 'upload' },
+      counts: { sourceVersions: 1, files: 2, excludedFiles: 0, conversations: 0 },
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-02T00:00:00.000Z',
+    });
+    renderWithProviders(
+      <Routes>
+        <Route path="/projects/:id" element={<ProjectDetailPage />}>
+          <Route index element={<ProjectOverview />} />
+        </Route>
+      </Routes>,
+      { route: '/projects/p1' },
+    );
+    expect(await screen.findByRole('heading', { name: 'Chat Only Project' })).toBeTruthy();
+    const projectNav = screen.getByRole('navigation');
+    expect(projectNav.querySelector('a[href="/projects/p1/chat"]')).toBeTruthy();
+    expect(projectNav.querySelector('a[href="/projects/p1"]')).toBeTruthy();
+    expect(projectNav.querySelector('a[href="/projects/p1/processing"]')).toBeTruthy();
+    expect(projectNav.querySelector('a[href="/projects/p1/health"]')).toBeNull();
+    expect(projectNav.querySelector('a[href="/projects/p1/sources"]')).toBeNull();
+    expect(projectNav.querySelector('a[href="/projects/p1/knowledge"]')).toBeNull();
+    expect(projectNav.querySelector('a[href="/projects/p1/search"]')).toBeNull();
+    expect(projectNav.querySelector('a[href="/projects/p1/changes"]')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Actions' })).toBeNull();
+  });
+
+  it('shows forbidden when deep-linking to Health without knowledge.view', async () => {
+    clearAuthSession();
+    seedAuthSession('chat@acme.io', {
+      permissions: ['org.view', 'projects.view', 'chat.ask'],
+    });
+    getProject.mockResolvedValue({
+      id: 'p1',
+      name: 'Chat Only Project',
+      description: '',
+      lifecycleStatus: 'knowledge_ready',
+      knowledgeHealth: 'ready',
+      sourceConfig: { sourceType: 'upload' },
+      counts: { sourceVersions: 1, files: 2, excludedFiles: 0, conversations: 0 },
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-02T00:00:00.000Z',
+    });
+    renderWithProviders(
+      <Routes>
+        <Route path="/projects/:id" element={<ProjectDetailPage />}>
+          <Route index element={<ProjectOverview />} />
+          <Route path="health" element={<div>Health body</div>} />
+        </Route>
+      </Routes>,
+      { route: '/projects/p1/health' },
+    );
+    expect(await screen.findByRole('heading', { name: 'Chat Only Project' })).toBeTruthy();
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toMatch(/permission to view/i);
+    expect(screen.queryByText('Health body')).toBeNull();
   });
 });
